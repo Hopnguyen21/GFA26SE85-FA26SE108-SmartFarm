@@ -27,6 +27,7 @@
 9. [Project Deliverables](#9-project-deliverables)
 10. [Work Packages & Roadmap](#10-work-packages--roadmap)
 11. [Installation & Deployment](#11-installation--deployment)
+12. [Git Commit Convention](#12-git-commit-convention)
 
 ---
 
@@ -277,4 +278,20 @@ Contextual Advice ("Zone A soil moisture is 32%, but rain is forecasted in 3 hou
    * Web Portal: `http://localhost:3000`
    * REST API & Swagger UI: `http://localhost:5000/swagger`
    * MQTT Broker: `localhost:1883`
+---
 
+## 12. Git Commit Convention
+
+The project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages:
+
+| Type | Meaning | Example |
+| :--- | :--- | :--- |
+| `feat` | Add a new feature | `feat(auth): add google login support` |
+| `fix` | Fix a bug | `fix(checkout): fix total price calculation` |
+| `docs` | Documentation changes | `docs(readme): update installation steps` |
+| `style` | Code formatting (whitespace, formatting, semicolons, etc.; no code change) | `style(ui): format code with prettier` |
+| `refactor` | Refactoring code without fixing bugs or adding features | `refactor(user): simplify user validation logic` |
+| `perf` | Performance improvements | `perf(image): optimize image loading speed` |
+| `test` | Adding or updating tests | `test(order): add unit tests for order creation` |
+| `chore` | Routine maintenance tasks (dependencies, build configs, etc.) | `chore(deps): update react to v18` |
+| `ci` | CI/CD configuration changes (GitHub Actions, GitLab CI, etc.) | `ci(github): add workflow for auto deployment` |
