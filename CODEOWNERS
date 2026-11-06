@@ -1,0 +1,4 @@
+# CODEOWNERS Configuration for SmartFarm Repository
+# Chỉ định KhoiVBMSE184334 (Võ Bá Minh) và Hopnguyen21 làm người kiểm duyệt bắt buộc (Required Reviewers) cho toàn bộ mã nguồn
+
+* @Hopnguyen21 @KhoiVBMSE184334
