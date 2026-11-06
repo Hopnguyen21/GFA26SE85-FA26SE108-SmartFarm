@@ -382,6 +382,34 @@ class ApiService {
     return [];
   }
 
+  // ─── 6.6. Telemetry History (Database backed) ────────────────────────
+  static Future<List<Map<String, dynamic>>> getTelemetryHistory({
+    required String zoneId,
+    required String parameterCode,
+    DateTime? fromUtc,
+    DateTime? toUtc,
+    String interval = '1h',
+  }) async {
+    try {
+      final from =
+          (fromUtc ??
+                  DateTime.now().toUtc().subtract(const Duration(hours: 24)))
+              .toIso8601String();
+      final to = (toUtc ?? DateTime.now().toUtc()).toIso8601String();
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/telemetry/history?parameterCode=$parameterCode&fromUtc=$from&toUtc=$to&interval=$interval',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final decoded = jsonDecode(resp.body);
+        final list = decoded['data'] as List<dynamic>?;
+        if (list != null) {
+          return list.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // ─── 7. Farmers (Users) ──────────────────────────────────────────────
   static Future<List<FarmerModel>> getFarmers() async {
     try {

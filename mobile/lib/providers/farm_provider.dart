@@ -762,6 +762,48 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // ─────────────────────────────────────────
+  // Vấn đề 4: Device Health (Timeout-based)
+  // ─────────────────────────────────────────
+  final List<DeviceHealthModel> deviceHealthList = [
+    DeviceHealthModel(
+      nodeId: 'gw-001',
+      name: 'Gateway LoRa Nhà màng 01',
+      type: 'GATEWAY',
+      lastSeenAt: DateTime.now().subtract(const Duration(seconds: 45)),
+      expectedIntervalSeconds: 60,
+      signalRssi: -68.0,
+      batteryPercent: 100,
+    ),
+    DeviceHealthModel(
+      nodeId: 'node-01',
+      name: 'Sensor Node Zone 01',
+      type: 'SENSOR_NODE',
+      lastSeenAt: DateTime.now().subtract(const Duration(seconds: 12)),
+      expectedIntervalSeconds: 30,
+      signalRssi: -72.0,
+      batteryPercent: 87,
+    ),
+    DeviceHealthModel(
+      nodeId: 'node-02',
+      name: 'Sensor Node Zone 02',
+      type: 'SENSOR_NODE',
+      lastSeenAt: DateTime.now().subtract(const Duration(minutes: 8)),
+      expectedIntervalSeconds: 300,
+      signalRssi: -85.0,
+      batteryPercent: 54,
+    ),
+    DeviceHealthModel(
+      nodeId: 'node-act-01',
+      name: 'Actuator Node Bơm Zone 01',
+      type: 'ACTUATOR_NODE',
+      lastSeenAt: DateTime.now().subtract(const Duration(hours: 2)),
+      expectedIntervalSeconds: 300,
+      signalRssi: -91.0,
+      batteryPercent: 23,
+    ),
+  ];
+
+  // ─────────────────────────────────────────
   // Automation Rules & Schedules State
   // ─────────────────────────────────────────
   final List<AutomationRuleModel> _automationRules = [

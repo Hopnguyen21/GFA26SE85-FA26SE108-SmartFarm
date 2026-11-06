@@ -515,6 +515,51 @@ class TaskModel {
 }
 
 // ─────────────────────────────────────────
+// Device Health Models (CF1 - Kỹ thuật viên)
+// ─────────────────────────────────────────
+
+class DeviceHealthModel {
+  final String nodeId;
+  final String name;
+  final String type; // GATEWAY, SENSOR_NODE, ACTUATOR_NODE
+  final DateTime lastSeenAt;
+  final int expectedIntervalSeconds;
+  final double signalRssi;
+  final int batteryPercent;
+
+  DeviceHealthModel({
+    required this.nodeId,
+    required this.name,
+    required this.type,
+    required this.lastSeenAt,
+    required this.expectedIntervalSeconds,
+    required this.signalRssi,
+    required this.batteryPercent,
+  });
+
+  String get healthStatus {
+    final diffSec = DateTime.now().difference(lastSeenAt).inSeconds;
+    if (diffSec <= expectedIntervalSeconds * 2) {
+      return 'ONLINE';
+    } else if (diffSec <= expectedIntervalSeconds * 5) {
+      return 'WARNING';
+    }
+    return 'OFFLINE';
+  }
+
+  String get lastSeenText {
+    final diff = DateTime.now().difference(lastSeenAt);
+    if (diff.inSeconds < 60) {
+      return '${diff.inSeconds}s trước';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}p trước';
+    } else {
+      return '${diff.inHours}h trước';
+    }
+  }
+}
+
+// ─────────────────────────────────────────
 // Tự động hóa & Lịch tưới Models (CF2 / CF3)
 // ─────────────────────────────────────────
 
