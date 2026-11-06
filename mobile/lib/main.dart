@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
+import 'screens/gis_map_screen.dart';
 import 'screens/landing_screen.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -157,7 +158,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   static const List<Widget> _ownerScreens = [
     _SapRaMat('Trang chủ'),
     _SapRaMat('Cây trồng'),
-    _SapRaMat('Bản đồ'),
+    GISMapScreen(),
     _SapRaMat('Trợ lý AI'),
     _SapRaMat('Hồ sơ'),
   ];
@@ -166,7 +167,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   static const List<Widget> _technicianScreens = [
     _SapRaMat('Trang chủ'),
     _SapRaMat('Thiết bị'),
-    _SapRaMat('Bản đồ'),
+    GISMapScreen(),
     _SapRaMat('Tác vụ'),
     _SapRaMat('Hồ sơ'),
   ];
@@ -175,7 +176,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   static const List<Widget> _farmerScreens = [
     _SapRaMat('Khu vực'),
     _SapRaMat('Cây trồng'),
-    _SapRaMat('Bản đồ'),
+    GISMapScreen(),
     _SapRaMat('Tác vụ'),
     _SapRaMat('Hồ sơ'),
   ];

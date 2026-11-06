@@ -120,6 +120,44 @@ class ApiService {
     return resp;
   }
 
+  static Future<http.Response?> _postWithAuth(
+    String url,
+    Map<String, dynamic> body, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    var resp = await _client
+        .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+        .timeout(timeout);
+    if (resp.statusCode == 401) {
+      final ok = await refreshToken();
+      if (ok) {
+        resp = await _client
+            .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+            .timeout(timeout);
+      }
+    }
+    return resp;
+  }
+
+  static Future<http.Response?> _putWithAuth(
+    String url,
+    Map<String, dynamic> body, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    var resp = await _client
+        .put(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+        .timeout(timeout);
+    if (resp.statusCode == 401) {
+      final ok = await refreshToken();
+      if (ok) {
+        resp = await _client
+            .put(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+            .timeout(timeout);
+      }
+    }
+    return resp;
+  }
+
   // ─── 1. Auth: Đăng nhập ─────────────────────────────────────────────
   static Future<Map<String, dynamic>?> login(
     String email,
@@ -380,6 +418,12 @@ class ApiService {
     return [];
   }
 
+  /// Một thao tác trên công việc: Accept, Decline, Start, UpdateProgress, Complete, Fail, Approve.
+  static Future<TaskModel> updateTaskAction(String farmId, String taskId, Map<String, dynamic> body) async {
+    final resp = await _putWithAuth('$baseUrl/api/v1/farms/$farmId/tasks/$taskId', body);
+    return TaskModel.fromJson(_decodeOrThrow(resp) as Map<String, dynamic>);
+  }
+
   // ─── Kho vật tư ──────────────────────────
   static Future<List<MaterialInventoryModel>> getInventory(String farmId) async {
     final data = _decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farms/$farmId/inventory'));
@@ -461,6 +505,24 @@ class ApiService {
     return response.body.isEmpty
         ? 'HTTP ${response.statusCode}'
         : response.body;
+  }
+
+  // ─── 22. GIS Geocoding Proxy (Bảo mật định vị & ẩn danh khách hàng) ───────
+  /// Reverse geocoding qua backend proxy bằng POST (bảo vệ tọa độ không bị ghi vào reverse proxy access logs)
+  static Future<Map<String, dynamic>?> reverseGeocode(double latitude, double longitude) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/gis/reverse-geocode',
+        {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      );
+      if (resp != null && resp.statusCode == 200) {
+        return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ─── 23. Farm Weather (Thời tiết theo vị trí hiệu lực Farm/Field/Zone) ────
