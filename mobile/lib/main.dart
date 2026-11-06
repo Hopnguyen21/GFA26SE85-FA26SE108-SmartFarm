@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
+import 'screens/landing_screen.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -136,7 +137,7 @@ class _AppEntryPointState extends State<AppEntryPoint> {
       );
     }
     if (!ApiService.isAuthenticated) {
-      return const _SapRaMat('Đăng nhập');
+      return LandingScreen(onLoginSuccess: _onLoginSuccess);
     }
     return const MainNavigationShell();
   }
