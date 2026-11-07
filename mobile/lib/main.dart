@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
+import 'screens/device_health_screen.dart';
 import 'screens/gis_map_screen.dart';
 import 'screens/landing_screen.dart';
 
@@ -166,7 +167,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   // Technician screens (No AI -> Alerts/Tasks)
   static const List<Widget> _technicianScreens = [
     _SapRaMat('Trang chủ'),
-    _SapRaMat('Thiết bị'),
+    DeviceHealthScreen(),
     GISMapScreen(),
     _SapRaMat('Tác vụ'),
     _SapRaMat('Hồ sơ'),
@@ -243,7 +244,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => const _SapRaMat('Thiết bị')),
+                    builder: (_) => const DeviceHealthScreen()),
               ),
               backgroundColor: const Color(0xFF062326),
               foregroundColor: Colors.white,
