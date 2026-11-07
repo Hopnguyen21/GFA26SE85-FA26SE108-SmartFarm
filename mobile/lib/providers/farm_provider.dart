@@ -269,6 +269,13 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   // Selected Zone
   int _selectedZoneIndex = 0;
 
+  int get selectedZoneIndex => _selectedZoneIndex;
+
+  void selectZone(int index) {
+    _selectedZoneIndex = index;
+    notifyListeners();
+  }
+
   final List<FarmModel> _farms = [
     FarmModel(
       farmId: 'farm-01',
@@ -521,6 +528,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  /// Lấy danh sách các farmer thuộc về Farm của Owner hiện tại
+  List<FarmerModel> get farmersForCurrentFarm =>
+      _farmers.where((f) => f.farmId == _selectedFarmId).toList();
+
   // Filtered zones according to currently selected farm and field
   List<ZoneModel> get zones {
     return _zones.where((z) {
@@ -760,6 +771,77 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       return e.toString().replaceFirst('Exception: ', '');
     }
   }
+
+  final List<ChatMessageModel> _chatMessages = [
+    ChatMessageModel(
+      id: 'msg-01',
+      text:
+          'Xin chào! Tôi là Trợ lý Nông học AI SmartFarm, được hỗ trợ bởi Gemini + dữ liệu cảm biến thực tế.\n\nHỏi tôi về độ ẩm, bệnh lá, lịch tưới, hoặc bất kỳ vấn đề nào về cây trồng theo chuẩn VietGAP!',
+      isUser: false,
+      time: '00:00',
+    ),
+  ];
+
+  List<ChatMessageModel> get chatMessages => _chatMessages;
+
+  /// Đặt lại toàn bộ danh sách tin nhắn (khôi phục từ API)
+  void setChatMessages(List<ChatMessageModel> msgs) {
+    _chatMessages.clear();
+    _chatMessages.addAll(msgs);
+    notifyListeners();
+  }
+
+  /// Thêm tin nhắn vào chat (dùng bởi AiAssistantScreen sau khi gọi API thực)
+  void addChatMessage(ChatMessageModel msg) {
+    _chatMessages.add(msg);
+    notifyListeners();
+  }
+
+  void refreshChatState() {
+    notifyListeners();
+  }
+
+  // ─────────────────────────────────────────
+  // Vấn đề 4: Device Health (Timeout-based)
+  // ─────────────────────────────────────────
+  final List<DeviceHealthModel> deviceHealthList = [
+    DeviceHealthModel(
+      nodeId: 'gw-001',
+      name: 'Gateway LoRa Nhà màng 01',
+      type: 'GATEWAY',
+      lastSeenAt: DateTime.now().subtract(const Duration(seconds: 45)),
+      expectedIntervalSeconds: 60,
+      signalRssi: -68.0,
+      batteryPercent: 100,
+    ),
+    DeviceHealthModel(
+      nodeId: 'node-01',
+      name: 'Sensor Node Zone 01',
+      type: 'SENSOR_NODE',
+      lastSeenAt: DateTime.now().subtract(const Duration(seconds: 12)),
+      expectedIntervalSeconds: 30,
+      signalRssi: -72.0,
+      batteryPercent: 87,
+    ),
+    DeviceHealthModel(
+      nodeId: 'node-02',
+      name: 'Sensor Node Zone 02',
+      type: 'SENSOR_NODE',
+      lastSeenAt: DateTime.now().subtract(const Duration(minutes: 8)),
+      expectedIntervalSeconds: 300,
+      signalRssi: -85.0,
+      batteryPercent: 54,
+    ),
+    DeviceHealthModel(
+      nodeId: 'node-act-01',
+      name: 'Actuator Node Bơm Zone 01',
+      type: 'ACTUATOR_NODE',
+      lastSeenAt: DateTime.now().subtract(const Duration(hours: 2)),
+      expectedIntervalSeconds: 300,
+      signalRssi: -91.0,
+      batteryPercent: 23,
+    ),
+  ];
 
   // ─────────────────────────────────────────
   // Automation Rules & Schedules State
