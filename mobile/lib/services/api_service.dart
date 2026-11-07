@@ -139,6 +139,24 @@ class ApiService {
     return resp;
   }
 
+  static Future<http.Response?> _deleteWithAuth(
+    String url, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    var resp = await _client
+        .delete(Uri.parse(url), headers: _headers)
+        .timeout(timeout);
+    if (resp.statusCode == 401) {
+      final ok = await refreshToken();
+      if (ok) {
+        resp = await _client
+            .delete(Uri.parse(url), headers: _headers)
+            .timeout(timeout);
+      }
+    }
+    return resp;
+  }
+
   static Future<http.Response?> _putWithAuth(
     String url,
     Map<String, dynamic> body, {
@@ -382,6 +400,34 @@ class ApiService {
     return [];
   }
 
+  // ─── 6.6. Telemetry History (Database backed) ────────────────────────
+  static Future<List<Map<String, dynamic>>> getTelemetryHistory({
+    required String zoneId,
+    required String parameterCode,
+    DateTime? fromUtc,
+    DateTime? toUtc,
+    String interval = '1h',
+  }) async {
+    try {
+      final from =
+          (fromUtc ??
+                  DateTime.now().toUtc().subtract(const Duration(hours: 24)))
+              .toIso8601String();
+      final to = (toUtc ?? DateTime.now().toUtc()).toIso8601String();
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/telemetry/history?parameterCode=$parameterCode&fromUtc=$from&toUtc=$to&interval=$interval',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final decoded = jsonDecode(resp.body);
+        final list = decoded['data'] as List<dynamic>?;
+        if (list != null) {
+          return list.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // ─── 7. Farmers (Users) ──────────────────────────────────────────────
   static Future<List<FarmerModel>> getFarmers() async {
     try {
@@ -445,6 +491,26 @@ class ApiService {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  // ─── 12. AI Ask ────────────────────────────────────────────────────────
+  /// Gửi câu hỏi đến AI Advisory, trả về AiRecommendationModel (Timeout 60s cho LLM Gemini)
+  static Future<AiRecommendationModel?> askAi({
+    required String zoneId,
+    required String prompt,
+  }) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/ask',
+        {'question': prompt},
+        timeout: const Duration(seconds: 60),
+      );
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        final data = jsonDecode(resp.body);
+        return AiRecommendationModel.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // ─── 12.5. AI Context ─────────────────────────────────────────────────
   /// Lấy toàn bộ bối cảnh AI của một Zone (Cây trồng, hồ sơ VietGAP, giai đoạn sinh trưởng, telemetry realtime, thời tiết)
   static Future<Map<String, dynamic>?> getAiContext(String zoneId) async {
@@ -458,6 +524,85 @@ class ApiService {
       }
     } catch (_) {}
     return null;
+  }
+
+  // ─── 13. AI History ──────────────────────────────────────────────────
+  /// Lấy lịch sử hội thoại và khuyến nghị AI của một Zone
+  static Future<List<Map<String, dynamic>>> getAiHistory(String zoneId) async {
+    try {
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/history',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is Map<String, dynamic> && data['recommendations'] is List) {
+          return List<Map<String, dynamic>>.from(data['recommendations']);
+        } else if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  // ─── 14. Apply AI Recommendation ───────────────────────────────────────
+  /// Phê duyệt khuyến nghị AI → backend sẽ chạy safety check và kích hoạt lệnh
+  static Future<Map<String, dynamic>> applyAiRecommendation({
+    required String zoneId,
+    required String recommendationId,
+    String decision = 'Accepted',
+  }) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/apply-recommendation',
+        {'recommendationId': recommendationId, 'decision': decision},
+      );
+      if (resp == null)
+        return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+      if (resp.statusCode == 200 || resp.statusCode == 202) {
+        final body = jsonDecode(resp.body);
+        final command = body is Map<String, dynamic> ? body['command'] : null;
+        final commandStatus = command is Map<String, dynamic>
+            ? command['status']?.toString()
+            : null;
+        return {'success': true, 'commandStatus': commandStatus};
+      }
+      if (resp.statusCode == 409) {
+        try {
+          final body = jsonDecode(resp.body);
+          return {
+            'success': false,
+            'blocked': true,
+            'message':
+                body['message'] ??
+                body['detail'] ??
+                'Không đủ điều kiện an toàn',
+          };
+        } catch (_) {
+          return {
+            'success': false,
+            'blocked': true,
+            'message': 'Hệ thống từ chối: kiểm tra an toàn không đạt',
+          };
+        }
+      }
+      return {'success': false, 'message': 'Lỗi máy chủ (${resp.statusCode})'};
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
+  // ─── 14.5. Clear AI History ───────────────────────────────────────────
+  /// Xóa lịch sử tư vấn AI hiển thị của một Zone (API catalog #88)
+  static Future<bool> clearAiHistory(String zoneId) async {
+    try {
+      final resp = await _deleteWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/history',
+      );
+      return resp != null && (resp.statusCode == 200 || resp.statusCode == 204);
+    } catch (_) {
+      return false;
+    }
   }
 
   // ─── 16. Notifications (Hệ thống Thông Báo) ────────────────────────────
