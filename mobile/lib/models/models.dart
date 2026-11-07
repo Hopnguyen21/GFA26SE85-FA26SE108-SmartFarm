@@ -621,6 +621,98 @@ class AiRecommendationModel {
 }
 
 // ─────────────────────────────────────────
+// Vấn đề 6: Default Crop Profile Models
+// ─────────────────────────────────────────
+
+// ─────────────────────────────────────────
+// Vấn đề 6: Default Crop Profile Models
+// ─────────────────────────────────────────
+
+class EnvironmentalRange {
+  final double soilMoistureMin;
+  final double soilMoistureMax;
+  final double tempMin;
+  final double tempMax;
+  final double humidityMin;
+  final double humidityMax;
+  final int irrigationDurationMin;
+  final int irrigationFrequencyPerDay;
+
+  const EnvironmentalRange({
+    required this.soilMoistureMin,
+    required this.soilMoistureMax,
+    required this.tempMin,
+    required this.tempMax,
+    required this.humidityMin,
+    required this.humidityMax,
+    required this.irrigationDurationMin,
+    required this.irrigationFrequencyPerDay,
+  });
+}
+
+class GrowthStageProfile {
+  final String stageId;
+  final String name;
+  final String nameEn;
+  final int startDayFromPlanting;
+  final int endDayFromPlanting;
+  final String description;
+  final String iconEmoji;
+  final EnvironmentalRange requirements;
+  final List<String> keyActivities;
+
+  int get durationDays => (endDayFromPlanting - startDayFromPlanting) > 0 ? (endDayFromPlanting - startDayFromPlanting) : 1;
+
+  const GrowthStageProfile({
+    required this.stageId,
+    required this.name,
+    required this.nameEn,
+    required this.startDayFromPlanting,
+    required this.endDayFromPlanting,
+    required this.description,
+    required this.iconEmoji,
+    required this.requirements,
+    required this.keyActivities,
+  });
+}
+
+class DefaultCropProfile {
+  final String cropId;
+  final String name;
+  final String nameEn;
+  final String variety;
+  final String emoji;
+  final String standardType; // 'VietGAP', 'GlobalGAP'
+  final int totalCycleDays;
+  final String description;
+  final String origin;
+  final String difficulty;
+  final String suitableRegion;
+  final List<String> compatibleActuators;
+  final List<String> commonPests;
+  final List<GrowthStageProfile> growthStages;
+  bool isApplied;
+
+  DefaultCropProfile({
+    required this.cropId,
+    required this.name,
+    required this.nameEn,
+    required this.variety,
+    required this.emoji,
+    required this.standardType,
+    required this.totalCycleDays,
+    required this.description,
+    required this.origin,
+    required this.difficulty,
+    required this.suitableRegion,
+    required this.compatibleActuators,
+    required this.commonPests,
+    required this.growthStages,
+    this.isApplied = false,
+  });
+}
+
+// ─────────────────────────────────────────
 // Device Health Models (CF1 - Kỹ thuật viên)
 // ─────────────────────────────────────────
 
@@ -983,6 +1075,204 @@ class HoneycombTopologySimulation {
   }
 }
 
+class ZoneCostSimulation {
+  final double areaM2;
+  final String cropName;
+  final int estimatedPlants;
+  final double plantsPerM2;
+
+  // Thiết bị phần cứng
+  final List<ZoneEquipmentItem> equipmentItems;
+  final double totalEquipmentCostVND;
+
+  // Mô hình mạng tổ ong (Lục giác) chuẩn FE
+  final HoneycombTopologySimulation honeycomb;
+
+  // Dự toán vận hành mùa vụ (BR-ELEC-01: 2,587 VND/kWh, nước 10,000 VND/m3)
+  final double dailyWaterLiters;
+  final double monthlyWaterCostVND;
+  final double dailyElectricityKwh;
+  final double monthlyElectricityCostVND;
+  final double estimatedLaborCostMonthlyVND;
+
+  double get monthlyOperatingCostVND =>
+      monthlyWaterCostVND + monthlyElectricityCostVND + estimatedLaborCostMonthlyVND;
+
+  const ZoneCostSimulation({
+    required this.areaM2,
+    required this.cropName,
+    required this.estimatedPlants,
+    required this.plantsPerM2,
+    required this.equipmentItems,
+    required this.totalEquipmentCostVND,
+    this.honeycomb = const HoneycombTopologySimulation.empty(),
+    required this.dailyWaterLiters,
+    required this.monthlyWaterCostVND,
+    required this.dailyElectricityKwh,
+    required this.monthlyElectricityCostVND,
+    required this.estimatedLaborCostMonthlyVND,
+  });
+
+  ZoneCostSimulation copyWithCustomItems({
+    required List<ZoneEquipmentItem> updatedItems,
+  }) {
+    double totalEquip = 0;
+    for (final it in updatedItems) {
+      totalEquip += it.totalPriceVND;
+    }
+    return ZoneCostSimulation(
+      areaM2: areaM2,
+      cropName: cropName,
+      estimatedPlants: estimatedPlants,
+      plantsPerM2: plantsPerM2,
+      equipmentItems: updatedItems,
+      totalEquipmentCostVND: totalEquip,
+      honeycomb: honeycomb,
+      dailyWaterLiters: dailyWaterLiters,
+      monthlyWaterCostVND: monthlyWaterCostVND,
+      dailyElectricityKwh: dailyElectricityKwh,
+      monthlyElectricityCostVND: monthlyElectricityCostVND,
+      estimatedLaborCostMonthlyVND: estimatedLaborCostMonthlyVND,
+    );
+  }
+
+  /// Factory tính toán mô phỏng động dựa trên diện tích (areaM2) và loại cây trồng
+  factory ZoneCostSimulation.calculate({
+    required double areaM2,
+    required String cropName,
+  }) {
+    // 1. Mật độ cây trồng theo chuẩn VietGAP
+    double density = 3.5; // mặc định cà chua / ớt
+    if (cropName.contains('Dâu')) {
+      density = 6.0;
+    } else if (cropName.contains('Xà lách') || cropName.contains('Cải')) {
+      density = 16.0;
+    } else if (cropName.contains('Dưa')) {
+      density = 2.8;
+    }
+    final int plantCount = (areaM2 * density).round();
+
+    // 2. Định mức phần cứng IoT theo diện tích
+    // Cứ mỗi 1,500 m2 cần 1 LoRa Sensor Node (Độ ẩm đất đa tầng, Temp, Humi, Lux)
+    final int sensorNodes = (areaM2 / 1500).ceil().clamp(1, 20);
+
+    // Cứ mỗi 2,500 m2 cần 1 Bơm tưới áp lực (1.5HP - 2HP)
+    final int pumpCount = (areaM2 / 2500).ceil().clamp(1, 10);
+
+    // Van điện từ Solenoid phân khu tưới (mỗi 800 - 1,000 m2 cần 1 van độc lập)
+    final int valveCount = (areaM2 / 800).ceil().clamp(2, 30);
+
+    // Quạt thông gió đối lưu (1 quạt / 500 m2)
+    final int fanCount = (areaM2 / 500).ceil().clamp(2, 40);
+
+    // Đường ống tưới nhỏ giọt / bù áp (m mét dài ~ 2.5m ống / m2)
+    final int dripPipeMeters = (areaM2 * 2.5).round();
+
+    // Đầu bù áp nhỏ giọt (tương đương số cây + 10% dự phòng)
+    final int drippers = (plantCount * 1.1).round();
+
+    final items = <ZoneEquipmentItem>[
+      ZoneEquipmentItem(
+        name: 'Trạm LoRa Sensor Node 4-trong-1',
+        category: 'SENSOR',
+        quantity: sensorNodes,
+        unit: 'Bộ',
+        unitPriceVND: 2450000,
+        description: 'Đo ẩm đất 3 độ sâu, nhiệt ẩm không khí, quang kỳ PAR ($sensorNodes bộ cho ${areaM2.toInt()}m²)',
+      ),
+      ZoneEquipmentItem(
+        name: 'Máy bơm tưới tăng áp tự động 1.5HP',
+        category: 'ACTUATOR',
+        quantity: pumpCount,
+        unit: 'Chiếc',
+        unitPriceVND: 3800000,
+        description: 'Lưu lượng 12-15 m³/h, tích hợp khởi động mềm và rơle bảo vệ quá tải',
+      ),
+      ZoneEquipmentItem(
+        name: 'Van điện từ Solenoid DC 24V',
+        category: 'ACTUATOR',
+        quantity: valveCount,
+        unit: 'Chiếc',
+        unitPriceVND: 420000,
+        description: 'Chia phân khu tưới luân phiên chống tụt áp đường ống chính',
+      ),
+      ZoneEquipmentItem(
+        name: 'Quạt thông gió đối lưu nhà màng',
+        category: 'ACTUATOR',
+        quantity: fanCount,
+        unit: 'Chiếc',
+        unitPriceVND: 1650000,
+        description: 'Công suất 350W, điều hòa vi khí hậu giảm nấm bệnh VietGAP',
+      ),
+      ZoneEquipmentItem(
+        name: 'Ống tưới PE 16mm & dây tưới nhỏ giọt',
+        category: 'IRRIGATION',
+        quantity: dripPipeMeters,
+        unit: 'Mét',
+        unitPriceVND: 5500,
+        description: 'Độ bền chống tia UV trên 5 năm ngoài trời',
+      ),
+      ZoneEquipmentItem(
+        name: 'Đầu nhỏ giọt bù áp chống rò 2L/h',
+        category: 'IRRIGATION',
+        quantity: drippers,
+        unit: 'Cái',
+        unitPriceVND: 2200,
+        description: 'Cấp chính xác lượng dinh dưỡng đều nhau cho từng gốc cây',
+      ),
+      const ZoneEquipmentItem(
+        name: 'Tủ điều khiển IoT Actuator Driver Box',
+        category: 'NETWORK',
+        quantity: 1,
+        unit: 'Tủ',
+        unitPriceVND: 4500000,
+        description: 'Vỏ chống nước IP66, chống sét lan truyền, kết nối LoRa/RS485 Modbus',
+      ),
+    ];
+
+    double totalEquip = 0;
+    for (final it in items) {
+      totalEquip += it.totalPriceVND;
+    }
+
+    // 3. Ước tính vận hành (Nước, Điện, Nhân công)
+    // Nước: trung bình 3.5 - 4 lít / m2 / ngày
+    final dailyWater = areaM2 * 3.8;
+    // Giá nước thủy lợi / giếng khoan xử lý: 10,000 đ / m3 (10 đ / lít)
+    final monthlyWaterCost = (dailyWater * 30 / 1000) * 10000;
+
+    // Điện: Máy bơm + Quạt chạy trung bình 2h/ngày
+    // Công suất bơm (pumpCount * 1.1kW) + quạt (fanCount * 0.35kW * 0.5 thời gian)
+    final double totalWatt = (pumpCount * 1100.0) + (fanCount * 350.0 * 0.4);
+    final double dailyKwh = (totalWatt * 2.5) / 1000.0;
+    // BR-ELEC-01: 2,587 VND/kWh (nông nghiệp)
+    final double monthlyElecCost = dailyKwh * 30 * 2587.0;
+
+    // Nhân công: 1 công nhân phụ trách trung bình 2,500 m2 (~7,500,000 đ/tháng)
+    final double laborCost = (areaM2 / 2500.0) * 7500000.0;
+
+    final honeycomb = HoneycombTopologySimulation.calculate(
+      areaM2: areaM2,
+      cropName: cropName,
+    );
+
+    return ZoneCostSimulation(
+      areaM2: areaM2,
+      cropName: cropName,
+      estimatedPlants: plantCount,
+      plantsPerM2: density,
+      equipmentItems: items,
+      totalEquipmentCostVND: totalEquip,
+      honeycomb: honeycomb,
+      dailyWaterLiters: dailyWater,
+      monthlyWaterCostVND: monthlyWaterCost,
+      dailyElectricityKwh: dailyKwh,
+      monthlyElectricityCostVND: monthlyElecCost,
+      estimatedLaborCostMonthlyVND: laborCost,
+    );
+  }
+}
+
 // ─────────────────────────────────────────
 // Yêu cầu Kiểm tra Thực địa (Gửi Admin Duyệt & Điều Kỹ thuật viên)
 // ─────────────────────────────────────────
@@ -1254,6 +1544,51 @@ class AppNotificationModel {
       targetUrl: json['targetUrl']?.toString(),
       referenceId: json['referenceId']?.toString(),
       createdAt: json['createdAtUtc']?.toString() ?? 'Vừa xong',
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Khung Mùa Vụ Canh Tác (Farming Season)
+// ─────────────────────────────────────────
+
+class FarmingSeasonModel {
+  final String id;
+  final String code;
+  final String name;
+  final int year;
+  final String startDate;
+  final String endDate;
+  final String? description;
+  final String status; // 'Active', 'Completed', 'Upcoming'
+  final bool isActive;
+  final int plantingSeasonsCount;
+
+  const FarmingSeasonModel({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.year,
+    required this.startDate,
+    required this.endDate,
+    this.description,
+    this.status = 'Active',
+    this.isActive = true,
+    this.plantingSeasonsCount = 0,
+  });
+
+  factory FarmingSeasonModel.fromJson(Map<String, dynamic> json) {
+    return FarmingSeasonModel(
+      id: json['id']?.toString() ?? '',
+      code: json['code']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Vụ mùa canh tác',
+      year: (json['year'] as num?)?.toInt() ?? 2026,
+      startDate: json['startDate']?.toString() ?? '',
+      endDate: json['endDate']?.toString() ?? '',
+      description: json['description']?.toString(),
+      status: json['status']?.toString() ?? 'Active',
+      isActive: json['isActive'] != false,
+      plantingSeasonsCount: (json['plantingSeasonsCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

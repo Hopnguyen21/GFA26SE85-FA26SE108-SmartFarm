@@ -259,6 +259,12 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   String? _selectedFieldId;
 
+  // null = all fields in the selected farm
+
+  String get selectedFarmId => _selectedFarmId;
+
+  String? get selectedFieldId => _selectedFieldId;
+
   FarmModel get currentFarm => _farms.firstWhere(
     (f) => f.farmId == _selectedFarmId,
     orElse: () => _farms.isNotEmpty
@@ -332,6 +338,11 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       ],
     ),
   ];
+
+  List<FieldModel> get fields => _fields;
+
+  List<FieldModel> get fieldsForCurrentFarm =>
+      _fields.where((f) => f.farmId == _selectedFarmId).toList();
 
   final List<ZoneModel> _zones = [
     ZoneModel(
@@ -532,6 +543,9 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   List<FarmerModel> get farmersForCurrentFarm =>
       _farmers.where((f) => f.farmId == _selectedFarmId).toList();
 
+  // All zones
+  List<ZoneModel> get allZones => _zones;
+
   // Filtered zones according to currently selected farm and field
   List<ZoneModel> get zones {
     return _zones.where((z) {
@@ -561,6 +575,77 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       _selectedZoneIndex = 0;
     }
     return filtered[_selectedZoneIndex];
+  }
+
+  void addNewZone({
+    required String name,
+    required double areaM2,
+    required String cropProfileId,
+    String? assignedWorkerName,
+    String? workerRole,
+    String? customFarmId,
+    String? customFieldId,
+    List<LatLng>? polygon,
+  }) {
+    final profile = defaultCropProfiles.firstWhere(
+      (p) => p.cropId == cropProfileId,
+      orElse: () => defaultCropProfiles.first,
+    );
+
+    final newZoneIndex = _zones.length + 1;
+    final zId = 'zone-0$newZoneIndex';
+
+    final firstStage = profile.growthStages.first;
+
+    final fId = customFarmId ?? _selectedFarmId;
+    final farmObj = _farms.firstWhere((f) => f.farmId == fId, orElse: () => _farms.first);
+    final fieldList = _fields.where((f) => f.farmId == fId).toList();
+    final fldId = customFieldId ?? (fieldList.isNotEmpty ? fieldList.first.fieldId : 'field-01');
+    final fieldObj = _fields.firstWhere((f) => f.fieldId == fldId, orElse: () => fieldList.isNotEmpty ? fieldList.first : _fields.first);
+
+    final newZone = ZoneModel(
+      zoneId: zId,
+      farmId: fId,
+      farmName: farmObj.name,
+      fieldId: fldId,
+      fieldName: fieldObj.name,
+      name: name,
+      currentCrop: '${profile.name} (${profile.variety.split(' / ').first})',
+      currentStage: firstStage.name,
+      areaM2: areaM2,
+      currentSoilMoisture: firstStage.requirements.soilMoistureMin + 5.0,
+      currentTemp: (firstStage.requirements.tempMin + firstStage.requirements.tempMax) / 2,
+      currentHumidity: (firstStage.requirements.humidityMin + firstStage.requirements.humidityMax) / 2,
+      currentLux: 750,
+      assignedWorkerName: assignedWorkerName ?? 'Chưa phân công',
+      workerRole: workerRole ?? 'Nông dân Thực địa',
+      polygon: polygon,
+    );
+
+    _zones.add(newZone);
+
+    // Bổ sung thiết bị chấp hành mẫu cho zone mới
+    _actuators.addAll([
+      ActuatorModel(
+        actuatorId: 'act-new-$zId-1',
+        zoneId: zId,
+        name: 'Bơm Tưới Nhỏ Giọt $name',
+        actuatorType: 'PUMP',
+        isRunning: false,
+      ),
+      ActuatorModel(
+        actuatorId: 'act-new-$zId-2',
+        zoneId: zId,
+        name: 'Quạt Thông Gió Đối Lưu $name',
+        actuatorType: 'FAN',
+        isRunning: false,
+      ),
+    ]);
+
+
+    // Tự động chọn Zone vừa tạo
+    _selectedZoneIndex = _zones.length - 1;
+    notifyListeners();
   }
 
   final List<ActuatorModel> _actuators = [
@@ -802,6 +887,505 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // ─────────────────────────────────────────
+  // Vấn đề 6: Default Crop Profiles (Seed Data)
+  // ─────────────────────────────────────────
+  String? _appliedCropId;
+
+  void applyCropProfile(String cropId, {String? targetZoneId, String? farmingSeasonId}) {
+    final profile = defaultCropProfiles.firstWhere((p) => p.cropId == cropId);
+    for (final p in defaultCropProfiles) {
+      p.isApplied = p.cropId == cropId;
+    }
+    _appliedCropId = cropId;
+
+    final zId = targetZoneId ?? currentZone.zoneId;
+    final targetZone = _zones.firstWhere((z) => z.zoneId == zId);
+
+    targetZone.currentCrop = '${profile.name} (${profile.variety.split(' / ').first})';
+    if (farmingSeasonId != null) {
+      targetZone.farmingSeasonId = farmingSeasonId;
+    }
+    if (farmingSeasonId != null) {
+      targetZone.farmingSeasonId = farmingSeasonId;
+    }
+    targetZone.currentStage = profile.growthStages.first.name;
+
+
+    notifyListeners();
+  }
+
+  final List<DefaultCropProfile> defaultCropProfiles = [
+    // ── CÀ CHUA ──
+    DefaultCropProfile(
+      cropId: 'crop-tomato',
+      name: 'Cà Chua',
+      nameEn: 'Tomato',
+      variety: 'Beefsteak F1 / Cherry / Bi',
+      emoji: '🍅',
+      standardType: 'VietGAP',
+      totalCycleDays: 90,
+      description: 'Cây trồng phổ biến nhất tại Đà Lạt. Thích hợp khí hậu mát mẻ, yêu cầu ánh sáng cao và thoát nước tốt.',
+      origin: 'Nam Mỹ – Được trồng rộng rãi tại Lâm Đồng, Đà Lạt',
+      difficulty: 'TRUNG BÌNH',
+      suitableRegion: 'Cao nguyên Lâm Đồng, Đà Lạt',
+      compatibleActuators: ['PUMP', 'FAN', 'GROW_LIGHT'],
+      commonPests: ['Sâu xanh bướm trắng', 'Bệnh phấn trắng', 'Rệp sáp', 'Nấm thán thư'],
+      growthStages: [
+        GrowthStageProfile(
+          stageId: 'tomato-s1',
+          name: 'Nảy mầm & Cây con',
+          nameEn: 'Germination & Seedling',
+          startDayFromPlanting: 0,
+          endDayFromPlanting: 21,
+          description: 'Giai đoạn quan trọng nhất. Giữ ẩm đều, tránh úng nước. Ánh sáng 12-14h/ngày.',
+          iconEmoji: '🌱',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 80,
+            tempMin: 20, tempMax: 25,
+            humidityMin: 70, humidityMax: 85,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Gieo hạt vào khay ươm', 'Tưới nhẹ 2 lần/ngày', 'Bổ sung ánh sáng LED', 'Theo dõi độ ẩm 65-80%'],
+        ),
+        GrowthStageProfile(
+          stageId: 'tomato-s2',
+          name: 'Sinh trưởng thân lá',
+          nameEn: 'Vegetative Growth',
+          startDayFromPlanting: 21,
+          endDayFromPlanting: 45,
+          description: 'Cây phát triển nhanh, cần nhiều dinh dưỡng N-P-K. Bấm ngọn chính.',
+          iconEmoji: '🌿',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 60, soilMoistureMax: 75,
+            tempMin: 22, tempMax: 28,
+            humidityMin: 65, humidityMax: 80,
+            irrigationDurationMin: 15,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Bón phân N cao (đạm)', 'Bấm ngọn cành phụ', 'Buộc cây vào dây', 'Phun phòng bệnh nấm'],
+        ),
+        GrowthStageProfile(
+          stageId: 'tomato-s3',
+          name: 'Ra hoa & Thụ phấn',
+          nameEn: 'Flowering',
+          startDayFromPlanting: 45,
+          endDayFromPlanting: 65,
+          description: 'Giảm độ ẩm không khí để hạn chế nấm. Rung cây nhẹ để hỗ trợ thụ phấn.',
+          iconEmoji: '🌸',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 75,
+            tempMin: 20, tempMax: 27,
+            humidityMin: 55, humidityMax: 70,
+            irrigationDurationMin: 12,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Giảm tưới, tăng thoát khí', 'Rung thân cây hỗ trợ thụ phấn', 'Bổ sung P-K (lân-kali)', 'Bật quạt thông gió 14:00-16:00'],
+        ),
+        GrowthStageProfile(
+          stageId: 'tomato-s4',
+          name: 'Đậu quả & Nuôi trái',
+          nameEn: 'Fruit Development',
+          startDayFromPlanting: 65,
+          endDayFromPlanting: 85,
+          description: 'Tưới đều đặn, không để đất khô đột ngột gây nứt quả. Tăng K bổ sung.',
+          iconEmoji: '🍅',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 62, soilMoistureMax: 75,
+            tempMin: 18, tempMax: 26,
+            humidityMin: 60, humidityMax: 75,
+            irrigationDurationMin: 15,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Tưới đều không để khô đột ngột', 'Bổ sung Kali Canxi chống nứt quả', 'Loại bỏ lá già phía dưới', 'Theo dõi màu sắc quả'],
+        ),
+        GrowthStageProfile(
+          stageId: 'tomato-s5',
+          name: 'Thu hoạch',
+          nameEn: 'Harvest',
+          startDayFromPlanting: 85,
+          endDayFromPlanting: 90,
+          description: 'Thu hoạch khi quả chuyển màu đỏ 70-80%. Hái vào sáng sớm khi nhiệt độ mát.',
+          iconEmoji: '✂️',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 55, soilMoistureMax: 70,
+            tempMin: 18, tempMax: 26,
+            humidityMin: 55, humidityMax: 70,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 1,
+          ),
+          keyActivities: ['Thu hoạch lúc 6:00-8:00 sáng', 'Phân loại theo kích thước', 'Bảo quản 10-12°C', 'Dọn vệ sinh nhà màng sau vụ'],
+        ),
+      ],
+    ),
+
+    // ── DƯA CHUỘT / DƯA LEO ──
+    DefaultCropProfile(
+      cropId: 'crop-cucumber',
+      name: 'Dưa Leo',
+      nameEn: 'Cucumber',
+      variety: 'Caroui / Kim Cô Nương F1',
+      emoji: '🥒',
+      standardType: 'VietGAP',
+      totalCycleDays: 60,
+      description: 'Cây ngắn ngày, sinh trưởng nhanh. Cần nhiều nước và dinh dưỡng. Phù hợp trồng nhà màng.',
+      origin: 'Châu Á nhiệt đới – Thích nghi tốt ở miền Nam Việt Nam',
+      difficulty: 'DỄ',
+      suitableRegion: 'Toàn quốc, đặc biệt ĐBSCL và Đông Nam Bộ',
+      compatibleActuators: ['PUMP', 'FAN'],
+      commonPests: ['Bọ trĩ', 'Bệnh phấn trắng', 'Sương mai', 'Nhện đỏ'],
+      growthStages: [
+        GrowthStageProfile(
+          stageId: 'cucumber-s1',
+          name: 'Nảy mầm',
+          nameEn: 'Germination',
+          startDayFromPlanting: 0,
+          endDayFromPlanting: 7,
+          description: 'Hạt nảy mầm trong 3-5 ngày. Cần nhiệt độ ấm và độ ẩm cao.',
+          iconEmoji: '🌱',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 70, soilMoistureMax: 85,
+            tempMin: 25, tempMax: 32,
+            humidityMin: 75, humidityMax: 90,
+            irrigationDurationMin: 8,
+            irrigationFrequencyPerDay: 3,
+          ),
+          keyActivities: ['Gieo hạt ngâm ủ trước 8h', 'Giữ ẩm đều 70-85%', 'Nhiệt độ 25-32°C'],
+        ),
+        GrowthStageProfile(
+          stageId: 'cucumber-s2',
+          name: 'Sinh trưởng thân lá',
+          nameEn: 'Vegetative',
+          startDayFromPlanting: 7,
+          endDayFromPlanting: 25,
+          description: 'Cây leo dây nhanh. Cần giàn và nhiều dinh dưỡng đạm.',
+          iconEmoji: '🌿',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 80,
+            tempMin: 22, tempMax: 30,
+            humidityMin: 70, humidityMax: 85,
+            irrigationDurationMin: 12,
+            irrigationFrequencyPerDay: 3,
+          ),
+          keyActivities: ['Cắm giàn leo', 'Bón đạm N cao', 'Tỉa nhánh phụ sớm', 'Tưới 3 lần/ngày'],
+        ),
+        GrowthStageProfile(
+          stageId: 'cucumber-s3',
+          name: 'Ra hoa & Nuôi quả',
+          nameEn: 'Flowering & Fruiting',
+          startDayFromPlanting: 25,
+          endDayFromPlanting: 55,
+          description: 'Giai đoạn cho năng suất. Tưới đều tránh sốc nước gây đắng quả.',
+          iconEmoji: '🌼',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 68, soilMoistureMax: 80,
+            tempMin: 22, tempMax: 28,
+            humidityMin: 65, humidityMax: 80,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 3,
+          ),
+          keyActivities: ['Bổ sung K-Ca', 'Tưới đều không để đất khô', 'Thu hoạch quả đạt kích thước', 'Phòng bệnh phấn trắng'],
+        ),
+        GrowthStageProfile(
+          stageId: 'cucumber-s4',
+          name: 'Thu hoạch',
+          nameEn: 'Harvest',
+          startDayFromPlanting: 55,
+          endDayFromPlanting: 60,
+          description: 'Thu hoạch khi quả dài 15-20cm. Thu 2-3 ngày/lần.',
+          iconEmoji: '✂️',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 60, soilMoistureMax: 75,
+            tempMin: 20, tempMax: 28,
+            humidityMin: 60, humidityMax: 78,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Thu hoạch 2-3 ngày/lần', 'Cắt bằng kéo không vặn', 'Bảo quản mát 10-15°C'],
+        ),
+      ],
+    ),
+
+    // ── ỚT CHUÔNG ──
+    DefaultCropProfile(
+      cropId: 'crop-bellpepper',
+      name: 'Ớt Chuông',
+      nameEn: 'Bell Pepper',
+      variety: 'Sweet Pepper F1 / Yolo Wonder',
+      emoji: '🫑',
+      standardType: 'VietGAP',
+      totalCycleDays: 120,
+      description: 'Cây trồng giá trị cao, chu kỳ dài. Cần quản lý vi khí hậu nghiêm ngặt để đạt chuẩn xuất khẩu.',
+      origin: 'Trung Mỹ – Thích hợp cao nguyên mát mẻ Việt Nam',
+      difficulty: 'KHÓ',
+      suitableRegion: 'Đà Lạt, Mộc Châu, Sa Pa',
+      compatibleActuators: ['PUMP', 'FAN', 'GROW_LIGHT'],
+      commonPests: ['Bọ trĩ', 'Bệnh thán thư', 'Héo rũ Fusarium', 'Virus khảm'],
+      growthStages: [
+        GrowthStageProfile(
+          stageId: 'pepper-s1',
+          name: 'Ươm giống',
+          nameEn: 'Seedling',
+          startDayFromPlanting: 0,
+          endDayFromPlanting: 30,
+          description: 'Thời gian ươm dài. Cần kiểm soát nhiệt độ và ánh sáng chặt chẽ.',
+          iconEmoji: '🌱',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 78,
+            tempMin: 22, tempMax: 28,
+            humidityMin: 68, humidityMax: 82,
+            irrigationDurationMin: 8,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Ươm hạt trong khay 128 lỗ', 'Tưới nhỏ giọt 2 lần/ngày', 'Chiếu sáng 14h/ngày', 'Kiểm tra cây yếu bỏ sớm'],
+        ),
+        GrowthStageProfile(
+          stageId: 'pepper-s2',
+          name: 'Trồng ra nhà màng',
+          nameEn: 'Transplanting & Establishment',
+          startDayFromPlanting: 30,
+          endDayFromPlanting: 55,
+          description: 'Giai đoạn bén rễ sau khi trồng chuyển. Hạn chế tưới quá nhiều.',
+          iconEmoji: '🌿',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 60, soilMoistureMax: 72,
+            tempMin: 22, tempMax: 27,
+            humidityMin: 62, humidityMax: 75,
+            irrigationDurationMin: 12,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Trồng cây con ra luống', 'Phủ bạt nông nghiệp', 'Bón lót NPK 16-16-8', 'Dưỡng cây 5-7 ngày đầu'],
+        ),
+        GrowthStageProfile(
+          stageId: 'pepper-s3',
+          name: 'Ra hoa & Đậu quả',
+          nameEn: 'Flowering & Fruit Set',
+          startDayFromPlanting: 55,
+          endDayFromPlanting: 90,
+          description: 'Điều chỉnh vi khí hậu kỹ lưỡng. Nhiệt độ cao làm rụng hoa.',
+          iconEmoji: '🌺',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 75,
+            tempMin: 20, tempMax: 26,
+            humidityMin: 58, humidityMax: 68,
+            irrigationDurationMin: 15,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Kiểm soát nhiệt < 26°C', 'Tăng K-Ca-Mg', 'Cắt bớt lá già tăng thông gió', 'Phun phòng Thán thư'],
+        ),
+        GrowthStageProfile(
+          stageId: 'pepper-s4',
+          name: 'Chín màu & Thu hoạch',
+          nameEn: 'Ripening & Harvest',
+          startDayFromPlanting: 90,
+          endDayFromPlanting: 120,
+          description: 'Thu hoạch liên tục mỗi 5-7 ngày. Màu quả đặc trưng theo giống.',
+          iconEmoji: '🫑',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 60, soilMoistureMax: 72,
+            tempMin: 18, tempMax: 25,
+            humidityMin: 55, humidityMax: 68,
+            irrigationDurationMin: 12,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Thu hoạch 5-7 ngày/lần', 'Đóng gói theo chuẩn VietGAP', 'Duy trì cây cho vụ tiếp', 'Ghi nhật ký thu hoạch'],
+        ),
+      ],
+    ),
+
+    // ── DÂU TÂY ──
+    DefaultCropProfile(
+      cropId: 'crop-strawberry',
+      name: 'Dâu Tây',
+      nameEn: 'Strawberry',
+      variety: 'New Zealand / Mỹ Đen / Albion',
+      emoji: '🍓',
+      standardType: 'VietGAP',
+      totalCycleDays: 180,
+      description: 'Cây đặc sản cao cấp Đà Lạt. Yêu cầu kỹ thuật cao, kiểm soát vi khí hậu nghiêm ngặt để đạt chất lượng xuất khẩu.',
+      origin: 'Ôn đới – Thuần hóa thành công tại Đà Lạt từ 1950',
+      difficulty: 'KHÓ',
+      suitableRegion: 'Đà Lạt (độ cao > 1400m), Mộc Châu',
+      compatibleActuators: ['PUMP', 'FAN'],
+      commonPests: ['Nhện đỏ', 'Bệnh xám Botrytis', 'Thán thư', 'Sương mai'],
+      growthStages: [
+        GrowthStageProfile(
+          stageId: 'strawberry-s1',
+          name: 'Bén rễ ban đầu',
+          nameEn: 'Establishment',
+          startDayFromPlanting: 0,
+          endDayFromPlanting: 30,
+          description: 'Dây runner cần bén rễ vào giá thể. Giữ ẩm đều và tránh ánh nắng trực tiếp mạnh.',
+          iconEmoji: '🌱',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 68, soilMoistureMax: 80,
+            tempMin: 15, tempMax: 22,
+            humidityMin: 70, humidityMax: 85,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 3,
+          ),
+          keyActivities: ['Trồng runner vào giá thể', 'Che lưới 50% ánh sáng', 'Tưới nhẹ 3 lần/ngày', 'Phòng nấm với Mancozeb'],
+        ),
+        GrowthStageProfile(
+          stageId: 'strawberry-s2',
+          name: 'Phát triển tán lá',
+          nameEn: 'Vegetative',
+          startDayFromPlanting: 30,
+          endDayFromPlanting: 80,
+          description: 'Giai đoạn tích lũy chất dinh dưỡng. Kiểm soát nhiệt độ là yếu tố quyết định.',
+          iconEmoji: '🌿',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 78,
+            tempMin: 14, tempMax: 20,
+            humidityMin: 65, humidityMax: 80,
+            irrigationDurationMin: 12,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Bón phân cân đối N-P-K', 'Tỉa lá già và runner phụ', 'Kiểm soát nhiệt < 20°C', 'Phun vi lượng Bo-Ca'],
+        ),
+        GrowthStageProfile(
+          stageId: 'strawberry-s3',
+          name: 'Ra hoa & Đậu quả',
+          nameEn: 'Flowering',
+          startDayFromPlanting: 80,
+          endDayFromPlanting: 130,
+          description: 'Cần ong thụ phấn hoặc rung động. Hoa rất nhạy cảm với nhiệt độ cao.',
+          iconEmoji: '🌸',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 75,
+            tempMin: 13, tempMax: 18,
+            humidityMin: 60, humidityMax: 72,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Giảm đạm, tăng lân-kali', 'Thả ong thụ phấn', 'Tránh tưới lên hoa', 'Phòng xám Botrytis'],
+        ),
+        GrowthStageProfile(
+          stageId: 'strawberry-s4',
+          name: 'Nuôi trái & Thu hoạch',
+          nameEn: 'Fruit Development & Harvest',
+          startDayFromPlanting: 130,
+          endDayFromPlanting: 180,
+          description: 'Thu hoạch liên tục mỗi 2-3 ngày. Quả chín 80% màu đỏ là thu hoạch tốt nhất.',
+          iconEmoji: '🍓',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 62, soilMoistureMax: 72,
+            tempMin: 12, tempMax: 18,
+            humidityMin: 58, humidityMax: 70,
+            irrigationDurationMin: 8,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Thu hoạch sáng sớm 5:00-7:00', 'Không chạm tay trực tiếp vào quả', 'Bảo quản 4-6°C ngay sau hái', 'Ghi nhật ký theo tiêu chuẩn VietGAP'],
+        ),
+      ],
+    ),
+
+    // ── DƯA LƯỚI ──
+    DefaultCropProfile(
+      cropId: 'crop-melon',
+      name: 'Dưa Lưới',
+      nameEn: 'Cantaloup Melon',
+      variety: 'TL-3 / Kim Cô Nương / Taki',
+      emoji: '🍈',
+      standardType: 'VietGAP',
+      totalCycleDays: 75,
+      description: 'Sản phẩm cao cấp thị trường nội địa. Phải kiểm soát độ ẩm đất rất chính xác để quả lưới đẹp.',
+      origin: 'Trung Đông – Thích nghi tốt với nhà màng Việt Nam',
+      difficulty: 'KHÓ',
+      suitableRegion: 'Ninh Thuận, Bình Thuận, Đà Lạt (nhà màng)',
+      compatibleActuators: ['PUMP', 'FAN', 'GROW_LIGHT'],
+      commonPests: ['Bọ trĩ', 'Bệnh phấn trắng', 'Héo rũ', 'Mosaic virus'],
+      growthStages: [
+        GrowthStageProfile(
+          stageId: 'melon-s1',
+          name: 'Nảy mầm',
+          nameEn: 'Germination',
+          startDayFromPlanting: 0,
+          endDayFromPlanting: 7,
+          description: 'Hạt dưa lưới cần nhiệt độ ấm để nảy mầm đồng đều.',
+          iconEmoji: '🌱',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 70, soilMoistureMax: 82,
+            tempMin: 28, tempMax: 35,
+            humidityMin: 72, humidityMax: 85,
+            irrigationDurationMin: 8,
+            irrigationFrequencyPerDay: 3,
+          ),
+          keyActivities: ['Ươm hạt vào bầu', 'Nhiệt độ 28-35°C', 'Tưới phun sương 3 lần/ngày'],
+        ),
+        GrowthStageProfile(
+          stageId: 'melon-s2',
+          name: 'Phát triển thân lá',
+          nameEn: 'Vegetative',
+          startDayFromPlanting: 7,
+          endDayFromPlanting: 28,
+          description: 'Cây leo nhanh, cần giàn và bấm ngọn đúng kỹ thuật để lấy quả đẹp.',
+          iconEmoji: '🌿',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 78,
+            tempMin: 25, tempMax: 32,
+            humidityMin: 65, humidityMax: 80,
+            irrigationDurationMin: 12,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Cắm giàn và buộc dây', 'Bấm ngọn cành chính ở đốt 22-25', 'Bón NPK 20-20-15', 'Giữ 1 thân chính'],
+        ),
+        GrowthStageProfile(
+          stageId: 'melon-s3',
+          name: 'Ra hoa & Chọn quả',
+          nameEn: 'Flowering & Fruit Selection',
+          startDayFromPlanting: 28,
+          endDayFromPlanting: 45,
+          description: 'Chỉ giữ 1 quả/cây ở đốt 12-14. Loại tất cả quả còn lại để tập trung dinh dưỡng.',
+          iconEmoji: '🌼',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 65, soilMoistureMax: 72,
+            tempMin: 24, tempMax: 30,
+            humidityMin: 60, humidityMax: 72,
+            irrigationDurationMin: 10,
+            irrigationFrequencyPerDay: 2,
+          ),
+          keyActivities: ['Chọn 1 quả đẹp ở đốt 12-14', 'Loại bỏ tất cả quả còn lại', 'Thụ phấn nhân tạo bằng cọ', 'Tăng K-Ca-B'],
+        ),
+        GrowthStageProfile(
+          stageId: 'melon-s4',
+          name: 'Phát triển quả & Lên lưới',
+          nameEn: 'Fruit Development',
+          startDayFromPlanting: 45,
+          endDayFromPlanting: 65,
+          description: 'Giai đoạn quyết định chất lượng lưới. Giảm tưới để tăng độ ngọt và kích thích lên lưới.',
+          iconEmoji: '🍈',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 55, soilMoistureMax: 68,
+            tempMin: 24, tempMax: 30,
+            humidityMin: 55, humidityMax: 68,
+            irrigationDurationMin: 8,
+            irrigationFrequencyPerDay: 1,
+          ),
+          keyActivities: ['Giảm tưới xuống 1 lần/ngày', 'Đặt lưới đỡ quả', 'Đo độ Brix định kỳ', 'Kiểm tra vết nứt lưới'],
+        ),
+        GrowthStageProfile(
+          stageId: 'melon-s5',
+          name: 'Chín & Thu hoạch',
+          nameEn: 'Maturation & Harvest',
+          startDayFromPlanting: 65,
+          endDayFromPlanting: 75,
+          description: 'Thu hoạch khi cuống có vết nứt li ti và mùi thơm đặc trưng. Brix phải ≥ 14°.',
+          iconEmoji: '✂️',
+          requirements: const EnvironmentalRange(
+            soilMoistureMin: 45, soilMoistureMax: 58,
+            tempMin: 22, tempMax: 28,
+            humidityMin: 50, humidityMax: 65,
+            irrigationDurationMin: 5,
+            irrigationFrequencyPerDay: 1,
+          ),
+          keyActivities: ['Đo Brix ≥ 14°', 'Kiểm tra vết nứt cuống', 'Thu hoạch buổi sáng sớm', 'Đóng gói theo VietGAP'],
+        ),
+      ],
+    ),
+  ];
+
+  // ─────────────────────────────────────────
   // Vấn đề 4: Device Health (Timeout-based)
   // ─────────────────────────────────────────
   final List<DeviceHealthModel> deviceHealthList = [
@@ -921,6 +1505,58 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       adminNote: 'Admin đã duyệt: Điều Kỹ thuật viên Trí chuẩn bị 1 bộ Gateway dự phòng và máy đo áp lực.',
     ),
   ];
+
+  void submitInspectionRequest({
+    required String zoneId,
+    required String zoneName,
+    required double areaM2,
+    required String cropName,
+    required double estimatedCostVND,
+    required String contactName,
+    required String contactPhone,
+    required String preferredDate,
+    required String note,
+    List<ZoneEquipmentItem>? customEquipmentItems,
+  }) {
+    final now = DateTime.now();
+    final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final newId = 'REQ-2026-00${_inspectionRequests.length + 1}';
+
+    final newReq = FieldInspectionRequestModel(
+      requestId: newId,
+      farmId: _selectedFarmId,
+      farmName: currentFarm.name,
+      zoneId: zoneId,
+      zoneName: zoneName,
+      areaM2: areaM2,
+      cropName: cropName,
+      estimatedCostVND: estimatedCostVND,
+      contactName: contactName,
+      contactPhone: contactPhone,
+      preferredDate: preferredDate,
+      note: note,
+      status: 'PENDING',
+      createdAt: dateStr,
+      adminNote: 'Đã gửi đến Quản trị viên hệ thống (Admin). Đang chờ phê duyệt và phân công Kỹ thuật viên IoT.',
+      customEquipmentItems: customEquipmentItems,
+    );
+
+    _inspectionRequests.insert(0, newReq);
+
+    // Tự động tạo 1 Task thông báo cho Kỹ thuật viên
+    _tasks.insert(
+      0,
+      TaskModel(
+        taskId: 'tsk-req-${now.millisecondsSinceEpoch}',
+        title: 'Khảo sát thực địa: $zoneName ($contactName)',
+        zoneName: zoneName.split(' - ').first,
+        priority: 'HIGH',
+        dueDate: preferredDate,
+      ),
+    );
+
+    notifyListeners();
+  }
 
   // ─────────────────────────────────────────
   // Quản lý Đơn Hàng Mua Sắm & Lắp Đặt Thiết Bị (Cọc 30%)

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
 import 'screens/ai_screen.dart';
+import 'screens/crop_profiles_screen.dart';
 import 'screens/device_health_screen.dart';
 import 'screens/gis_map_screen.dart';
 import 'screens/landing_screen.dart';
@@ -159,7 +160,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   // Owner screens (includes AI)
   static const List<Widget> _ownerScreens = [
     _SapRaMat('Trang chủ'),
-    _SapRaMat('Cây trồng'),
+    CropProfilesScreen(),
     GISMapScreen(),
     AiAssistantScreen(),
     _SapRaMat('Hồ sơ'),
@@ -177,7 +178,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   // Farmer screens (No AI -> Tasks & Alerts)
   static const List<Widget> _farmerScreens = [
     _SapRaMat('Khu vực'),
-    _SapRaMat('Cây trồng'),
+    CropProfilesScreen(),
     GISMapScreen(),
     _SapRaMat('Tác vụ'),
     _SapRaMat('Hồ sơ'),

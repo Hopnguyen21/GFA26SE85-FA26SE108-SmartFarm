@@ -634,6 +634,72 @@ class ApiService {
     return [];
   }
 
+  // ─── 19. Farming Seasons (Khung Mùa Vụ Canh Tác) ──────────────────────
+  /// Lấy danh sách mùa vụ
+  static Future<List<FarmingSeasonModel>> getFarmingSeasons({
+    int? year,
+    String? status,
+  }) async {
+    try {
+      String query = '';
+      if (year != null) query += 'year=$year&';
+      if (status != null) query += 'status=$status&';
+      final url = '$baseUrl/api/v1/seasons${query.isNotEmpty ? '?$query' : ''}';
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) =>
+                  FarmingSeasonModel.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Tạo mới mùa vụ canh tác
+  static Future<FarmingSeasonModel?> createFarmingSeason(
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth('$baseUrl/api/v1/seasons', data);
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        return FarmingSeasonModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Cập nhật mùa vụ canh tác
+  static Future<FarmingSeasonModel?> updateFarmingSeason(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _putWithAuth('$baseUrl/api/v1/seasons/$id', data);
+      if (resp != null && resp.statusCode == 200) {
+        return FarmingSeasonModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Xóa / Lưu trữ mùa vụ
+  static Future<bool> deleteFarmingSeason(String id) async {
+    try {
+      final resp = await _deleteWithAuth('$baseUrl/api/v1/seasons/$id');
+      return resp != null && (resp.statusCode == 200 || resp.statusCode == 204);
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─── VietGAP Knowledge Documents ──────────────────────────────────────────
   static String _apiErrorMessage(http.Response? response) {
     if (response == null) return 'Không nhận được phản hồi từ máy chủ.';
@@ -650,6 +716,188 @@ class ApiService {
     return response.body.isEmpty
         ? 'HTTP ${response.statusCode}'
         : response.body;
+  }
+
+  static Future<List<AgricultureDocumentModel>>
+  getAgricultureDocuments() async {
+    final response = await _getWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents',
+      timeout: const Duration(seconds: 30),
+    );
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final decoded = jsonDecode(response.body);
+    final rawList = decoded is List
+        ? decoded
+        : (decoded is Map ? decoded['value'] : null);
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map(
+          (item) => AgricultureDocumentModel.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
+
+  static Future<AgricultureDocumentModel> getAgricultureDocument(
+    String id,
+  ) async {
+    final response = await _getWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents/$id',
+      timeout: const Duration(seconds: 30),
+    );
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return AgricultureDocumentModel.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Chỉ cần file; các trường mô tả để trống thì server tự lấy từ nội dung file.
+  static Future<AgricultureDocumentModel> uploadAgricultureDocument({
+    required String fileName,
+    required List<int> bytes,
+    String? title,
+    String category = 'general',
+    String? cropScope,
+    String? authorOrganization,
+    String? version,
+  }) async {
+    if (bytes.isEmpty) throw Exception('File rỗng.');
+    if (bytes.length > 50 * 1024 * 1024)
+      throw Exception('File vượt giới hạn 50 MB.');
+    Future<http.Response> send() async {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/v1/ai/knowledge/documents'),
+      );
+      if (_accessToken != null)
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      request.headers['Accept'] = 'application/json';
+      request.fields.addAll({
+        if (title != null && title.trim().isNotEmpty) 'Title': title.trim(),
+        'Category': category,
+        if (cropScope != null && cropScope.trim().isNotEmpty)
+          'CropScope': cropScope.trim(),
+        if (version != null && version.trim().isNotEmpty)
+          'Version': version.trim(),
+        if (authorOrganization != null && authorOrganization.trim().isNotEmpty)
+          'AuthorOrganization': authorOrganization.trim(),
+      });
+      request.files.add(
+        http.MultipartFile.fromBytes('File', bytes, filename: fileName),
+      );
+      final streamed = await _client.send(request).timeout(const Duration(minutes: 3));
+      return http.Response.fromStream(
+        streamed,
+      ).timeout(const Duration(minutes: 3));
+    }
+
+    var response = await send();
+    if (response.statusCode == 401 && await refreshToken())
+      response = await send();
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final id = (body['id'] ?? body['documentId'])?.toString();
+    if (id == null || id.isEmpty)
+      throw Exception('Máy chủ không trả về ID tài liệu.');
+    return getAgricultureDocument(id);
+  }
+
+  static Future<Map<String, dynamic>> reviewAgricultureDocument({
+    required String id,
+    required String contentText,
+    required bool approve,
+    String? reviewNotes,
+    // Chỉnh metadata sau khi đối chiếu file gốc; null = giữ giá trị hệ thống đã nhận diện.
+    String? title,
+    String? cropScope,
+    String? authorOrganization,
+    String? version,
+    String? documentType,
+    bool confirmGeneralScope = false,
+  }) async {
+    final response = await _postWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents/$id/review',
+      {
+        'contentText': contentText,
+        'approve': approve,
+        if (reviewNotes != null && reviewNotes.trim().isNotEmpty)
+          'reviewNotes': reviewNotes.trim(),
+        if (title != null) 'title': title,
+        if (cropScope != null) 'cropScope': cropScope,
+        if (authorOrganization != null) 'authorOrganization': authorOrganization,
+        if (version != null) 'version': version,
+        if (documentType != null) 'documentType': documentType,
+        if (confirmGeneralScope) 'confirmGeneralScope': true,
+      },
+      timeout: const Duration(seconds: 90),
+    );
+    if (response == null ||
+        (response.statusCode != 200 && response.statusCode != 204)) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<List<int>> downloadAgricultureOriginalFile(String id) async {
+    final response = await _getWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents/$id/file',
+      timeout: const Duration(seconds: 90),
+    );
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return response.bodyBytes;
+  }
+
+  static Future<List<Map<String, dynamic>>> getCropsForProfiles() async {
+    final response = await _getWithAuth('$baseUrl/api/v1/crops');
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final decoded = jsonDecode(response.body);
+    final rawList = decoded is List
+        ? decoded
+        : (decoded is Map ? decoded['value'] : null);
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getGrowthProfiles() async {
+    final response = await _getWithAuth('$baseUrl/api/v1/growth-profiles');
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final decoded = jsonDecode(response.body);
+    final rawList = decoded is List
+        ? decoded
+        : (decoded is Map ? decoded['value'] : null);
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  /// POST /api/v1/zones/{zoneId}/planting-seasons (Owner). Tạo vụ là cách duy nhất gán cây cho Zone.
+  static Future<Map<String, dynamic>> createPlantingSeason(String zoneId, Map<String, dynamic> payload) async {
+    final response = await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/planting-seasons', payload);
+    if (response == null || (response.statusCode != 201 && response.statusCode != 200)) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   // ─── 22. GIS Geocoding Proxy (Bảo mật định vị & ẩn danh khách hàng) ───────
