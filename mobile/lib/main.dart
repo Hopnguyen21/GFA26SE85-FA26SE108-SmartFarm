@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
+import 'screens/ai_screen.dart';
 import 'screens/device_health_screen.dart';
 import 'screens/gis_map_screen.dart';
 import 'screens/landing_screen.dart';
@@ -160,7 +161,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     _SapRaMat('Trang chủ'),
     _SapRaMat('Cây trồng'),
     GISMapScreen(),
-    _SapRaMat('Trợ lý AI'),
+    AiAssistantScreen(),
     _SapRaMat('Hồ sơ'),
   ];
 

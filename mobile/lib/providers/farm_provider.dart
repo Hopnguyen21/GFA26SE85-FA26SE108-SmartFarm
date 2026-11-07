@@ -269,6 +269,13 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   // Selected Zone
   int _selectedZoneIndex = 0;
 
+  int get selectedZoneIndex => _selectedZoneIndex;
+
+  void selectZone(int index) {
+    _selectedZoneIndex = index;
+    notifyListeners();
+  }
+
   final List<FarmModel> _farms = [
     FarmModel(
       farmId: 'farm-01',
@@ -521,6 +528,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  /// Lấy danh sách các farmer thuộc về Farm của Owner hiện tại
+  List<FarmerModel> get farmersForCurrentFarm =>
+      _farmers.where((f) => f.farmId == _selectedFarmId).toList();
+
   // Filtered zones according to currently selected farm and field
   List<ZoneModel> get zones {
     return _zones.where((z) {
@@ -759,6 +770,35 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {
       return e.toString().replaceFirst('Exception: ', '');
     }
+  }
+
+  final List<ChatMessageModel> _chatMessages = [
+    ChatMessageModel(
+      id: 'msg-01',
+      text:
+          'Xin chào! Tôi là Trợ lý Nông học AI SmartFarm, được hỗ trợ bởi Gemini + dữ liệu cảm biến thực tế.\n\nHỏi tôi về độ ẩm, bệnh lá, lịch tưới, hoặc bất kỳ vấn đề nào về cây trồng theo chuẩn VietGAP!',
+      isUser: false,
+      time: '00:00',
+    ),
+  ];
+
+  List<ChatMessageModel> get chatMessages => _chatMessages;
+
+  /// Đặt lại toàn bộ danh sách tin nhắn (khôi phục từ API)
+  void setChatMessages(List<ChatMessageModel> msgs) {
+    _chatMessages.clear();
+    _chatMessages.addAll(msgs);
+    notifyListeners();
+  }
+
+  /// Thêm tin nhắn vào chat (dùng bởi AiAssistantScreen sau khi gọi API thực)
+  void addChatMessage(ChatMessageModel msg) {
+    _chatMessages.add(msg);
+    notifyListeners();
+  }
+
+  void refreshChatState() {
+    notifyListeners();
   }
 
   // ─────────────────────────────────────────
