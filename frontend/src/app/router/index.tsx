@@ -26,15 +26,12 @@ import { ZonesPage } from '../../pages/owner/ZonesPage';
 import { PlantingSeasonsPage } from '../../pages/owner/PlantingSeasonsPage';
 import { MonitoringRealtime } from '../../pages/owner/MonitoringRealtime';
 import { MonitoringHistory } from '../../pages/owner/MonitoringHistory';
-import { MapPage } from '../../pages/owner/MapPage';
 import { AlertsPage } from '../../pages/owner/AlertsPage';
 import { ControlPage } from '../../pages/owner/ControlPage';
 import { SchedulesAutomationPage } from '../../pages/owner/SchedulesAutomationPage';
 import { FarmersPage } from '../../pages/owner/FarmersPage';
 import { TasksPage } from '../../pages/owner/TasksPage';
-import { OwnerInventoryPage } from '../../pages/owner/InventoryPage';
 import { AIAssistantPage } from '../../pages/owner/AIAssistantPage';
-import { ReportsPage } from '../../pages/owner/ReportsPage';
 import { SupportPage } from '../../pages/owner/SupportPage';
 
 import { FarmerHome } from '../../pages/farmer/FarmerHome';
@@ -42,6 +39,8 @@ import { FarmerZonesPage } from '../../pages/farmer/FarmerZonesPage';
 import { FarmerTasksPage } from '../../pages/farmer/FarmerTasksPage';
 import { FarmerIrrigationPage } from '../../pages/farmer/FarmerIrrigationPage';
 import { FarmerAIPage } from '../../pages/farmer/FarmerAIPage';
+
+import { ServiceRequestsPage } from '../../pages/admin/ServiceRequestsPage';
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +55,7 @@ export const router = createBrowserRouter([
       
       // Admin Routes
       { path: 'admin/dashboard', element: <AdminDashboard /> },
+      { path: 'admin/requests', element: <ServiceRequestsPage /> },
       { path: 'admin/tenants', element: <TenantsPage /> },
       { path: 'admin/users', element: <UsersPage /> },
       { path: 'admin/crops', element: <CropsPage /> },
@@ -73,26 +73,21 @@ export const router = createBrowserRouter([
       { path: 'technician/devices', element: <GatewaysPage /> },
       { path: 'technician/maintenance', element: <MaintenancePage /> },
       { path: 'technician/inventory', element: <TechnicianInventoryPage /> },
-      { path: 'technician/reports', element: <ReportsPage /> },
-
       // Farm Owner Routes
       { path: 'owner/dashboard', element: <OwnerDashboard /> },
       { path: 'owner/farms', element: <FarmsPage /> },
       { path: 'owner/farms/create', element: <CreateFarmWizard /> },
-      { path: 'owner/fields', element: <FieldsPage /> },
-      { path: 'owner/zones', element: <ZonesPage /> },
+      { path: 'owner/fields', element: <Navigate to="/owner/farms" replace /> },
+      { path: 'owner/zones', element: <Navigate to="/owner/farms" replace /> },
       { path: 'owner/planting-seasons', element: <PlantingSeasonsPage /> },
       { path: 'owner/monitoring/realtime', element: <MonitoringRealtime /> },
       { path: 'owner/monitoring/history', element: <MonitoringHistory /> },
-      { path: 'owner/map', element: <MapPage /> },
       { path: 'owner/alerts', element: <AlertsPage /> },
       { path: 'owner/control', element: <ControlPage /> },
       { path: 'owner/schedules', element: <SchedulesAutomationPage /> },
       { path: 'owner/farmers', element: <FarmersPage /> },
       { path: 'owner/tasks', element: <TasksPage /> },
-      { path: 'owner/inventory', element: <OwnerInventoryPage /> },
       { path: 'owner/ai', element: <AIAssistantPage /> },
-      { path: 'owner/reports', element: <ReportsPage /> },
       { path: 'owner/support', element: <SupportPage /> },
 
       // Farmer Routes

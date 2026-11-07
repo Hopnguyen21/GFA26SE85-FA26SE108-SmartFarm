@@ -1,19 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthContext';
-import { UserRole } from '../../types';
-import { mockFarms, mockZones, mockWeather, mockAlerts } from '../../mocks/mockData';
+import { UserRole, Alert } from '../../types';
+import { alertService } from '../../services';
+import { mockWeather } from '../../mocks/mockData';
 import {
   Sprout, Search, Bell, Sun, CloudRain, UserCheck, LogOut,
   ChevronDown, ShieldAlert, CheckCircle2, Layers
 } from 'lucide-react';
 
 export const Topbar: React.FC = () => {
-  const { user, role, switchRole, selectedFarmId, setSelectedFarmId, selectedZoneId, setSelectedZoneId, logout } = useAuth();
+  const { user, role, switchRole, selectedFarmId, setSelectedFarmId, selectedZoneId, setSelectedZoneId, logout, farms, zones } = useAuth();
+  const navigate = useNavigate();
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  useEffect(() => {
+    alertService.getAlerts().then(res => {
+      if (res) setAlerts(res);
+    }).catch(() => {});
+  }, []);
+
+  const handleRoleSwitch = (targetRole: UserRole) => {
+    switchRole(targetRole);
+    setShowRoleMenu(false);
+    switch (targetRole) {
+      case 'PLATFORM_ADMIN':
+        navigate('/admin/dashboard');
+        break;
+      case 'PLATFORM_TECHNICIAN':
+        navigate('/technician/dashboard');
+        break;
+      case 'FARM_OWNER':
+        navigate('/owner/dashboard');
+        break;
+      case 'FARMER':
+        navigate('/farmer/home');
+        break;
+      default:
+        navigate('/owner/dashboard');
+    }
+  };
 
   const weather = mockWeather;
-  const activeAlerts = mockAlerts.filter(a => a.status === 'OPEN');
+  const activeAlerts = alerts.filter(a => a.status === 'OPEN');
 
   const roleLabels: Record<UserRole, { label: string; color: string }> = {
     PLATFORM_ADMIN: { label: 'Platform Admin', color: 'bg-rose-50 text-rose-700 border-rose-200' },
@@ -50,7 +81,7 @@ export const Topbar: React.FC = () => {
               onChange={(e) => setSelectedFarmId(e.target.value)}
               className="bg-[#0e8046] border border-[#14a85e] text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-white cursor-pointer"
             >
-              {mockFarms.map(f => (
+              {farms.map(f => (
                 <option key={f.farmId} value={f.farmId} className="bg-[#119653] text-white">{f.name}</option>
               ))}
             </select>
@@ -60,7 +91,7 @@ export const Topbar: React.FC = () => {
               onChange={(e) => setSelectedZoneId(e.target.value)}
               className="bg-[#0e8046] border border-[#14a85e] text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-white cursor-pointer"
             >
-              {mockZones.map(z => (
+              {zones.map(z => (
                 <option key={z.zoneId} value={z.zoneId} className="bg-[#119653] text-white">{z.name}</option>
               ))}
             </select>
@@ -117,7 +148,7 @@ export const Topbar: React.FC = () => {
                 <span className="text-[10px] text-[#119653] font-semibold hover:underline cursor-pointer">Đánh dấu đã đọc</span>
               </div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {mockAlerts.map(a => (
+                {alerts.map(a => (
                   <div key={a.alertId} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs">
                     <div className="flex items-center justify-between font-semibold text-rose-600">
                       <span>{a.title}</span>
@@ -149,28 +180,28 @@ export const Topbar: React.FC = () => {
                 Chuyển nhanh vai trò (Dev Role Switcher)
               </div>
               <button
-                onClick={() => { switchRole('PLATFORM_ADMIN'); setShowRoleMenu(false); }}
+                onClick={() => handleRoleSwitch('PLATFORM_ADMIN')}
                 className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-rose-50 text-rose-700 flex items-center justify-between"
               >
                 <span>1. Platform Admin</span>
                 {role === 'PLATFORM_ADMIN' && <CheckCircle2 size={13} className="text-[#119653]" />}
               </button>
               <button
-                onClick={() => { switchRole('PLATFORM_TECHNICIAN'); setShowRoleMenu(false); }}
+                onClick={() => handleRoleSwitch('PLATFORM_TECHNICIAN')}
                 className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-sky-50 text-sky-700 flex items-center justify-between"
               >
                 <span>2. Platform Technician</span>
                 {role === 'PLATFORM_TECHNICIAN' && <CheckCircle2 size={13} className="text-[#119653]" />}
               </button>
               <button
-                onClick={() => { switchRole('FARM_OWNER'); setShowRoleMenu(false); }}
+                onClick={() => handleRoleSwitch('FARM_OWNER')}
                 className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-emerald-50 text-emerald-700 flex items-center justify-between"
               >
                 <span>3. Farm Owner (Tenant Root)</span>
                 {role === 'FARM_OWNER' && <CheckCircle2 size={13} className="text-[#119653]" />}
               </button>
               <button
-                onClick={() => { switchRole('FARMER'); setShowRoleMenu(false); }}
+                onClick={() => handleRoleSwitch('FARMER')}
                 className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-amber-50 text-amber-700 flex items-center justify-between"
               >
                 <span>4. Farmer / Farm Worker</span>

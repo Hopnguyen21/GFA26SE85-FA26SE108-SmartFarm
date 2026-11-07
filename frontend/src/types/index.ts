@@ -90,14 +90,61 @@ export interface Employee {
   assignedZones: string[]; // zoneIds
 }
 
+export interface IrrigationSession {
+  session: 'MORNING' | 'NOON' | 'AFTERNOON'; // Tưới Sáng, Trưa, Chiều
+  title: string;          // ví dụ: "Tưới Sáng Khởi Động", "Tưới Trưa Giảm Nhiệt", "Tưới Chiều Bổ Sung"
+  startTime: string;      // "07:30", "12:00", "16:30"
+  durationMinutes: number;// số phút tưới
+  volumeMl?: number;      // ml/lần/gốc
+  enabled: boolean;
+  daysOfWeek: string[];   // ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] hoặc ['Everyday']
+}
+
+export interface CalendarIrrigationPlan {
+  repeatType: 'DAILY' | 'INTERVAL_DAYS' | 'CUSTOM_DAYS';
+  intervalDays?: number;
+  sessions: IrrigationSession[];
+  lunarSyncEnabled?: boolean;
+  notes?: string;
+}
+
+export interface GrowthStageTemplate {
+  stageName: string;
+  durationDays: number;
+  targetSoilMoisture: number;
+  targetTemperature: number;
+  targetpH?: number;
+  targetEC?: number;
+  targetLux?: number;
+}
+
 export interface Crop {
   cropId: string;
   name: string;
   scientificName?: string;
   description?: string;
+  category?: string;           // Rau ăn quả, Rau ăn lá, Cây ăn trái, Cây củ...
+  growthCycleDays?: number;    // Tổng chu kỳ (ví dụ 90 ngày)
   isSystemDefined: boolean;
   createdAt: string;
   varietiesCount?: number;
+
+  // Vi khí hậu tối ưu
+  optimalTemperatureMin?: number; // °C
+  optimalTemperatureMax?: number; // °C
+  optimalSoilMoistureMin?: number;// %
+  optimalSoilMoistureMax?: number;// %
+  optimalpHMin?: number;          // pH
+  optimalpHMax?: number;          // pH
+  optimalECMin?: number;           // mS/cm
+  optimalECMax?: number;           // mS/cm
+  optimalLux?: number;             // Lux
+
+  // Lịch tưới theo định dạng cuốn lịch (Sáng - Trưa - Chiều)
+  calendarIrrigationPlan?: CalendarIrrigationPlan;
+
+  // Giai đoạn sinh trưởng mẫu
+  growthStages?: GrowthStageTemplate[];
 }
 
 export interface CropVariety {
@@ -157,6 +204,9 @@ export interface PlantingSeason {
   currentGrowthStageName?: string;
   status: 'PLANNED' | 'ACTIVE' | 'HARVESTED' | 'CANCELLED';
   progressPercent: number;
+  schedulesCount?: number;
+  assignedFarmerNames?: string[];
+  irrigationPlanNote?: string;
 }
 
 export interface Gateway {
@@ -280,6 +330,9 @@ export interface ControlSchedule {
   actionType: 'TURN_ON' | 'TURN_OFF';
   durationMinutes?: number;
   isActive: boolean;
+  plantingSeasonId?: string;
+  seasonName?: string;
+  growthStageName?: string;
 }
 
 export interface AutomationRule {
@@ -369,24 +422,84 @@ export interface MaterialInventory {
   updatedAt: string;
 }
 
+export interface QuotationItem {
+  id: string;
+  code: string;          // Mã hàng / SKU (VD: GW-ESP32-DL01, BAT003BD)
+  name: string;          // Tên hàng / Mô tả chi tiết
+  imageUrl?: string;     // Ảnh đại diện sản phẩm (như hình 2)
+  unit: string;          // ĐVT (Bộ, Cái, Trạm)
+  unitPrice: number;     // Đơn giá (VNĐ)
+  vatPercent: number;    // Thuế VAT % (8% hoặc 10%)
+  quantity: number;      // Số lượng
+  totalAmount: number;   // Thành tiền (VNĐ) = SL * Đơn giá * (1 + VAT/100)
+  notes?: string;        // Ghi chú (VD: Bảo hành 24t, Giảm 5%)
+  isSelected?: boolean;
+}
+
+export interface ContractDetails {
+  contractId: string;           // VD: HD-2026-0101
+  createdAt: string;
+  items: QuotationItem[];
+  subtotal: number;             // Tổng chưa thuế
+  vatTotal: number;             // Tổng VAT (8%)
+  totalAmount: number;          // Tổng hợp đồng (VNĐ)
+  deposit30Percent: number;     // Tiền cọc 30% khi ký Hợp đồng (VNĐ)
+  remaining70Percent: number;   // Tiền 70% còn lại khi Nghiệm thu (VNĐ)
+  
+  // Trạng thái gửi & ký Hợp đồng
+  isContractSent: boolean;
+  contractSentAt?: string;
+  isSignedByOwner: boolean;
+  signedAtByOwner?: string;
+  ownerSignatureName?: string;
+  
+  // Thanh toán cọc 30%
+  is30PercentPaid: boolean;
+  paid30At?: string;
+  payment30Method?: 'CASH' | 'BANK_TRANSFER'; // Tiền mặt hoặc Chuyển khoản
+  payment30Ref?: string;
+}
+
+export interface AcceptanceDetails {
+  isAcceptanceSigned: boolean;
+  signedAt?: string;
+  ownerSignatureName?: string;
+  is70PercentPaid: boolean;
+  paid70At?: string;
+  payment70Method?: 'CASH' | 'BANK_TRANSFER'; // Tiền mặt hoặc Chuyển khoản
+  payment70Ref?: string;
+  notes?: string;
+}
+
 export interface ServiceRequest {
   serviceRequestId: string;
   tenantId: string;
   farmId: string;
   farmName: string;
+  zoneId?: string;
+  zoneName?: string;
   gatewayId?: string;
   nodeId?: string;
   deviceName: string;
   requestedBy: string;
+  assignedOwnerName?: string;
   assignedTechnician?: string;
   assignedTechnicianName?: string;
   title: string;
   description: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-  requestType: 'MAINTENANCE' | 'REPAIR' | 'REPLACEMENT';
+  status: 'OPEN' | 'IN_PROGRESS' | 'CONTRACT_SENT' | 'CONTRACT_SIGNED_30PAID' | 'ACCEPTED_BY_OWNER' | 'RESOLVED' | 'CLOSED';
+  requestType: 'INSTALLATION' | 'MAINTENANCE' | 'REPAIR' | 'REPLACEMENT' | 'INITIAL_SETUP';
+  isAcceptedByOwner?: boolean;
+  acceptedAtByOwner?: string;
+  completedAtByTech?: string;
+  mappedNodesCount?: number;
   createdAt: string;
   resolution?: string;
+
+  // Thông tin Hợp đồng & Nghiệm thu
+  contractDetails?: ContractDetails;
+  acceptanceDetails?: AcceptanceDetails;
 }
 
 export interface AuditLog {
@@ -401,3 +514,62 @@ export interface AuditLog {
   createdAt: string;
   details?: string;
 }
+
+// CF3 - Environmental Control & Actuation Domain Types
+export type CF3StepNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+export interface CF3StepDetail {
+  stepNumber: CF3StepNumber;
+  title: string;
+  subtitle: string;
+  description: string;
+  status: 'IDLE' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+  detailPayload?: string;
+  timestamp?: string;
+}
+
+export interface ControlExecutionLog {
+  logId: string;
+  actuatorId: string;
+  actuatorName: string;
+  actuatorType: 'PUMP' | 'VALVE' | 'FAN' | 'GROW_LIGHT';
+  zoneId: string;
+  zoneName: string;
+  action: 'TURN_ON' | 'TURN_OFF';
+  durationMinutes?: number;
+  triggerSource: 'MANUAL' | 'SCHEDULE' | 'AUTO_RULE' | 'AI_APPROVED';
+  gatewayCode: string;
+  nodeCode: string;
+  rssi?: number;
+  executionStatus: 'SUCCESS' | 'FAILED' | 'EMERGENCY_STOP' | 'INTERLOCK_BLOCKED';
+  executedAt: string;
+  completedAt?: string;
+  failureReason?: string;
+  parametersSnapshot?: {
+    soilMoisture?: number;
+    temperature?: number;
+    humidity?: number;
+    lightIntensity?: number;
+  };
+}
+
+export interface EnvironmentalTargetConfig {
+  zoneId: string;
+  zoneName: string;
+  targetSoilMoisture: number; // %
+  minSoilMoisture: number;
+  maxSoilMoisture: number;
+  maxTemperature: number; // °C
+  targetHumidity: number; // %
+  targetLux: number; // lux
+  powerWatts?: number; // Device power rating e.g. 750W
+}
+
+export interface SafetyCheckResult {
+  passed: boolean;
+  interlockBlocked: boolean;
+  rainDelayActive: boolean;
+  failsafeTimerMinutes: number;
+  warnings: string[];
+}
+
