@@ -20,11 +20,12 @@ export const Sidebar: React.FC = () => {
 
   const adminNav: NavItem[] = [
     { title: 'Platform Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard size={18} /> },
+    { title: 'Tiếp nhận & Phân công', path: '/admin/requests', icon: <ClipboardList size={18} />, badge: 'CF1' },
     { title: 'Quản lý Tenants', path: '/admin/tenants', icon: <Building2 size={18} /> },
     { title: 'Quản lý Người dùng', path: '/admin/users', icon: <Users size={18} /> },
     { title: 'Thư viện Giống Cây', path: '/admin/crops', icon: <Sprout size={18} /> },
     { title: 'Hồ sơ Sinh trưởng', path: '/admin/growth-profiles', icon: <Activity size={18} /> },
-    { title: 'Danh mục Thiết bị IoT', path: '/admin/devices', icon: <Cpu size={18} /> },
+    { title: 'Kho Vật tư & Linh kiện', path: '/admin/devices', icon: <Package size={18} />, badge: 'Kho' },
     { title: 'Sức khỏe Máy chủ & IoT', path: '/admin/system-health', icon: <Radio size={18} /> },
     { title: 'Nhật ký Audit Logs', path: '/admin/audit-logs', icon: <ShieldAlert size={18} /> },
     { title: 'Cấu hình Platform', path: '/admin/settings', icon: <Settings size={18} /> },
@@ -32,31 +33,25 @@ export const Sidebar: React.FC = () => {
 
   const techNav: NavItem[] = [
     { title: 'Trung tâm Kỹ thuật', path: '/technician/dashboard', icon: <Wrench size={18} /> },
-    { title: 'Yêu cầu Triển khai', path: '/technician/deployments', icon: <PackageCheck size={18} />, badge: 'Mới' },
-    { title: 'Cấp phát Thiết bị (QR)', path: '/technician/provisioning', icon: <CpuIcon size={18} /> },
+    { title: 'Yêu cầu Lắp đặt (Chấm Node)', path: '/technician/provisioning', icon: <CpuIcon size={18} />, badge: '⚡ Mới' },
+    { title: 'Yêu cầu Bảo trì (Chấm Node)', path: '/technician/maintenance', icon: <Wrench size={18} />, badge: '🛠️ Hot-Swap' },
     { title: 'Quản lý Gateway ESP32', path: '/technician/gateways', icon: <Radio size={18} /> },
     { title: 'Chẩn đoán Node & Cảm biến', path: '/technician/devices', icon: <Activity size={18} /> },
-    { title: 'Bảo trì & Thay thế Hot-Swap', path: '/technician/maintenance', icon: <Wrench size={18} /> },
     { title: 'Kho Vật tư Linh kiện', path: '/technician/inventory', icon: <Package size={18} /> },
     { title: 'Báo cáo Kỹ thuật', path: '/technician/reports', icon: <FileText size={18} /> },
   ];
 
   const ownerNav: NavItem[] = [
     { title: 'Tổng quan Trang trại', path: '/owner/dashboard', icon: <LayoutDashboard size={18} /> },
-    { title: 'Quản lý Nông trang', path: '/owner/farms', icon: <Building2 size={18} /> },
-    { title: 'Phân khu Đất (Fields)', path: '/owner/fields', icon: <MapPin size={18} /> },
-    { title: 'Nhà màng (Zones)', path: '/owner/zones', icon: <Sprout size={18} /> },
+    { title: 'Quản lý Nông trang', path: '/owner/farms', icon: <Building2 size={18} />, badge: 'CF1' },
     { title: 'Cây trồng & Vụ mùa', path: '/owner/planting-seasons', icon: <Calendar size={18} /> },
     { title: 'Giám sát Vi khí hậu', path: '/owner/monitoring/realtime', icon: <Gauge size={18} /> },
-    { title: 'Bản đồ GIS Số', path: '/owner/map', icon: <MapPin size={18} /> },
     { title: 'Trung tâm Cảnh báo', path: '/owner/alerts', icon: <ShieldAlert size={18} />, badge: '2' },
     { title: 'Điều khiển Tưới tiêu', path: '/owner/control', icon: <Sliders size={18} /> },
     { title: 'Lập lịch & Luật Tự động', path: '/owner/schedules', icon: <Calendar size={18} /> },
     { title: 'Quản lý Nhân công', path: '/owner/farmers', icon: <Users size={18} /> },
     { title: 'Phân công Công việc', path: '/owner/tasks', icon: <ClipboardList size={18} /> },
-    { title: 'Kho Vật tư & Phân bón', path: '/owner/inventory', icon: <Package size={18} /> },
     { title: 'Trợ lý Nông học AI', path: '/owner/ai', icon: <Bot size={18} />, badge: 'AI' },
-    { title: 'Báo cáo & Phân tích', path: '/owner/reports', icon: <FileText size={18} /> },
     { title: 'Yêu cầu Hỗ trợ Kỹ thuật', path: '/owner/support', icon: <Headphones size={18} /> },
   ];
 
