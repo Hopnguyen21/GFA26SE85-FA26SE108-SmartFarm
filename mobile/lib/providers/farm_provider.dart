@@ -297,6 +297,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<FarmModel> get farms => _farms;
+
   final List<FieldModel> _fields = [
     FieldModel(
       fieldId: 'field-01',
@@ -885,6 +887,73 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void refreshChatState() {
+    notifyListeners();
+  }
+
+  // ─────────────────────────────────────────
+  // Schedules (lịch tưới) – Seeded + loaded from API
+  // ─────────────────────────────────────────
+  List<ScheduleModel> _schedules = [
+    ScheduleModel(
+      scheduleId: 'sch-01',
+      name: 'Tưới dinh dưỡng nhỏ giọt buổi sáng',
+      zoneName: 'Nhà màng 01 - Cà chua',
+      actuatorName: 'Bơm Tưới Nhỏ Giọt',
+      startTime: '06:30',
+      durationMinutes: 20,
+      daysOfWeek: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+      isActive: true,
+      isEnabled: true,
+    ),
+    ScheduleModel(
+      scheduleId: 'sch-02',
+      name: 'Tưới dặm hạ nhiệt đầu giờ chiều',
+      zoneName: 'Nhà màng 01 - Cà chua',
+      actuatorName: 'Bơm Tưới Nhỏ Giọt',
+      startTime: '14:00',
+      durationMinutes: 10,
+      daysOfWeek: ['T2', 'T4', 'T6'],
+      isActive: true,
+      isEnabled: true,
+    ),
+    ScheduleModel(
+      scheduleId: 'sch-03',
+      name: 'Lịch quạt thông khí định kỳ đêm',
+      zoneName: 'Nhà màng 02 - Dâu tây',
+      actuatorName: 'Quạt Thông Gió Đối Lưu',
+      startTime: '22:00',
+      durationMinutes: 45,
+      daysOfWeek: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+      isActive: false,
+      isEnabled: false,
+    ),
+  ];
+
+  List<ScheduleModel> get schedules => _schedules;
+
+  void toggleSchedule(String scheduleId) {
+    final idx = _schedules.indexWhere((s) => s.scheduleId == scheduleId);
+    if (idx != -1) {
+      final sch = _schedules[idx];
+      sch.isActive = !sch.isActive;
+      notifyListeners();
+      // Sync with backend asynchronously
+      final targetZoneId = sch.zoneId.isNotEmpty ? sch.zoneId : currentZone.zoneId;
+      ApiService.toggleSchedule(
+        scheduleId,
+        sch.isActive,
+        zoneId: targetZoneId,
+        name: sch.name,
+        cronExpression: sch.cronExpression,
+        durationSeconds: sch.durationSeconds > 0 ? sch.durationSeconds : (sch.durationMinutes * 60),
+        enableRainDelay: sch.enableRainDelay,
+        rainThresholdPercent: sch.rainThresholdPercent,
+      );
+    }
+  }
+
+  void addSchedule(ScheduleModel schedule) {
+    _schedules.insert(0, schedule);
     notifyListeners();
   }
 
@@ -1483,6 +1552,34 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<AutomationRuleModel> get automationRules => _automationRules;
+
+  /// Bật/tắt rule qua API. Trả về thông báo lỗi, hoặc null khi thành công.
+  Future<String?> toggleAutomationRule(String ruleId) async {
+    final rule = _automationRules.firstWhere((r) => r.ruleId == ruleId);
+    final raw = rule.raw;
+    if (raw == null || rule.zoneId == null) return 'Rule này chưa có trên hệ thống.';
+    try {
+      await ApiService.updateAutoRule(rule.zoneId!, ruleId, {...raw, 'isActive': !rule.isActive});
+      rule.isActive = !rule.isActive;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
+  Future<String?> addAutomationRule(String zoneId, Map<String, dynamic> body) async {
+    try {
+      await ApiService.createAutoRule(zoneId, body);
+      await _loadInventoryAndRules();
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
   // ─────────────────────────────────────────
   // Quản lý Yêu cầu Kiểm tra Thực địa (Field Inspections)
   // ─────────────────────────────────────────
@@ -1839,6 +1936,48 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       updatedAt: '2026-09-25',
     ),
   ];
+
+  List<MaterialInventoryModel> get inventoryItemsForCurrentFarm =>
+      _inventoryItems.where((i) => i.farmId == _selectedFarmId).toList();
+
+  int get lowStockCount =>
+      inventoryItemsForCurrentFarm.where((i) => i.isLowStock).length;
+
+  Future<String?> _inventoryCall(Future<void> Function() call) async {
+    try {
+      await call();
+      await _loadInventoryAndRules();
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
+  Future<String?> addInventoryItem({
+    required String materialName,
+    required String category,
+    required double quantity,
+    required String unit,
+    required double minimumStock,
+  }) => _inventoryCall(() => ApiService.createInventoryItem(_selectedFarmId, {
+    'name': materialName,
+    'materialType': switch (category) {
+      'SEED' => 'Seed',
+      'FERTILIZER' => 'Fertilizer',
+      'PESTICIDE' => 'Pesticide',
+      _ => 'Tool',
+    },
+    'unit': unit,
+    'lowStockThreshold': minimumStock,
+    'initialQuantity': quantity,
+  }));
+
+  Future<String?> receiveStock(String itemId, double quantity) =>
+      _inventoryCall(() => ApiService.receiveInventory(_selectedFarmId, itemId, quantity));
+
+  Future<String?> issueStock(String itemId, double quantity, String zoneId) =>
+      _inventoryCall(() => ApiService.issueInventory(_selectedFarmId, itemId, quantity, zoneId));
 }
 
 

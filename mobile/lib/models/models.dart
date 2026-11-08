@@ -621,6 +621,91 @@ class AiRecommendationModel {
 }
 
 // ─────────────────────────────────────────
+// Schedule Model
+// ─────────────────────────────────────────
+class ScheduleModel {
+  final String scheduleId;
+  final String zoneId;
+  final String actuatorId;
+  final String name;
+  final String zoneName;
+  final String actuatorName;
+  final bool isEnabled;
+  bool isActive;
+  final String startTime;
+  final int durationMinutes;
+  final int durationSeconds;
+  final List<String> daysOfWeek;
+  final String? nextRunFormatted;
+  final String cronExpression;
+  final bool enableRainDelay;
+  final double rainThresholdPercent;
+
+  ScheduleModel({
+    required this.scheduleId,
+    this.zoneId = '',
+    this.actuatorId = '',
+    required this.name,
+    required this.zoneName,
+    required this.actuatorName,
+    this.isEnabled = true,
+    this.isActive = true,
+    this.startTime = '06:30',
+    this.durationMinutes = 15,
+    this.durationSeconds = 900,
+    this.daysOfWeek = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+    this.nextRunFormatted,
+    this.cronExpression = '',
+    this.enableRainDelay = true,
+    this.rainThresholdPercent = 70.0,
+  });
+
+  factory ScheduleModel.fromJson(Map<String, dynamic> json, {String defaultZoneName = 'Nhà màng'}) {
+    final nextRun = json['nextRunAtUtc']?.toString();
+    String? formattedNext;
+    if (nextRun != null && nextRun.length >= 16) {
+      try {
+        final dt = DateTime.parse(nextRun).toLocal();
+        final h = dt.hour.toString().padLeft(2, '0');
+        final m = dt.minute.toString().padLeft(2, '0');
+        final d = dt.day.toString().padLeft(2, '0');
+        final mo = dt.month.toString().padLeft(2, '0');
+        formattedNext = '$h:$m ngày $d/$mo/${dt.year}';
+      } catch (_) {
+        formattedNext = nextRun.substring(0, 16).replaceAll('T', ' ');
+      }
+    }
+
+    final durSec = (json['durationSeconds'] as num?)?.toInt() ?? 900;
+    final durMin = durSec ~/ 60;
+    final enabled = json['isEnabled'] as bool? ?? json['isActive'] as bool? ?? true;
+    final zId = json['zoneId']?.toString() ?? '';
+    final aId = json['actuatorId']?.toString() ?? '';
+    final rainDelay = json['enableRainDelay'] as bool? ?? true;
+    final rainThreshold = (json['rainThresholdPercent'] as num?)?.toDouble() ?? 70.0;
+
+    return ScheduleModel(
+      scheduleId: json['scheduleId']?.toString() ?? '',
+      zoneId: zId,
+      actuatorId: aId,
+      name: json['name']?.toString() ?? 'Lịch tưới định kỳ',
+      zoneName: json['zoneName']?.toString() ?? (zId.isNotEmpty ? zId : defaultZoneName),
+      actuatorName: json['actuatorName']?.toString() ?? (aId.isNotEmpty ? aId : 'Bơm tưới nhỏ giọt'),
+      isEnabled: enabled,
+      isActive: enabled,
+      startTime: '06:30',
+      durationMinutes: durMin > 0 ? durMin : 15,
+      durationSeconds: durSec,
+      daysOfWeek: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+      nextRunFormatted: formattedNext,
+      cronExpression: json['cronExpression']?.toString() ?? '',
+      enableRainDelay: rainDelay,
+      rainThresholdPercent: rainThreshold,
+    );
+  }
+}
+
+// ─────────────────────────────────────────
 // Vấn đề 6: Default Crop Profile Models
 // ─────────────────────────────────────────
 
