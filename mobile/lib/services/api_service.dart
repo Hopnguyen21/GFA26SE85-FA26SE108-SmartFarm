@@ -634,6 +634,144 @@ class ApiService {
     return [];
   }
 
+  // ─── 17. Zone Contracts (Quản lý Hợp đồng thuê Zone) ──────────────────
+  /// Lấy danh sách hợp đồng (có thể lọc theo farmId hoặc zoneId)
+  static Future<List<ZoneContractModel>> getZoneContracts({
+    String? farmId,
+    String? zoneId,
+  }) async {
+    try {
+      String url = '$baseUrl/api/v1/zone-contracts';
+      if (zoneId != null) {
+        url = '$baseUrl/api/v1/zones/$zoneId/contracts';
+      } else if (farmId != null) {
+        url = '$baseUrl/api/v1/farms/$farmId/zone-contracts';
+      }
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) =>
+                  ZoneContractModel.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Tạo hợp đồng mới cho Zone
+  static Future<ZoneContractModel?> createZoneContract(
+    String zoneId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/contracts',
+        data,
+      );
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        return ZoneContractModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Gia hạn hợp đồng
+  static Future<ZoneContractModel?> renewZoneContract(
+    String contractId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zone-contracts/$contractId/renew',
+        data,
+      );
+      if (resp != null && resp.statusCode == 200) {
+        return ZoneContractModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Cảnh báo hợp đồng sắp hết hạn (< 30 ngày)
+  static Future<List<ExpiringContractAlertModel>> getExpiringContracts({
+    String? farmId,
+    int daysThreshold = 30,
+  }) async {
+    try {
+      String url =
+          '$baseUrl/api/v1/zone-contracts/expiring?daysThreshold=$daysThreshold';
+      if (farmId != null) url += '&farmId=$farmId';
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) => ExpiringContractAlertModel.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  // ─── 18. Device Depreciations (Khấu hao thiết bị) ─────────────────────
+  /// Lấy danh sách khấu hao thiết bị theo Zone hoặc Farm
+  static Future<List<DeviceDepreciationModel>> getDeviceDepreciations({
+    String? zoneId,
+    String? farmId,
+  }) async {
+    try {
+      String url;
+      if (zoneId != null) {
+        url = '$baseUrl/api/v1/zones/$zoneId/depreciations';
+      } else if (farmId != null) {
+        url = '$baseUrl/api/v1/farms/$farmId/depreciations';
+      } else {
+        return [];
+      }
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) => DeviceDepreciationModel.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Tạo hồ sơ trích khấu hao thiết bị cho Zone
+  static Future<DeviceDepreciationModel?> createDeviceDepreciation(
+    String zoneId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/depreciations',
+        data,
+      );
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        return DeviceDepreciationModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // ─── 19. Farming Seasons (Khung Mùa Vụ Canh Tác) ──────────────────────
   /// Lấy danh sách mùa vụ
   static Future<List<FarmingSeasonModel>> getFarmingSeasons({

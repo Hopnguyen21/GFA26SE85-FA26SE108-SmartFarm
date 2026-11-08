@@ -745,6 +745,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<AlertModel> get alerts => _alerts;
+
   // ── Thông báo Hệ Thống (Notifications) ──
   final List<AppNotificationModel> _notifications = [
     const AppNotificationModel(
@@ -1506,6 +1508,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<FieldInspectionRequestModel> get inspectionRequests => _inspectionRequests;
+
   void submitInspectionRequest({
     required String zoneId,
     required String zoneName,
@@ -1610,6 +1614,165 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       createdAt: '02/10/2026',
     ),
   ];
+
+  List<EquipmentOrderModel> get equipmentOrders => _equipmentOrders;
+
+  /// KTV hoặc Admin tạo Đơn hàng (Order) gửi cho Owner xác nhận & đặt cọc 30%
+  String createOrderFromInspection(FieldInspectionRequestModel req, {List<ZoneEquipmentItem>? overrideItems}) {
+    final now = DateTime.now();
+    final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final orderId = 'ORD-2026-00${_equipmentOrders.length + 1}';
+
+    final items = overrideItems ?? req.customEquipmentItems ?? ZoneCostSimulation.calculate(
+      areaM2: req.areaM2,
+      cropName: req.cropName,
+    ).equipmentItems;
+
+    double total = 0;
+    for (final it in items) {
+      total += it.totalPriceVND;
+    }
+    final deposit = (total * 0.30).roundToDouble();
+    final remaining = total - deposit;
+
+    final newOrder = EquipmentOrderModel(
+      orderId: orderId,
+      requestId: req.requestId,
+      farmId: req.farmId,
+      farmName: req.farmName,
+      zoneId: req.zoneId,
+      zoneName: req.zoneName,
+      items: items,
+      totalAmountVND: total,
+      depositAmountVND: deposit,
+      remainingAmountVND: remaining,
+      status: 'AWAITING_PAYMENT',
+      createdAt: dateStr,
+    );
+
+    _equipmentOrders.insert(0, newOrder);
+
+    // Tạo thông báo nhiệm vụ cho Owner
+    _tasks.insert(
+      0,
+      TaskModel(
+        taskId: 'tsk-ord-${now.millisecondsSinceEpoch}',
+        title: 'Xác nhận đơn hàng & Cọc 30%: ${req.zoneName}',
+        zoneName: req.zoneName.split(' - ').first,
+        priority: 'HIGH',
+        dueDate: 'Trong 48 giờ',
+      ),
+    );
+
+    notifyListeners();
+    return orderId;
+  }
+
+  /// Owner xác nhận và thanh toán cọc 30%
+  void confirmOrderWithDeposit(String orderId, {required String paymentMethod, String? proofNote}) {
+    final idx = _equipmentOrders.indexWhere((o) => o.orderId == orderId);
+    if (idx != -1) {
+      final now = DateTime.now();
+      final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour}:${now.minute}';
+      _equipmentOrders[idx] = _equipmentOrders[idx].copyWith(
+        status: 'CONFIRMED',
+        paymentMethod: paymentMethod,
+        paymentProofNote: proofNote ?? 'Đã thanh toán cọc 30% thành công qua $paymentMethod. Kho hàng SmartFarm đang đóng gói thiết bị và xếp lịch kỹ thuật viên lắp đặt.',
+        confirmedAt: dateStr,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// KTV bắt đầu giao hàng & lắp đặt sau khi Owner đã cọc 30%
+  void startOrderInstallation(String orderId) {
+    final idx = _equipmentOrders.indexWhere((o) => o.orderId == orderId);
+    if (idx != -1 && _equipmentOrders[idx].status == 'CONFIRMED') {
+      _equipmentOrders[idx] = _equipmentOrders[idx].copyWith(
+        status: 'DISPATCHING',
+        paymentProofNote: 'KTV đã nhận hàng từ kho và đang lắp đặt thiết bị tại ${_equipmentOrders[idx].zoneName}.',
+      );
+      notifyListeners();
+    }
+  }
+
+  /// KTV bàn giao nghiệm thu, chuyển Owner thanh toán 70% còn lại
+  void handoverOrder(String orderId) {
+    final idx = _equipmentOrders.indexWhere((o) => o.orderId == orderId);
+    if (idx != -1 && _equipmentOrders[idx].status == 'DISPATCHING') {
+      _equipmentOrders[idx] = _equipmentOrders[idx].copyWith(
+        status: 'AWAITING_FINAL_PAYMENT',
+        paymentProofNote: 'KTV đã lắp đặt xong và bàn giao. Chủ trại vui lòng nghiệm thu & thanh toán 70% còn lại.',
+      );
+      final now = DateTime.now();
+      _tasks.insert(
+        0,
+        TaskModel(
+          taskId: 'tsk-ord-final-${now.millisecondsSinceEpoch}',
+          title: 'Nghiệm thu & thanh toán 70% đơn hàng: ${_equipmentOrders[idx].zoneName}',
+          zoneName: _equipmentOrders[idx].zoneName.split(' - ').first,
+          priority: 'HIGH',
+          dueDate: 'Trong 7 ngày',
+        ),
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Owner nghiệm thu và thanh toán 70% còn lại
+  void payFinalOrder(String orderId, {required String paymentMethod}) {
+    final idx = _equipmentOrders.indexWhere((o) => o.orderId == orderId);
+    if (idx != -1 && _equipmentOrders[idx].status == 'AWAITING_FINAL_PAYMENT') {
+      _equipmentOrders[idx] = _equipmentOrders[idx].copyWith(
+        status: 'COMPLETED',
+        paymentMethod: paymentMethod,
+        paymentProofNote: 'Đã nghiệm thu và thanh toán đủ 100% qua $paymentMethod.',
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Owner hủy đơn khi chưa đặt cọc
+  void cancelOrder(String orderId) {
+    final idx = _equipmentOrders.indexWhere((o) => o.orderId == orderId);
+    if (idx != -1 && _equipmentOrders[idx].status == 'AWAITING_PAYMENT') {
+      _equipmentOrders[idx] = _equipmentOrders[idx].copyWith(
+        status: 'CANCELLED',
+        paymentProofNote: 'Chủ trại đã hủy đơn hàng trước khi đặt cọc.',
+      );
+      notifyListeners();
+    }
+  }
+
+  void completeInspectionRequest(
+    String requestId, {
+    String? result,
+    String? inspectionNotes,
+    List<String>? inspectionFindings,
+  }) {
+    final idx = _inspectionRequests.indexWhere((r) => r.requestId == requestId);
+    if (idx != -1) {
+      final req = _inspectionRequests[idx];
+      _inspectionRequests[idx] = req.copyWith(
+        status: 'COMPLETED',
+        adminNote: result ?? 'KTV đã khảo sát xong thực địa, biên bản được gửi về Admin.',
+        inspectionNotes: inspectionNotes ?? 'Đã hoàn tất đo đạc hiện trường, nguồn điện ổn định, đủ điều kiện lắp đặt.',
+        inspectionFindings: inspectionFindings ?? [
+          'Nguồn điện: 220V 1 pha ổn định',
+          'Nguồn nước: Áp lực 2.5 bar đạt chuẩn',
+          'Sóng LoRa: RSSI -82 dBm (Tốt)',
+          'Vị trí tủ điều khiển: Góc nhà màng, có mái che',
+        ],
+      );
+
+      // Tự động tạo Đơn hàng (Order) gửi cho Owner xác nhận nếu chưa có
+      if (!_equipmentOrders.any((o) => o.requestId == requestId)) {
+        createOrderFromInspection(_inspectionRequests[idx]);
+      }
+
+      notifyListeners();
+    }
+  }
 
   // ─────────────────────────────────────────
   // KHO VẬT TƯ & PHÂN BÓN NÔNG NGHIỆP (INVENTORY)
