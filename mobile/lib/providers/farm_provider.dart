@@ -172,6 +172,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   DateTime _lastTelemetryReceivedAt = DateTime.now();
 
+  DateTime get lastTelemetryReceivedAt => _lastTelemetryReceivedAt;
+
   bool _pollInFlight = false;
 
   bool _lifecycleObserverAdded = false;
@@ -271,6 +273,18 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
         ? _farms.first
         : FarmModel(farmId: '', name: 'Chưa có nông trại', address: '', totalAreaM2: 0, latitude: 0, longitude: 0),
   );
+
+  void selectFarm(String farmId) {
+    if (_selectedFarmId != farmId) {
+      _selectedFarmId = farmId;
+      _selectedFieldId = null; // reset field filter when changing farm
+      _selectedZoneIndex = 0;
+      notifyListeners();
+      if (_isApiConnected) {
+        fetchFromApi();
+      }
+    }
+  }
 
   // Selected Zone
   int _selectedZoneIndex = 0;
@@ -541,9 +555,82 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<FarmerModel> get allFarmers => _farmers;
+
   /// Lấy danh sách các farmer thuộc về Farm của Owner hiện tại
   List<FarmerModel> get farmersForCurrentFarm =>
       _farmers.where((f) => f.farmId == _selectedFarmId).toList();
+
+  /// Thêm tài khoản Farmer mới
+  void addFarmer({
+    required String name,
+    required String role,
+    required String phone,
+    required String email,
+    required String username,
+    required String password,
+    String? farmId,
+    List<String> assignedZoneNames = const [],
+    List<String> permissions = const ['CAN_CONTROL_PUMP', 'CAN_LOG_DIARY'],
+  }) {
+    final newId = 'farmer-0${_farmers.length + 1}';
+    final targetFarmId = farmId ?? _selectedFarmId;
+    final now = DateTime.now();
+    final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+
+    _farmers.add(
+      FarmerModel(
+        farmerId: newId,
+        name: name,
+        role: role,
+        phone: phone,
+        email: email,
+        username: username,
+        password: password,
+        farmId: targetFarmId,
+        isActive: true,
+        joinedDate: dateStr,
+        assignedZoneNames: assignedZoneNames,
+        permissions: permissions,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Cập nhật thông tin / phân công của Farmer
+  void updateFarmer(FarmerModel updated) {
+    final idx = _farmers.indexWhere((f) => f.farmerId == updated.farmerId);
+    if (idx != -1) {
+      _farmers[idx] = updated;
+      notifyListeners();
+    }
+  }
+
+  /// Khóa hoặc mở khóa tài khoản Farmer
+  void toggleFarmerStatus(String farmerId) {
+    final idx = _farmers.indexWhere((f) => f.farmerId == farmerId);
+    if (idx != -1) {
+      final current = _farmers[idx];
+      _farmers[idx] = current.copyWith(isActive: !current.isActive);
+      notifyListeners();
+    }
+  }
+
+  /// Reset mật khẩu tài khoản Farmer
+  void resetFarmerPassword(String farmerId, String newPassword) {
+    final idx = _farmers.indexWhere((f) => f.farmerId == farmerId);
+    if (idx != -1) {
+      final current = _farmers[idx];
+      _farmers[idx] = current.copyWith(password: newPassword);
+      notifyListeners();
+    }
+  }
+
+  /// Xóa tài khoản Farmer
+  void deleteFarmer(String farmerId) {
+    _farmers.removeWhere((f) => f.farmerId == farmerId);
+    notifyListeners();
+  }
 
   // All zones
   List<ZoneModel> get allZones => _zones;
@@ -854,6 +941,35 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       });
       final idx = _tasks.indexWhere((t) => t.taskId == taskId);
       if (idx != -1) _tasks[idx] = _withZoneName(updated);
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
+  /// Giao việc qua API. Trả về thông báo lỗi, hoặc null khi thành công; không tạo công việc cục bộ.
+  Future<String?> addTask({
+    required String title,
+    required String zoneName,
+    required String priority,
+    required String dueDate,
+    String? assignedFarmerId,
+    String? assignedFarmerName,
+    String? description,
+    String? zoneId,
+    DateTime? dueAt,
+  }) async {
+    if (assignedFarmerId == null || zoneId == null) return 'Hãy chọn Zone và nhân công.';
+    try {
+      final created = await ApiService.createTask(_selectedFarmId, {
+        'zoneId': zoneId,
+        'title': title,
+        'description': description ?? '',
+        'dueAtUtc': (dueAt ?? DateTime.now().add(const Duration(days: 1))).toUtc().toIso8601String(),
+        'farmerIds': [assignedFarmerId],
+      });
+      _tasks.insert(0, _withZoneName(created));
       notifyListeners();
       return null;
     } catch (e) {

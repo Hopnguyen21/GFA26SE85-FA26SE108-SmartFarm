@@ -710,6 +710,12 @@ class ApiService {
     return [];
   }
 
+  /// Giao việc cho các Farmer đã có quyền Zone; lỗi nghiệp vụ được báo nguyên văn từ backend.
+  static Future<TaskModel> createTask(String farmId, Map<String, dynamic> data) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/farms/$farmId/tasks', data);
+    return TaskModel.fromJson(_decodeOrThrow(resp) as Map<String, dynamic>);
+  }
+
   /// Một thao tác trên công việc: Accept, Decline, Start, UpdateProgress, Complete, Fail, Approve.
   static Future<TaskModel> updateTaskAction(String farmId, String taskId, Map<String, dynamic> body) async {
     final resp = await _putWithAuth('$baseUrl/api/v1/farms/$farmId/tasks/$taskId', body);
@@ -754,6 +760,29 @@ class ApiService {
   static List<Map<String, dynamic>> _asMapList(dynamic data) => [
     for (final item in (data as List? ?? const [])) Map<String, dynamic>.from(item as Map),
   ];
+
+  static Future<List<Map<String, dynamic>>> getMyInvitations() async =>
+      _asMapList(_decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farm-invitations/mine')));
+
+  static Future<void> respondInvitation(String id, bool accept) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farm-invitations/$id/${accept ? 'accept' : 'decline'}', {}));
+  }
+
+  static Future<List<Map<String, dynamic>>> getFarmInvitations(String farmId) async =>
+      _asMapList(_decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farms/$farmId/invitations')));
+
+  static Future<void> inviteFarmer(String farmId, String email) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farms/$farmId/invitations', {'email': email}));
+  }
+
+  /// action: resend hoặc cancel.
+  static Future<void> invitationAction(String id, String action) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farm-invitations/$id/$action', {}));
+  }
+
+  static Future<void> updateFarmerZoneAccess(String farmerId, List<Map<String, dynamic>> access) async {
+    _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/users/$farmerId/zone-access', {'access': access}));
+  }
 
   static Future<Map<String, dynamic>?> getMe() async {
     final resp = await _getWithAuth('$baseUrl/api/v1/users/me');
