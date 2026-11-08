@@ -817,6 +817,49 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   List<ActuatorModel> get actuators => _actuators;
 
+  Future<bool> toggleActuator(String actuatorId, {int? durationMinutes}) async {
+    final actIndex = _actuators.indexWhere((a) => a.actuatorId == actuatorId);
+    if (actIndex == -1) return false;
+    final act = _actuators[actIndex];
+    final prevRunning = act.isRunning;
+    final prevRemaining = act.remainingMinutes;
+
+    final targetRunning = !prevRunning;
+    final targetRemaining = targetRunning ? (durationMinutes ?? 15) : 0;
+
+    act.isRunning = targetRunning;
+    act.remainingMinutes = targetRemaining;
+    notifyListeners();
+
+    // Gửi lệnh điều khiển xuống Backend API nếu có kết nối
+    if (_isApiConnected) {
+      final action = targetRunning ? 'TurnOn' : 'TurnOff';
+      final duration = targetRunning ? (targetRemaining * 60) : 1;
+      try {
+        final success = await ApiService.sendActuatorCommand(
+          zoneId: act.zoneId,
+          actuatorId: act.actuatorId,
+          action: action,
+          durationSeconds: duration,
+        );
+        if (!success) {
+          // Rollback state on failure
+          act.isRunning = prevRunning;
+          act.remainingMinutes = prevRemaining;
+          notifyListeners();
+          return false;
+        }
+      } catch (_) {
+        // Rollback state on network/server error
+        act.isRunning = prevRunning;
+        act.remainingMinutes = prevRemaining;
+        notifyListeners();
+        return false;
+      }
+    }
+    return true;
+  }
+
   final List<AlertModel> _alerts = [
     AlertModel(
       alertId: 'alt-01',
@@ -835,6 +878,18 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   ];
 
   List<AlertModel> get alerts => _alerts;
+
+  void acknowledgeAlert(String alertId) {
+    final idx = _alerts.indexWhere((a) => a.alertId == alertId);
+    if (idx != -1) {
+      _alerts[idx].isAcknowledged = true;
+      notifyListeners();
+    }
+
+    if (_isApiConnected) {
+      ApiService.acknowledgeAlert(alertId);
+    }
+  }
 
   // ── Thông báo Hệ Thống (Notifications) ──
   final List<AppNotificationModel> _notifications = [
@@ -858,6 +913,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<AppNotificationModel> get notifications => _notifications;
+
+  int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
+
   Future<void> fetchNotifications() async {
     try {
       final apiNotifs = await ApiService.getNotifications();
@@ -867,6 +926,35 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
         notifyListeners();
       }
     } catch (_) {}
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    final idx = _notifications.indexWhere((n) => n.notificationId == id);
+    if (idx != -1) {
+      _notifications[idx] = _notifications[idx].copyWith(isRead: true);
+      notifyListeners();
+      await ApiService.markNotificationAsRead(id);
+    }
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    for (int i = 0; i < _notifications.length; i++) {
+      _notifications[i] = _notifications[i].copyWith(isRead: true);
+    }
+    notifyListeners();
+    await ApiService.markAllNotificationsAsRead();
+  }
+
+  Future<void> deleteNotification(String id) async {
+    _notifications.removeWhere((n) => n.notificationId == id);
+    notifyListeners();
+    await ApiService.deleteNotification(id);
+  }
+
+  Future<void> deleteAllReadNotifications() async {
+    _notifications.removeWhere((n) => n.isRead);
+    notifyListeners();
+    await ApiService.deleteAllReadNotifications();
   }
 
   final List<TaskModel> _tasks = [
@@ -901,6 +989,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       description: 'Pha theo tỷ lệ dinh dưỡng EC 1.8 mS/cm, kiểm tra pH trước khi cấp vào đường ống.',
     ),
   ];
+
+  List<TaskModel> get tasks => _tasks;
 
   TaskModel _withZoneName(TaskModel t) {
     final zone = _zones.where((z) => z.zoneId == t.zoneId).firstOrNull;

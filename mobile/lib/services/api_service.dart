@@ -790,6 +790,47 @@ class ApiService {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  // ─── 10. Actuator Command ─────────────────────────────────────────────
+  static Future<bool> sendActuatorCommand({
+    required String zoneId,
+    required String actuatorId,
+    required String action, // TurnOn, TurnOff
+    int durationSeconds = 600,
+  }) async {
+    try {
+      // Backend validates [Range(1, 1800)] DurationSeconds for both TurnOn and TurnOff
+      final safeDuration = durationSeconds <= 0
+          ? 1
+          : durationSeconds.clamp(1, 1800);
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/actuators/$actuatorId/command',
+        {
+          'action': action,
+          'durationSeconds': safeDuration,
+          'overrideActiveSchedules': true,
+          'idempotencyKey': 'mob_${DateTime.now().microsecondsSinceEpoch}',
+          'notes': 'Điều khiển từ SmartFarm Mobile App',
+        },
+      );
+      return resp != null && (resp.statusCode == 200 || resp.statusCode == 202);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── 11. Acknowledge Alert ─────────────────────────────────────────────
+  static Future<bool> acknowledgeAlert(String alertId, {String? notes}) async {
+    try {
+      final resp = await _putWithAuth(
+        '$baseUrl/api/v1/alerts/$alertId/acknowledge',
+        {'notes': notes ?? 'Đã xác nhận từ ứng dụng di động'},
+      );
+      return resp != null && resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─── 12. AI Ask ────────────────────────────────────────────────────────
   /// Gửi câu hỏi đến AI Advisory, trả về AiRecommendationModel (Timeout 60s cho LLM Gemini)
   static Future<AiRecommendationModel?> askAi({
@@ -972,6 +1013,68 @@ class ApiService {
       }
     } catch (_) {}
     return [];
+  }
+
+  /// Đánh dấu một thông báo đã đọc
+  static Future<bool> markNotificationAsRead(String notificationId) async {
+    try {
+      final resp = await _client
+          .put(
+            Uri.parse('$baseUrl/api/v1/notifications/$notificationId/read'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Đánh dấu tất cả thông báo đã đọc
+  static Future<bool> markAllNotificationsAsRead() async {
+    try {
+      final resp = await _client
+          .put(
+            Uri.parse('$baseUrl/api/v1/notifications/read-all'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Xóa một thông báo
+  static Future<bool> deleteNotification(String notificationId) async {
+    try {
+      final resp = await _client
+          .delete(
+            Uri.parse('$baseUrl/api/v1/notifications/$notificationId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Xóa tất cả thông báo đã đọc
+  static Future<int> deleteAllReadNotifications() async {
+    try {
+      final resp = await _client
+          .delete(
+            Uri.parse('$baseUrl/api/v1/notifications/read-all'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        return (data['deletedCount'] as num?)?.toInt() ?? 0;
+      }
+    } catch (_) {}
+    return 0;
   }
 
   // ─── 17. Zone Contracts (Quản lý Hợp đồng thuê Zone) ──────────────────

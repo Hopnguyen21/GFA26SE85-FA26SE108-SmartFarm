@@ -9,6 +9,7 @@ import 'screens/ai_screen.dart';
 import 'screens/crop_profiles_screen.dart';
 import 'screens/device_health_screen.dart';
 import 'screens/gis_map_screen.dart';
+import 'screens/alerts_tasks_screen.dart';
 import 'screens/landing_screen.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -171,7 +172,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     _SapRaMat('Trang chủ'),
     DeviceHealthScreen(),
     GISMapScreen(),
-    _SapRaMat('Tác vụ'),
+    AlertsTasksScreen(),
     _SapRaMat('Hồ sơ'),
   ];
 
@@ -180,7 +181,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     _SapRaMat('Khu vực'),
     CropProfilesScreen(),
     GISMapScreen(),
-    _SapRaMat('Tác vụ'),
+    AlertsTasksScreen(),
     _SapRaMat('Hồ sơ'),
   ];
 
