@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/providers/AuthContext';
 import { UserRole, Alert } from '../../types';
-import { alertService } from '../../services';
+import { alertService, supportService } from '../../services';
 import { mockWeather } from '../../mocks/mockData';
 import {
   Sprout, Search, Bell, Sun, CloudRain, UserCheck, LogOut,
@@ -20,7 +20,29 @@ export const Topbar: React.FC = () => {
     alertService.getAlerts().then(res => {
       if (res) setAlerts(res);
     }).catch(() => {});
-  }, []);
+
+    if (selectedFarmId) {
+      supportService.getWeather(selectedFarmId).then((wData: any) => {
+        if (wData && wData.temperature !== undefined) {
+          const rainProb = wData.precipitationProbability ?? 
+                           wData.dailyForecast?.[0]?.precipitationProbability ?? 
+                           prevRainProb(wData);
+          setWeather(prev => ({
+            ...prev,
+            temperature: Number(wData.temperature),
+            humidity: wData.humidity ? Number(wData.humidity) : prev.humidity,
+            condition: wData.weatherDescription ?? prev.condition,
+            rainProbability: rainProb !== null && rainProb !== undefined ? Number(rainProb) : prev.rainProbability,
+          }));
+        }
+      }).catch(() => {});
+    }
+  }, [selectedFarmId]);
+
+  const prevRainProb = (w: any) => {
+    if (w.weatherDescription?.toLowerCase().includes('mưa')) return 100;
+    return 0;
+  };
 
   const handleRoleSwitch = (targetRole: UserRole) => {
     switchRole(targetRole);
@@ -43,7 +65,7 @@ export const Topbar: React.FC = () => {
     }
   };
 
-  const weather = mockWeather;
+  const [weather, setWeather] = useState(mockWeather);
   const activeAlerts = alerts.filter(a => a.status === 'OPEN');
 
   const roleLabels: Record<UserRole, { label: string; color: string }> = {
@@ -51,6 +73,11 @@ export const Topbar: React.FC = () => {
     PLATFORM_TECHNICIAN: { label: 'Technician', color: 'bg-sky-50 text-sky-700 border-sky-200' },
     FARM_OWNER: { label: 'Farm Owner', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
     FARMER: { label: 'Farm Worker', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   return (
@@ -212,13 +239,17 @@ export const Topbar: React.FC = () => {
         </div>
 
         {/* User Avatar & Logout */}
-        <div className="flex items-center gap-2 pl-2 border-l border-white/20">
+        <div className="flex items-center gap-2.5 pl-2 border-l border-white/20">
+          <div className="hidden lg:flex flex-col text-right">
+            <span className="text-xs font-semibold leading-tight text-white max-w-[140px] truncate">{user?.fullName || 'Người dùng'}</span>
+            <span className="text-[10px] text-emerald-100/80 leading-tight max-w-[140px] truncate">{user?.email || ''}</span>
+          </div>
           <div className="w-8 h-8 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-            {user?.fullName.charAt(0) || 'U'}
+            {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <button
-            onClick={logout}
-            title="Đăng xuất"
+            onClick={handleLogout}
+            title="Đăng xuất khỏi hệ thống"
             className="p-1.5 text-emerald-100 hover:text-white rounded-lg hover:bg-[#0e8046] transition-colors"
           >
             <LogOut size={16} />

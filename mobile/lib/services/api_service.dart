@@ -17,18 +17,12 @@ class ApiService {
   static String baseUrl = (kIsWeb || (!kIsWeb && !Platform.isAndroid))
       ? 'http://localhost:5144'
       : 'http://10.0.2.2:5144';
-
   // Token đăng nhập lưu trong kho an toàn của hệ điều hành (Keystore/Keychain), không để dạng chữ thường trong SharedPreferences.
   static const FlutterSecureStorage _secure = FlutterSecureStorage();
-
   static String? _accessToken;
-
   static String? _refreshToken;
-
   static String? _userEmail;
-
   static String? _userRole;
-
   static Completer<bool>? _refreshCompleter;
 
   static void setBaseUrl(String url) {
@@ -43,8 +37,20 @@ class ApiService {
     }
   }
 
-  static bool get isAuthenticated => _accessToken != null;
+  static void setTokens({
+    String? accessToken,
+    String? refreshToken,
+    String? email,
+    String? role,
+  }) {
+    _accessToken = accessToken;
+    _refreshToken = refreshToken;
+    _userEmail = email;
+    _userRole = role;
+  }
 
+  static bool get isAuthenticated => _accessToken != null;
+  static String? get userEmail => _userEmail;
   static String? get userRole => _userRole;
 
   /// Nạp token đã lưu (kho an toàn) khi ứng dụng khởi động
@@ -92,6 +98,23 @@ class ApiService {
       if (email != null) await prefs.setString('user_email', email);
       if (role != null) await prefs.setString('user_role', role);
       await prefs.setString('base_url', baseUrl);
+    } catch (_) {}
+  }
+
+  /// Xóa token khi đăng xuất
+  static Future<void> clearTokens() async {
+    _accessToken = null;
+    _refreshToken = null;
+    _userEmail = null;
+    _userRole = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _secure.delete(key: 'access_token');
+      await _secure.delete(key: 'refresh_token');
+      await prefs.remove('access_token');
+      await prefs.remove('refresh_token');
+      await prefs.remove('user_email');
+      await prefs.remove('user_role');
     } catch (_) {}
   }
 
@@ -244,6 +267,26 @@ class ApiService {
     }
   }
 
+  // ─── Auth: Đăng xuất ────────────────────────────────────────────────
+  static Future<bool> logout() async {
+    try {
+      if (_accessToken != null) {
+        await _client
+            .post(
+              Uri.parse('$baseUrl/api/v1/auth/logout'),
+              headers: _headers,
+              body: jsonEncode({
+                'refreshToken': _refreshToken,
+                'revokeAllDevices': false,
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
+      }
+    } catch (_) {}
+    await clearTokens();
+    return true;
+  }
+
   // ─── Refresh Token (Concurrency Guarded) ───────────────────────────
   static Future<bool> refreshToken() async {
     if (_refreshToken == null) return false;
@@ -369,9 +412,7 @@ class ApiService {
       );
 
   static Future<DeploymentRequest> confirmDeploymentPlan(String id) => _technicianPost(id, 'confirm');
-
   static Future<DeploymentRequest> startDeploymentInstallation(String id) => _technicianPost(id, 'installation/start');
-
   static Future<DeploymentRequest> completeDeploymentRequest(String id) => _technicianPost(id, 'complete');
 
   /// Trả về mã service request bảo trì mà backend tạo khi triển khai thất bại.
@@ -550,6 +591,19 @@ class ApiService {
       }
     } catch (_) {}
     return [];
+  }
+
+  // ─── 3. Farm Structure ───────────────────────────────────────────────
+  static Future<Map<String, dynamic>?> getFarmStructure(String farmId) async {
+    try {
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/farms/$farmId/structure',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        return jsonDecode(resp.body);
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ─── 4. Fields ───────────────────────────────────────────────────────
@@ -756,6 +810,21 @@ class ApiService {
     _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/zones/$zoneId/rules/$ruleId', body));
   }
 
+  static Future<void> updateEnvironmentalThresholds(String zoneId, {required double minSoil, required double maxSoil, required double maxTemp}) async {
+    final configs = _asMapList(_decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/control/environmental-configs?zoneId=$zoneId')));
+    final current = configs.isNotEmpty ? configs.first : const <String, dynamic>{};
+    _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/control/environmental-configs', {
+      'zoneId': zoneId,
+      'targetSoilMoisture': (minSoil + maxSoil) / 2,
+      'minSoilMoisture': minSoil,
+      'maxSoilMoisture': maxSoil,
+      'maxTemperature': maxTemp,
+      'targetHumidity': current['targetHumidity'] ?? 0,
+      'targetLux': current['targetLux'] ?? 0,
+      'powerWatts': current['powerWatts'],
+    }));
+  }
+
   // ─── Lời mời & quyền Zone của nhân công ──────────
   static List<Map<String, dynamic>> _asMapList(dynamic data) => [
     for (final item in (data as List? ?? const [])) Map<String, dynamic>.from(item as Map),
@@ -786,6 +855,16 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> getMe() async {
     final resp = await _getWithAuth('$baseUrl/api/v1/users/me');
+    if (resp == null || resp.statusCode != 200) return null;
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  /// Cập nhật họ tên và số điện thoại của tài khoản đang đăng nhập (PUT /users/me).
+  static Future<Map<String, dynamic>?> updateProfile(String fullName, String? phone) async {
+    final resp = await _putWithAuth('$baseUrl/api/v1/users/me', {
+      'fullName': fullName,
+      'phone': phone,
+    });
     if (resp == null || resp.statusCode != 200) return null;
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -945,6 +1024,30 @@ class ApiService {
     }
   }
 
+  // ─── 14. Schedules ─────────────────────────────────────────────────────
+  /// Lấy danh sách lịch tưới của một Zone hoặc toàn bộ Farm
+  static Future<List<ScheduleModel>> getSchedules({
+    String? zoneId,
+    String? farmId,
+  }) async {
+    try {
+      String url;
+      if (zoneId != null) {
+        url = '$baseUrl/api/v1/zones/$zoneId/schedules';
+      } else if (farmId != null) {
+        url = '$baseUrl/api/v1/farms/$farmId/schedules';
+      } else {
+        return [];
+      }
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list.map((item) => ScheduleModel.fromJson(item)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // ─── 15. Toggle Schedule ───────────────────────────────────────────────
   static Future<bool> toggleSchedule(
     String scheduleId,
@@ -1013,6 +1116,22 @@ class ApiService {
       }
     } catch (_) {}
     return [];
+  }
+
+  /// Lấy số lượng thông báo chưa đọc
+  static Future<int> getUnreadNotificationCount() async {
+    try {
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/notifications/unread-count',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map && decoded.containsKey('unreadCount')) {
+          return (decoded['unreadCount'] as num?)?.toInt() ?? 0;
+        }
+      }
+    } catch (_) {}
+    return 0;
   }
 
   /// Đánh dấu một thông báo đã đọc
@@ -1102,6 +1221,23 @@ class ApiService {
       }
     } catch (_) {}
     return [];
+  }
+
+  /// Xem chi tiết một hợp đồng
+  static Future<ZoneContractModel?> getZoneContractById(
+    String contractId,
+  ) async {
+    try {
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/zone-contracts/$contractId',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        return ZoneContractModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Tạo hợp đồng mới cho Zone
@@ -1481,6 +1617,20 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  static Future<Map<String, dynamic>> createGrowthProfile(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _postWithAuth(
+      '$baseUrl/api/v1/growth-profiles',
+      payload,
+    );
+    if (response == null ||
+        (response.statusCode != 201 && response.statusCode != 200)) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   // ─── 22. GIS Geocoding Proxy (Bảo mật định vị & ẩn danh khách hàng) ───────
   /// Reverse geocoding qua backend proxy bằng POST (bảo vệ tọa độ không bị ghi vào reverse proxy access logs)
   static Future<Map<String, dynamic>?> reverseGeocode(double latitude, double longitude) async {
@@ -1497,6 +1647,25 @@ class ApiService {
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Tìm kiếm địa danh qua backend proxy bằng POST (bảo vệ query không bị ghi vào reverse proxy access logs)
+  static Future<List<Map<String, dynamic>>> searchLocation(String query) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/gis/search-location',
+        {
+          'query': query.trim(),
+        },
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(resp.bodyBytes));
+        if (decoded is List) {
+          return decoded.whereType<Map<String, dynamic>>().toList();
+        }
+      }
+    } catch (_) {}
+    return [];
   }
 
   // ─── 23. Farm Weather (Thời tiết theo vị trí hiệu lực Farm/Field/Zone) ────

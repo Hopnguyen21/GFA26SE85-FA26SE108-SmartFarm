@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
+import 'screens/home_screen.dart';
 import 'screens/ai_screen.dart';
 import 'screens/crop_profiles_screen.dart';
 import 'screens/device_health_screen.dart';
 import 'screens/gis_map_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/farmer_dashboard_screen.dart';
 import 'screens/alerts_tasks_screen.dart';
 import 'screens/landing_screen.dart';
 
@@ -160,29 +163,29 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   // Owner screens (includes AI)
   static const List<Widget> _ownerScreens = [
-    _SapRaMat('Trang chủ'),
+    HomeScreen(),
     CropProfilesScreen(),
     GISMapScreen(),
     AiAssistantScreen(),
-    _SapRaMat('Hồ sơ'),
+    ProfileScreen(),
   ];
 
   // Technician screens (No AI -> Alerts/Tasks)
   static const List<Widget> _technicianScreens = [
-    _SapRaMat('Trang chủ'),
+    HomeScreen(),
     DeviceHealthScreen(),
     GISMapScreen(),
     AlertsTasksScreen(),
-    _SapRaMat('Hồ sơ'),
+    ProfileScreen(),
   ];
 
   // Farmer screens (No AI -> Tasks & Alerts)
   static const List<Widget> _farmerScreens = [
-    _SapRaMat('Khu vực'),
+    FarmerDashboardScreen(),
     CropProfilesScreen(),
     GISMapScreen(),
     AlertsTasksScreen(),
-    _SapRaMat('Hồ sơ'),
+    ProfileScreen(),
   ];
 
   @override
@@ -260,16 +263,4 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           : null,
     );
   }
-}
-
-/// Màn hình giữ chỗ cho tính năng sẽ có ở các phiên bản sau.
-class _SapRaMat extends StatelessWidget {
-  final String title;
-  const _SapRaMat(this.title);
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: Center(child: Text('$title: sẽ có ở phiên bản sau')),
-      );
 }
