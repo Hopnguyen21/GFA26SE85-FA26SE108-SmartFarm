@@ -514,6 +514,334 @@ class TaskModel {
   }
 }
 
+class ChatMessageModel {
+  final String id;
+  final String text;
+  final bool isUser;
+  final String time;
+  final String? actionProposal;
+  // For AI recommendation cards
+  final String? recommendationId;
+  String? recommendationStatus; // PROPOSED, APPLIED, REJECTED
+  final List<String>? sources;
+
+  ChatMessageModel({
+    required this.id,
+    required this.text,
+    required this.isUser,
+    required this.time,
+    this.actionProposal,
+    this.recommendationId,
+    this.recommendationStatus,
+    this.sources,
+  });
+}
+
+// ─────────────────────────────────────────
+// AI Recommendation Model
+// ─────────────────────────────────────────
+class AiRecommendationModel {
+  final String recommendationId;
+  final String rationale;
+  final String? riskWarning;
+  final String? suggestedActionSummary;
+  final String status; // PROPOSED, APPLIED, REJECTED, EXPIRED
+  final String? actuatorId;
+  final int? durationSeconds;
+  final List<String>? sources;
+
+  AiRecommendationModel({
+    required this.recommendationId,
+    required this.rationale,
+    this.riskWarning,
+    this.suggestedActionSummary,
+    required this.status,
+    this.actuatorId,
+    this.durationSeconds,
+    this.sources,
+  });
+
+  factory AiRecommendationModel.fromJson(Map<String, dynamic> json) {
+    // 1. Support Backend AiRecommendationView (summary, details, proposedAction, proposedDurationSeconds)
+    final summary = json['summary']?.toString() ?? json['rationale']?.toString() ?? '';
+    final details = json['details']?.toString();
+    final rationaleText = details != null && details.isNotEmpty ? details : summary;
+
+    final proposedAction = json['proposedAction']?.toString();
+    final isActionable = json['isActionable'] == true;
+    final proposedDur = (json['proposedDurationSeconds'] as num?)?.toInt();
+    final proposedActId = json['proposedActuatorId']?.toString();
+
+    String? actionSummary;
+    String? actuatorId = proposedActId;
+    int? durationSeconds = proposedDur;
+
+    if (isActionable && proposedAction != null) {
+      if (proposedDur != null && proposedDur > 0) {
+        final mins = (proposedDur / 60).round();
+        actionSummary = mins > 0 ? 'Bật tưới $mins phút' : 'Bật tưới $proposedDur giây';
+      } else {
+        actionSummary = 'Kích hoạt: $proposedAction';
+      }
+    }
+
+    // 2. Fallback to legacy suggestedAction object if present
+    final action = json['suggestedAction'] as Map<String, dynamic>?;
+    if (action != null) {
+      final type = action['actionType']?.toString() ?? '';
+      final dur = (action['durationSeconds'] as num?)?.toInt();
+      if (type == 'IrrigateZone' && dur != null) {
+        final mins = (dur / 60).round();
+        actionSummary = 'Tưới $mins phút';
+        durationSeconds = dur;
+      } else if (type == 'NoAction') {
+        actionSummary = null;
+      } else {
+        actionSummary = type;
+      }
+      actuatorId = action['actuatorId']?.toString() ?? actuatorId;
+    }
+
+    final sourcesList = (json['sources'] as List<dynamic>?)
+        ?.map((s) => s is Map ? (s['title']?.toString() ?? '') : s.toString())
+        .where((t) => t.isNotEmpty)
+        .toList();
+
+    return AiRecommendationModel(
+      recommendationId: json['recommendationId']?.toString() ?? json['id']?.toString() ?? '',
+      rationale: rationaleText,
+      riskWarning: json['riskWarning']?.toString() ?? (json['limitations'] is List ? (json['limitations'] as List).join('; ') : null),
+      suggestedActionSummary: actionSummary,
+      status: json['status']?.toString() ?? 'PROPOSED',
+      actuatorId: actuatorId,
+      durationSeconds: durationSeconds,
+      sources: sourcesList,
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Schedule Model
+// ─────────────────────────────────────────
+class ScheduleModel {
+  final String scheduleId;
+  final String zoneId;
+  final String actuatorId;
+  final String name;
+  final String zoneName;
+  final String actuatorName;
+  final bool isEnabled;
+  bool isActive;
+  final String startTime;
+  final int durationMinutes;
+  final int durationSeconds;
+  final List<String> daysOfWeek;
+  final String? nextRunFormatted;
+  final String cronExpression;
+  final bool enableRainDelay;
+  final double rainThresholdPercent;
+
+  ScheduleModel({
+    required this.scheduleId,
+    this.zoneId = '',
+    this.actuatorId = '',
+    required this.name,
+    required this.zoneName,
+    required this.actuatorName,
+    this.isEnabled = true,
+    this.isActive = true,
+    this.startTime = '06:30',
+    this.durationMinutes = 15,
+    this.durationSeconds = 900,
+    this.daysOfWeek = const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+    this.nextRunFormatted,
+    this.cronExpression = '',
+    this.enableRainDelay = true,
+    this.rainThresholdPercent = 70.0,
+  });
+
+  factory ScheduleModel.fromJson(Map<String, dynamic> json, {String defaultZoneName = 'Nhà màng'}) {
+    final nextRun = json['nextRunAtUtc']?.toString();
+    String? formattedNext;
+    if (nextRun != null && nextRun.length >= 16) {
+      try {
+        final dt = DateTime.parse(nextRun).toLocal();
+        final h = dt.hour.toString().padLeft(2, '0');
+        final m = dt.minute.toString().padLeft(2, '0');
+        final d = dt.day.toString().padLeft(2, '0');
+        final mo = dt.month.toString().padLeft(2, '0');
+        formattedNext = '$h:$m ngày $d/$mo/${dt.year}';
+      } catch (_) {
+        formattedNext = nextRun.substring(0, 16).replaceAll('T', ' ');
+      }
+    }
+
+    final durSec = (json['durationSeconds'] as num?)?.toInt() ?? 900;
+    final durMin = durSec ~/ 60;
+    final enabled = json['isEnabled'] as bool? ?? json['isActive'] as bool? ?? true;
+    final zId = json['zoneId']?.toString() ?? '';
+    final aId = json['actuatorId']?.toString() ?? '';
+    final rainDelay = json['enableRainDelay'] as bool? ?? true;
+    final rainThreshold = (json['rainThresholdPercent'] as num?)?.toDouble() ?? 70.0;
+
+    return ScheduleModel(
+      scheduleId: json['scheduleId']?.toString() ?? '',
+      zoneId: zId,
+      actuatorId: aId,
+      name: json['name']?.toString() ?? 'Lịch tưới định kỳ',
+      zoneName: json['zoneName']?.toString() ?? (zId.isNotEmpty ? zId : defaultZoneName),
+      actuatorName: json['actuatorName']?.toString() ?? (aId.isNotEmpty ? aId : 'Bơm tưới nhỏ giọt'),
+      isEnabled: enabled,
+      isActive: enabled,
+      startTime: '06:30',
+      durationMinutes: durMin > 0 ? durMin : 15,
+      durationSeconds: durSec,
+      daysOfWeek: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+      nextRunFormatted: formattedNext,
+      cronExpression: json['cronExpression']?.toString() ?? '',
+      enableRainDelay: rainDelay,
+      rainThresholdPercent: rainThreshold,
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Vấn đề 6: Default Crop Profile Models
+// ─────────────────────────────────────────
+
+// ─────────────────────────────────────────
+// Vấn đề 6: Default Crop Profile Models
+// ─────────────────────────────────────────
+
+class EnvironmentalRange {
+  final double soilMoistureMin;
+  final double soilMoistureMax;
+  final double tempMin;
+  final double tempMax;
+  final double humidityMin;
+  final double humidityMax;
+  final int irrigationDurationMin;
+  final int irrigationFrequencyPerDay;
+
+  const EnvironmentalRange({
+    required this.soilMoistureMin,
+    required this.soilMoistureMax,
+    required this.tempMin,
+    required this.tempMax,
+    required this.humidityMin,
+    required this.humidityMax,
+    required this.irrigationDurationMin,
+    required this.irrigationFrequencyPerDay,
+  });
+}
+
+class GrowthStageProfile {
+  final String stageId;
+  final String name;
+  final String nameEn;
+  final int startDayFromPlanting;
+  final int endDayFromPlanting;
+  final String description;
+  final String iconEmoji;
+  final EnvironmentalRange requirements;
+  final List<String> keyActivities;
+
+  int get durationDays => (endDayFromPlanting - startDayFromPlanting) > 0 ? (endDayFromPlanting - startDayFromPlanting) : 1;
+
+  const GrowthStageProfile({
+    required this.stageId,
+    required this.name,
+    required this.nameEn,
+    required this.startDayFromPlanting,
+    required this.endDayFromPlanting,
+    required this.description,
+    required this.iconEmoji,
+    required this.requirements,
+    required this.keyActivities,
+  });
+}
+
+class DefaultCropProfile {
+  final String cropId;
+  final String name;
+  final String nameEn;
+  final String variety;
+  final String emoji;
+  final String standardType; // 'VietGAP', 'GlobalGAP'
+  final int totalCycleDays;
+  final String description;
+  final String origin;
+  final String difficulty;
+  final String suitableRegion;
+  final List<String> compatibleActuators;
+  final List<String> commonPests;
+  final List<GrowthStageProfile> growthStages;
+  bool isApplied;
+
+  DefaultCropProfile({
+    required this.cropId,
+    required this.name,
+    required this.nameEn,
+    required this.variety,
+    required this.emoji,
+    required this.standardType,
+    required this.totalCycleDays,
+    required this.description,
+    required this.origin,
+    required this.difficulty,
+    required this.suitableRegion,
+    required this.compatibleActuators,
+    required this.commonPests,
+    required this.growthStages,
+    this.isApplied = false,
+  });
+}
+
+// ─────────────────────────────────────────
+// Device Health Models (CF1 - Kỹ thuật viên)
+// ─────────────────────────────────────────
+
+class DeviceHealthModel {
+  final String nodeId;
+  final String name;
+  final String type; // GATEWAY, SENSOR_NODE, ACTUATOR_NODE
+  final DateTime lastSeenAt;
+  final int expectedIntervalSeconds;
+  final double signalRssi;
+  final int batteryPercent;
+
+  DeviceHealthModel({
+    required this.nodeId,
+    required this.name,
+    required this.type,
+    required this.lastSeenAt,
+    required this.expectedIntervalSeconds,
+    required this.signalRssi,
+    required this.batteryPercent,
+  });
+
+  String get healthStatus {
+    final diffSec = DateTime.now().difference(lastSeenAt).inSeconds;
+    if (diffSec <= expectedIntervalSeconds * 2) {
+      return 'ONLINE';
+    } else if (diffSec <= expectedIntervalSeconds * 5) {
+      return 'WARNING';
+    }
+    return 'OFFLINE';
+  }
+
+  String get lastSeenText {
+    final diff = DateTime.now().difference(lastSeenAt);
+    if (diff.inSeconds < 60) {
+      return '${diff.inSeconds}s trước';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}p trước';
+    } else {
+      return '${diff.inHours}h trước';
+    }
+  }
+}
+
 // ─────────────────────────────────────────
 // Tự động hóa & Lịch tưới Models (CF2 / CF3)
 // ─────────────────────────────────────────
@@ -832,6 +1160,204 @@ class HoneycombTopologySimulation {
   }
 }
 
+class ZoneCostSimulation {
+  final double areaM2;
+  final String cropName;
+  final int estimatedPlants;
+  final double plantsPerM2;
+
+  // Thiết bị phần cứng
+  final List<ZoneEquipmentItem> equipmentItems;
+  final double totalEquipmentCostVND;
+
+  // Mô hình mạng tổ ong (Lục giác) chuẩn FE
+  final HoneycombTopologySimulation honeycomb;
+
+  // Dự toán vận hành mùa vụ (BR-ELEC-01: 2,587 VND/kWh, nước 10,000 VND/m3)
+  final double dailyWaterLiters;
+  final double monthlyWaterCostVND;
+  final double dailyElectricityKwh;
+  final double monthlyElectricityCostVND;
+  final double estimatedLaborCostMonthlyVND;
+
+  double get monthlyOperatingCostVND =>
+      monthlyWaterCostVND + monthlyElectricityCostVND + estimatedLaborCostMonthlyVND;
+
+  const ZoneCostSimulation({
+    required this.areaM2,
+    required this.cropName,
+    required this.estimatedPlants,
+    required this.plantsPerM2,
+    required this.equipmentItems,
+    required this.totalEquipmentCostVND,
+    this.honeycomb = const HoneycombTopologySimulation.empty(),
+    required this.dailyWaterLiters,
+    required this.monthlyWaterCostVND,
+    required this.dailyElectricityKwh,
+    required this.monthlyElectricityCostVND,
+    required this.estimatedLaborCostMonthlyVND,
+  });
+
+  ZoneCostSimulation copyWithCustomItems({
+    required List<ZoneEquipmentItem> updatedItems,
+  }) {
+    double totalEquip = 0;
+    for (final it in updatedItems) {
+      totalEquip += it.totalPriceVND;
+    }
+    return ZoneCostSimulation(
+      areaM2: areaM2,
+      cropName: cropName,
+      estimatedPlants: estimatedPlants,
+      plantsPerM2: plantsPerM2,
+      equipmentItems: updatedItems,
+      totalEquipmentCostVND: totalEquip,
+      honeycomb: honeycomb,
+      dailyWaterLiters: dailyWaterLiters,
+      monthlyWaterCostVND: monthlyWaterCostVND,
+      dailyElectricityKwh: dailyElectricityKwh,
+      monthlyElectricityCostVND: monthlyElectricityCostVND,
+      estimatedLaborCostMonthlyVND: estimatedLaborCostMonthlyVND,
+    );
+  }
+
+  /// Factory tính toán mô phỏng động dựa trên diện tích (areaM2) và loại cây trồng
+  factory ZoneCostSimulation.calculate({
+    required double areaM2,
+    required String cropName,
+  }) {
+    // 1. Mật độ cây trồng theo chuẩn VietGAP
+    double density = 3.5; // mặc định cà chua / ớt
+    if (cropName.contains('Dâu')) {
+      density = 6.0;
+    } else if (cropName.contains('Xà lách') || cropName.contains('Cải')) {
+      density = 16.0;
+    } else if (cropName.contains('Dưa')) {
+      density = 2.8;
+    }
+    final int plantCount = (areaM2 * density).round();
+
+    // 2. Định mức phần cứng IoT theo diện tích
+    // Cứ mỗi 1,500 m2 cần 1 LoRa Sensor Node (Độ ẩm đất đa tầng, Temp, Humi, Lux)
+    final int sensorNodes = (areaM2 / 1500).ceil().clamp(1, 20);
+
+    // Cứ mỗi 2,500 m2 cần 1 Bơm tưới áp lực (1.5HP - 2HP)
+    final int pumpCount = (areaM2 / 2500).ceil().clamp(1, 10);
+
+    // Van điện từ Solenoid phân khu tưới (mỗi 800 - 1,000 m2 cần 1 van độc lập)
+    final int valveCount = (areaM2 / 800).ceil().clamp(2, 30);
+
+    // Quạt thông gió đối lưu (1 quạt / 500 m2)
+    final int fanCount = (areaM2 / 500).ceil().clamp(2, 40);
+
+    // Đường ống tưới nhỏ giọt / bù áp (m mét dài ~ 2.5m ống / m2)
+    final int dripPipeMeters = (areaM2 * 2.5).round();
+
+    // Đầu bù áp nhỏ giọt (tương đương số cây + 10% dự phòng)
+    final int drippers = (plantCount * 1.1).round();
+
+    final items = <ZoneEquipmentItem>[
+      ZoneEquipmentItem(
+        name: 'Trạm LoRa Sensor Node 4-trong-1',
+        category: 'SENSOR',
+        quantity: sensorNodes,
+        unit: 'Bộ',
+        unitPriceVND: 2450000,
+        description: 'Đo ẩm đất 3 độ sâu, nhiệt ẩm không khí, quang kỳ PAR ($sensorNodes bộ cho ${areaM2.toInt()}m²)',
+      ),
+      ZoneEquipmentItem(
+        name: 'Máy bơm tưới tăng áp tự động 1.5HP',
+        category: 'ACTUATOR',
+        quantity: pumpCount,
+        unit: 'Chiếc',
+        unitPriceVND: 3800000,
+        description: 'Lưu lượng 12-15 m³/h, tích hợp khởi động mềm và rơle bảo vệ quá tải',
+      ),
+      ZoneEquipmentItem(
+        name: 'Van điện từ Solenoid DC 24V',
+        category: 'ACTUATOR',
+        quantity: valveCount,
+        unit: 'Chiếc',
+        unitPriceVND: 420000,
+        description: 'Chia phân khu tưới luân phiên chống tụt áp đường ống chính',
+      ),
+      ZoneEquipmentItem(
+        name: 'Quạt thông gió đối lưu nhà màng',
+        category: 'ACTUATOR',
+        quantity: fanCount,
+        unit: 'Chiếc',
+        unitPriceVND: 1650000,
+        description: 'Công suất 350W, điều hòa vi khí hậu giảm nấm bệnh VietGAP',
+      ),
+      ZoneEquipmentItem(
+        name: 'Ống tưới PE 16mm & dây tưới nhỏ giọt',
+        category: 'IRRIGATION',
+        quantity: dripPipeMeters,
+        unit: 'Mét',
+        unitPriceVND: 5500,
+        description: 'Độ bền chống tia UV trên 5 năm ngoài trời',
+      ),
+      ZoneEquipmentItem(
+        name: 'Đầu nhỏ giọt bù áp chống rò 2L/h',
+        category: 'IRRIGATION',
+        quantity: drippers,
+        unit: 'Cái',
+        unitPriceVND: 2200,
+        description: 'Cấp chính xác lượng dinh dưỡng đều nhau cho từng gốc cây',
+      ),
+      const ZoneEquipmentItem(
+        name: 'Tủ điều khiển IoT Actuator Driver Box',
+        category: 'NETWORK',
+        quantity: 1,
+        unit: 'Tủ',
+        unitPriceVND: 4500000,
+        description: 'Vỏ chống nước IP66, chống sét lan truyền, kết nối LoRa/RS485 Modbus',
+      ),
+    ];
+
+    double totalEquip = 0;
+    for (final it in items) {
+      totalEquip += it.totalPriceVND;
+    }
+
+    // 3. Ước tính vận hành (Nước, Điện, Nhân công)
+    // Nước: trung bình 3.5 - 4 lít / m2 / ngày
+    final dailyWater = areaM2 * 3.8;
+    // Giá nước thủy lợi / giếng khoan xử lý: 10,000 đ / m3 (10 đ / lít)
+    final monthlyWaterCost = (dailyWater * 30 / 1000) * 10000;
+
+    // Điện: Máy bơm + Quạt chạy trung bình 2h/ngày
+    // Công suất bơm (pumpCount * 1.1kW) + quạt (fanCount * 0.35kW * 0.5 thời gian)
+    final double totalWatt = (pumpCount * 1100.0) + (fanCount * 350.0 * 0.4);
+    final double dailyKwh = (totalWatt * 2.5) / 1000.0;
+    // BR-ELEC-01: 2,587 VND/kWh (nông nghiệp)
+    final double monthlyElecCost = dailyKwh * 30 * 2587.0;
+
+    // Nhân công: 1 công nhân phụ trách trung bình 2,500 m2 (~7,500,000 đ/tháng)
+    final double laborCost = (areaM2 / 2500.0) * 7500000.0;
+
+    final honeycomb = HoneycombTopologySimulation.calculate(
+      areaM2: areaM2,
+      cropName: cropName,
+    );
+
+    return ZoneCostSimulation(
+      areaM2: areaM2,
+      cropName: cropName,
+      estimatedPlants: plantCount,
+      plantsPerM2: density,
+      equipmentItems: items,
+      totalEquipmentCostVND: totalEquip,
+      honeycomb: honeycomb,
+      dailyWaterLiters: dailyWater,
+      monthlyWaterCostVND: monthlyWaterCost,
+      dailyElectricityKwh: dailyKwh,
+      monthlyElectricityCostVND: monthlyElecCost,
+      estimatedLaborCostMonthlyVND: laborCost,
+    );
+  }
+}
+
 // ─────────────────────────────────────────
 // Yêu cầu Kiểm tra Thực địa (Gửi Admin Duyệt & Điều Kỹ thuật viên)
 // ─────────────────────────────────────────
@@ -1103,6 +1629,327 @@ class AppNotificationModel {
       targetUrl: json['targetUrl']?.toString(),
       referenceId: json['referenceId']?.toString(),
       createdAt: json['createdAtUtc']?.toString() ?? 'Vừa xong',
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Quản lý Hợp Đồng Thuê Vùng Trồng (Zone Contracts)
+// ─────────────────────────────────────────
+
+class ZoneContractRenewalModel {
+  final String id;
+  final String contractId;
+  final String newEndDate;
+  final double? newMonthlyRentVnd;
+  final double renewalValueVnd;
+  final String? notes;
+  final String createdAt;
+
+  const ZoneContractRenewalModel({
+    required this.id,
+    required this.contractId,
+    required this.newEndDate,
+    this.newMonthlyRentVnd,
+    required this.renewalValueVnd,
+    this.notes,
+    required this.createdAt,
+  });
+
+  factory ZoneContractRenewalModel.fromJson(Map<String, dynamic> json) {
+    return ZoneContractRenewalModel(
+      id: json['id']?.toString() ?? '',
+      contractId: json['contractId']?.toString() ?? '',
+      newEndDate: json['newEndDate']?.toString() ?? '',
+      newMonthlyRentVnd: (json['newMonthlyRentVnd'] as num?)?.toDouble(),
+      renewalValueVnd: (json['renewalValueVnd'] as num?)?.toDouble() ?? 0.0,
+      notes: json['notes']?.toString(),
+      createdAt: json['createdAtUtc']?.toString() ?? '',
+    );
+  }
+}
+
+class ZoneContractModel {
+  final String id;
+  final String tenantId;
+  final String farmId;
+  final String farmName;
+  final String zoneId;
+  final String zoneName;
+  final String? parentContractId;
+  final String? parentContractNumber;
+  final String contractNumber;
+  final String? cropType;
+  final double monthlyRentVnd;
+  final double depositVnd;
+  final double totalContractValueVnd;
+  final String startDate;
+  final String endDate;
+  final String status; // 'Active', 'Expired', 'Renewed', 'Terminated'
+  final String statusText;
+  final int daysRemaining;
+  final String lesseeName;
+  final String? lesseePhone;
+  final String? lesseeIdentityNumber;
+  final String? lesseeAddress;
+  final String? specialTerms;
+  final String? notes;
+  final String? signedAtUtc;
+  final List<ZoneContractRenewalModel> renewals;
+  final String createdAt;
+
+  const ZoneContractModel({
+    required this.id,
+    required this.tenantId,
+    required this.farmId,
+    required this.farmName,
+    required this.zoneId,
+    required this.zoneName,
+    this.parentContractId,
+    this.parentContractNumber,
+    required this.contractNumber,
+    this.cropType,
+    required this.monthlyRentVnd,
+    required this.depositVnd,
+    required this.totalContractValueVnd,
+    required this.startDate,
+    required this.endDate,
+    required this.status,
+    required this.statusText,
+    required this.daysRemaining,
+    required this.lesseeName,
+    this.lesseePhone,
+    this.lesseeIdentityNumber,
+    this.lesseeAddress,
+    this.specialTerms,
+    this.notes,
+    this.signedAtUtc,
+    this.renewals = const [],
+    required this.createdAt,
+  });
+
+  bool get isActive => status.toLowerCase() == 'active' || status == '0';
+  bool get isExpiringSoon => daysRemaining >= 0 && daysRemaining <= 30;
+
+  factory ZoneContractModel.fromJson(Map<String, dynamic> json) {
+    var rawRenewals = json['renewals'];
+    List<ZoneContractRenewalModel> parsedRenewals = [];
+    if (rawRenewals is List) {
+      parsedRenewals = rawRenewals
+          .map((r) => ZoneContractRenewalModel.fromJson(r as Map<String, dynamic>))
+          .toList();
+    }
+
+    final rawStatus = json['status']?.toString() ?? 'Active';
+    String displayStatus = rawStatus;
+    if (rawStatus == '0' || rawStatus.toLowerCase() == 'active') {
+      displayStatus = 'Active';
+    } else if (rawStatus == '1' || rawStatus.toLowerCase() == 'expired') {
+      displayStatus = 'Expired';
+    } else if (rawStatus == '2' || rawStatus.toLowerCase() == 'renewed') {
+      displayStatus = 'Renewed';
+    } else if (rawStatus == '3' || rawStatus.toLowerCase() == 'terminated') {
+      displayStatus = 'Terminated';
+    }
+
+    return ZoneContractModel(
+      id: json['id']?.toString() ?? '',
+      tenantId: json['tenantId']?.toString() ?? '',
+      farmId: json['farmId']?.toString() ?? '',
+      farmName: json['farmName']?.toString() ?? 'Nông trại',
+      zoneId: json['zoneId']?.toString() ?? '',
+      zoneName: json['zoneName']?.toString() ?? 'Vùng trồng',
+      parentContractId: json['parentContractId']?.toString(),
+      parentContractNumber: json['parentContractNumber']?.toString(),
+      contractNumber: json['contractNumber']?.toString() ?? 'HD-000',
+      cropType: json['cropType']?.toString(),
+      monthlyRentVnd: (json['monthlyRentVnd'] as num?)?.toDouble() ?? 0.0,
+      depositVnd: (json['depositVnd'] as num?)?.toDouble() ?? 0.0,
+      totalContractValueVnd: (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
+      startDate: json['startDate']?.toString() ?? '',
+      endDate: json['endDate']?.toString() ?? '',
+      status: displayStatus,
+      statusText: json['statusText']?.toString() ?? (displayStatus == 'Active' ? 'Đang hiệu lực' : displayStatus),
+      daysRemaining: (json['daysRemaining'] as num?)?.toInt() ?? 0,
+      lesseeName: json['lesseeName']?.toString() ?? 'Bên thuê',
+      lesseePhone: json['lesseePhone']?.toString(),
+      lesseeIdentityNumber: json['lesseeIdentityNumber']?.toString(),
+      lesseeAddress: json['lesseeAddress']?.toString(),
+      specialTerms: json['specialTerms']?.toString(),
+      notes: json['notes']?.toString(),
+      signedAtUtc: json['signedAtUtc']?.toString(),
+      renewals: parsedRenewals,
+      createdAt: json['createdAtUtc']?.toString() ?? '',
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Khấu Hao Thiết Bị (Device Depreciation)
+// ─────────────────────────────────────────
+
+class DeviceDepreciationModel {
+  final String id;
+  final String zoneId;
+  final String zoneName;
+  final String deviceId;
+  final String deviceName;
+  final String hardwareAddress;
+  final String deviceType;
+  final double originalCostVnd;
+  final double monthlyDepreciationVnd;
+  final double accumulatedDepreciationVnd;
+  final double currentBookValueVnd;
+  final int depreciationLifetimeMonths;
+  final int monthsElapsed;
+  final int remainingMonths;
+  final String method;
+  final String startDate;
+  final String depreciationStatus; // 'Active', 'ExpiringSoon', 'FullyDepreciated'
+  final bool isNearContractRenewal;
+  final String? notes;
+  final String createdAt;
+
+  const DeviceDepreciationModel({
+    required this.id,
+    required this.zoneId,
+    required this.zoneName,
+    required this.deviceId,
+    required this.deviceName,
+    required this.hardwareAddress,
+    required this.deviceType,
+    required this.originalCostVnd,
+    required this.monthlyDepreciationVnd,
+    required this.accumulatedDepreciationVnd,
+    required this.currentBookValueVnd,
+    required this.depreciationLifetimeMonths,
+    required this.monthsElapsed,
+    required this.remainingMonths,
+    required this.method,
+    required this.startDate,
+    required this.depreciationStatus,
+    required this.isNearContractRenewal,
+    this.notes,
+    required this.createdAt,
+  });
+
+  double get progressPercentage {
+    if (depreciationLifetimeMonths <= 0) return 1.0;
+    final p = monthsElapsed / depreciationLifetimeMonths;
+    return p.clamp(0.0, 1.0);
+  }
+
+  factory DeviceDepreciationModel.fromJson(Map<String, dynamic> json) {
+    return DeviceDepreciationModel(
+      id: json['id']?.toString() ?? '',
+      zoneId: json['zoneId']?.toString() ?? '',
+      zoneName: json['zoneName']?.toString() ?? 'Khu vực',
+      deviceId: json['deviceId']?.toString() ?? '',
+      deviceName: json['deviceName']?.toString() ?? 'Thiết bị IoT',
+      hardwareAddress: json['hardwareAddress']?.toString() ?? '',
+      deviceType: json['deviceType']?.toString() ?? 'Node',
+      originalCostVnd: (json['originalCostVnd'] as num?)?.toDouble() ?? 0.0,
+      monthlyDepreciationVnd: (json['monthlyDepreciationVnd'] as num?)?.toDouble() ?? 0.0,
+      accumulatedDepreciationVnd: (json['accumulatedDepreciationVnd'] as num?)?.toDouble() ?? 0.0,
+      currentBookValueVnd: (json['currentBookValueVnd'] as num?)?.toDouble() ?? 0.0,
+      depreciationLifetimeMonths: (json['depreciationLifetimeMonths'] as num?)?.toInt() ?? 24,
+      monthsElapsed: (json['monthsElapsed'] as num?)?.toInt() ?? 0,
+      remainingMonths: (json['remainingMonths'] as num?)?.toInt() ?? 0,
+      method: json['method']?.toString() ?? 'STRAIGHT_LINE',
+      startDate: json['startDate']?.toString() ?? '',
+      depreciationStatus: json['depreciationStatus']?.toString() ?? 'Active',
+      isNearContractRenewal: json['isNearContractRenewal'] == true,
+      notes: json['notes']?.toString(),
+      createdAt: json['createdAtUtc']?.toString() ?? '',
+    );
+  }
+}
+
+class ExpiringContractAlertModel {
+  final String contractId;
+  final String contractNumber;
+  final String farmId;
+  final String farmName;
+  final String zoneId;
+  final String zoneName;
+  final String? cropType;
+  final String endDate;
+  final int daysRemaining;
+  final String status;
+  final double totalContractValueVnd;
+
+  const ExpiringContractAlertModel({
+    required this.contractId,
+    required this.contractNumber,
+    required this.farmId,
+    required this.farmName,
+    required this.zoneId,
+    required this.zoneName,
+    this.cropType,
+    required this.endDate,
+    required this.daysRemaining,
+    required this.status,
+    required this.totalContractValueVnd,
+  });
+
+  factory ExpiringContractAlertModel.fromJson(Map<String, dynamic> json) {
+    return ExpiringContractAlertModel(
+      contractId: json['contractId']?.toString() ?? '',
+      contractNumber: json['contractNumber']?.toString() ?? '',
+      farmId: json['farmId']?.toString() ?? '',
+      farmName: json['farmName']?.toString() ?? '',
+      zoneId: json['zoneId']?.toString() ?? '',
+      zoneName: json['zoneName']?.toString() ?? '',
+      cropType: json['cropType']?.toString(),
+      endDate: json['endDate']?.toString() ?? '',
+      daysRemaining: (json['daysRemaining'] as num?)?.toInt() ?? 0,
+      status: json['status']?.toString() ?? 'Active',
+      totalContractValueVnd: (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Khung Mùa Vụ Canh Tác (Farming Season)
+// ─────────────────────────────────────────
+
+class FarmingSeasonModel {
+  final String id;
+  final String code;
+  final String name;
+  final int year;
+  final String startDate;
+  final String endDate;
+  final String? description;
+  final String status; // 'Active', 'Completed', 'Upcoming'
+  final bool isActive;
+  final int plantingSeasonsCount;
+
+  const FarmingSeasonModel({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.year,
+    required this.startDate,
+    required this.endDate,
+    this.description,
+    this.status = 'Active',
+    this.isActive = true,
+    this.plantingSeasonsCount = 0,
+  });
+
+  factory FarmingSeasonModel.fromJson(Map<String, dynamic> json) {
+    return FarmingSeasonModel(
+      id: json['id']?.toString() ?? '',
+      code: json['code']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Vụ mùa canh tác',
+      year: (json['year'] as num?)?.toInt() ?? 2026,
+      startDate: json['startDate']?.toString() ?? '',
+      endDate: json['endDate']?.toString() ?? '',
+      description: json['description']?.toString(),
+      status: json['status']?.toString() ?? 'Active',
+      isActive: json['isActive'] != false,
+      plantingSeasonsCount: (json['plantingSeasonsCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

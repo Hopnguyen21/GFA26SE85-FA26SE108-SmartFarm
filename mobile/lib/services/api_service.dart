@@ -139,6 +139,24 @@ class ApiService {
     return resp;
   }
 
+  static Future<http.Response?> _deleteWithAuth(
+    String url, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    var resp = await _client
+        .delete(Uri.parse(url), headers: _headers)
+        .timeout(timeout);
+    if (resp.statusCode == 401) {
+      final ok = await refreshToken();
+      if (ok) {
+        resp = await _client
+            .delete(Uri.parse(url), headers: _headers)
+            .timeout(timeout);
+      }
+    }
+    return resp;
+  }
+
   static Future<http.Response?> _putWithAuth(
     String url,
     Map<String, dynamic> body, {
@@ -276,6 +294,252 @@ class ApiService {
     return resp.body.isEmpty ? null : jsonDecode(resp.body);
   }
 
+  static Future<IotRequirements> getIotRequirements(String zoneId) async =>
+      IotRequirements.fromJson(
+        _decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/zones/$zoneId/iot-requirements')) as Map<String, dynamic>,
+      );
+
+  static Future<List<DeviceRecommendation>> getDeviceRecommendations(String zoneId) async {
+    final data = _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/device-recommendations', {}));
+    return (data as List).map((e) => DeviceRecommendation.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Yêu cầu triển khai của Tenant trong JWT (lọc theo Zone nếu có); thay cho việc lưu mã trên máy.
+  static Future<List<DeploymentRequest>> getOwnerDeploymentRequests({String? zoneId}) async {
+    final query = zoneId == null ? '' : '?zoneId=$zoneId';
+    final data = _decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/deployment-requests$query'));
+    return (data as List).map((e) => DeploymentRequest.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<DeploymentRequest> createDeploymentRequest(String zoneId, List<PlanItem> items, {String? notes}) async =>
+      DeploymentRequest.fromJson(
+        _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/deployment-requests', {
+          'items': items.map((i) => i.toRequestJson()).toList(),
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        })) as Map<String, dynamic>,
+      );
+
+  static Future<DeploymentRequest> updateOwnerDeploymentPlan(String requestId, List<PlanItem> items) async =>
+      DeploymentRequest.fromJson(
+        _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/deployment-requests/$requestId/plan', {
+          'items': items.map((i) => i.toRequestJson()).toList(),
+        })) as Map<String, dynamic>,
+      );
+
+  static Future<DeploymentRequest> submitDeploymentRequest(String requestId) async =>
+      DeploymentRequest.fromJson(
+        _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/deployment-requests/$requestId/submit', {})) as Map<String, dynamic>,
+      );
+
+  /// Owner đọc theo `/deployment-requests/{id}`, kỹ thuật viên theo `/platform/deployment-requests/{id}`.
+  static Future<DeploymentRequest> getDeploymentRequest(String requestId, {required bool technician}) async =>
+      DeploymentRequest.fromJson(
+        _decodeOrThrow(await _getWithAuth(
+          technician
+              ? '$baseUrl/api/v1/platform/deployment-requests/$requestId'
+              : '$baseUrl/api/v1/deployment-requests/$requestId',
+        )) as Map<String, dynamic>,
+      );
+
+  static Future<List<DeploymentRequest>> getTechnicianDeploymentRequests() async {
+    final data = _decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/platform/deployment-requests'));
+    return (data as List).map((e) => DeploymentRequest.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<DeploymentRequest> _technicianPost(String requestId, String action, [Map<String, dynamic> body = const {}]) async =>
+      DeploymentRequest.fromJson(
+        _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/platform/deployment-requests/$requestId/$action', body))
+            as Map<String, dynamic>,
+      );
+
+  static Future<DeploymentRequest> acceptDeploymentRequest(String id) => _technicianPost(id, 'accept');
+
+  static Future<DeploymentRequest> surveyDeploymentRequest(
+    String id, {
+    required bool isFeasible,
+    required String siteConditions,
+    required String notes,
+  }) => _technicianPost(id, 'survey', {'isFeasible': isFeasible, 'siteConditions': siteConditions, 'notes': notes});
+
+  static Future<DeploymentRequest> updateTechnicianDeploymentPlan(String id, List<PlanItem> items) async =>
+      DeploymentRequest.fromJson(
+        _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/platform/deployment-requests/$id/plan', {
+          'items': items.map((i) => i.toRequestJson()).toList(),
+        })) as Map<String, dynamic>,
+      );
+
+  static Future<DeploymentRequest> confirmDeploymentPlan(String id) => _technicianPost(id, 'confirm');
+
+  static Future<DeploymentRequest> startDeploymentInstallation(String id) => _technicianPost(id, 'installation/start');
+
+  static Future<DeploymentRequest> completeDeploymentRequest(String id) => _technicianPost(id, 'complete');
+
+  /// Trả về mã service request bảo trì mà backend tạo khi triển khai thất bại.
+  static Future<String> failDeploymentRequest(String id, {required String failureCode, required String description, String? deviceId}) async {
+    final data = _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/platform/deployment-requests/$id/fail', {
+      'failureCode': failureCode,
+      'description': description,
+      if (deviceId != null) 'deviceId': deviceId,
+    })) as Map<String, dynamic>;
+    return '${data['serviceRequestId']}';
+  }
+
+  /// Ghi kết quả kiểm tra kết nối do kỹ thuật viên quan sát được; app không tự suy ra thành công.
+  static Future<ConnectionTest> recordConnectionTest(
+    String requestId, {
+    required String deviceId,
+    required bool succeeded,
+    double? rssi,
+    double? snr,
+    int? latencyMs,
+    String? errorCode,
+    String? errorMessage,
+  }) async => ConnectionTest.fromJson(
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/platform/deployment-requests/$requestId/connection-tests', {
+      'deviceId': deviceId,
+      'succeeded': succeeded,
+      if (rssi != null) 'rssi': rssi,
+      if (snr != null) 'snr': snr,
+      if (latencyMs != null) 'roundTripLatencyMs': latencyMs,
+      'observedAtUtc': DateTime.now().toUtc().toIso8601String(),
+      if (errorCode != null && errorCode.isNotEmpty) 'errorCode': errorCode,
+      if (errorMessage != null && errorMessage.isNotEmpty) 'errorMessage': errorMessage,
+    })) as Map<String, dynamic>,
+  );
+
+  static Future<List<IotGateway>> getFarmGateways(String farmId) async {
+    final data = _decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farms/$farmId/gateways'));
+    return (data as List).map((e) => IotGateway.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<List<IotDevice>> getFarmDevices(String farmId) async {
+    final data = _decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farms/$farmId/devices'));
+    return (data as List).map((e) => IotDevice.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<IotGateway> provisionGateway({
+    required String deploymentRequestId,
+    required String farmId,
+    required String macAddress,
+    required String gatewaySerial,
+    required String frequencyBand,
+    required String firmwareVersion,
+    required String mqttClientId,
+    required String clientCertificateFingerprint,
+  }) async => IotGateway.fromJson(
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/gateways', {
+      'deploymentRequestId': deploymentRequestId,
+      'farmId': farmId,
+      'macAddress': macAddress,
+      'gatewaySerial': gatewaySerial,
+      'frequencyBand': frequencyBand,
+      'firmwareVersion': firmwareVersion,
+      'mqttClientId': mqttClientId,
+      'clientCertificateFingerprint': clientCertificateFingerprint,
+    })) as Map<String, dynamic>,
+  );
+
+  static Future<List<IotDevice>> provisionDevices({
+    required String deploymentRequestId,
+    required String gatewayId,
+    required String farmId,
+    required List<Map<String, dynamic>> nodes,
+  }) async {
+    final data = _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/devices/provision', {
+      'deploymentRequestId': deploymentRequestId,
+      'gatewayId': gatewayId,
+      'farmId': farmId,
+      'nodes': nodes,
+    })) as Map<String, dynamic>;
+    return (data['devices'] as List? ?? const []).map((e) => IotDevice.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<IotDevice> assignDeviceToZone(String zoneId, String deviceId, {String? installationNotes}) async =>
+      IotDevice.fromJson(
+        _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/devices/$deviceId/assign', {
+          if (installationNotes != null && installationNotes.trim().isNotEmpty) 'installationNotes': installationNotes.trim(),
+        })) as Map<String, dynamic>,
+      );
+
+  // ─── Báo giá & hợp đồng lắp đặt (service request) ───────────────────
+  static Future<Quotation?> getQuotation(String serviceRequestId) async {
+    final resp = await _getWithAuth('$baseUrl/api/v1/service-requests/$serviceRequestId/quotation');
+    if (resp != null && resp.statusCode == 200 && resp.body.isNotEmpty && resp.body != 'null') {
+      return Quotation.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    }
+    if (resp != null && (resp.statusCode == 204 || resp.statusCode == 404)) return null;
+    throw Exception(_apiErrorMessage(resp));
+  }
+
+  static Future<Quotation> createQuotation(
+    String serviceRequestId, {
+    required List<Map<String, dynamic>> items,
+    String? notes,
+    String? contractTerms,
+  }) async => Quotation.fromJson(
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/service-requests/$serviceRequestId/quotation', {
+      'items': items,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+      if (contractTerms != null && contractTerms.isNotEmpty) 'contractTerms': contractTerms,
+    })) as Map<String, dynamic>,
+  );
+
+  /// Backend chỉ ghi nhận khoản thanh toán do người ký khai báo (chưa có cổng thanh toán);
+  /// tên người ký và mã giao dịch do người dùng nhập, không tự sinh.
+  static Future<ServicePayment> signContractAndPayDeposit(
+    String serviceRequestId, {
+    required String signerFullName,
+    required String paymentMethod,
+    required String transactionReference,
+  }) async => ServicePayment.fromJson(
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/service-requests/$serviceRequestId/sign-contract-deposit', {
+      'signerFullName': signerFullName,
+      'paymentMethod': paymentMethod,
+      'transactionReference': transactionReference,
+    })) as Map<String, dynamic>,
+  );
+
+  static Future<ServicePayment> signAcceptanceAndPayFinal(
+    String serviceRequestId, {
+    required String signerFullName,
+    required String paymentMethod,
+    required String transactionReference,
+  }) async => ServicePayment.fromJson(
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/service-requests/$serviceRequestId/sign-acceptance-final', {
+      'signerFullName': signerFullName,
+      'paymentMethod': paymentMethod,
+      'transactionReference': transactionReference,
+    })) as Map<String, dynamic>,
+  );
+
+  // ─── Service requests (Hỗ trợ kỹ thuật) ─────────────────────────────
+  static Future<List<Map<String, dynamic>>> getServiceRequests() async {
+    final resp = await _getWithAuth('$baseUrl/api/v1/service-requests');
+    if (resp == null || resp.statusCode != 200) {
+      throw Exception(_apiErrorMessage(resp));
+    }
+    return (jsonDecode(resp.body) as List).cast<Map<String, dynamic>>();
+  }
+
+  static Future<Map<String, dynamic>> createServiceRequest({
+    required String farmId,
+    required String zoneId,
+    required String failureCode,
+    required String description,
+    String? deploymentRequestId,
+  }) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/farms/$farmId/service-requests', {
+      'zoneId': zoneId,
+      'failureCode': failureCode,
+      'description': description,
+      if (deploymentRequestId != null) 'deploymentRequestId': deploymentRequestId,
+    });
+    if (resp == null || (resp.statusCode != 201 && resp.statusCode != 200)) {
+      throw Exception(_apiErrorMessage(resp));
+    }
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   // ─── 2. Farms ────────────────────────────────────────────────────────
   static Future<List<FarmModel>> getFarms() async {
     try {
@@ -382,6 +646,34 @@ class ApiService {
     return [];
   }
 
+  // ─── 6.6. Telemetry History (Database backed) ────────────────────────
+  static Future<List<Map<String, dynamic>>> getTelemetryHistory({
+    required String zoneId,
+    required String parameterCode,
+    DateTime? fromUtc,
+    DateTime? toUtc,
+    String interval = '1h',
+  }) async {
+    try {
+      final from =
+          (fromUtc ??
+                  DateTime.now().toUtc().subtract(const Duration(hours: 24)))
+              .toIso8601String();
+      final to = (toUtc ?? DateTime.now().toUtc()).toIso8601String();
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/telemetry/history?parameterCode=$parameterCode&fromUtc=$from&toUtc=$to&interval=$interval',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final decoded = jsonDecode(resp.body);
+        final list = decoded['data'] as List<dynamic>?;
+        if (list != null) {
+          return list.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // ─── 7. Farmers (Users) ──────────────────────────────────────────────
   static Future<List<FarmerModel>> getFarmers() async {
     try {
@@ -418,6 +710,12 @@ class ApiService {
     return [];
   }
 
+  /// Giao việc cho các Farmer đã có quyền Zone; lỗi nghiệp vụ được báo nguyên văn từ backend.
+  static Future<TaskModel> createTask(String farmId, Map<String, dynamic> data) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/farms/$farmId/tasks', data);
+    return TaskModel.fromJson(_decodeOrThrow(resp) as Map<String, dynamic>);
+  }
+
   /// Một thao tác trên công việc: Accept, Decline, Start, UpdateProgress, Complete, Fail, Approve.
   static Future<TaskModel> updateTaskAction(String farmId, String taskId, Map<String, dynamic> body) async {
     final resp = await _putWithAuth('$baseUrl/api/v1/farms/$farmId/tasks/$taskId', body);
@@ -430,19 +728,127 @@ class ApiService {
     return [for (final m in _asMapList(data)) MaterialInventoryModel.fromJson(m)];
   }
 
+  static Future<void> createInventoryItem(String farmId, Map<String, dynamic> body) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farms/$farmId/inventory', body));
+  }
+
+  static Future<void> receiveInventory(String farmId, String itemId, double quantity) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farms/$farmId/inventory/$itemId/receipts', {'quantity': quantity}));
+  }
+
+  static Future<void> issueInventory(String farmId, String itemId, double quantity, String zoneId) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farms/$farmId/inventory/issues', {
+      'inventoryItemId': itemId,
+      'quantity': quantity,
+      'zoneId': zoneId,
+    }));
+  }
+
   // ─── AutoRule & ngưỡng môi trường ────────
   static Future<List<Map<String, dynamic>>> getAutoRules(String zoneId) async =>
       _asMapList(_decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/zones/$zoneId/rules')));
+
+  static Future<void> createAutoRule(String zoneId, Map<String, dynamic> body) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/rules', body));
+  }
+
+  static Future<void> updateAutoRule(String zoneId, String ruleId, Map<String, dynamic> body) async {
+    _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/zones/$zoneId/rules/$ruleId', body));
+  }
 
   // ─── Lời mời & quyền Zone của nhân công ──────────
   static List<Map<String, dynamic>> _asMapList(dynamic data) => [
     for (final item in (data as List? ?? const [])) Map<String, dynamic>.from(item as Map),
   ];
 
+  static Future<List<Map<String, dynamic>>> getMyInvitations() async =>
+      _asMapList(_decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farm-invitations/mine')));
+
+  static Future<void> respondInvitation(String id, bool accept) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farm-invitations/$id/${accept ? 'accept' : 'decline'}', {}));
+  }
+
+  static Future<List<Map<String, dynamic>>> getFarmInvitations(String farmId) async =>
+      _asMapList(_decodeOrThrow(await _getWithAuth('$baseUrl/api/v1/farms/$farmId/invitations')));
+
+  static Future<void> inviteFarmer(String farmId, String email) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farms/$farmId/invitations', {'email': email}));
+  }
+
+  /// action: resend hoặc cancel.
+  static Future<void> invitationAction(String id, String action) async {
+    _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/farm-invitations/$id/$action', {}));
+  }
+
+  static Future<void> updateFarmerZoneAccess(String farmerId, List<Map<String, dynamic>> access) async {
+    _decodeOrThrow(await _putWithAuth('$baseUrl/api/v1/users/$farmerId/zone-access', {'access': access}));
+  }
+
   static Future<Map<String, dynamic>?> getMe() async {
     final resp = await _getWithAuth('$baseUrl/api/v1/users/me');
     if (resp == null || resp.statusCode != 200) return null;
     return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  // ─── 10. Actuator Command ─────────────────────────────────────────────
+  static Future<bool> sendActuatorCommand({
+    required String zoneId,
+    required String actuatorId,
+    required String action, // TurnOn, TurnOff
+    int durationSeconds = 600,
+  }) async {
+    try {
+      // Backend validates [Range(1, 1800)] DurationSeconds for both TurnOn and TurnOff
+      final safeDuration = durationSeconds <= 0
+          ? 1
+          : durationSeconds.clamp(1, 1800);
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/actuators/$actuatorId/command',
+        {
+          'action': action,
+          'durationSeconds': safeDuration,
+          'overrideActiveSchedules': true,
+          'idempotencyKey': 'mob_${DateTime.now().microsecondsSinceEpoch}',
+          'notes': 'Điều khiển từ SmartFarm Mobile App',
+        },
+      );
+      return resp != null && (resp.statusCode == 200 || resp.statusCode == 202);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── 11. Acknowledge Alert ─────────────────────────────────────────────
+  static Future<bool> acknowledgeAlert(String alertId, {String? notes}) async {
+    try {
+      final resp = await _putWithAuth(
+        '$baseUrl/api/v1/alerts/$alertId/acknowledge',
+        {'notes': notes ?? 'Đã xác nhận từ ứng dụng di động'},
+      );
+      return resp != null && resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── 12. AI Ask ────────────────────────────────────────────────────────
+  /// Gửi câu hỏi đến AI Advisory, trả về AiRecommendationModel (Timeout 60s cho LLM Gemini)
+  static Future<AiRecommendationModel?> askAi({
+    required String zoneId,
+    required String prompt,
+  }) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/ask',
+        {'question': prompt},
+        timeout: const Duration(seconds: 60),
+      );
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        final data = jsonDecode(resp.body);
+        return AiRecommendationModel.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ─── 12.5. AI Context ─────────────────────────────────────────────────
@@ -458,6 +864,126 @@ class ApiService {
       }
     } catch (_) {}
     return null;
+  }
+
+  // ─── 13. AI History ──────────────────────────────────────────────────
+  /// Lấy lịch sử hội thoại và khuyến nghị AI của một Zone
+  static Future<List<Map<String, dynamic>>> getAiHistory(String zoneId) async {
+    try {
+      final resp = await _getWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/history',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is Map<String, dynamic> && data['recommendations'] is List) {
+          return List<Map<String, dynamic>>.from(data['recommendations']);
+        } else if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  // ─── 14. Apply AI Recommendation ───────────────────────────────────────
+  /// Phê duyệt khuyến nghị AI → backend sẽ chạy safety check và kích hoạt lệnh
+  static Future<Map<String, dynamic>> applyAiRecommendation({
+    required String zoneId,
+    required String recommendationId,
+    String decision = 'Accepted',
+  }) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/apply-recommendation',
+        {'recommendationId': recommendationId, 'decision': decision},
+      );
+      if (resp == null)
+        return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+      if (resp.statusCode == 200 || resp.statusCode == 202) {
+        final body = jsonDecode(resp.body);
+        final command = body is Map<String, dynamic> ? body['command'] : null;
+        final commandStatus = command is Map<String, dynamic>
+            ? command['status']?.toString()
+            : null;
+        return {'success': true, 'commandStatus': commandStatus};
+      }
+      if (resp.statusCode == 409) {
+        try {
+          final body = jsonDecode(resp.body);
+          return {
+            'success': false,
+            'blocked': true,
+            'message':
+                body['message'] ??
+                body['detail'] ??
+                'Không đủ điều kiện an toàn',
+          };
+        } catch (_) {
+          return {
+            'success': false,
+            'blocked': true,
+            'message': 'Hệ thống từ chối: kiểm tra an toàn không đạt',
+          };
+        }
+      }
+      return {'success': false, 'message': 'Lỗi máy chủ (${resp.statusCode})'};
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi mạng: $e'};
+    }
+  }
+
+  // ─── 14.5. Clear AI History ───────────────────────────────────────────
+  /// Xóa lịch sử tư vấn AI hiển thị của một Zone (API catalog #88)
+  static Future<bool> clearAiHistory(String zoneId) async {
+    try {
+      final resp = await _deleteWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/ai/history',
+      );
+      return resp != null && (resp.statusCode == 200 || resp.statusCode == 204);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── 15. Toggle Schedule ───────────────────────────────────────────────
+  static Future<bool> toggleSchedule(
+    String scheduleId,
+    bool enable, {
+    String? zoneId,
+    String? name,
+    String? cronExpression,
+    int? durationSeconds,
+    bool enableRainDelay = true,
+    double rainThresholdPercent = 70.0,
+  }) async {
+    try {
+      if (zoneId != null && zoneId.isNotEmpty) {
+        final payload = {
+          'name': (name != null && name.isNotEmpty)
+              ? name
+              : 'Lịch tưới định kỳ',
+          'cronExpression':
+              (cronExpression != null && cronExpression.isNotEmpty)
+              ? cronExpression
+              : '0 6 * * *',
+          'durationSeconds': (durationSeconds != null && durationSeconds > 0)
+              ? durationSeconds
+              : 900,
+          'enableRainDelay': enableRainDelay,
+          'rainThresholdPercent': rainThresholdPercent,
+          'isActive': enable,
+        };
+        final resp = await _putWithAuth(
+          '$baseUrl/api/v1/zones/$zoneId/schedules/$scheduleId',
+          payload,
+        );
+        return resp != null &&
+            (resp.statusCode == 200 || resp.statusCode == 204);
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ─── 16. Notifications (Hệ thống Thông Báo) ────────────────────────────
@@ -489,6 +1015,272 @@ class ApiService {
     return [];
   }
 
+  /// Đánh dấu một thông báo đã đọc
+  static Future<bool> markNotificationAsRead(String notificationId) async {
+    try {
+      final resp = await _client
+          .put(
+            Uri.parse('$baseUrl/api/v1/notifications/$notificationId/read'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Đánh dấu tất cả thông báo đã đọc
+  static Future<bool> markAllNotificationsAsRead() async {
+    try {
+      final resp = await _client
+          .put(
+            Uri.parse('$baseUrl/api/v1/notifications/read-all'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Xóa một thông báo
+  static Future<bool> deleteNotification(String notificationId) async {
+    try {
+      final resp = await _client
+          .delete(
+            Uri.parse('$baseUrl/api/v1/notifications/$notificationId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      return resp.statusCode == 200 || resp.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Xóa tất cả thông báo đã đọc
+  static Future<int> deleteAllReadNotifications() async {
+    try {
+      final resp = await _client
+          .delete(
+            Uri.parse('$baseUrl/api/v1/notifications/read-all'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        return (data['deletedCount'] as num?)?.toInt() ?? 0;
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  // ─── 17. Zone Contracts (Quản lý Hợp đồng thuê Zone) ──────────────────
+  /// Lấy danh sách hợp đồng (có thể lọc theo farmId hoặc zoneId)
+  static Future<List<ZoneContractModel>> getZoneContracts({
+    String? farmId,
+    String? zoneId,
+  }) async {
+    try {
+      String url = '$baseUrl/api/v1/zone-contracts';
+      if (zoneId != null) {
+        url = '$baseUrl/api/v1/zones/$zoneId/contracts';
+      } else if (farmId != null) {
+        url = '$baseUrl/api/v1/farms/$farmId/zone-contracts';
+      }
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) =>
+                  ZoneContractModel.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Tạo hợp đồng mới cho Zone
+  static Future<ZoneContractModel?> createZoneContract(
+    String zoneId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/contracts',
+        data,
+      );
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        return ZoneContractModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Gia hạn hợp đồng
+  static Future<ZoneContractModel?> renewZoneContract(
+    String contractId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zone-contracts/$contractId/renew',
+        data,
+      );
+      if (resp != null && resp.statusCode == 200) {
+        return ZoneContractModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Cảnh báo hợp đồng sắp hết hạn (< 30 ngày)
+  static Future<List<ExpiringContractAlertModel>> getExpiringContracts({
+    String? farmId,
+    int daysThreshold = 30,
+  }) async {
+    try {
+      String url =
+          '$baseUrl/api/v1/zone-contracts/expiring?daysThreshold=$daysThreshold';
+      if (farmId != null) url += '&farmId=$farmId';
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) => ExpiringContractAlertModel.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  // ─── 18. Device Depreciations (Khấu hao thiết bị) ─────────────────────
+  /// Lấy danh sách khấu hao thiết bị theo Zone hoặc Farm
+  static Future<List<DeviceDepreciationModel>> getDeviceDepreciations({
+    String? zoneId,
+    String? farmId,
+  }) async {
+    try {
+      String url;
+      if (zoneId != null) {
+        url = '$baseUrl/api/v1/zones/$zoneId/depreciations';
+      } else if (farmId != null) {
+        url = '$baseUrl/api/v1/farms/$farmId/depreciations';
+      } else {
+        return [];
+      }
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) => DeviceDepreciationModel.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Tạo hồ sơ trích khấu hao thiết bị cho Zone
+  static Future<DeviceDepreciationModel?> createDeviceDepreciation(
+    String zoneId,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth(
+        '$baseUrl/api/v1/zones/$zoneId/depreciations',
+        data,
+      );
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        return DeviceDepreciationModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ─── 19. Farming Seasons (Khung Mùa Vụ Canh Tác) ──────────────────────
+  /// Lấy danh sách mùa vụ
+  static Future<List<FarmingSeasonModel>> getFarmingSeasons({
+    int? year,
+    String? status,
+  }) async {
+    try {
+      String query = '';
+      if (year != null) query += 'year=$year&';
+      if (status != null) query += 'status=$status&';
+      final url = '$baseUrl/api/v1/seasons${query.isNotEmpty ? '?$query' : ''}';
+      final resp = await _getWithAuth(url);
+      if (resp != null && resp.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(resp.body);
+        return list
+            .map(
+              (item) =>
+                  FarmingSeasonModel.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Tạo mới mùa vụ canh tác
+  static Future<FarmingSeasonModel?> createFarmingSeason(
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _postWithAuth('$baseUrl/api/v1/seasons', data);
+      if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
+        return FarmingSeasonModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Cập nhật mùa vụ canh tác
+  static Future<FarmingSeasonModel?> updateFarmingSeason(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final resp = await _putWithAuth('$baseUrl/api/v1/seasons/$id', data);
+      if (resp != null && resp.statusCode == 200) {
+        return FarmingSeasonModel.fromJson(
+          jsonDecode(resp.body) as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Xóa / Lưu trữ mùa vụ
+  static Future<bool> deleteFarmingSeason(String id) async {
+    try {
+      final resp = await _deleteWithAuth('$baseUrl/api/v1/seasons/$id');
+      return resp != null && (resp.statusCode == 200 || resp.statusCode == 204);
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─── VietGAP Knowledge Documents ──────────────────────────────────────────
   static String _apiErrorMessage(http.Response? response) {
     if (response == null) return 'Không nhận được phản hồi từ máy chủ.';
@@ -505,6 +1297,188 @@ class ApiService {
     return response.body.isEmpty
         ? 'HTTP ${response.statusCode}'
         : response.body;
+  }
+
+  static Future<List<AgricultureDocumentModel>>
+  getAgricultureDocuments() async {
+    final response = await _getWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents',
+      timeout: const Duration(seconds: 30),
+    );
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final decoded = jsonDecode(response.body);
+    final rawList = decoded is List
+        ? decoded
+        : (decoded is Map ? decoded['value'] : null);
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map(
+          (item) => AgricultureDocumentModel.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
+
+  static Future<AgricultureDocumentModel> getAgricultureDocument(
+    String id,
+  ) async {
+    final response = await _getWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents/$id',
+      timeout: const Duration(seconds: 30),
+    );
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return AgricultureDocumentModel.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Chỉ cần file; các trường mô tả để trống thì server tự lấy từ nội dung file.
+  static Future<AgricultureDocumentModel> uploadAgricultureDocument({
+    required String fileName,
+    required List<int> bytes,
+    String? title,
+    String category = 'general',
+    String? cropScope,
+    String? authorOrganization,
+    String? version,
+  }) async {
+    if (bytes.isEmpty) throw Exception('File rỗng.');
+    if (bytes.length > 50 * 1024 * 1024)
+      throw Exception('File vượt giới hạn 50 MB.');
+    Future<http.Response> send() async {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/v1/ai/knowledge/documents'),
+      );
+      if (_accessToken != null)
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      request.headers['Accept'] = 'application/json';
+      request.fields.addAll({
+        if (title != null && title.trim().isNotEmpty) 'Title': title.trim(),
+        'Category': category,
+        if (cropScope != null && cropScope.trim().isNotEmpty)
+          'CropScope': cropScope.trim(),
+        if (version != null && version.trim().isNotEmpty)
+          'Version': version.trim(),
+        if (authorOrganization != null && authorOrganization.trim().isNotEmpty)
+          'AuthorOrganization': authorOrganization.trim(),
+      });
+      request.files.add(
+        http.MultipartFile.fromBytes('File', bytes, filename: fileName),
+      );
+      final streamed = await _client.send(request).timeout(const Duration(minutes: 3));
+      return http.Response.fromStream(
+        streamed,
+      ).timeout(const Duration(minutes: 3));
+    }
+
+    var response = await send();
+    if (response.statusCode == 401 && await refreshToken())
+      response = await send();
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final id = (body['id'] ?? body['documentId'])?.toString();
+    if (id == null || id.isEmpty)
+      throw Exception('Máy chủ không trả về ID tài liệu.');
+    return getAgricultureDocument(id);
+  }
+
+  static Future<Map<String, dynamic>> reviewAgricultureDocument({
+    required String id,
+    required String contentText,
+    required bool approve,
+    String? reviewNotes,
+    // Chỉnh metadata sau khi đối chiếu file gốc; null = giữ giá trị hệ thống đã nhận diện.
+    String? title,
+    String? cropScope,
+    String? authorOrganization,
+    String? version,
+    String? documentType,
+    bool confirmGeneralScope = false,
+  }) async {
+    final response = await _postWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents/$id/review',
+      {
+        'contentText': contentText,
+        'approve': approve,
+        if (reviewNotes != null && reviewNotes.trim().isNotEmpty)
+          'reviewNotes': reviewNotes.trim(),
+        if (title != null) 'title': title,
+        if (cropScope != null) 'cropScope': cropScope,
+        if (authorOrganization != null) 'authorOrganization': authorOrganization,
+        if (version != null) 'version': version,
+        if (documentType != null) 'documentType': documentType,
+        if (confirmGeneralScope) 'confirmGeneralScope': true,
+      },
+      timeout: const Duration(seconds: 90),
+    );
+    if (response == null ||
+        (response.statusCode != 200 && response.statusCode != 204)) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<List<int>> downloadAgricultureOriginalFile(String id) async {
+    final response = await _getWithAuth(
+      '$baseUrl/api/v1/ai/knowledge/documents/$id/file',
+      timeout: const Duration(seconds: 90),
+    );
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return response.bodyBytes;
+  }
+
+  static Future<List<Map<String, dynamic>>> getCropsForProfiles() async {
+    final response = await _getWithAuth('$baseUrl/api/v1/crops');
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final decoded = jsonDecode(response.body);
+    final rawList = decoded is List
+        ? decoded
+        : (decoded is Map ? decoded['value'] : null);
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getGrowthProfiles() async {
+    final response = await _getWithAuth('$baseUrl/api/v1/growth-profiles');
+    if (response == null || response.statusCode != 200) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    final decoded = jsonDecode(response.body);
+    final rawList = decoded is List
+        ? decoded
+        : (decoded is Map ? decoded['value'] : null);
+    if (rawList is! List) return [];
+    return rawList
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  /// POST /api/v1/zones/{zoneId}/planting-seasons (Owner). Tạo vụ là cách duy nhất gán cây cho Zone.
+  static Future<Map<String, dynamic>> createPlantingSeason(String zoneId, Map<String, dynamic> payload) async {
+    final response = await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/planting-seasons', payload);
+    if (response == null || (response.statusCode != 201 && response.statusCode != 200)) {
+      throw Exception(_apiErrorMessage(response));
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   // ─── 22. GIS Geocoding Proxy (Bảo mật định vị & ẩn danh khách hàng) ───────
