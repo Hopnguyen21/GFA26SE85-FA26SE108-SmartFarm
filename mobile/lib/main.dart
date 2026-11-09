@@ -9,6 +9,7 @@ import 'screens/ai_screen.dart';
 import 'screens/crop_profiles_screen.dart';
 import 'screens/device_health_screen.dart';
 import 'screens/gis_map_screen.dart';
+import 'screens/farmer_dashboard_screen.dart';
 import 'screens/alerts_tasks_screen.dart';
 import 'screens/landing_screen.dart';
 
@@ -178,7 +179,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   // Farmer screens (No AI -> Tasks & Alerts)
   static const List<Widget> _farmerScreens = [
-    _SapRaMat('Khu vực'),
+    FarmerDashboardScreen(),
     CropProfilesScreen(),
     GISMapScreen(),
     AlertsTasksScreen(),

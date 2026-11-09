@@ -18,7 +18,11 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   bool _isApiConnected = false;
 
+  bool get isApiConnected => _isApiConnected;
+
   bool _isLoadingApi = false;
+
+  bool get isLoadingApi => _isLoadingApi;
 
   Map<String, dynamic>? _farmWeather;
 
@@ -284,6 +288,12 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
         fetchFromApi();
       }
     }
+  }
+
+  void selectField(String? fieldId) {
+    _selectedFieldId = fieldId;
+    _selectedZoneIndex = 0;
+    notifyListeners();
   }
 
   // Selected Zone
@@ -664,6 +674,59 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       _selectedZoneIndex = 0;
     }
     return filtered[_selectedZoneIndex];
+  }
+
+  void addFarm({
+    required String name,
+    required String address,
+    double totalAreaM2 = 30000.0,
+    double latitude = 11.9404,
+    double longitude = 108.4583,
+  }) {
+    final nextId = 'farm-0${_farms.length + 1}';
+    final newFarm = FarmModel(
+      farmId: nextId,
+      name: name,
+      address: address,
+      totalAreaM2: totalAreaM2,
+      latitude: latitude,
+      longitude: longitude,
+    );
+    _farms.add(newFarm);
+    // Tự động tạo 1 lô đất mặc định cho farm mới
+    final defaultField = FieldModel(
+      fieldId: 'field-0${_fields.length + 1}',
+      farmId: nextId,
+      name: 'Lô đất 01 (Khu Canh Tác Mới)',
+      description: 'Quy hoạch khu nhà màng công nghệ cao mới thành lập',
+      areaM2: totalAreaM2 * 0.6,
+    );
+    _fields.add(defaultField);
+    _selectedFarmId = nextId;
+    _selectedFieldId = null;
+    _selectedZoneIndex = 0;
+    notifyListeners();
+  }
+
+  void addField({
+    required String farmId,
+    required String name,
+    required String description,
+    required double areaM2,
+    List<LatLng>? polygon,
+  }) {
+    final nextId = 'field-0${_fields.length + 1}';
+    final newField = FieldModel(
+      fieldId: nextId,
+      farmId: farmId,
+      name: name,
+      description: description,
+      areaM2: areaM2,
+      polygon: polygon,
+    );
+    _fields.add(newField);
+    _selectedFieldId = nextId;
+    notifyListeners();
   }
 
   void addNewZone({

@@ -45,6 +45,8 @@ class ApiService {
 
   static bool get isAuthenticated => _accessToken != null;
 
+  static String? get userEmail => _userEmail;
+
   static String? get userRole => _userRole;
 
   /// Nạp token đã lưu (kho an toàn) khi ứng dụng khởi động
