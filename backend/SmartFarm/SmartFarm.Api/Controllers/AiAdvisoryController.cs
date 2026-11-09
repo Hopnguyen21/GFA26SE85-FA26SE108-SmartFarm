@@ -8,7 +8,7 @@ using SmartFarm.Domain.Enums;
 
 namespace SmartFarm.Api.Controllers;
 
-[ApiController, Authorize(Roles = "FarmOwner,Farmer")]
+[ApiController, Authorize(Roles = "FarmOwner")]
 public sealed class AiAdvisoryController(IAiAdvisoryService service) : ControllerBase
 {
     // API catalog #84
@@ -25,7 +25,6 @@ public sealed class AiAdvisoryController(IAiAdvisoryService service) : Controlle
     }
 
     // API catalog #86. Accepted means the Owner authorized an asynchronous control command, not that hardware ran.
-    [Authorize(Roles = "FarmOwner")]
     [HttpPost("api/v1/zones/{zoneId:guid}/ai/apply-recommendation")]
     public async Task<ActionResult<AiDecisionResult>> Decide(Guid zoneId, DecideAiRecommendationRequest request, CancellationToken cancellationToken)
     {
