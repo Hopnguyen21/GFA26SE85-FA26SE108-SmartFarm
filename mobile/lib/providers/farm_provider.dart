@@ -8,7 +8,6 @@ import '../services/api_service.dart';
 class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   // Current active role: 'FARMER', 'OWNER', 'TECHNICIAN'
   String _currentRole = 'OWNER';
-
   String get currentRole => _currentRole;
 
   void switchRole(String role) {
@@ -17,16 +16,19 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   bool _isApiConnected = false;
-
   bool get isApiConnected => _isApiConnected;
 
   bool _isLoadingApi = false;
-
   bool get isLoadingApi => _isLoadingApi;
 
   Map<String, dynamic>? _farmWeather;
+  Map<String, dynamic>? get farmWeather => _farmWeather;
+  bool _isLoadingWeather = false;
+  bool get isLoadingWeather => _isLoadingWeather;
 
   Map<String, dynamic>? _me;
+  /// Hồ sơ của tài khoản đang đăng nhập (GET /users/me).
+  Map<String, dynamic>? get me => _me;
 
   /// Dữ liệu mẫu không bao giờ được hiển thị như dữ liệu thật của trang trại.
   void _clearSeedData() {
@@ -173,13 +175,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Timer? _realtimeTimer;
-
   DateTime _lastTelemetryReceivedAt = DateTime.now();
-
   DateTime get lastTelemetryReceivedAt => _lastTelemetryReceivedAt;
 
   bool _pollInFlight = false;
-
   bool _lifecycleObserverAdded = false;
 
   // Ứng dụng ở nền thì ngừng hỏi số đo (tiết kiệm pin/dữ liệu) và hỏi lại ngay khi quay lại.
@@ -262,13 +261,9 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Multi-Farm & Multi-Field Hierarchy State
   String _selectedFarmId = 'farm-01';
-
-  String? _selectedFieldId;
-
-  // null = all fields in the selected farm
+  String? _selectedFieldId; // null = all fields in the selected farm
 
   String get selectedFarmId => _selectedFarmId;
-
   String? get selectedFieldId => _selectedFieldId;
 
   FarmModel get currentFarm => _farms.firstWhere(
@@ -277,6 +272,24 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
         ? _farms.first
         : FarmModel(farmId: '', name: 'Chưa có nông trại', address: '', totalAreaM2: 0, latitude: 0, longitude: 0),
   );
+
+  FieldModel? get currentField => _selectedFieldId == null
+    ? null
+    : _fields.where((f) => f.fieldId == _selectedFieldId).firstOrNull;
+
+  Future<void> fetchWeatherForCurrentFarm() async {
+    if (_selectedFarmId.isEmpty) return;
+    _isLoadingWeather = true;
+    notifyListeners();
+    try {
+      _farmWeather = await ApiService.getFarmWeather(_selectedFarmId);
+    } catch (_) {
+      _farmWeather = null;
+    } finally {
+      _isLoadingWeather = false;
+      notifyListeners();
+    }
+  }
 
   void selectFarm(String farmId) {
     if (_selectedFarmId != farmId) {
@@ -298,7 +311,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Selected Zone
   int _selectedZoneIndex = 0;
-
   int get selectedZoneIndex => _selectedZoneIndex;
 
   void selectZone(int index) {
@@ -320,7 +332,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       totalAreaM2: 32000,
     ),
   ];
-
   List<FarmModel> get farms => _farms;
 
   final List<FieldModel> _fields = [
@@ -364,7 +375,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       ],
     ),
   ];
-
   List<FieldModel> get fields => _fields;
 
   List<FieldModel> get fieldsForCurrentFarm =>
@@ -877,8 +887,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       isRunning: false,
     ),
   ];
-
   List<ActuatorModel> get actuators => _actuators;
+
+  List<ActuatorModel> get currentZoneActuators =>
+      _actuators.where((a) => a.zoneId == currentZone.zoneId).toList();
 
   Future<bool> toggleActuator(String actuatorId, {int? durationMinutes}) async {
     final actIndex = _actuators.indexWhere((a) => a.actuatorId == actuatorId);
@@ -939,7 +951,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       time: '25 phút trước',
     ),
   ];
-
   List<AlertModel> get alerts => _alerts;
 
   void acknowledgeAlert(String alertId) {
@@ -977,7 +988,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   ];
 
   List<AppNotificationModel> get notifications => _notifications;
-
   int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
 
   Future<void> fetchNotifications() async {
@@ -1052,7 +1062,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       description: 'Pha theo tỷ lệ dinh dưỡng EC 1.8 mS/cm, kiểm tra pH trước khi cấp vào đường ống.',
     ),
   ];
-
   List<TaskModel> get tasks => _tasks;
 
   TaskModel _withZoneName(TaskModel t) {
@@ -1139,7 +1148,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       time: '00:00',
     ),
   ];
-
   List<ChatMessageModel> get chatMessages => _chatMessages;
 
   /// Đặt lại toàn bộ danh sách tin nhắn (khôi phục từ API)
@@ -1155,8 +1163,28 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Cập nhật trạng thái khuyến nghị của tin nhắn
+  void updateChatMessageStatus(String messageId, String newStatus) {
+    final idx = _chatMessages.indexWhere((m) => m.id == messageId);
+    if (idx != -1) {
+      _chatMessages[idx].recommendationStatus = newStatus;
+      notifyListeners();
+    }
+  }
+
   void refreshChatState() {
     notifyListeners();
+  }
+
+
+  /// Cũ – vẫn giữ để không break code khác, nhưng giờ dùng addChatMessage
+  void sendChatMessage(String text) {
+    addChatMessage(ChatMessageModel(
+      id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
+      text: text,
+      isUser: true,
+      time: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+    ));
   }
 
   // ─────────────────────────────────────────
@@ -1197,8 +1225,23 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       isEnabled: false,
     ),
   ];
-
   List<ScheduleModel> get schedules => _schedules;
+  bool _schedulesLoading = false;
+  bool get schedulesLoading => _schedulesLoading;
+
+  Future<void> fetchSchedules({String? zoneId, String? farmId}) async {
+    _schedulesLoading = true;
+    notifyListeners();
+    try {
+      final list = await ApiService.getSchedules(
+          zoneId: zoneId, farmId: farmId ?? _selectedFarmId);
+      if (list.isNotEmpty) {
+        _schedules = list;
+      }
+    } catch (_) {}
+    _schedulesLoading = false;
+    notifyListeners();
+  }
 
   void toggleSchedule(String scheduleId) {
     final idx = _schedules.indexWhere((s) => s.scheduleId == scheduleId);
@@ -1221,15 +1264,48 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  Future<bool> toggleScheduleEnabled(String scheduleId, bool enable) async {
+    final idx = _schedules.indexWhere((s) => s.scheduleId == scheduleId);
+    final sch = idx != -1 ? _schedules[idx] : null;
+    final targetZoneId = sch?.zoneId.isNotEmpty == true ? sch!.zoneId : currentZone.zoneId;
+    final ok = await ApiService.toggleSchedule(
+      scheduleId,
+      enable,
+      zoneId: targetZoneId,
+      name: sch?.name,
+      cronExpression: sch?.cronExpression,
+      durationSeconds: sch != null && sch.durationSeconds > 0 ? sch.durationSeconds : 900,
+      enableRainDelay: sch?.enableRainDelay ?? true,
+      rainThresholdPercent: sch?.rainThresholdPercent ?? 70.0,
+    );
+    if (ok) {
+      if (idx != -1) {
+        final s = _schedules[idx];
+        s.isActive = enable;
+        notifyListeners();
+      }
+    }
+    return ok;
+  }
+
   void addSchedule(ScheduleModel schedule) {
     _schedules.insert(0, schedule);
     notifyListeners();
   }
 
+  void removeSchedule(String scheduleId) {
+    _schedules.removeWhere((s) => s.scheduleId == scheduleId);
+    notifyListeners();
+  }
+
+
+
+
   // ─────────────────────────────────────────
   // Vấn đề 6: Default Crop Profiles (Seed Data)
   // ─────────────────────────────────────────
   String? _appliedCropId;
+  String? get appliedCropId => _appliedCropId;
 
   void applyCropProfile(String cropId, {String? targetZoneId, String? farmingSeasonId}) {
     final profile = defaultCropProfiles.firstWhere((p) => p.cropId == cropId);
@@ -1820,7 +1896,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       isActive: false,
     ),
   ];
-
   List<AutomationRuleModel> get automationRules => _automationRules;
 
   /// Bật/tắt rule qua API. Trả về thông báo lỗi, hoặc null khi thành công.
@@ -1843,6 +1918,21 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       await ApiService.createAutoRule(zoneId, body);
       await _loadInventoryAndRules();
       notifyListeners();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
+  /// Cập nhật dải ngưỡng tự động cho Zone và tự động sinh / cập nhật AutoRule tương ứng
+  Future<String?> updateZoneThresholds({
+    required String zoneId,
+    required double maxTemp,
+    required double minSoil,
+    required double maxSoil,
+  }) async {
+    try {
+      await ApiService.updateEnvironmentalThresholds(zoneId, minSoil: minSoil, maxSoil: maxSoil, maxTemp: maxTemp);
       return null;
     } catch (e) {
       return e.toString().replaceFirst('Exception: ', '');
@@ -1873,8 +1963,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
       adminNote: 'Admin đã duyệt: Điều Kỹ thuật viên Trí chuẩn bị 1 bộ Gateway dự phòng và máy đo áp lực.',
     ),
   ];
-
   List<FieldInspectionRequestModel> get inspectionRequests => _inspectionRequests;
+
+  List<FieldInspectionRequestModel> get inspectionRequestsForCurrentFarm =>
+      _inspectionRequests.where((r) => r.farmId == _selectedFarmId).toList();
 
   void submitInspectionRequest({
     required String zoneId,
@@ -1982,6 +2074,9 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   ];
 
   List<EquipmentOrderModel> get equipmentOrders => _equipmentOrders;
+
+  List<EquipmentOrderModel> get equipmentOrdersForCurrentFarm =>
+      _equipmentOrders.where((o) => o.farmId == _selectedFarmId).toList();
 
   /// KTV hoặc Admin tạo Đơn hàng (Order) gửi cho Owner xác nhận & đặt cọc 30%
   String createOrderFromInspection(FieldInspectionRequestModel req, {List<ZoneEquipmentItem>? overrideItems}) {
@@ -2140,6 +2235,31 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  void rejectInspectionRequest(String requestId, {String? reason}) {
+    final idx = _inspectionRequests.indexWhere((r) => r.requestId == requestId);
+    if (idx != -1) {
+      _inspectionRequests[idx] = _inspectionRequests[idx].copyWith(
+        status: 'REJECTED',
+        adminNote: reason ?? 'Admin từ chối yêu cầu. Vui lòng bổ sung thông tin và gửi lại.',
+      );
+      notifyListeners();
+    }
+  }
+
+  void approveInspectionRequest(String requestId, {String? technicianName, String? technicianPhone, String? adminNote}) {
+    final idx = _inspectionRequests.indexWhere((r) => r.requestId == requestId);
+    if (idx != -1) {
+      final current = _inspectionRequests[idx];
+      _inspectionRequests[idx] = current.copyWith(
+        status: 'DISPATCHED',
+        assignedTechnicianName: technicianName ?? 'Trần Minh Trí (KTV IoT)',
+        technicianPhone: technicianPhone ?? '0909 888 777',
+        adminNote: adminNote ?? 'Admin đã phê duyệt yêu cầu. Kỹ thuật viên đã tiếp nhận và sẽ có mặt theo lịch hẹn.',
+      );
+      notifyListeners();
+    }
+  }
+
   // ─────────────────────────────────────────
   // KHO VẬT TƯ & PHÂN BÓN NÔNG NGHIỆP (INVENTORY)
   // ─────────────────────────────────────────
@@ -2206,6 +2326,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     ),
   ];
 
+  List<MaterialInventoryModel> get inventoryItems => _inventoryItems;
+
   List<MaterialInventoryModel> get inventoryItemsForCurrentFarm =>
       _inventoryItems.where((i) => i.farmId == _selectedFarmId).toList();
 
@@ -2247,6 +2369,31 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<String?> issueStock(String itemId, double quantity, String zoneId) =>
       _inventoryCall(() => ApiService.issueInventory(_selectedFarmId, itemId, quantity, zoneId));
+
+  /// Xóa toàn bộ dữ liệu phiên khi đăng xuất (Clean state on logout)
+  void resetState() {
+    _isApiConnected = false;
+    _chatMessages.clear();
+    _schedules.clear();
+    _alerts.clear();
+    _tasks.clear();
+    _notifications.clear();
+    _clearSeedData();
+    _selectedFarmId = 'farm-01';
+    _selectedFieldId = null;
+    _selectedZoneIndex = 0;
+    notifyListeners();
+  }
+
+  Future<bool> updateProfile({required String fullName, String? phone}) async {
+    final updated = await ApiService.updateProfile(fullName, phone);
+    if (updated != null) {
+      _me = updated;
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
 }
 
 

@@ -2,7 +2,6 @@
 // Domain Models – SmartFarm Mobile
 // ─────────────────────────────────────────
 import 'dart:math' as math;
-
 import 'package:latlong2/latlong.dart';
 
 class FarmModel {
@@ -352,6 +351,7 @@ class ZoneModel {
     );
   }
 }
+
 
 class ActuatorModel {
   final String actuatorId;
@@ -705,6 +705,7 @@ class ScheduleModel {
   }
 }
 
+
 // ─────────────────────────────────────────
 // Vấn đề 6: Default Crop Profile Models
 // ─────────────────────────────────────────
@@ -907,6 +908,7 @@ class AutomationRuleModel {
     );
   }
 }
+
 
 // ─────────────────────────────────────────
 // Mô phỏng Thiết bị & Dự toán Chi phí theo Diện tích Zone
