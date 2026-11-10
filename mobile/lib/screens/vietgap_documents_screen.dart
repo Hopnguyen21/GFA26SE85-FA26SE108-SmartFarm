@@ -69,7 +69,7 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
     }
 
     // Chỉ cần file: tiêu đề, cây, đơn vị ban hành, phiên bản, loại và chủ đề do server nhận diện từ nội dung.
-    setState(() => _uploading = true);
+    if (mounted) setState(() => _uploading = true);
     try {
       final bytes = await picked.readAsBytes();
       final doc = await ApiService.uploadAgricultureDocument(
@@ -629,8 +629,9 @@ class _VietGapDocumentReviewScreenState
       final file = File('${directory.path}/$safeName');
       await file.writeAsBytes(bytes, flush: true);
       final result = await OpenFilex.open(file.path);
-      if (result.type != ResultType.done)
-        _showMessage('Đã tải file nhưng không mở được: ${result.message}');
+      if (result.type != ResultType.done) {
+          _showMessage('Đã tải file nhưng không mở được: ${result.message}');
+      }
     } catch (error) {
       _showMessage('Không tải/mở được file gốc: $error');
     } finally {

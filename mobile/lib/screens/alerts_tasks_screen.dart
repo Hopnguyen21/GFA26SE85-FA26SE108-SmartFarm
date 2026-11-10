@@ -5,6 +5,7 @@ import '../providers/farm_provider.dart';
 import 'inspection_requests_screen.dart';
 import 'equipment_orders_screen.dart';
 import 'contracts_depreciation_screen.dart';
+import '../widgets/dispose_later.dart';
 
 class AlertsTasksScreen extends StatelessWidget {
   const AlertsTasksScreen({super.key});
@@ -982,6 +983,6 @@ class AlertsTasksScreen extends StatelessWidget {
           );
         },
       ),
-    );
+    ).then((_) => disposeControllersLater([titleCtrl, descCtrl]));
   }
 }

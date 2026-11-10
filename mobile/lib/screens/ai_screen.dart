@@ -407,23 +407,28 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               child: const Icon(Icons.psychology, color: Color(0xFF10B981), size: 20),
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isFarmer ? 'Trợ lý AI Nông học (Thực địa)' : 'Trợ lý AI Nông học',
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-                Text(
-                  isFarmer
-                      ? 'Dành cho Nông Dân · VietGAP · Cập nhật liên tục'
-                      : 'Gemini · VietGAP · Dữ liệu thực tế',
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isFarmer ? 'Trợ lý AI Nông học (Thực địa)' : 'Trợ lý AI Nông học',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    isFarmer
+                        ? 'Dành cho Nông Dân · VietGAP · Cập nhật liên tục'
+                        : 'Gemini · VietGAP · Dữ liệu thực tế',
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -801,9 +806,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   }),
                 ] else ...[
                   // Fallback to zone properties
-                  _buildSensorChip('🌱 Ẩm đất', '${zone.currentSoilMoisture.toStringAsFixed(1)}%'),
-                  _buildSensorChip('🌡️ Nhiệt độ', '${zone.currentTemp.toStringAsFixed(1)}°C'),
-                  _buildSensorChip('💧 Ẩm KK', '${zone.currentHumidity.toStringAsFixed(0)}% RH'),
+                  _buildSensorChip('🌱 Ẩm đất', zone.telemetryIsFresh ? '${zone.currentSoilMoisture.toStringAsFixed(1)}%' : '—'),
+                  _buildSensorChip('🌡️ Nhiệt độ', zone.telemetryIsFresh ? '${zone.currentTemp.toStringAsFixed(1)}°C' : '—'),
+                  _buildSensorChip('💧 Ẩm KK', zone.telemetryIsFresh ? '${zone.currentHumidity.toStringAsFixed(0)}% RH' : '—'),
                 ],
 
                 if (weatherOk)

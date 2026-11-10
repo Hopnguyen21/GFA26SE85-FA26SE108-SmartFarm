@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/farm_provider.dart';
 import '../models/iot_deployment.dart';
 import '../services/api_service.dart';
+import '../services/app_role.dart';
 
 /// Hỗ trợ kỹ thuật cho Farm Owner: danh sách và tạo yêu cầu bảo trì thiết bị
 /// (GET /api/v1/service-requests, POST /api/v1/farms/{farmId}/service-requests).
@@ -194,7 +195,7 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
         foregroundColor: Colors.white,
         title: const Text('Hỗ trợ kỹ thuật', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         actions: [
-          if (ApiService.userRole?.toLowerCase() == 'farmowner')
+          if (ApiService.appRole == AppRole.farmOwner)
             IconButton(icon: const Icon(Icons.add_circle_outline), tooltip: 'Tạo yêu cầu', onPressed: _create),
         ],
       ),
@@ -246,8 +247,8 @@ class _QuotationPanelState extends State<_QuotationPanel> {
   ServicePayment? _lastPayment;
   String? _deploymentStatus; // trạng thái yêu cầu triển khai liên kết, lấy từ backend
 
-  bool get _isOwner => ApiService.userRole?.toLowerCase() == 'farmowner';
-  bool get _isTechnician => ApiService.userRole?.toLowerCase() == 'platformtechnician';
+  bool get _isOwner => ApiService.appRole == AppRole.farmOwner;
+  bool get _isTechnician => ApiService.appRole == AppRole.platformTechnician;
 
   @override
   void initState() {

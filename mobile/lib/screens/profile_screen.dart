@@ -11,14 +11,23 @@ import 'reports_screen.dart';
 import 'provisioning_screen.dart';
 import 'alerts_tasks_screen.dart';
 import 'workforce_screen.dart';
+import 'connection_notification_screens.dart';
+import 'password_screens.dart';
+import 'technician_maintenance_screen.dart';
 import 'farm_invitations_screen.dart';
 import 'support_requests_screen.dart';
 import 'inventory_screen.dart';
 import 'contracts_depreciation_screen.dart';
 import 'farming_seasons_screen.dart';
+import '../widgets/dispose_later.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  static String _formatJoined(String? iso) {
+    final d = iso == null ? null : DateTime.tryParse(iso);
+    return d == null ? '—' : '${d.toLocal().day.toString().padLeft(2, '0')}/${d.toLocal().month.toString().padLeft(2, '0')}/${d.toLocal().year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +50,7 @@ class ProfileScreen extends StatelessWidget {
 
     final userEmail = me?['email']?.toString() ?? ApiService.userEmail ?? '—';
 
-    final userInitials = userName.trim().split(RegExp(r's+')).where((w) => w.isNotEmpty).take(3).map((w) => w[0].toUpperCase()).join();
+    final userInitials = userName.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(3).map((w) => w[0].toUpperCase()).join();
     final userPhoneRaw = me?['phone']?.toString() ?? '';
     final userPhone = userPhoneRaw.isEmpty ? 'Chưa cập nhật' : userPhoneRaw;
     final userIdRaw = me?['userId']?.toString() ?? '';
@@ -156,7 +165,10 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildSectionHeader('THÔNG TIN TÀI KHOẢN (ĐỒNG BỘ BACKEND & DEMO)'),
+                      Expanded(
+                        child: _buildSectionHeader('THÔNG TIN TÀI KHOẢN (ĐỒNG BỘ BACKEND & DEMO)'),
+                      ),
+                      const SizedBox(width: 8),
                       TextButton.icon(
                         onPressed: () => _showEditProfileDialog(context, provider, userName, userPhoneRaw),
                         icon: const Icon(Icons.edit, size: 14, color: Color(0xFF10B981)),
@@ -183,10 +195,9 @@ class ProfileScreen extends StatelessWidget {
                   _buildSectionHeader('TỔ CHỨC / TENANT'),
                   const SizedBox(height: 10),
                   _buildInfoCard([
-                    _infoItem(Icons.corporate_fare, 'Tên tổ chức', 'Green Valley Agriculture Corp'),
-                    _infoItem(Icons.confirmation_number_outlined, 'Mã Tenant', 'TENANT-01 (GREEN_VALLEY)'),
-                    _infoItem(Icons.location_on_outlined, 'Khu vực hoạt động', 'TP. Đà Lạt, Lâm Đồng'),
-                    _infoItem(Icons.calendar_today_outlined, 'Tham gia từ', 'Tháng 01/2026'),
+                    _infoItem(Icons.confirmation_number_outlined, 'Mã Tenant', me?['tenantId']?.toString() ?? '—'),
+                    _infoItem(Icons.agriculture_outlined, 'Trang trại hiện tại', provider.currentFarm.name),
+                    _infoItem(Icons.calendar_today_outlined, 'Tham gia từ', _formatJoined(me?['createdAtUtc']?.toString())),
                   ]),
 
                   const SizedBox(height: 16),
@@ -385,7 +396,16 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.8));
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF64748B),
+        letterSpacing: 0.8,
+      ),
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
   Widget _buildInfoCard(List<Widget> children) {
@@ -551,18 +571,31 @@ class ProfileScreen extends StatelessWidget {
           'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WorkforceScreen())),
         },
       ],
+      if (isTech)
+        {
+          'icon': Icons.build_circle_outlined,
+          'label': 'Bảo trì & sửa chữa được giao',
+          'color': const Color(0xFFD97706),
+          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TechnicianMaintenanceScreen())),
+        },
       // Tất cả: thông báo, MQTT, trợ giúp
       {
         'icon': Icons.notifications_outlined,
         'label': 'Cài đặt thông báo cảnh báo',
         'color': const Color(0xFFDC2626),
-        'onTap': () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cài đặt thông báo: Đã bật Push & SMS'))),
+        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
       },
       {
         'icon': Icons.wifi_outlined,
-        'label': 'Kết nối MQTT Broker (Online)',
+        'label': 'Trạng thái kết nối MQTT',
         'color': const Color(0xFF059669),
-        'onTap': () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('MQTT Broker: broker.emqx.io:1883 • Kết nối ổn định'))),
+        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MqttStatusScreen())),
+      },
+      {
+        'icon': Icons.lock_reset,
+        'label': 'Đổi mật khẩu',
+        'color': const Color(0xFF475569),
+        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
       },
       {
         'icon': Icons.help_outline,
@@ -753,7 +786,7 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([nameCtrl, phoneCtrl]));
   }
 }
 

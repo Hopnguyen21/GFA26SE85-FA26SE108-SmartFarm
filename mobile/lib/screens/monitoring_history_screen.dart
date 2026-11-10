@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../services/export_utils.dart';
 
 class MonitoringHistoryScreen extends StatefulWidget {
   const MonitoringHistoryScreen({super.key});
@@ -18,23 +20,8 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
   bool _isLoadingLive = false;
   List<double>? _liveData;
   List<String>? _liveLabels;
-
-  final List<double> _soilMoistureData = [
-    68.5, 67.2, 65.8, 64.0, 62.5, 61.2, 59.8, 68.0, 72.4, 71.0, 69.5, 68.4
-  ];
-
-  final List<double> _tempData = [
-    18.2, 17.5, 17.0, 18.5, 21.0, 24.5, 27.8, 28.5, 27.2, 25.0, 22.8, 20.5
-  ];
-
-  final List<double> _humidityData = [
-    85.0, 88.0, 90.0, 86.0, 78.0, 68.0, 62.0, 60.0, 65.0, 72.0, 78.0, 82.0
-  ];
-
-  final List<String> _timeLabels = [
-    '00:00', '02:00', '04:00', '06:00', '08:00', '10:00',
-    '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'
-  ];
+  List<Map<String, dynamic>>? _livePoints;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -85,6 +72,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           setState(() {
             _liveData = values;
             _liveLabels = labels;
+            _livePoints = points;
             _isLoadingLive = false;
           });
           return;
@@ -95,8 +83,37 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
       setState(() {
         _liveData = null;
         _liveLabels = null;
+        _livePoints = null;
         _isLoadingLive = false;
       });
+    }
+  }
+
+  /// Xuất CSV từ đúng dữ liệu lịch sử đã tải (zone, chỉ số, khoảng thời gian đang chọn).
+  Future<void> _exportCsv(String zoneName) async {
+    final points = _livePoints;
+    if (points == null || points.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có dữ liệu lịch sử thật để xuất.')),
+      );
+      return;
+    }
+    setState(() => _exporting = true);
+    try {
+      final csv = buildTelemetryCsv(zoneName: zoneName, metric: _selectedMetric, range: _timeRange, points: points);
+      await saveAndShareFile(
+        'lich-su-${_selectedMetric.toLowerCase()}-${DateTime.now().toIso8601String().substring(0, 10)}.csv',
+        utf8.encode(csv),
+        mimeType: 'text/csv',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Xuất CSV thất bại: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
   }
 
@@ -115,31 +132,54 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
 
     switch (_selectedMetric) {
       case 'TEMP':
-        currentData = _liveData ?? _tempData;
-        currentLabels = _liveLabels ?? _timeLabels;
+        currentData = _liveData ?? const <double>[];
+        currentLabels = _liveLabels ?? const <String>[];
         unit = '°C';
-        metricTitle = _liveData != null ? 'Nhiệt độ không khí (TimescaleDB)' : 'Nhiệt độ không khí (Mô phỏng)';
+        metricTitle = _liveData != null ? 'Nhiệt độ không khí' : 'Nhiệt độ không khí';
         chartColor = const Color(0xFFD97706);
         minTarget = 18.0;
         maxTarget = 28.0;
         break;
       case 'HUMIDITY':
-        currentData = _liveData ?? _humidityData;
-        currentLabels = _liveLabels ?? _timeLabels;
+        currentData = _liveData ?? const <double>[];
+        currentLabels = _liveLabels ?? const <String>[];
         unit = '%';
-        metricTitle = _liveData != null ? 'Độ ẩm không khí (TimescaleDB)' : 'Độ ẩm không khí (Mô phỏng)';
+        metricTitle = _liveData != null ? 'Độ ẩm không khí' : 'Độ ẩm không khí';
         chartColor = const Color(0xFF0284C7);
         minTarget = 65.0;
         maxTarget = 85.0;
         break;
       default:
-        currentData = _liveData ?? _soilMoistureData;
-        currentLabels = _liveLabels ?? _timeLabels;
+        currentData = _liveData ?? const <double>[];
+        currentLabels = _liveLabels ?? const <String>[];
         unit = '%';
-        metricTitle = _liveData != null ? 'Độ ẩm đất (TimescaleDB)' : 'Độ ẩm đất (Mô phỏng)';
+        metricTitle = _liveData != null ? 'Độ ẩm đất' : 'Độ ẩm đất';
         chartColor = const Color(0xFF10B981);
         minTarget = 60.0;
         maxTarget = 80.0;
+    }
+
+    if (currentData.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text('Lịch Sử Vi Khí Hậu', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+        ),
+        body: Center(
+          child: _isLoadingLive
+              ? const CircularProgressIndicator()
+              : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Chưa có dữ liệu lịch sử cho khu vực và khoảng thời gian này.', textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    OutlinedButton(onPressed: () => _fetchLiveHistory(zoneId), child: const Text('Tải lại')),
+                  ]),
+                ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -164,11 +204,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           IconButton(
             icon: const Icon(Icons.file_download_outlined, color: Colors.white),
             tooltip: 'Xuất CSV/Excel',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đang trích xuất dữ liệu TimescaleDB dạng CSV...')),
-              );
-            },
+            onPressed: _exporting ? null : () => _exportCsv(provider.currentZone.name),
           ),
         ],
       ),

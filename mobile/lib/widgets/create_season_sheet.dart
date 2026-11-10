@@ -79,7 +79,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
     final initial = isStart ? _start : (_end ?? _start.add(const Duration(days: 90)));
     final picked = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2020), lastDate: DateTime(2100));
     if (picked == null) return;
-    setState(() => isStart ? _start = picked : _end = picked);
+    if (mounted) setState(() => isStart ? _start = picked : _end = picked);
   }
 
   Future<void> _submit() async {
@@ -134,7 +134,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _cropId,
+                    initialValue: _cropId,
                     decoration: const InputDecoration(labelText: 'Cây trồng *', border: OutlineInputBorder()),
                     items: _crops.map((c) => DropdownMenuItem(value: c['cropId']?.toString(), child: Text(c['name']?.toString() ?? ''))).toList(),
                     onChanged: (v) => setState(() {
@@ -144,7 +144,8 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _profileId,
+                    key: ValueKey('profile-$_cropId'),
+                    initialValue: _profileId,
                     decoration: const InputDecoration(labelText: 'Hồ sơ sinh trưởng *', border: OutlineInputBorder()),
                     items: profiles
                         .map((p) => DropdownMenuItem(

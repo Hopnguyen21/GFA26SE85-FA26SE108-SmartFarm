@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/dispose_later.dart';
 
 class FarmingSeasonsScreen extends StatefulWidget {
   const FarmingSeasonsScreen({super.key});
@@ -456,7 +457,7 @@ class _FarmingSeasonsScreenState extends State<FarmingSeasonsScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([codeCtrl, nameCtrl, descCtrl]));
   }
 
   void _showEditSeasonDialog(FarmingSeasonModel season) {
@@ -505,7 +506,7 @@ class _FarmingSeasonsScreenState extends State<FarmingSeasonsScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => disposeControllersLater([nameCtrl, descCtrl]));
   }
 
   void _confirmDeleteSeason(FarmingSeasonModel season) {

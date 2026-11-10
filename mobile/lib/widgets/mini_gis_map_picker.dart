@@ -480,10 +480,11 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
 
     if (result != null) {
       debugPrint('[MiniGISMapPicker][$levelTag] 📍 Địa chỉ hiện tại: ${result.address} | Vùng: ${result.region} (Tọa độ: ${point.latitude}, ${point.longitude})');
-      setState(() {
-        _displayPlaceName = result!.address;
-      });
-      widget.onAddressResolved?.call(result.address);
+      if (mounted) {
+        setState(() {
+          _displayPlaceName = result!.address;
+        });
+      }
       if (result.region.isNotEmpty) {
         widget.onRegionNameResolved?.call(result.region);
       }

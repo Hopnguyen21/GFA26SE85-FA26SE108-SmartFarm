@@ -1,3 +1,4 @@
+import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/farm_provider.dart';
@@ -783,21 +784,41 @@ class _SchedulesAutomationScreenState extends State<SchedulesAutomationScreen>
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF062326), foregroundColor: Colors.white),
-              onPressed: () {
-                final sch = ScheduleModel(
-                  scheduleId: 'sch-${DateTime.now().millisecondsSinceEpoch}',
-                  name: name,
-                  zoneName: selectedZone,
-                  actuatorName: selectedActuator,
-                  startTime: startTime,
-                  durationMinutes: duration,
-                  daysOfWeek: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
-                  isActive: true,
-                );
-                provider.addSchedule(sch);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✅ Đã tạo lịch tưới tự động thành công!'), backgroundColor: Color(0xFF062326)),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final zone = provider.zones.where((z) => z.name == selectedZone).firstOrNull;
+                final wanted = selectedActuator.contains('Quạt')
+                    ? 'FAN'
+                    : selectedActuator.contains('Đèn')
+                        ? 'GROW_LIGHT'
+                        : selectedActuator.contains('Van') ? 'VALVE' : 'PUMP';
+                final actuator = provider.actuators
+                    .where((a) => a.zoneId == zone?.zoneId && a.actuatorType == wanted)
+                    .firstOrNull;
+                if (zone == null || actuator == null) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Zone này chưa có thiết bị chấp hành phù hợp.')));
+                  return;
+                }
+                if (name.trim().isEmpty) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Vui lòng nhập tên lịch.')));
+                  return;
+                }
+                try {
+                  await ApiService.createSchedule(
+                    zoneId: zone.zoneId,
+                    actuatorId: actuator.actuatorId,
+                    name: name.trim(),
+                    startTime: startTime.trim(),
+                    durationMinutes: duration,
+                  );
+                  await provider.fetchSchedules(zoneId: zone.zoneId);
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: const Color(0xFFEF4444)));
+                  return;
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('✅ Đã tạo lịch tưới trên máy chủ.'), backgroundColor: Color(0xFF062326)),
                 );
               },
               child: const Text('Lưu Lịch'),

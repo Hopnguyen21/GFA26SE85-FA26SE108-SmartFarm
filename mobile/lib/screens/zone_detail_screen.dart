@@ -11,6 +11,7 @@ import 'inspection_requests_screen.dart';
 import 'deployment_screens.dart';
 import 'contracts_depreciation_screen.dart';
 import '../widgets/honeycomb_topology_widget.dart';
+import '../widgets/dispose_later.dart';
 
 class ZoneDetailScreen extends StatefulWidget {
   final ZoneModel zone;
@@ -56,7 +57,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
   Widget build(BuildContext context) {
     final provider = Provider.of<FarmProvider>(context);
     final zone = provider.zones[widget.zoneIndex];
-    final zoneActuators = provider.actuators.where((a) => a.zoneId == zone.zoneId).toList();
+    final zoneActuators = provider.actuators.where((a) => a.zoneId.toLowerCase() == zone.zoneId.toLowerCase()).toList();
     final isOwner = provider.currentRole == 'OWNER';
 
     return Scaffold(
@@ -233,11 +234,24 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
       );
     }
     // Tìm crop profile tương ứng với Zone
-    final cropProfile = provider.defaultCropProfiles.firstWhere(
-      (p) => zone.currentCrop.toLowerCase().contains(p.name.toLowerCase()) ||
-          p.name.toLowerCase().contains(zone.currentCrop.toLowerCase()),
-      orElse: () => provider.defaultCropProfiles.first,
-    );
+    final cropProfile = provider.defaultCropProfiles
+        .where((p) =>
+            p.name.isNotEmpty &&
+            (zone.currentCrop.toLowerCase().contains(p.name.toLowerCase()) ||
+                p.name.toLowerCase().contains(zone.currentCrop.toLowerCase())))
+        .firstOrNull;
+    if (cropProfile == null || cropProfile.growthStages.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Chưa có hồ sơ sinh trưởng của cây này để hiển thị ngưỡng vi khí hậu.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+        ),
+      );
+    }
 
     // Tìm stage tương ứng
     final currentStage = cropProfile.growthStages.firstWhere(
@@ -246,10 +260,11 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
     );
 
     final req = currentStage.requirements;
-    final isSoilOk = zone.currentSoilMoisture >= req.soilMoistureMin && zone.currentSoilMoisture <= req.soilMoistureMax;
-    final isTempOk = zone.currentTemp >= req.tempMin && zone.currentTemp <= req.tempMax;
-    final isHumidityOk = zone.currentHumidity >= req.humidityMin && zone.currentHumidity <= req.humidityMax;
-    final isLuxOk = zone.currentLux >= 400;
+    final fresh = zone.telemetryIsFresh;
+    final isSoilOk = fresh && zone.currentSoilMoisture >= req.soilMoistureMin && zone.currentSoilMoisture <= req.soilMoistureMax;
+    final isTempOk = fresh && zone.currentTemp >= req.tempMin && zone.currentTemp <= req.tempMax;
+    final isHumidityOk = fresh && zone.currentHumidity >= req.humidityMin && zone.currentHumidity <= req.humidityMax;
+    final isLuxOk = fresh && zone.currentLux >= 400;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -378,10 +393,10 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                 if (!zone.telemetryIsFresh || !zone.cropContextIsDbBacked)
                   const Text('Chưa có đủ telemetry mới hoặc quy chuẩn mùa vụ từ DB để đánh giá tuân thủ.', style: TextStyle(fontSize: 12, color: Color(0xFFB45309)))
                 else ...[
-                  _complianceRow('Độ ẩm đất', isSoilOk, '${zone.currentSoilMoisture}% (Chuẩn: ${req.soilMoistureMin.toInt()}-${req.soilMoistureMax.toInt()}%)'),
-                  _complianceRow('Nhiệt độ', isTempOk, '${zone.currentTemp}°C (Chuẩn: ${req.tempMin.toInt()}-${req.tempMax.toInt()}°C)'),
-                  _complianceRow('Độ ẩm KK', isHumidityOk, '${zone.currentHumidity}% (Chuẩn: ${req.humidityMin.toInt()}-${req.humidityMax.toInt()}%)'),
-                  _complianceRow('Ánh sáng', isLuxOk, '${zone.currentLux.toInt()} lx (Chuẩn: ≥400 lx)'),
+                  _complianceRow('Độ ẩm đất', isSoilOk, '${zone.telemetryIsFresh ? '${zone.currentSoilMoisture}%' : '—'} (Chuẩn: ${req.soilMoistureMin.toInt()}-${req.soilMoistureMax.toInt()}%)'),
+                  _complianceRow('Nhiệt độ', isTempOk, '${zone.telemetryIsFresh ? '${zone.currentTemp}°C' : '—'} (Chuẩn: ${req.tempMin.toInt()}-${req.tempMax.toInt()}°C)'),
+                  _complianceRow('Độ ẩm KK', isHumidityOk, '${zone.telemetryIsFresh ? '${zone.currentHumidity}%' : '—'} (Chuẩn: ${req.humidityMin.toInt()}-${req.humidityMax.toInt()}%)'),
+                  _complianceRow('Ánh sáng', isLuxOk, '${zone.telemetryIsFresh ? '${zone.currentLux.toInt()} lx' : '—'} (Chuẩn: ≥400 lx)'),
                 ],
               ],
             ),
@@ -627,20 +642,12 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.zone.zoneId == 'zone-01'
-                            ? 'Sensor Node Đất & Khí - Zone 01'
-                            : widget.zone.zoneId == 'zone-02'
-                                ? 'Sensor Node Đất & Khí - Zone 02'
-                                : 'Sensor Node Đất & Khí - Zone 03',
+                        'Sensor Node Đất & Khí - ${widget.zone.name}',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        widget.zone.zoneId == 'zone-01'
-                            ? 'SN-LORA-001 • ESP32-S3 + SX1278 (433MHz)'
-                            : widget.zone.zoneId == 'zone-02'
-                                ? 'SN-LORA-002 • ESP32-S3 + SX1278 (433MHz)'
-                                : 'SN-LORA-003 • ESP32-S3 + SX1278 (433MHz)',
+                        'Chi tiết thiết bị: xem mục Sức khỏe thiết bị',
                         style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                       ),
                       const SizedBox(height: 4),
@@ -686,7 +693,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('THIẾT BỊ CHẤP HÀNH (ACTUATORS)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.8)),
+              Text('THIẾT BỊ CHẤP HÀNH (${actuators.length})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.8)),
               Text(
                 provider.currentRole == 'OWNER' ? 'Toàn quyền' : 'Xem thôi',
                 style: TextStyle(
@@ -1084,6 +1091,12 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
   }
 
   void _showChangeCropModal(BuildContext context, FarmProvider provider, ZoneModel zone) {
+    if (provider.defaultCropProfiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa tải được thư viện cây trồng từ máy chủ.')),
+      );
+      return;
+    }
     String selectedCropId = provider.defaultCropProfiles.first.cropId;
 
     showModalBottomSheet(
@@ -1208,8 +1221,15 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           elevation: 0,
                         ),
-                        onPressed: () {
-                          provider.applyCropProfile(selectedCropId, targetZoneId: zone.zoneId);
+                        onPressed: () async {
+                          final err = await provider.applyCropProfile(selectedCropId, targetZoneId: zone.zoneId);
+                          if (err != null) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+                            }
+                            return;
+                          }
+                          if (!ctx.mounted) return;
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -1957,7 +1977,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
           ),
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([contactNameCtrl, phoneCtrl, dateCtrl, noteCtrl]));
   }
 
   // ─── Card hiển thị trạng thái yêu cầu kiểm tra thực địa ───
@@ -2231,7 +2251,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
           ],
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([qtyCtrl, priceCtrl, descCtrl]));
   }
 
   // ─── Modal thêm mới 1 thiết bị thực địa vào mô phỏng ───
@@ -2445,7 +2465,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
           );
         },
       ),
-    );
+    ).then((_) => disposeControllersLater([nameCtrl, qtyCtrl, unitCtrl, priceCtrl, descCtrl]));
   }
 }
 

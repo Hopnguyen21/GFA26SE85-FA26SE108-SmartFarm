@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
 import 'farming_seasons_screen.dart';
+import 'irrigation_calendar_screen.dart';
 
 class CropDetailScreen extends StatefulWidget {
   final DefaultCropProfile profile;
@@ -41,10 +42,24 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 180,
+            expandedHeight: 210,
             pinned: true,
             backgroundColor: const Color(0xFF062326),
             foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.calendar_month, color: Colors.white),
+                tooltip: 'Cuốn lịch tưới cả tháng',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => IrrigationCalendarScreen(profile: profile),
+                    ),
+                  );
+                },
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -54,15 +69,36 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                     colors: [Color(0xFF062326), Color(0xFF0D4A35)],
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 56),
-                    Text(profile.emoji, style: const TextStyle(fontSize: 56)),
-                    const SizedBox(height: 8),
-                    Text(profile.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                    Text(profile.variety, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-                  ],
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 48),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(profile.emoji, style: const TextStyle(fontSize: 44)),
+                            const SizedBox(height: 6),
+                            Text(
+                              profile.name,
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              profile.variety,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -338,8 +374,15 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                             ),
                             icon: const Icon(Icons.check, size: 18),
                             label: const Text('Xác Nhận Áp Dụng', style: TextStyle(fontWeight: FontWeight.bold)),
-                            onPressed: () {
-                              provider.applyCropProfile(profile.cropId, targetZoneId: selectedZoneId, farmingSeasonId: selectedSeasonId);
+                            onPressed: () async {
+                              final err = await provider.applyCropProfile(profile.cropId, targetZoneId: selectedZoneId, farmingSeasonId: selectedSeasonId);
+                              if (err != null) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+                                }
+                                return;
+                              }
+                              if (!ctx.mounted) return;
                               Navigator.pop(ctx);
                               final seasonName = seasons.where((s) => s.id == selectedSeasonId).firstOrNull?.name;
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -380,6 +423,69 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
             ],
           ),
 
+          const SizedBox(height: 14),
+
+          // Banner truy cập nhanh Lịch tưới cả tháng
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => IrrigationCalendarScreen(profile: profile),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF064E3B), Color(0xFF0D4A35)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.calendar_month, color: Color(0xFF34D399), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Xem Cuốn Lịch Tưới Chi Tiết Cả Tháng',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Lưới 30 ngày • 3 ca tưới/ngày • Tự do chỉnh sửa & lưu',
+                          style: TextStyle(fontSize: 10.5, color: Color(0xFFA7F3D0)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white70),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 16),
 
           // Description
@@ -397,7 +503,7 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                 const SizedBox(height: 8),
                 Text(profile.description, style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.5)),
                 const SizedBox(height: 10),
-                Row(
+                if (profile.origin.isNotEmpty) Row(
                   children: [
                     const Icon(Icons.location_on, size: 14, color: Color(0xFF64748B)),
                     const SizedBox(width: 4),
@@ -405,7 +511,7 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                   ],
                 ),
                 const SizedBox(height: 4),
-                Row(
+                if (profile.suitableRegion.isNotEmpty) Row(
                   children: [
                     const Icon(Icons.map, size: 14, color: Color(0xFF64748B)),
                     const SizedBox(width: 4),
@@ -479,6 +585,87 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                 const SizedBox(height: 8),
                 const Center(
                   child: Text('Chiều cao = số ngày mỗi giai đoạn', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Lịch tưới & Chế độ nước (VietGAP)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFBAE6FD)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.water_drop, color: Color(0xFF0284C7), size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          'LỊCH TƯỚI KHUYẾN NGHỊ (VIETGAP)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF0369A1), letterSpacing: 0.5),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('Tự động hóa', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _overviewIrrigationRow('Sáng sớm (Chính)', '06:30 – 06:50 (Bơm tưới nhỏ giọt 15–20 phút)'),
+                _overviewIrrigationRow('Buổi chiều (Bổ sung)', '16:30 – 16:45 (Bơm tưới bổ sung 10–15 phút)'),
+                _overviewIrrigationRow('Phương pháp tưới', 'Tưới nhỏ giọt bù áp (Drip Irrigation)'),
+                _overviewIrrigationRow(
+                  'Ngưỡng ẩm an toàn',
+                  profile.growthStages.isNotEmpty
+                      ? '${profile.growthStages.first.requirements.soilMoistureMin.toInt()}% – ${profile.growthStages.first.requirements.soilMoistureMax.toInt()}% (Độ ẩm đất)'
+                      : '60% – 75%',
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => IrrigationCalendarScreen(profile: profile),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.calendar_month, size: 16, color: Color(0xFF0284C7)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Xem cuốn lịch tưới chi tiết cả tháng ➜',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -886,6 +1073,27 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overviewIrrigationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
             ),
           ),
         ],

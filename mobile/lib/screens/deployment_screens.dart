@@ -134,7 +134,7 @@ class _DeploymentPlanningScreenState extends State<DeploymentPlanningScreen> {
       return;
     }
     if (!await _confirm(context, 'Tạo bản nháp', 'Tạo yêu cầu triển khai ở trạng thái nháp. Chưa gửi cho kỹ thuật viên.')) return;
-    setState(() => _busy = true);
+    if (mounted) setState(() => _busy = true);
     try {
       final created = await ApiService.createDeploymentRequest(zoneId, items, notes: _notes.text);
       if (!mounted) return;
@@ -379,7 +379,7 @@ class _DeploymentRequestDetailScreenState extends State<DeploymentRequestDetailS
   Future<void> _act(Future<void> Function() action, {String? confirmTitle, String? confirmBody}) async {
     if (_busy) return;
     if (confirmTitle != null && !await _confirm(context, confirmTitle, confirmBody ?? '')) return;
-    setState(() => _busy = true);
+    if (mounted) setState(() => _busy = true);
     try {
       await action();
       if (mounted) await _load();

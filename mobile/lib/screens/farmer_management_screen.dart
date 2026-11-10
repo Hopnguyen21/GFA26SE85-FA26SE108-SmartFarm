@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/farm_provider.dart';
 import '../models/models.dart';
+import '../widgets/dispose_later.dart';
 
 class FarmerManagementScreen extends StatefulWidget {
   const FarmerManagementScreen({super.key});
@@ -469,8 +469,6 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
                     farmer.username.isEmpty ? 'farmer_${farmer.farmerId}' : farmer.username,
                     isMonospace: true,
                   ),
-                  const SizedBox(height: 6),
-                  _buildPasswordRow(context, farmer.password),
                 ],
               ),
             ),
@@ -643,109 +641,89 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
     );
   }
 
-  Widget _buildPasswordRow(BuildContext context, String password) {
-    return Row(
-      children: [
-        const Icon(Icons.password, size: 14, color: Color(0xFF94A3B8)),
-        const SizedBox(width: 8),
-        const SizedBox(
-          width: 90,
-          child: Text('Mật khẩu mẫu', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-        ),
-        Expanded(
-          child: Text(
-            '••••••••',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-          ),
-        ),
-        InkWell(
-          onTap: () {
-            Clipboard.setData(ClipboardData(text: password));
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('📋 Đã sao chép mật khẩu: $password'),
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.copy, size: 10, color: Color(0xFF475569)),
-                SizedBox(width: 3),
-                Text('Copy MK', style: TextStyle(fontSize: 9.5, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showResetPasswordDialog(BuildContext context, FarmProvider provider, FarmerModel farmer) {
-    final passController = TextEditingController(text: '${farmer.name.split(' ').last}@2026');
+    final passController = TextEditingController();
+    bool obscure = true;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.key, color: Color(0xFF0284C7)),
-            const SizedBox(width: 8),
-            Text('Đổi MK: ${farmer.name}', style: const TextStyle(fontSize: 16)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Nhập mật khẩu mới cho tài khoản nông dân:',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: passController,
-              decoration: InputDecoration(
-                labelText: 'Mật khẩu mới',
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.key, color: Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Đặt lại MK: ${farmer.name}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Nhập mật khẩu mới cho tài khoản (tối thiểu 8 ký tự):',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: passController,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu mới',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, size: 18),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final newPass = passController.text.trim();
+                if (newPass.length < 8) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('⚠️ Mật khẩu mới phải có tối thiểu 8 ký tự!'),
+                      backgroundColor: Color(0xFFEF4444),
+                    ),
+                  );
+                  return;
+                }
+                final ok = await provider.resetFarmerPassword(farmer.farmerId, newPass);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok
+                          ? '🔑 Đã cập nhật mật khẩu mới cho ${farmer.name}!'
+                          : 'Máy chủ chưa hỗ trợ đặt lại mật khẩu từ ứng dụng di động.'),
+                      backgroundColor: ok ? const Color(0xFF0284C7) : const Color(0xFFEF4444),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Cập nhật'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              if (passController.text.trim().isNotEmpty) {
-                provider.resetFarmerPassword(farmer.farmerId, passController.text.trim());
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('🔑 Đã cập nhật mật khẩu mới cho ${farmer.name}!'),
-                    backgroundColor: const Color(0xFF0284C7),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            child: const Text('Cập nhật'),
-          ),
-        ],
       ),
-    );
+    ).then((_) => disposeControllersLater([passController]));
   }
 
   String _getPermissionLabel(String perm) {
@@ -991,7 +969,8 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
     final phoneCtrl = TextEditingController(text: farmer?.phone ?? '');
     final emailCtrl = TextEditingController(text: farmer?.email ?? '');
     final usernameCtrl = TextEditingController(text: farmer?.username ?? '');
-    final passCtrl = TextEditingController(text: farmer?.password ?? 'Farmer@12345');
+    final passCtrl = TextEditingController();
+    bool obscurePass = true;
 
     String selectedRole = farmer?.role ?? 'Nông dân Thực địa (CF2)';
     final roles = [
@@ -1124,45 +1103,63 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
                   const SizedBox(height: 12),
 
                   // Tài khoản đăng nhập
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Tên đăng nhập *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: usernameCtrl,
-                              decoration: InputDecoration(
-                                hintText: 'farmer_username',
-                                isDense: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ],
-                        ),
+                  if (isEditing) ...[
+                    const Text('Tên đăng nhập *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: usernameCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'farmer_username',
+                        isDense: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Mật khẩu *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: passCtrl,
-                              decoration: InputDecoration(
-                                hintText: '••••••••',
-                                isDense: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Tên đăng nhập *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: usernameCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'farmer_username',
+                                  isDense: true,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Mật khẩu khởi tạo *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: passCtrl,
+                                obscureText: obscurePass,
+                                decoration: InputDecoration(
+                                  hintText: 'Tối thiểu 8 ký tự',
+                                  isDense: true,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscurePass ? Icons.visibility_off : Icons.visibility, size: 16),
+                                    onPressed: () => setModalState(() => obscurePass = !obscurePass),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
                   // Nút bấm
@@ -1201,11 +1198,20 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
                               return;
                             }
 
+                            if (!isEditing && passCtrl.text.trim().isNotEmpty && passCtrl.text.trim().length < 8) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('⚠️ Mật khẩu khởi tạo phải có tối thiểu 8 ký tự!'),
+                                  backgroundColor: Color(0xFFEF4444),
+                                ),
+                              );
+                              return;
+                            }
+
                             final email = emailCtrl.text.trim();
                             final username = usernameCtrl.text.trim().isEmpty
                                 ? 'farmer_${phone.replaceAll(' ', '')}'
                                 : usernameCtrl.text.trim();
-                            final password = passCtrl.text.trim().isEmpty ? 'Farmer@12345' : passCtrl.text.trim();
 
                             if (isEditing) {
                               provider.updateFarmer(
@@ -1215,7 +1221,6 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
                                   phone: phone,
                                   email: email,
                                   username: username,
-                                  password: password,
                                 ),
                               );
                               Navigator.pop(ctx);
@@ -1232,7 +1237,6 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
                                 phone: phone,
                                 email: email,
                                 username: username,
-                                password: password,
                               );
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1254,7 +1258,7 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
           );
         },
       ),
-    );
+    ).then((_) => disposeControllersLater([nameCtrl, phoneCtrl, emailCtrl, usernameCtrl, passCtrl]));
   }
 
   void _showAssignTaskDialog(BuildContext context, FarmProvider provider, FarmerModel farmer) {
@@ -1536,6 +1540,6 @@ class _FarmerManagementScreenState extends State<FarmerManagementScreen> {
           );
         },
       ),
-    );
+    ).then((_) => disposeControllersLater([titleCtrl, descCtrl]));
   }
 }

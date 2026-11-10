@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/farm_provider.dart';
 import '../models/models.dart';
+import '../widgets/dispose_later.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -512,7 +513,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([qtyCtrl]));
   }
 
   void _showAddMaterialModal(BuildContext context, FarmProvider provider) {
@@ -663,6 +664,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([nameCtrl, qtyCtrl, unitCtrl, minStockCtrl]));
   }
 }
