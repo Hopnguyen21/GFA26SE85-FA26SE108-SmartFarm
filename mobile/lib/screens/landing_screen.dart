@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
+import '../widgets/dispose_later.dart';
 
 class LandingScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -213,7 +214,7 @@ class _LandingScreenState extends State<LandingScreen> {
           },
         );
       },
-    );
+    ).then((_) => disposeControllersLater([nameController, phoneController, areaController]));
   }
 
   @override
@@ -248,7 +249,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               'SmartFarm',
@@ -329,17 +331,20 @@ class _LandingScreenState extends State<LandingScreen> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.auto_awesome, color: Color(0xFF059669), size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            'Nền tảng Quản trị Nông nghiệp Đa cấp 2026',
-                            style: TextStyle(
-                              color: Color(0xFF065F46),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                          const Icon(Icons.auto_awesome, color: Color(0xFF059669), size: 12),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Nền tảng Quản trị Nông nghiệp Đa cấp 2026',
+                              style: const TextStyle(
+                                color: Color(0xFF065F46),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -652,16 +657,19 @@ class _LandingScreenState extends State<LandingScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.people_alt_outlined, color: Color(0xFF10B981), size: 16),
-                              SizedBox(width: 6),
-                              Text(
-                                'Dành Cho Ai Trong Nông Trại?',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                              const Icon(Icons.people_alt_outlined, color: Color(0xFF10B981), size: 16),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Dành Cho Ai Trong Nông Trại?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

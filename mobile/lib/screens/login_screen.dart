@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
+import 'password_screens.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -12,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  final _emailCtrl = TextEditingController(text: 'owner@smartfarm.demo');
-  final _passwordCtrl = TextEditingController(text: 'Demo@12345');
+  final _emailCtrl = TextEditingController(text: kDebugMode ? 'owner@smartfarm.demo' : '');
+  final _passwordCtrl = TextEditingController(text: kDebugMode ? 'Demo@12345' : '');
   late final TextEditingController _serverCtrl;
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -50,9 +52,14 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() => _errorMessage = 'Vui lòng nhập email và mật khẩu.');
       return;
     }
-    // Update server URL if changed
-    if (_serverCtrl.text.isNotEmpty) {
-      ApiService.setBaseUrl(_serverCtrl.text.trim());
+    // Chỉ debug mới cho đổi máy chủ; release luôn dùng URL cấu hình lúc build.
+    if (!kReleaseMode && _serverCtrl.text.isNotEmpty) {
+      try {
+        ApiService.setBaseUrl(_serverCtrl.text.trim());
+      } catch (e) {
+        setState(() => _errorMessage = 'URL máy chủ không hợp lệ.');
+        return;
+      }
     }
     setState(() {
       _isLoading = true;
@@ -66,11 +73,13 @@ class _LoginScreenState extends State<LoginScreen>
         if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
+      } else if (result != null && result['error'] == 'unsupported_role') {
+        setState(() => _errorMessage = result['message']?.toString() ?? 'Vai trò không được hỗ trợ.');
       } else if (result != null && result['error'] == 'network') {
         setState(() {
           _errorMessage =
               'Không thể kết nối máy chủ. Kiểm tra URL backend hoặc mạng.\n${result['message'] ?? ''}';
-          _showServerConfig = true;
+          _showServerConfig = !kReleaseMode;
         });
       } else {
         final statusCode = result?['error'];
@@ -126,98 +135,105 @@ class _LoginScreenState extends State<LoginScreen>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: FadeTransition(
-                  opacity: _fadeAnim,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo & Branding matching Frontend Topbar / LoginPage
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF10B981), Color(0xFF059669)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                              blurRadius: 20,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.eco, color: Colors.white, size: 40),
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: FadeTransition(
+                      opacity: _fadeAnim,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            'SmartFarm',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
+                          // Logo & Branding matching Frontend Topbar / LoginPage
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                             ),
-                            child: const Text(
-                              'AI CLOUD',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF6EE7B7),
-                                letterSpacing: 0.8,
-                              ),
-                            ),
+                            child: const Icon(Icons.eco, color: Colors.white, size: 38),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Nền tảng Nông nghiệp Thông minh · Chuẩn VietGAP',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            children: [
+                              const Text(
+                                'SmartFarm',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'AI CLOUD',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF6EE7B7),
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Nền tảng Nông nghiệp Thông minh · Chuẩn VietGAP',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF94A3B8),
+                              letterSpacing: 0.3,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
 
-                      // Login card matching Frontend LoginPage styling
-                      Container(
-                        padding: const EdgeInsets.all(22),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0C2E32),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              blurRadius: 24,
-                              offset: const Offset(0, 10),
+                          // Login card matching Frontend LoginPage styling
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0C2E32),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                             const Text(
                               'Đăng nhập tài khoản',
                               style: TextStyle(
@@ -238,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen>
                             const SizedBox(height: 6),
                             _buildTextField(
                               controller: _emailCtrl,
-                              hint: 'owner@smartfarm.demo',
+                              hint: kDebugMode ? 'owner@smartfarm.demo' : 'ten@trangtrai.vn',
                               icon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
                             ),
@@ -300,8 +316,18 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ],
 
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                                child: const Text('Quên mật khẩu?', style: TextStyle(fontSize: 12, color: Color(0xFF10B981))),
+                              ),
+                            ),
+
                             // Server config toggle
-                            if (_showServerConfig) ...[
+                            if (!kReleaseMode && _showServerConfig) ...[
                               const SizedBox(height: 14),
                               _buildLabel('URL Backend Server'),
                               const SizedBox(height: 6),
@@ -316,7 +342,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 '• Android emulator: http://10.0.2.2:5144\n• Thiết bị thật (cùng WiFi): http://192.168.x.x:5144',
                                 style: TextStyle(fontSize: 10, color: Color(0xFF64748B), height: 1.5),
                               ),
-                            ] else ...[
+                            ] else if (!kReleaseMode) ...[
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: () => setState(() => _showServerConfig = true),
@@ -383,8 +409,9 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   );
                                 },
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                child: const Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
                                       'Chưa có tài khoản? ',
@@ -406,55 +433,77 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      // Quick Demo Account Selection Chips (Chỉ hiển thị trong môi trường Debug)
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Tài khoản trải nghiệm nhanh (Debug Mode):',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ActionChip(
+                              avatar: const Icon(Icons.badge, size: 14, color: Color(0xFF10B981)),
+                              label: const Text('👑 Chủ Trại (Owner)', style: TextStyle(fontSize: 11, color: Colors.white)),
+                              backgroundColor: const Color(0xFF0C2E32),
+                              side: const BorderSide(color: Color(0xFF10B981)),
+                              onPressed: _isLoading ? null : () {
+                                setState(() {
+                                  _emailCtrl.text = 'owner@smartfarm.demo';
+                                  _passwordCtrl.text = 'Demo@12345';
+                                });
+                                _login();
+                              },
+                            ),
+                            ActionChip(
+                              avatar: const Icon(Icons.person, size: 14, color: Color(0xFF38BDF8)),
+                              label: const Text('🌾 Nông Dân (Farmer)', style: TextStyle(fontSize: 11, color: Colors.white)),
+                              backgroundColor: const Color(0xFF0C2E32),
+                              side: const BorderSide(color: Color(0xFF38BDF8)),
+                              onPressed: _isLoading ? null : () {
+                                setState(() {
+                                  _emailCtrl.text = 'farmer@smartfarm.demo';
+                                  _passwordCtrl.text = 'Demo@12345';
+                                });
+                                _login();
+                              },
+                            ),
+                            ActionChip(
+                              avatar: const Icon(Icons.build_circle, size: 14, color: Color(0xFFFBBF24)),
+                              label: const Text('🔧 Kỹ Thuật Viên', style: TextStyle(fontSize: 11, color: Colors.white)),
+                              backgroundColor: const Color(0xFF0C2E32),
+                              side: const BorderSide(color: Color(0xFFFBBF24)),
+                              onPressed: _isLoading ? null : () {
+                                setState(() {
+                                  _emailCtrl.text = 'technician@smartfarm.demo';
+                                  _passwordCtrl.text = 'Demo@12345';
+                                });
+                                _login();
+                              },
+                            ),
+                            ActionChip(
+                              avatar: const Icon(Icons.admin_panel_settings, size: 14, color: Color(0xFFA855F7)),
+                              label: const Text('🛡️ Quản Trị (Admin)', style: TextStyle(fontSize: 11, color: Colors.white)),
+                              backgroundColor: const Color(0xFF0C2E32),
+                              side: const BorderSide(color: Color(0xFFA855F7)),
+                              onPressed: _isLoading ? null : () {
+                                setState(() {
+                                  _emailCtrl.text = 'admin@smartfarm.demo';
+                                  _passwordCtrl.text = 'Demo@12345';
+                                });
+                                _login();
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
 
-                      const SizedBox(height: 20),
-
-                      // Quick Demo Account Selection Chips
-                      const Text(
-                        'Tài khoản trải nghiệm nhanh:',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          ActionChip(
-                            avatar: const Icon(Icons.badge, size: 14, color: Color(0xFF10B981)),
-                            label: const Text('👑 Chủ Trại (Owner)', style: TextStyle(fontSize: 11, color: Colors.white)),
-                            backgroundColor: const Color(0xFF0C2E32),
-                            side: const BorderSide(color: Color(0xFF10B981)),
-                            onPressed: () {
-                              _emailCtrl.text = 'owner@smartfarm.demo';
-                              _passwordCtrl.text = 'Demo@12345';
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.person, size: 14, color: Color(0xFF38BDF8)),
-                            label: const Text('🌾 Nông Dân (Farmer)', style: TextStyle(fontSize: 11, color: Colors.white)),
-                            backgroundColor: const Color(0xFF0C2E32),
-                            side: const BorderSide(color: Color(0xFF38BDF8)),
-                            onPressed: () {
-                              _emailCtrl.text = 'farmer@smartfarm.demo';
-                              _passwordCtrl.text = 'Demo@12345';
-                            },
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.build_circle, size: 14, color: Color(0xFFFBBF24)),
-                            label: const Text('🔧 Kỹ Thuật Viên', style: TextStyle(fontSize: 11, color: Colors.white)),
-                            backgroundColor: const Color(0xFF0C2E32),
-                            side: const BorderSide(color: Color(0xFFFBBF24)),
-                            onPressed: () {
-                              _emailCtrl.text = 'technician@smartfarm.demo';
-                              _passwordCtrl.text = 'Demo@12345';
-                            },
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       const Text(
                         'SmartFarm v1.0 · AI Powered · VietGAP Certified',
                         style: TextStyle(fontSize: 10, color: Color(0xFF334155)),
@@ -465,9 +514,11 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
           ),
-        ],
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 
   Widget _buildLabel(String text) {

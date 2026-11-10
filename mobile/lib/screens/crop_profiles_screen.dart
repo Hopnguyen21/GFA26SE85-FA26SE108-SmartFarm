@@ -8,6 +8,7 @@ import '../widgets/honeycomb_topology_widget.dart';
 import '../services/api_service.dart';
 import 'crop_detail_screen.dart';
 import 'vietgap_documents_screen.dart';
+import '../widgets/dispose_later.dart';
 
 class CropProfilesScreen extends StatefulWidget {
   final bool autoOpenCreateZone;
@@ -90,7 +91,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
         ApiService.isAuthenticated && role == 'platformadmin';
 
     final profiles = provider.defaultCropProfiles.where((p) {
-      if (_selectedCategory != 'ALL' && p.cropId != _selectedCategory) {
+      if (_selectedCategory != 'ALL' && p.realCropId != _selectedCategory) {
         return false;
       }
       if (_searchQuery.isEmpty) return true;
@@ -289,36 +290,17 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                   _selectedCategory == 'ALL',
                   () => setState(() => _selectedCategory = 'ALL'),
                 ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  '🍅 Cà chua',
-                  _selectedCategory == 'crop-tomato',
-                  () => setState(() => _selectedCategory = 'crop-tomato'),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  '🍓 Dâu tây',
-                  _selectedCategory == 'crop-strawberry',
-                  () => setState(() => _selectedCategory = 'crop-strawberry'),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  '🥒 Dưa leo',
-                  _selectedCategory == 'crop-cucumber',
-                  () => setState(() => _selectedCategory = 'crop-cucumber'),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  '🫑 Ớt chuông',
-                  _selectedCategory == 'crop-bellpepper',
-                  () => setState(() => _selectedCategory = 'crop-bellpepper'),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  '🍈 Dưa lưới',
-                  _selectedCategory == 'crop-melon',
-                  () => setState(() => _selectedCategory = 'crop-melon'),
-                ),
+                // Bộ lọc theo cây trồng thật trong thư viện (lấy từ API)
+                for (final crop in {
+                  for (final p in provider.defaultCropProfiles) p.realCropId: '${p.emoji} ${p.name}',
+                }.entries) ...[
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    crop.value,
+                    _selectedCategory == crop.key,
+                    () => setState(() => _selectedCategory = crop.key),
+                  ),
+                ],
               ],
             ),
           ),
@@ -334,7 +316,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                         const Text('🌱', style: TextStyle(fontSize: 48)),
                         const SizedBox(height: 12),
                         Text(
-                          'Không tìm thấy cây trồng nào',
+                          provider.defaultCropProfiles.isEmpty ? 'Chưa tải được thư viện cây trồng từ máy chủ' : 'Không tìm thấy cây trồng nào',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[500],
@@ -374,11 +356,17 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
     final nameController = TextEditingController(
       text: 'Nhà màng 0$nextZoneNum',
     );
-    final areaController = TextEditingController(text: '5000');
+    final areaController = TextEditingController();
     final farmWorkers = provider.farmersForCurrentFarm;
     String? selectedFarmerId = farmWorkers.isNotEmpty
         ? farmWorkers.first.farmerId
         : null;
+    if (provider.defaultCropProfiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa tải được thư viện cây trồng từ máy chủ.')),
+      );
+      return;
+    }
     String selectedCropId = provider.defaultCropProfiles.first.cropId;
 
     String? selectedFieldId =
@@ -890,7 +878,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                     Builder(
                       builder: (_) {
                         final currentArea =
-                            double.tryParse(areaController.text) ?? 5000.0;
+                            double.tryParse(areaController.text) ?? 0.0;
                         final sim = ZoneCostSimulation.calculate(
                           areaM2: currentArea,
                           cropName: selectedCrop.name,
@@ -1002,7 +990,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               elevation: 0,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
                               // Kiểm tra nếu có polygon và polygon bị lòi ra ngoài Field hoặc đè lên Zone khác
                               if (currentZonePolygon != null &&
                                   currentZonePolygon!.length >= 3) {
@@ -1124,7 +1112,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                                   : nameController.text.trim();
                               final area =
                                   double.tryParse(areaController.text) ??
-                                  5000.0;
+                                  0.0;
                               final chosenFarmer = farmWorkers.firstWhere(
                                 (w) => w.farmerId == selectedFarmerId,
                                 orElse: () => farmWorkers.isNotEmpty
@@ -1132,43 +1120,29 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                                     : FarmerModel(
                                         farmerId: 'farmer-fallback',
                                         farmId: provider.selectedFarmId,
-                                        name: 'Trần Văn Bình',
+                                        name: '',
                                         role: 'Nông dân Thực địa',
                                         phone: '',
                                       ),
                               );
 
-                              provider.addNewZone(
-                                name: '$zoneName - ${selectedCrop.name}',
+                              final err = await provider.addNewZone(
+                                name: zoneName,
                                 areaM2: area,
-                                cropProfileId: selectedCropId,
                                 assignedWorkerName: chosenFarmer.name,
                                 workerRole: chosenFarmer.role,
                                 customFieldId: selectedFieldId,
                                 polygon: currentZonePolygon,
                               );
+if (err != null) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+  }
+  return;
+}
+if (!ctx.mounted) return;
 
-                              if (requestInspectionOnCreate) {
-                                final sim = ZoneCostSimulation.calculate(
-                                  areaM2: area,
-                                  cropName: selectedCrop.name,
-                                );
-                                provider.submitInspectionRequest(
-                                  zoneId: provider.currentZone.zoneId,
-                                  zoneName: '$zoneName - ${selectedCrop.name}',
-                                  areaM2: area,
-                                  cropName: selectedCrop.name,
-                                  estimatedCostVND: sim.totalEquipmentCostVND,
-                                  contactName: chosenFarmer.name,
-                                  contactPhone: chosenFarmer.phone.isNotEmpty
-                                      ? chosenFarmer.phone
-                                      : '0908 123 456',
-                                  preferredDate:
-                                      '${DateTime.now().add(const Duration(days: 2)).day}/${DateTime.now().month}/${DateTime.now().year} (Sáng)',
-                                  note:
-                                      'Yêu cầu khảo sát thực địa đo đạc mặt bằng khi khởi tạo $zoneName.',
-                                );
-                              }
+                              // Yêu cầu khảo sát/triển khai thật được tạo ở mục "Yêu cầu triển khai thiết bị" (lưu trên máy chủ).
 
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1202,7 +1176,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
           );
         },
       ),
-    );
+    ).then((_) => disposeControllersLater([nameController, areaController]));
   }
 }
 
@@ -1278,38 +1252,7 @@ class _CropProfileCard extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (profile.isApplied) ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle,
-                                        size: 11,
-                                        color: Colors.white,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'ĐANG TRỒNG',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -1341,8 +1284,41 @@ class _CropProfileCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
-                          Row(
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
+                              if (profile.isApplied)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        size: 11,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'ĐANG TRỒNG',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 7,
@@ -1374,8 +1350,7 @@ class _CropProfileCard extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Container(
+                              if (profile.difficulty.isNotEmpty) Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 7,
                                   vertical: 2,
@@ -1409,7 +1384,6 @@ class _CropProfileCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 7,
@@ -1577,15 +1551,19 @@ class _CropProfileCard extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 12, color: iconColor),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -1598,10 +1576,14 @@ class _CropProfileCard extends StatelessWidget {
             fontWeight: FontWeight.bold,
             color: Color(0xFF0F172A),
           ),
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
         Text(
           caption,
           style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
       ],
     );

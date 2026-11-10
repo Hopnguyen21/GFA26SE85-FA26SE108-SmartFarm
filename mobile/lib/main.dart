@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/farm_provider.dart';
 import 'services/api_service.dart';
+import 'services/app_role.dart';
 import 'screens/home_screen.dart';
 import 'screens/ai_screen.dart';
 import 'screens/crop_profiles_screen.dart';
@@ -12,19 +14,45 @@ import 'screens/gis_map_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/farmer_dashboard_screen.dart';
 import 'screens/alerts_tasks_screen.dart';
-import 'screens/landing_screen.dart';
+import 'screens/login_screen.dart';
 
-class MyHttpOverrides extends HttpOverrides {
+/// Chỉ dùng cho môi trường Debug/Phát triển nội bộ khi làm việc với chứng chỉ tự ký cục bộ.
+/// Tuyệt đối KHÔNG bỏ qua xác minh chứng chỉ trong bản Release hoặc cho các host ngoài danh sách cục bộ.
+class DebugLocalHttpOverrides extends HttpOverrides {
+  static const Set<String> localDevHosts = {
+    'localhost',
+    '127.0.0.1',
+    '10.0.2.2',
+  };
+
+  /// Kiểm tra host có được phép dùng chứng chỉ tự ký hay không.
+  /// Tuyệt đối từ chối nếu không phải chế độ debug hoặc không phải host nội bộ.
+  static bool isHostPermittedForSelfSigned(String host, {bool isDebug = kDebugMode}) {
+    if (!isDebug) return false;
+    return localDevHosts.contains(host.toLowerCase());
+  }
+
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
+    final client = super.createHttpClient(context);
+    if (!kDebugMode) {
+      return client;
+    }
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      // Chỉ cho phép chứng chỉ tự ký cục bộ trong chế độ debug cho host phát triển nội bộ
+      return isHostPermittedForSelfSigned(host, isDebug: true);
+    };
+    return client;
   }
 }
 
 void main() {
-  HttpOverrides.global = MyHttpOverrides();
+  // Bản release TUYỆT ĐỐI không dùng HttpOverrides, tuân thủ xác minh TLS chuẩn của hệ điều hành
+  if (kDebugMode) {
+    HttpOverrides.global = DebugLocalHttpOverrides();
+  } else {
+    HttpOverrides.global = null;
+  }
   runApp(
     MultiProvider(
       providers: [
@@ -90,46 +118,49 @@ class AppEntryPoint extends StatefulWidget {
 class _AppEntryPointState extends State<AppEntryPoint> {
   bool _isCheckingAuth = true;
 
+  void _onSessionChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    ApiService.sessionVersion.addListener(_onSessionChanged);
     _checkSavedAuth();
   }
 
+  @override
+  void dispose() {
+    ApiService.sessionVersion.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
   Future<void> _checkSavedAuth() async {
-    final hasToken = await ApiService.loadSavedTokens();
+    final hasTokens = await ApiService.loadSavedTokens();
     if (mounted) {
-      setState(() => _isCheckingAuth = false);
-      if (hasToken) {
+      if (hasTokens && ApiService.isAuthenticated) {
         final provider = Provider.of<FarmProvider>(context, listen: false);
-        if (ApiService.userRole != null) {
-          final r = ApiService.userRole!.toUpperCase();
-          if (r.contains('OWNER') || r.contains('ADMIN')) {
-            provider.switchRole('OWNER');
-          } else if (r.contains('TECH')) {
-            provider.switchRole('TECHNICIAN');
-          } else {
-            provider.switchRole('FARMER');
-          }
+        final role = parseAppRole(ApiService.userRole);
+        if (role == null) {
+          await ApiService.clearTokens();
+        } else {
+          provider.switchRole(providerRoleName(role));
+          provider.fetchFromApi();
         }
-        provider.fetchFromApi();
       }
+      setState(() => _isCheckingAuth = false);
     }
   }
 
   void _onLoginSuccess() {
     setState(() {});
     final provider = Provider.of<FarmProvider>(context, listen: false);
-    if (ApiService.userRole != null) {
-      final r = ApiService.userRole!.toUpperCase();
-      if (r.contains('OWNER') || r.contains('ADMIN')) {
-        provider.switchRole('OWNER');
-      } else if (r.contains('TECH')) {
-        provider.switchRole('TECHNICIAN');
-      } else {
-        provider.switchRole('FARMER');
-      }
+    final role = parseAppRole(ApiService.userRole);
+    if (role == null) {
+      ApiService.clearTokens();
+      return;
     }
+    provider.switchRole(providerRoleName(role));
     provider.fetchFromApi();
   }
 
@@ -144,7 +175,7 @@ class _AppEntryPointState extends State<AppEntryPoint> {
       );
     }
     if (!ApiService.isAuthenticated) {
-      return LandingScreen(onLoginSuccess: _onLoginSuccess);
+      return LoginScreen(onLoginSuccess: _onLoginSuccess);
     }
     return const MainNavigationShell();
   }
@@ -189,7 +220,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    final role = Provider.of<FarmProvider>(context).currentRole;
+    final farmProvider = Provider.of<FarmProvider>(context);
+    final role = farmProvider.currentRole;
     final isFarmer = role == 'FARMER';
     final isTech = role == 'TECHNICIAN';
     final isOwner = !isFarmer && !isTech;
@@ -198,9 +230,43 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         : (isTech ? _technicianScreens : _ownerScreens);
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      body: Column(
+        children: [
+          if (farmProvider.syncError != null)
+            Material(
+              color: const Color(0xFFFEF3C7),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cloud_off, size: 16, color: Color(0xFF92400E)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Không đồng bộ được: ${farmProvider.syncError}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: farmProvider.isLoadingApi ? null : farmProvider.fetchFromApi,
+                        child: const Text('Thử lại', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: screens,
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,

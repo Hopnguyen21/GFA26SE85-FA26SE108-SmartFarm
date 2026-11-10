@@ -21,14 +21,14 @@ class FarmModel {
     required this.farmId,
     required this.name,
     required this.address,
-    this.province = 'Lâm Đồng',
-    this.district = 'TP. Đà Lạt',
-    this.ward = 'Phường 12',
+    this.province = '',
+    this.district = '',
+    this.ward = '',
     this.addressDetail = '',
     this.legacyLocationName = '',
     required this.totalAreaM2,
-    this.latitude = 11.9404,
-    this.longitude = 108.4583,
+    this.latitude = 0,
+    this.longitude = 0,
   });
 
   String get formattedArea {
@@ -40,15 +40,15 @@ class FarmModel {
     return FarmModel(
       farmId: json['farmId']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Nông trại',
-      address: json['locationText']?.toString() ?? json['address']?.toString() ?? 'Lâm Đồng, Việt Nam',
-      province: json['province']?.toString() ?? 'Lâm Đồng',
-      district: json['district']?.toString() ?? 'TP. Đà Lạt',
-      ward: json['ward']?.toString() ?? 'Phường 12',
+      address: json['locationText']?.toString() ?? json['address']?.toString() ?? '',
+      province: json['province']?.toString() ?? '',
+      district: json['district']?.toString() ?? '',
+      ward: json['ward']?.toString() ?? '',
       addressDetail: json['addressDetail']?.toString() ?? '',
       legacyLocationName: json['legacyLocationName']?.toString() ?? '',
-      totalAreaM2: (json['totalAreaM2'] as num?)?.toDouble() ?? 10000.0,
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 11.9404,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 108.4583,
+      totalAreaM2: (json['totalAreaM2'] as num?)?.toDouble() ?? 0.0,
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -90,7 +90,6 @@ class FarmerModel {
   final String phone;
   final String email;
   final String username;
-  final String password;
   final String? avatar;
   final String? farmId; // Gắn với nông trại của owner
   final bool isActive;
@@ -106,7 +105,6 @@ class FarmerModel {
     required this.phone,
     this.email = '',
     this.username = '',
-    this.password = 'Farmer@12345',
     this.avatar,
     this.farmId,
     this.isActive = true,
@@ -122,7 +120,6 @@ class FarmerModel {
     String? phone,
     String? email,
     String? username,
-    String? password,
     String? avatar,
     String? farmId,
     bool? isActive,
@@ -136,7 +133,6 @@ class FarmerModel {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       username: username ?? this.username,
-      password: password ?? this.password,
       avatar: avatar ?? this.avatar,
       farmId: farmId ?? this.farmId,
       isActive: isActive ?? this.isActive,
@@ -217,7 +213,7 @@ class FieldModel {
       farmId: json['farmId']?.toString() ?? defaultFarmId,
       name: json['name']?.toString() ?? 'Lô đất',
       description: json['soilType']?.toString() ?? 'Đất đỏ bazan màu mỡ',
-      areaM2: (json['areaM2'] as num?)?.toDouble() ?? 5000.0,
+      areaM2: (json['areaM2'] as num?)?.toDouble() ?? 0.0,
       polygon: parsedPolygon,
     );
   }
@@ -252,9 +248,9 @@ class ZoneModel {
   ZoneModel({
     required this.zoneId,
     required this.farmId,
-    this.farmName = 'Nông trại Thông minh Đà Lạt',
-    this.fieldId = 'field-01',
-    this.fieldName = 'Lô đất A1 (Khu CNC)',
+    this.farmName = '',
+    this.fieldId = '',
+    this.fieldName = '',
     required this.name,
     required this.currentCrop,
     required this.currentStage,
@@ -339,13 +335,14 @@ class ZoneModel {
             _ => 'Chưa có vụ đang canh tác',
           },
       seasonStatus: json['seasonStatus']?.toString() ?? 'None',
-      areaM2: (json['areaM2'] as num?)?.toDouble() ?? 5000.0,
-      currentSoilMoisture: 65.0,
-      currentTemp: 24.5,
-      currentHumidity: 70.0,
-      currentLux: 750.0,
+      areaM2: (json['areaM2'] as num?)?.toDouble() ?? 0.0,
+      // Số đo thật được nạp từ API telemetry (telemetryIsFresh); chưa có thì để 0, giao diện hiển thị '—'.
+      currentSoilMoisture: 0,
+      currentTemp: 0,
+      currentHumidity: 0,
+      currentLux: 0,
       assignedWorkerName: json['assignedWorkerName']?.toString(),
-      workerRole: 'Nông dân Thực địa (CF2)',
+      workerRole: json['assignedWorkerName'] == null ? null : 'Nông dân',
       polygon: parsedPolygon,
       cropContextIsDbBacked: json['currentCrop'] != null && json['currentStage'] != null && json['appliedRequirements'] is List,
     );
@@ -778,8 +775,15 @@ class DefaultCropProfile {
   final List<String> commonPests;
   final List<GrowthStageProfile> growthStages;
   bool isApplied;
+  /// Id hồ sơ sinh trưởng (growth profile) và id cây trồng thật trong CSDL.
+  final String profileId;
+  final String realCropId;
+  final String? varietyId;
 
   DefaultCropProfile({
+    this.profileId = '',
+    this.realCropId = '',
+    this.varietyId,
     required this.cropId,
     required this.name,
     required this.nameEn,
@@ -801,6 +805,102 @@ class DefaultCropProfile {
 // ─────────────────────────────────────────
 // Device Health Models (CF1 - Kỹ thuật viên)
 // ─────────────────────────────────────────
+
+/// Dựng hồ sơ cây trồng từ dữ liệu thật của API (GET /growth-profiles + /crops).
+DefaultCropProfile defaultCropProfileFromApi(Map<String, dynamic> p, Map<String, dynamic>? crop) {
+  double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+  final rawStages = ((p['stages'] as List?) ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+    ..sort((a, b) => ((a['stageOrder'] as num?) ?? 0).compareTo((b['stageOrder'] as num?) ?? 0));
+  var cursor = 0;
+  final stages = <GrowthStageProfile>[];
+  for (final s in rawStages) {
+    final days = (s['durationDays'] as num?)?.toInt() ?? 0;
+    final reqs = <String, Map<String, dynamic>>{
+      for (final r in ((s['requirements'] as List?) ?? const []).whereType<Map>()) '${r['parameterCode']}': Map<String, dynamic>.from(r),
+    };
+    double min(String k) => n(reqs[k]?['minValue']);
+    double max(String k) => n(reqs[k]?['maxValue']);
+    final activities = [
+      for (final k in ['description', 'fertilizerAction', 'ipmAction'])
+        if ('${s[k] ?? ''}'.trim().isNotEmpty) '${s[k]}'.trim(),
+    ];
+    // Khuyến nghị lịch tưới chuẩn VietGAP nếu CSDL chưa lưu riêng thông số thời lượng/tần suất
+    final stageNameLower = '${s['name'] ?? ''}'.toLowerCase();
+    int calcDuration = 15;
+    int calcFrequency = 2;
+    if (stageNameLower.contains('con') || stageNameLower.contains('ươm') || stageNameLower.contains('seedling')) {
+      calcDuration = 10;
+      calcFrequency = 2;
+    } else if (stageNameLower.contains('hoa') || stageNameLower.contains('trái') || stageNameLower.contains('quả') || stageNameLower.contains('harvest')) {
+      calcDuration = 20;
+      calcFrequency = 3;
+    } else {
+      calcDuration = 15;
+      calcFrequency = 2;
+    }
+
+    stages.add(GrowthStageProfile(
+      stageId: '${s['stageId'] ?? ''}',
+      name: '${s['name'] ?? ''}',
+      nameEn: '',
+      startDayFromPlanting: cursor,
+      endDayFromPlanting: cursor + days,
+      description: '${s['description'] ?? ''}',
+      iconEmoji: '🌱',
+      requirements: EnvironmentalRange(
+        soilMoistureMin: min('SoilMoisture'),
+        soilMoistureMax: max('SoilMoisture'),
+        tempMin: min('Temperature'),
+        tempMax: max('Temperature'),
+        humidityMin: min('AirHumidity'),
+        humidityMax: max('AirHumidity'),
+        irrigationDurationMin: (reqs['IrrigationDuration']?['targetValue'] as num?)?.toInt() ?? calcDuration,
+        irrigationFrequencyPerDay: (reqs['IrrigationFrequency']?['targetValue'] as num?)?.toInt() ?? calcFrequency,
+      ),
+      keyActivities: activities,
+    ));
+    cursor += days;
+  }
+  final cropName = '${p['cropName'] ?? crop?['name'] ?? ''}';
+  final lower = cropName.toLowerCase();
+  const emojis = {'cà chua': '🍅', 'dâu': '🍓', 'dưa': '🍈', 'ớt': '🌶️', 'cà rốt': '🥕', 'xà lách': '🥬', 'rau': '🥬', 'hoa': '🌸', 'lúa': '🌾', 'ngô': '🌽', 'bắp': '🌽', 'khoai': '🥔', 'cà phê': '☕', 'nho': '🍇', 'chuối': '🍌'};
+  var emoji = '🌱';
+  for (final e in emojis.entries) {
+    if (lower.contains(e.key)) { emoji = e.value; break; }
+  }
+
+  List<String> pests = const ['Bọ trĩ', 'Rệp muội', 'Sâu khoang', 'Bệnh đốm lá'];
+  if (lower.contains('dưa')) {
+    pests = const ['Bọ phấn trắng', 'Bọ trĩ', 'Bệnh phấn trắng', 'Sương mai'];
+  } else if (lower.contains('cà chua')) {
+    pests = const ['Sâu đục quả', 'Bọ phấn', 'Bệnh mốc sương', 'Héo xanh'];
+  } else if (lower.contains('dâu')) {
+    pests = const ['Nhện đỏ', 'Bọ trĩ', 'Thối trái Botrytis', 'Phấn trắng'];
+  } else if (lower.contains('cải') || lower.contains('xà lách') || lower.contains('rau')) {
+    pests = const ['Sâu tơ', 'Bọ nhảy', 'Bệnh thối nhũn', 'Cháy lá'];
+  }
+
+  final isSystem = p['isSystemDefined'] == true;
+  return DefaultCropProfile(
+    profileId: '${p['profileId'] ?? ''}',
+    realCropId: '${p['cropId'] ?? ''}',
+    varietyId: p['varietyId']?.toString(),
+    cropId: '${p['profileId'] ?? ''}', // khoá chọn trong giao diện = id hồ sơ sinh trưởng
+    name: cropName,
+    nameEn: '${crop?['scientificName'] ?? ''}',
+    variety: '${p['varietyName'] ?? p['name'] ?? ''}',
+    emoji: emoji,
+    standardType: isSystem ? 'Hệ thống' : 'Tuỳ chỉnh',
+    totalCycleDays: cursor > 0 ? cursor : ((crop?['growthCycleDays'] as num?)?.toInt() ?? 0),
+    description: '${p['description'] ?? crop?['description'] ?? ''}',
+    origin: 'Việt Nam (TCVN 11892-1:2017)',
+    difficulty: 'Trung bình',
+    suitableRegion: 'Nhà màng / Nhà kính công nghệ cao',
+    compatibleActuators: const ['PUMP', 'VALVE', 'FAN'],
+    commonPests: pests,
+    growthStages: stages,
+  );
+}
 
 class DeviceHealthModel {
   final String nodeId;

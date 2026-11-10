@@ -18,36 +18,8 @@ class FarmerDashboardScreen extends StatefulWidget {
 class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  final List<_DiaryEntry> _diaryEntries = [
-    _DiaryEntry(
-      id: 'd-01',
-      date: DateTime.now().subtract(const Duration(days: 1)),
-      zone: 'Nhà màng 01 - Cà chua Beefsteak',
-      activity: 'Tưới nước buổi sáng',
-      note: 'Đất ổn định, rễ phát triển tốt. Độ ẩm đất khoảng 68%.',
-      weather: 'Nắng nhẹ',
-      icon: '💧',
-    ),
-    _DiaryEntry(
-      id: 'd-02',
-      date: DateTime.now().subtract(const Duration(days: 2)),
-      zone: 'Nhà màng 01 - Cà chua Beefsteak',
-      activity: 'Bón phân NPK định kỳ',
-      note:
-          'Bón 2kg/100m2 NPK 20-20-15 pha loãng. Cây đang ở giai đoạn ra hoa.',
-      weather: 'Mát mẻ',
-      icon: '🌿',
-    ),
-    _DiaryEntry(
-      id: 'd-03',
-      date: DateTime.now().subtract(const Duration(days: 3)),
-      zone: 'Nhà màng 02 - Dâu tây New Zealand',
-      activity: 'Kiểm tra sâu bệnh',
-      note: 'Phát hiện một số lá vàng nhẹ, đã phun thuốc sinh học phòng ngừa.',
-      weather: 'Nhiều mây',
-      icon: '🔍',
-    ),
-  ];
+  // Nhật ký chỉ lưu tạm trên máy trong phiên này: backend chưa có API nhật ký canh tác.
+  final List<_DiaryEntry> _diaryEntries = [];
 
   bool _showAddDiaryForm = false;
   final _diaryNoteController = TextEditingController();
@@ -274,8 +246,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
       if (farmer == null) return true;
       if (t.assignedFarmerId == farmer.farmerId) return true;
       if (t.assignedFarmerName != null &&
-          t.assignedFarmerName!.contains(farmer.name))
+          t.assignedFarmerName!.contains(farmer.name)) {
         return true;
+      }
       if (t.assignedFarmerId == null || t.assignedFarmerId!.isEmpty) {
         return zones.any((z) => t.zoneName.contains(z.name.split(' - ').first));
       }
@@ -901,7 +874,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
     final actuators = provider.actuators;
     // Lọc actuator theo zones được phân công
     final assignedActuators = actuators
-        .where((a) => zones.any((z) => z.zoneId == a.zoneId))
+        .where((a) => zones.any((z) => z.zoneId.toLowerCase() == a.zoneId.toLowerCase()))
         .toList();
 
     return SingleChildScrollView(
@@ -952,7 +925,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
           else
             ...assignedActuators.map((actuator) {
               final zone = zones.firstWhere(
-                (z) => z.zoneId == actuator.zoneId,
+                (z) => z.zoneId.toLowerCase() == actuator.zoneId.toLowerCase(),
                 orElse: () => zones.first,
               );
               return _buildActuatorControlCard(
@@ -1098,8 +1071,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
               (a) => a.zoneId == zone.zoneId && a.actuatorType == 'PUMP',
             );
             for (final a in actuators) {
-              if (!a.isRunning)
-                provider.toggleActuator(a.actuatorId, durationMinutes: minutes);
+              if (!a.isRunning) {
+                  provider.toggleActuator(a.actuatorId, durationMinutes: minutes);
+              }
             }
           }
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1328,6 +1302,13 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
           ),
           const SizedBox(height: 10),
 
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Lưu ý: nhật ký chỉ lưu tạm trên thiết bị này (máy chủ chưa có API nhật ký), sẽ mất khi đóng ứng dụng.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+            ),
+          ),
           if (_diaryEntries.isEmpty)
             _buildEmptyState(
               'Chưa có nhật ký nào. Hãy ghi lại hoạt động hôm nay!',

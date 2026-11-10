@@ -455,46 +455,47 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
   String _coordFallback(LatLng p) =>
       '${p.latitude.toStringAsFixed(5)}°B, ${p.longitude.toStringAsFixed(5)}°Đ';
 
-  // ── Lấy địa chỉ thực tế qua Backend Proxy (chặn rò rỉ vị trí trực tiếp tới dịch vụ bên thứ ba) ───────────
-  Future<void> _resolveAddress(LatLng point) async {
-    if (!mounted) return;
-    final int myId = ++_requestId;
-    _addressPending = true;
-    widget.onAddressResolved?.call('Đang lấy địa chỉ...');
-
-    bool stale() => !mounted || myId != _requestId;
-
-    _ResolvedAddress? result;
-    // Chỉ gọi qua backend proxy, tuyệt đối không gọi trực tiếp bên thứ ba từ thiết bị client
-    try {
-      result = await _reverseBackendProxy(point);
-    } catch (_) {}
-    if (stale()) return;
-
-    _addressPending = false;
-    final levelTag = widget.level == 'ZONE'
-        ? 'Nhà màng (Zone)'
-        : widget.level == 'FIELD'
-            ? 'Thửa đất (Field)'
-            : 'Trang trại (Farm)';
-
-    if (result != null) {
-      debugPrint('[MiniGISMapPicker][$levelTag] 📍 Địa chỉ hiện tại: ${result.address} | Vùng: ${result.region} (Tọa độ: ${point.latitude}, ${point.longitude})');
-      setState(() {
-        _displayPlaceName = result!.address;
-      });
-      widget.onAddressResolved?.call(result.address);
-      if (result.region.isNotEmpty) {
-        widget.onRegionNameResolved?.call(result.region);
-      }
-    } else {
-      final fallback = _coordFallback(point);
-      debugPrint('[MiniGISMapPicker][$levelTag] ⚠️ Không lấy được tên địa danh, dùng tọa độ: $fallback');
-      setState(() {
-        _displayPlaceName = fallback;
-      });
-      widget.onAddressResolved?.call(fallback);
-    }
+  // ── Lấy địa chỉ thực tế qua Backend Proxy (chặn rò rỉ vị trí trực tiếp tới dịch vụ bên thứ ba) ───────────
+  Future<void> _resolveAddress(LatLng point) async {
+    if (!mounted) return;
+    final int myId = ++_requestId;
+    _addressPending = true;
+    widget.onAddressResolved?.call('Đang lấy địa chỉ...');
+
+    bool stale() => !mounted || myId != _requestId;
+
+    _ResolvedAddress? result;
+    // Chỉ gọi qua backend proxy, tuyệt đối không gọi trực tiếp bên thứ ba từ thiết bị client
+    try {
+      result = await _reverseBackendProxy(point);
+    } catch (_) {}
+    if (stale()) return;
+
+    _addressPending = false;
+    final levelTag = widget.level == 'ZONE'
+        ? 'Nhà màng (Zone)'
+        : widget.level == 'FIELD'
+            ? 'Thửa đất (Field)'
+            : 'Trang trại (Farm)';
+
+    if (result != null) {
+      debugPrint('[MiniGISMapPicker][$levelTag] 📍 Địa chỉ hiện tại: ${result.address} | Vùng: ${result.region} (Tọa độ: ${point.latitude}, ${point.longitude})');
+      if (mounted) {
+        setState(() {
+          _displayPlaceName = result!.address;
+        });
+      }
+      if (result.region.isNotEmpty) {
+        widget.onRegionNameResolved?.call(result.region);
+      }
+    } else {
+      final fallback = _coordFallback(point);
+      debugPrint('[MiniGISMapPicker][$levelTag] ⚠️ Không lấy được tên địa danh, dùng tọa độ: $fallback');
+      setState(() {
+        _displayPlaceName = fallback;
+      });
+      widget.onAddressResolved?.call(fallback);
+    }
   }
 
   String? _s(dynamic v) {

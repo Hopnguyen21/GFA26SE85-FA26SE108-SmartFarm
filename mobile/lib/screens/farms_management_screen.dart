@@ -10,6 +10,8 @@ import 'crop_profiles_screen.dart';
 import 'workforce_screen.dart';
 import 'contracts_depreciation_screen.dart';
 import 'farming_seasons_screen.dart';
+import '../widgets/dispose_later.dart';
+import '../widgets/ask_number_dialog.dart';
 
 class FarmsManagementScreen extends StatelessWidget {
   const FarmsManagementScreen({super.key});
@@ -722,16 +724,26 @@ class FarmsManagementScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameCtrl.text.trim().isEmpty ? 'Nông trại 0$nextNum' : nameCtrl.text.trim();
                         final address = addressCtrl.text.trim();
 
-                        provider.addFarm(
+                        final farmArea = await askPositiveNumber(context, 'Diện tích trang trại (m²)');
+if (farmArea == null) return;
+final err = await provider.addFarm(
+totalAreaM2: farmArea,
                           name: name,
                           address: address,
                           latitude: currentLat,
                           longitude: currentLng,
                         );
+if (err != null) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+  }
+  return;
+}
+if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -923,7 +935,7 @@ class FarmsManagementScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         // Kiểm tra chống chọn đè lên Thửa đất khác của Farm
                         if (fieldPolygon != null && fieldPolygon!.length >= 3) {
                           bool isInsidePoly(LatLng pt, List<LatLng> poly) {
@@ -965,15 +977,22 @@ class FarmsManagementScreen extends StatelessWidget {
 
                         final name = nameCtrl.text.trim().isEmpty ? 'Lô đất 0$nextNum' : nameCtrl.text.trim();
                         final desc = descCtrl.text.trim().isEmpty ? 'Khu quy hoạch chuẩn VietGAP' : descCtrl.text.trim();
-                        final area = double.tryParse(areaCtrl.text) ?? 10000.0;
+                        final area = double.tryParse(areaCtrl.text) ?? 0.0;
 
-                        provider.addField(
+                        final err = await provider.addField(
                           farmId: provider.selectedFarmId,
                           name: name,
                           description: desc,
                           areaM2: area,
                           polygon: fieldPolygon,
                         );
+if (err != null) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+  }
+  return;
+}
+if (!ctx.mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -996,7 +1015,7 @@ class FarmsManagementScreen extends StatelessWidget {
       ),
     );
   },
-);
+).then((_) => disposeControllersLater([nameCtrl, descCtrl, areaCtrl]));
   }
 }
 

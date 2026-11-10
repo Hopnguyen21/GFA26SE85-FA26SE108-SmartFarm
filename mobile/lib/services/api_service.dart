@@ -1,23 +1,54 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode, ValueNotifier;
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../models/agriculture_document.dart';
 import '../models/iot_deployment.dart';
+import 'app_role.dart';
+
+class SecurityException implements Exception {
+  final String message;
+  const SecurityException(this.message);
+  @override
+  String toString() => 'SecurityException: $message';
+}
 
 class ApiService {
   // Dùng chung một client để tái sử dụng kết nối (keep-alive) thay vì mở kết nối mới ở mỗi lệnh gọi.
   static final http.Client _client = http.Client();
 
-  // Base URL – Android emulator dùng 10.0.2.2 thay cho localhost
-  static String baseUrl = (kIsWeb || (!kIsWeb && !Platform.isAndroid))
-      ? 'http://localhost:5144'
-      : 'http://10.0.2.2:5144';
-  // Token đăng nhập lưu trong kho an toàn của hệ điều hành (Keystore/Keychain), không để dạng chữ thường trong SharedPreferences.
+  // Danh sách host phát hành chính thức được tin cậy
+  static const Set<String> _trustedReleaseHosts = {
+    'api.smartfarm.vn',
+    'smartfarm.vn',
+    'app.smartfarm.vn',
+  };
+
+  /// Base URL mặc định theo môi trường
+  static String get defaultBaseUrl {
+    if (kReleaseMode) {
+      const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://api.smartfarm.vn');
+      return envUrl;
+    }
+    // Debug / Development
+    if (kIsWeb || !Platform.isAndroid) {
+      return 'http://localhost:5144';
+    } else {
+      return 'http://10.0.2.2:5144';
+    }
+  }
+
+  // Base URL hiện tại
+  static String _baseUrl = defaultBaseUrl;
+  static String get baseUrl => _baseUrl;
+  static set baseUrl(String value) => setBaseUrl(value);
+
+  // Token đăng nhập lưu trong kho an toàn của hệ điều hành (Keystore/Keychain), TUYỆT ĐỐI không để trong SharedPreferences.
   static const FlutterSecureStorage _secure = FlutterSecureStorage();
   static String? _accessToken;
   static String? _refreshToken;
@@ -25,15 +56,64 @@ class ApiService {
   static String? _userRole;
   static Completer<bool>? _refreshCompleter;
 
-  static void setBaseUrl(String url) {
+  /// Kiểm tra và chuẩn hoá Base URL:
+  /// - Bản Release: bắt buộc scheme là HTTPS, từ chối HTTP, chỉ cho phép host tin cậy.
+  /// - Bản Debug: cho phép HTTP/HTTPS cục bộ.
+  static String validateAndNormalizeBaseUrl(String url, {bool isRelease = kReleaseMode}) {
     var cleaned = url.trim();
     if (cleaned.endsWith('/')) {
       cleaned = cleaned.substring(0, cleaned.length - 1);
     }
-    if (!kIsWeb && Platform.isAndroid) {
-      baseUrl = cleaned.replaceAll('localhost', '10.0.2.2');
+    final uri = Uri.tryParse(cleaned);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw FormatException('URL API không hợp lệ: $url');
+    }
+
+    final scheme = uri.scheme.toLowerCase();
+    final host = uri.host.toLowerCase();
+
+    if (isRelease) {
+      if (scheme != 'https') {
+        throw SecurityException('Bản release từ chối kết nối không mã hóa HTTP. Bắt buộc dùng HTTPS: $url');
+      }
+      const envHost = String.fromEnvironment('API_HOST');
+      final isTrusted = _trustedReleaseHosts.contains(host) ||
+          (envHost.isNotEmpty && host == envHost.toLowerCase());
+      if (!isTrusted) {
+        throw SecurityException('Host không nằm trong danh sách máy chủ tin cậy được phát hành: $host');
+      }
     } else {
-      baseUrl = cleaned;
+      if (scheme != 'http' && scheme != 'https') {
+        throw FormatException('Scheme không được hỗ trợ: ${uri.scheme}');
+      }
+    }
+
+    return cleaned;
+  }
+
+  /// Bảo đảm các yêu cầu API trong bản release không bao giờ gửi qua kênh HTTP không mã hoá
+  static void _assertSecureRequest(Uri uri) => assertSecureRequest(uri);
+
+  /// Kiểm tra URL đích trước khi gửi (kèm token): release bắt buộc HTTPS và host tin cậy.
+  static void assertSecureRequest(Uri uri, {bool isRelease = kReleaseMode}) {
+    if (!isRelease) return;
+    if (uri.scheme.toLowerCase() != 'https') {
+      throw SecurityException(
+        'Bản release nghiêm cấm gửi yêu cầu hoặc thông tin xác thực qua kết nối không mã hóa HTTP.',
+      );
+    }
+    validateAndNormalizeBaseUrl('${uri.scheme}://${uri.host}', isRelease: true);
+  }
+
+  /// Tăng mỗi khi phiên bị xoá (đăng xuất / refresh thất bại) để UI quay về màn đăng nhập.
+  static final ValueNotifier<int> sessionVersion = ValueNotifier<int>(0);
+
+  static void setBaseUrl(String url) {
+    final validated = validateAndNormalizeBaseUrl(url);
+    if (!kIsWeb && !kReleaseMode && Platform.isAndroid) {
+      _baseUrl = validated.replaceAll('localhost', '10.0.2.2');
+    } else {
+      _baseUrl = validated;
     }
   }
 
@@ -49,38 +129,51 @@ class ApiService {
     _userRole = role;
   }
 
-  static bool get isAuthenticated => _accessToken != null;
+  static bool get isAuthenticated => _accessToken != null && _accessToken!.isNotEmpty;
   static String? get userEmail => _userEmail;
   static String? get userRole => _userRole;
+  /// Role đã chuẩn hoá (null nếu không được mobile hỗ trợ).
+  static AppRole? get appRole => parseAppRole(_userRole);
 
-  /// Nạp token đã lưu (kho an toàn) khi ứng dụng khởi động
+  /// Nạp token đã lưu từ kho an toàn (FlutterSecureStorage) khi ứng dụng khởi động
   static Future<bool> loadSavedTokens() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _accessToken = await _secure.read(key: 'access_token');
-      _refreshToken = await _secure.read(key: 'refresh_token');
-      // Bản cũ lưu token trong SharedPreferences: chuyển sang kho an toàn một lần rồi xóa bản chữ thường.
-      if (_accessToken == null && prefs.getString('access_token') != null) {
-        _accessToken = prefs.getString('access_token');
-        _refreshToken = prefs.getString('refresh_token');
-        if (_accessToken != null) await _secure.write(key: 'access_token', value: _accessToken);
-        if (_refreshToken != null) await _secure.write(key: 'refresh_token', value: _refreshToken);
-      }
+
+      // Đảm bảo không tồn tại token lưu trái phép trong SharedPreferences
       await prefs.remove('access_token');
       await prefs.remove('refresh_token');
+
+      // Đọc token từ kho an toàn duy nhất (Keystore/Keychain)
+      _accessToken = await _secure.read(key: 'access_token');
+      _refreshToken = await _secure.read(key: 'refresh_token');
       _userEmail = prefs.getString('user_email');
       _userRole = prefs.getString('user_role');
+      if (_accessToken != null && parseAppRole(_userRole) == null) {
+        // Phiên cũ có role thiếu/không hỗ trợ: xoá sạch, buộc đăng nhập lại.
+        await clearTokens();
+        return false;
+      }
+
       final savedUrl = prefs.getString('base_url');
       if (savedUrl != null && savedUrl.isNotEmpty) {
-        baseUrl = savedUrl;
+        try {
+          setBaseUrl(savedUrl);
+        } catch (_) {
+          // Nếu URL đã lưu không vượt qua kiểm định an toàn ở bản release, hoàn nguyên về default
+          _baseUrl = defaultBaseUrl;
+          await prefs.remove('base_url');
+        }
+      } else {
+        _baseUrl = defaultBaseUrl;
       }
-      return _accessToken != null;
+      return _accessToken != null && _accessToken!.isNotEmpty;
     } catch (_) {
       return false;
     }
   }
 
-  /// Lưu token vào kho an toàn và thông tin phiên vào SharedPreferences
+  /// Lưu token DUY NHẤT vào kho an toàn (FlutterSecureStorage) và thông tin phiên không nhạy cảm vào SharedPreferences
   static Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
@@ -92,16 +185,30 @@ class ApiService {
     _userEmail = email;
     _userRole = role;
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // 1. Ghi token vào kho an toàn hệ thống
       await _secure.write(key: 'access_token', value: accessToken);
       await _secure.write(key: 'refresh_token', value: refreshToken);
+
+      // 2. Bảo đảm KHÔNG BAO GIỜ lưu token vào SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('access_token');
+      await prefs.remove('refresh_token');
+
       if (email != null) await prefs.setString('user_email', email);
       if (role != null) await prefs.setString('user_role', role);
-      await prefs.setString('base_url', baseUrl);
+
+      // Chỉ lưu baseUrl nếu hợp lệ
+      if (kReleaseMode) {
+        if (Uri.tryParse(_baseUrl)?.scheme == 'https') {
+          await prefs.setString('base_url', _baseUrl);
+        }
+      } else {
+        await prefs.setString('base_url', _baseUrl);
+      }
     } catch (_) {}
   }
 
-  /// Xóa token khi đăng xuất
+  /// Xóa sạch token trong kho an toàn và toàn bộ thông tin phiên khi đăng xuất
   static Future<void> clearTokens() async {
     _accessToken = null;
     _refreshToken = null;
@@ -111,11 +218,15 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       await _secure.delete(key: 'access_token');
       await _secure.delete(key: 'refresh_token');
+      await _secure.deleteAll();
+
       await prefs.remove('access_token');
       await prefs.remove('refresh_token');
       await prefs.remove('user_email');
       await prefs.remove('user_role');
+      await prefs.remove('base_url');
     } catch (_) {}
+    sessionVersion.value++;
   }
 
   static Map<String, String> get _headers => {
@@ -129,14 +240,16 @@ class ApiService {
     String url, {
     Duration timeout = const Duration(seconds: 15),
   }) async {
+    final uri = Uri.parse(url);
+    _assertSecureRequest(uri);
     var resp = await _client
-        .get(Uri.parse(url), headers: _headers)
+        .get(uri, headers: _headers)
         .timeout(timeout);
     if (resp.statusCode == 401) {
       final ok = await refreshToken();
       if (ok) {
         resp = await _client
-            .get(Uri.parse(url), headers: _headers)
+            .get(uri, headers: _headers)
             .timeout(timeout);
       }
     }
@@ -148,14 +261,16 @@ class ApiService {
     Map<String, dynamic> body, {
     Duration timeout = const Duration(seconds: 15),
   }) async {
+    final uri = Uri.parse(url);
+    _assertSecureRequest(uri);
     var resp = await _client
-        .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+        .post(uri, headers: _headers, body: jsonEncode(body))
         .timeout(timeout);
     if (resp.statusCode == 401) {
       final ok = await refreshToken();
       if (ok) {
         resp = await _client
-            .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+            .post(uri, headers: _headers, body: jsonEncode(body))
             .timeout(timeout);
       }
     }
@@ -166,14 +281,16 @@ class ApiService {
     String url, {
     Duration timeout = const Duration(seconds: 15),
   }) async {
+    final uri = Uri.parse(url);
+    _assertSecureRequest(uri);
     var resp = await _client
-        .delete(Uri.parse(url), headers: _headers)
+        .delete(uri, headers: _headers)
         .timeout(timeout);
     if (resp.statusCode == 401) {
       final ok = await refreshToken();
       if (ok) {
         resp = await _client
-            .delete(Uri.parse(url), headers: _headers)
+            .delete(uri, headers: _headers)
             .timeout(timeout);
       }
     }
@@ -185,14 +302,16 @@ class ApiService {
     Map<String, dynamic> body, {
     Duration timeout = const Duration(seconds: 15),
   }) async {
+    final uri = Uri.parse(url);
+    _assertSecureRequest(uri);
     var resp = await _client
-        .put(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+        .put(uri, headers: _headers, body: jsonEncode(body))
         .timeout(timeout);
     if (resp.statusCode == 401) {
       final ok = await refreshToken();
       if (ok) {
         resp = await _client
-            .put(Uri.parse(url), headers: _headers, body: jsonEncode(body))
+            .put(uri, headers: _headers, body: jsonEncode(body))
             .timeout(timeout);
       }
     }
@@ -205,9 +324,11 @@ class ApiService {
     String password,
   ) async {
     try {
+      final loginUri = Uri.parse('$baseUrl/api/v1/auth/login');
+      _assertSecureRequest(loginUri);
       final response = await _client
           .post(
-            Uri.parse('$baseUrl/api/v1/auth/login'),
+            loginUri,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'email': email, 'password': password}),
           )
@@ -219,6 +340,13 @@ class ApiService {
         final rToken = data['refreshToken'] as String?;
         final role = (data['user'] is Map ? data['user']['role'] : data['role'])
             ?.toString();
+        if (parseAppRole(role) == null) {
+          // Role không hỗ trợ: không lưu phiên, thu hồi token vừa cấp (best effort).
+          _accessToken = token;
+          _refreshToken = rToken;
+          await logout();
+          return {'error': 'unsupported_role', 'message': unsupportedRoleMessage(role)};
+        }
         if (token != null && rToken != null) {
           await saveTokens(
             accessToken: token,
@@ -244,9 +372,11 @@ class ApiService {
     String role = 'Farmer',
   }) async {
     try {
+      final registerUri = Uri.parse('$baseUrl/api/v1/auth/register');
+      _assertSecureRequest(registerUri);
       final response = await _client
           .post(
-            Uri.parse('$baseUrl/api/v1/auth/register'),
+            registerUri,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'email': email,
@@ -271,9 +401,11 @@ class ApiService {
   static Future<bool> logout() async {
     try {
       if (_accessToken != null) {
+        final logoutUri = Uri.parse('$baseUrl/api/v1/auth/logout');
+        _assertSecureRequest(logoutUri);
         await _client
             .post(
-              Uri.parse('$baseUrl/api/v1/auth/logout'),
+              logoutUri,
               headers: _headers,
               body: jsonEncode({
                 'refreshToken': _refreshToken,
@@ -295,9 +427,11 @@ class ApiService {
     }
     _refreshCompleter = Completer<bool>();
     try {
+      final refreshUri = Uri.parse('$baseUrl/api/v1/auth/refresh');
+      _assertSecureRequest(refreshUri);
       final response = await _client
           .post(
-            Uri.parse('$baseUrl/api/v1/auth/refresh'),
+            refreshUri,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'refreshToken': _refreshToken}),
           )
@@ -317,6 +451,10 @@ class ApiService {
         }
         _refreshCompleter!.complete(true);
         return true;
+      }
+      if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403) {
+        // Refresh token bị từ chối/hết hạn/bị thu hồi: xoá phiên.
+        await clearTokens();
       }
       _refreshCompleter!.complete(false);
       return false;
@@ -420,7 +558,7 @@ class ApiService {
     final data = _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/platform/deployment-requests/$id/fail', {
       'failureCode': failureCode,
       'description': description,
-      if (deviceId != null) 'deviceId': deviceId,
+      'deviceId': ?deviceId,
     })) as Map<String, dynamic>;
     return '${data['serviceRequestId']}';
   }
@@ -439,9 +577,9 @@ class ApiService {
     _decodeOrThrow(await _postWithAuth('$baseUrl/api/v1/platform/deployment-requests/$requestId/connection-tests', {
       'deviceId': deviceId,
       'succeeded': succeeded,
-      if (rssi != null) 'rssi': rssi,
-      if (snr != null) 'snr': snr,
-      if (latencyMs != null) 'roundTripLatencyMs': latencyMs,
+      'rssi': ?rssi,
+      'snr': ?snr,
+      'roundTripLatencyMs': ?latencyMs,
       'observedAtUtc': DateTime.now().toUtc().toIso8601String(),
       if (errorCode != null && errorCode.isNotEmpty) 'errorCode': errorCode,
       if (errorMessage != null && errorMessage.isNotEmpty) 'errorMessage': errorMessage,
@@ -573,7 +711,7 @@ class ApiService {
       'zoneId': zoneId,
       'failureCode': failureCode,
       'description': description,
-      if (deploymentRequestId != null) 'deploymentRequestId': deploymentRequestId,
+      'deploymentRequestId': ?deploymentRequestId,
     });
     if (resp == null || (resp.statusCode != 201 && resp.statusCode != 200)) {
       throw Exception(_apiErrorMessage(resp));
@@ -583,14 +721,11 @@ class ApiService {
 
   // ─── 2. Farms ────────────────────────────────────────────────────────
   static Future<List<FarmModel>> getFarms() async {
-    try {
-      final resp = await _getWithAuth('$baseUrl/api/v1/farms');
-      if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
-        return list.map((item) => FarmModel.fromJson(item)).toList();
-      }
-    } catch (_) {}
-    return [];
+    // Ném lỗi khi mạng/máy chủ lỗi để phân biệt với "tài khoản chưa có trang trại" (danh sách rỗng thật).
+    final resp = await _getWithAuth('$baseUrl/api/v1/farms');
+    if (resp == null || resp.statusCode != 200) throw Exception(_apiErrorMessage(resp));
+    final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
+    return list.map((item) => FarmModel.fromJson(item)).toList();
   }
 
   // ─── 3. Farm Structure ───────────────────────────────────────────────
@@ -611,7 +746,7 @@ class ApiService {
     try {
       final resp = await _getWithAuth('$baseUrl/api/v1/farms/$farmId/fields');
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map((item) => FieldModel.fromJson(item, defaultFarmId: farmId))
             .toList();
@@ -630,7 +765,7 @@ class ApiService {
     try {
       final resp = await _getWithAuth('$baseUrl/api/v1/fields/$fieldId/zones');
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map(
               (item) => ZoneModel.fromJson(
@@ -691,7 +826,7 @@ class ApiService {
         '$baseUrl/api/v1/zones/$zoneId/actuators',
       );
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map((item) => ActuatorModel.fromJson(item, defaultZoneId: zoneId))
             .toList();
@@ -733,7 +868,7 @@ class ApiService {
     try {
       final resp = await _getWithAuth('$baseUrl/api/v1/users?role=Farmer');
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list.map((item) => FarmerModel.fromJson(item)).toList();
       }
     } catch (_) {}
@@ -745,7 +880,7 @@ class ApiService {
     try {
       final resp = await _getWithAuth('$baseUrl/api/v1/farms/$farmId/alerts');
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list.map((item) => AlertModel.fromJson(item)).toList();
       }
     } catch (_) {}
@@ -757,7 +892,7 @@ class ApiService {
     try {
       final resp = await _getWithAuth('$baseUrl/api/v1/farms/$farmId/tasks');
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list.map((item) => TaskModel.fromJson(item)).toList();
       }
     } catch (_) {}
@@ -976,10 +1111,11 @@ class ApiService {
         '$baseUrl/api/v1/zones/$zoneId/ai/apply-recommendation',
         {'recommendationId': recommendationId, 'decision': decision},
       );
-      if (resp == null)
+      if (resp == null) {
         return {'success': false, 'message': 'Không thể kết nối máy chủ'};
+      }
       if (resp.statusCode == 200 || resp.statusCode == 202) {
-        final body = jsonDecode(resp.body);
+        final body = jsonDecode(utf8.decode(resp.bodyBytes));
         final command = body is Map<String, dynamic> ? body['command'] : null;
         final commandStatus = command is Map<String, dynamic>
             ? command['status']?.toString()
@@ -988,7 +1124,7 @@ class ApiService {
       }
       if (resp.statusCode == 409) {
         try {
-          final body = jsonDecode(resp.body);
+          final body = jsonDecode(utf8.decode(resp.bodyBytes));
           return {
             'success': false,
             'blocked': true,
@@ -1025,23 +1161,13 @@ class ApiService {
   }
 
   // ─── 14. Schedules ─────────────────────────────────────────────────────
-  /// Lấy danh sách lịch tưới của một Zone hoặc toàn bộ Farm
-  static Future<List<ScheduleModel>> getSchedules({
-    String? zoneId,
-    String? farmId,
-  }) async {
+  /// Lấy danh sách lịch tưới của một Zone (GET /zones/{zoneId}/schedules).
+  /// Backend không có API lịch theo Farm: muốn lịch cả Farm, gọi lần lượt từng Zone (xem FarmProvider.fetchSchedules).
+  static Future<List<ScheduleModel>> getSchedules({required String zoneId}) async {
     try {
-      String url;
-      if (zoneId != null) {
-        url = '$baseUrl/api/v1/zones/$zoneId/schedules';
-      } else if (farmId != null) {
-        url = '$baseUrl/api/v1/farms/$farmId/schedules';
-      } else {
-        return [];
-      }
-      final resp = await _getWithAuth(url);
+      final resp = await _getWithAuth('$baseUrl/api/v1/zones/$zoneId/schedules');
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list.map((item) => ScheduleModel.fromJson(item)).toList();
       }
     } catch (_) {}
@@ -1211,7 +1337,7 @@ class ApiService {
       }
       final resp = await _getWithAuth(url);
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map(
               (item) =>
@@ -1289,7 +1415,7 @@ class ApiService {
       if (farmId != null) url += '&farmId=$farmId';
       final resp = await _getWithAuth(url);
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map(
               (item) => ExpiringContractAlertModel.fromJson(
@@ -1319,7 +1445,7 @@ class ApiService {
       }
       final resp = await _getWithAuth(url);
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map(
               (item) => DeviceDepreciationModel.fromJson(
@@ -1364,7 +1490,7 @@ class ApiService {
       final url = '$baseUrl/api/v1/seasons${query.isNotEmpty ? '?$query' : ''}';
       final resp = await _getWithAuth(url);
       if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(resp.body);
+        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
         return list
             .map(
               (item) =>
@@ -1485,15 +1611,19 @@ class ApiService {
     String? version,
   }) async {
     if (bytes.isEmpty) throw Exception('File rỗng.');
-    if (bytes.length > 50 * 1024 * 1024)
-      throw Exception('File vượt giới hạn 50 MB.');
+    if (bytes.length > 50 * 1024 * 1024) {
+        throw Exception('File vượt giới hạn 50 MB.');
+    }
     Future<http.Response> send() async {
+      final uploadUri = Uri.parse('$baseUrl/api/v1/ai/knowledge/documents');
+      _assertSecureRequest(uploadUri);
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl/api/v1/ai/knowledge/documents'),
+        uploadUri,
       );
-      if (_accessToken != null)
-        request.headers['Authorization'] = 'Bearer $_accessToken';
+      if (_accessToken != null) {
+          request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
       request.headers['Accept'] = 'application/json';
       request.fields.addAll({
         if (title != null && title.trim().isNotEmpty) 'Title': title.trim(),
@@ -1515,15 +1645,17 @@ class ApiService {
     }
 
     var response = await send();
-    if (response.statusCode == 401 && await refreshToken())
-      response = await send();
+    if (response.statusCode == 401 && await refreshToken()) {
+        response = await send();
+    }
     if (response.statusCode != 201 && response.statusCode != 200) {
       throw Exception(_apiErrorMessage(response));
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final id = (body['id'] ?? body['documentId'])?.toString();
-    if (id == null || id.isEmpty)
-      throw Exception('Máy chủ không trả về ID tài liệu.');
+    if (id == null || id.isEmpty) {
+        throw Exception('Máy chủ không trả về ID tài liệu.');
+    }
     return getAgricultureDocument(id);
   }
 
@@ -1547,11 +1679,11 @@ class ApiService {
         'approve': approve,
         if (reviewNotes != null && reviewNotes.trim().isNotEmpty)
           'reviewNotes': reviewNotes.trim(),
-        if (title != null) 'title': title,
-        if (cropScope != null) 'cropScope': cropScope,
-        if (authorOrganization != null) 'authorOrganization': authorOrganization,
-        if (version != null) 'version': version,
-        if (documentType != null) 'documentType': documentType,
+        'title': ?title,
+        'cropScope': ?cropScope,
+        'authorOrganization': ?authorOrganization,
+        'version': ?version,
+        'documentType': ?documentType,
         if (confirmGeneralScope) 'confirmGeneralScope': true,
       },
       timeout: const Duration(seconds: 90),
@@ -1682,4 +1814,249 @@ class ApiService {
     } catch (_) {}
     return null;
   }
+
+  // ─── Mật khẩu tài khoản ─────────────────────────────────────────────
+  // Backend hiện CHƯA có các endpoint này (404/405/501 → UnsupportedApiException), app không giả lập thành công.
+  static Never _throwPasswordError(http.Response? resp) {
+    final code = resp?.statusCode;
+    if (code == 404 || code == 405 || code == 501) {
+      throw UnsupportedApiException('Máy chủ chưa hỗ trợ chức năng này.');
+    }
+    throw Exception(_apiErrorMessage(resp));
+  }
+
+  static Future<void> forgotPassword(String email) async {
+    final uri = Uri.parse('$baseUrl/api/v1/auth/forgot-password');
+    _assertSecureRequest(uri);
+    final resp = await _client
+        .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email}))
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200 && resp.statusCode != 202 && resp.statusCode != 204) _throwPasswordError(resp);
+  }
+
+  static Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v1/auth/reset-password');
+    _assertSecureRequest(uri);
+    final resp = await _client
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email, 'token': token, 'newPassword': newPassword}),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode != 200 && resp.statusCode != 204) _throwPasswordError(resp);
+  }
+
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final resp = await _putWithAuth('$baseUrl/api/v1/users/me/password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 204)) _throwPasswordError(resp);
+  }
+
+  // ─── Bảo trì / sửa chữa (Kỹ thuật viên) ─────────────────────────────
+  static const Set<String> _serviceActions = {
+    'accept', 'diagnosis', 'work', 'replacement', 'connection-tests', 'close',
+  };
+
+  static Future<Map<String, dynamic>> getServiceRequest(String id) async {
+    final resp = await _getWithAuth('$baseUrl/api/v1/service-requests/$id');
+    if (resp == null || resp.statusCode != 200) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Thao tác trên yêu cầu dịch vụ: accept | diagnosis | work | replacement | connection-tests | close
+  static Future<Map<String, dynamic>> serviceRequestAction(
+    String id,
+    String action, [
+    Map<String, dynamic> body = const {},
+  ]) async {
+    if (!_serviceActions.contains(action)) throw ArgumentError('Thao tác không hợp lệ: $action');
+    final resp = await _postWithAuth('$baseUrl/api/v1/service-requests/$id/$action', body);
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) {
+      throw Exception(_apiErrorMessage(resp));
+    }
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  static Future<List<Map<String, dynamic>>> listZoneDevices(String zoneId) async {
+    final resp = await _getWithAuth('$baseUrl/api/v1/zones/$zoneId/devices');
+    if (resp == null || resp.statusCode != 200) throw Exception(_apiErrorMessage(resp));
+    return (jsonDecode(utf8.decode(resp.bodyBytes)) as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Thay nóng thiết bị: POST /zones/{zoneId}/devices/{oldDeviceId}/hot-swap
+  static Future<Map<String, dynamic>> hotSwapDevice({
+    required String zoneId,
+    required String oldDeviceId,
+    required String serviceRequestId,
+    required String newDeviceId,
+    String? notes,
+  }) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/devices/$oldDeviceId/hot-swap', {
+      'serviceRequestId': serviceRequestId,
+      'newDeviceId': newDeviceId,
+      'notes': ?notes,
+    });
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) {
+      throw Exception(_apiErrorMessage(resp));
+    }
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Trạng thái MQTT thật của gateway: { gatewayId, mqttConnected }
+  static Future<Map<String, dynamic>> getGatewayMqttStatus(String gatewayId) async {
+    final resp = await _getWithAuth('$baseUrl/api/v1/gateways/$gatewayId/mqtt-status');
+    if (resp == null || resp.statusCode != 200) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  // ─── Báo cáo ────────────────────────────────────────────────────────
+  static const Set<String> _reportKinds = {
+    'overview', 'water-usage', 'electricity', 'inventory', 'tasks', 'maintenance',
+  };
+
+  static String _reportQuery(DateTime? from, DateTime? to) {
+    final q = <String>[
+      if (from != null) 'fromUtc=${Uri.encodeComponent(from.toUtc().toIso8601String())}',
+      if (to != null) 'toUtc=${Uri.encodeComponent(to.toUtc().toIso8601String())}',
+    ];
+    return q.isEmpty ? '' : '?${q.join('&')}';
+  }
+
+  static Future<Map<String, dynamic>> getFarmReport(
+    String farmId,
+    String kind, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    if (!_reportKinds.contains(kind)) throw ArgumentError('Loại báo cáo không hợp lệ: $kind');
+    final resp = await _getWithAuth('$baseUrl/api/v1/farms/$farmId/report/$kind${_reportQuery(from, to)}');
+    if (resp == null || resp.statusCode != 200) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Tải tệp Excel do backend tạo. kind = null → báo cáo tài nguyên tổng hợp (/report/excel).
+  static Future<Uint8List> downloadFarmReportExcel(
+    String farmId, {
+    String? kind,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    if (kind != null && !_reportKinds.contains(kind)) throw ArgumentError('Loại báo cáo không hợp lệ: $kind');
+    final path = kind == null ? 'report/excel' : 'report/$kind/excel';
+    final resp = await _getWithAuth(
+      '$baseUrl/api/v1/farms/$farmId/$path${kind == 'overview' ? '' : _reportQuery(from, to)}',
+      timeout: const Duration(seconds: 60),
+    );
+    if (resp == null || resp.statusCode != 200) throw Exception(_apiErrorMessage(resp));
+    return resp.bodyBytes;
+  }
+
+  // ─── Tạo Trang trại / Thửa đất / Zone (lưu vào DB qua backend) ─────────
+  static Map<String, dynamic> polygonGeoJson(List<List<double>> latLngPoints) {
+    final ring = [for (final p in latLngPoints) [p[1], p[0]]]; // GeoJSON: [lng, lat]
+    if (ring.isNotEmpty && (ring.first[0] != ring.last[0] || ring.first[1] != ring.last[1])) ring.add(List.of(ring.first));
+    return {'type': 'Polygon', 'coordinates': [ring]};
+  }
+
+  static Future<Map<String, dynamic>> createFarm({
+    required String name,
+    String? locationText,
+    double? latitude,
+    double? longitude,
+    required double totalAreaM2,
+  }) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/farms', {
+      'name': name,
+      'locationText': ?locationText,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
+      'totalAreaM2': totalAreaM2,
+      'timeZone': 'Asia/Ho_Chi_Minh',
+    });
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> createField({
+    required String farmId,
+    required String name,
+    required double areaM2,
+    required Map<String, dynamic> boundaryGeoJson,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/farms/$farmId/fields', {
+      'name': name,
+      'areaM2': areaM2,
+      'boundaryGeoJson': boundaryGeoJson,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
+    });
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> createZone({
+    required String fieldId,
+    required String name,
+    required double areaM2,
+    required Map<String, dynamic> polygonGeoJson,
+    String zoneType = 'Greenhouse',
+    String? notes,
+  }) async {
+    final resp = await _postWithAuth('$baseUrl/api/v1/fields/$fieldId/zones', {
+      'name': name,
+      'areaM2': areaM2,
+      'polygonGeoJson': polygonGeoJson,
+      'zoneType': zoneType,
+      'notes': ?notes,
+    });
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Tạo lịch tưới thật: POST /zones/{zoneId}/schedules (cron 5 trường, chạy hằng ngày lúc HH:mm).
+  static Future<Map<String, dynamic>> createSchedule({
+    required String zoneId,
+    required String actuatorId,
+    required String name,
+    required String startTime, // HH:mm
+    required int durationMinutes,
+  }) async {
+    final parts = startTime.split(':');
+    final h = int.tryParse(parts.first);
+    final mi = parts.length > 1 ? int.tryParse(parts[1]) : null;
+    if (parts.length != 2 || h == null || mi == null || h < 0 || h > 23 || mi < 0 || mi > 59) {
+      throw Exception('Giờ bắt đầu phải có dạng HH:mm (vd 06:30).');
+    }
+    final resp = await _postWithAuth('$baseUrl/api/v1/zones/$zoneId/schedules', {
+      'name': name,
+      'actuatorId': actuatorId,
+      'cronExpression': '$mi $h * * *',
+      'durationSeconds': (durationMinutes * 60).clamp(1, 1800),
+      'enableRainDelay': true,
+      'rainThresholdPercent': 70,
+      'isActive': true,
+    });
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) throw Exception(_apiErrorMessage(resp));
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+}
+
+/// Backend chưa cung cấp endpoint tương ứng.
+class UnsupportedApiException implements Exception {
+  final String message;
+  UnsupportedApiException(this.message);
+  @override
+  String toString() => message;
 }

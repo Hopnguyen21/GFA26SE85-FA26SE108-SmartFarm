@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -15,6 +16,8 @@ import 'inventory_screen.dart';
 import 'ai_screen.dart';
 import 'contracts_depreciation_screen.dart';
 import 'farming_seasons_screen.dart';
+import '../widgets/dispose_later.dart';
+import '../widgets/ask_number_dialog.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -68,7 +71,7 @@ class HomeScreen extends StatelessWidget {
         ),
         actions: [
           // Nút đổi vai trò – chỉ hiện trong chế độ DEMO (khi chưa đăng nhập bằng JWT)
-          if (!ApiService.isAuthenticated)
+          if (!kReleaseMode && !ApiService.isAuthenticated)
             PopupMenuButton<String>(
               icon: const Icon(Icons.swap_horiz, color: Colors.white),
               tooltip: 'Đổi Vai trò',
@@ -537,19 +540,49 @@ class HomeScreen extends StatelessWidget {
                               children: [
                                 const Text('Trạng thái Bơm', style: TextStyle(color: Color(0xFF64748B), fontSize: 9.5)),
                                 const SizedBox(height: 1),
-                                Text(
-                                  farmProvider.currentZoneActuators.any((a) => a.isRunning && a.actuatorType == 'PUMP')
-                                      ? 'AUTO ON'
-                                      : 'SẴN SÀNG',
-                                  style: TextStyle(
-                                    color: farmProvider.currentZoneActuators.any((a) => a.isRunning && a.actuatorType == 'PUMP')
+                                Builder(
+                                  builder: (context) {
+                                    final currentActs = farmProvider.currentZoneActuators;
+                                    final runningAct = currentActs.where((a) => a.isRunning).firstOrNull;
+                                    final hasRunning = runningAct != null;
+                                    final isEmpty = currentActs.isEmpty;
+                                    final statusText = hasRunning
+                                        ? 'AUTO ON'
+                                        : (isEmpty ? 'CHƯA GÁN' : 'SẴN SÀNG');
+                                    final statusColor = hasRunning
                                         ? const Color(0xFF0284C7)
-                                        : const Color(0xFF059669),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                        : (isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF059669));
+                                    final subText = hasRunning
+                                        ? '${runningAct.name} (${runningAct.remainingMinutes}p)'
+                                        : (isEmpty ? '0 thiết bị' : '${currentActs.length} thiết bị sẵn sàng');
+                                    final subColor = hasRunning
+                                        ? const Color(0xFF0284C7)
+                                        : const Color(0xFF64748B);
+
+                                    return Column(
+                                      children: [
+                                        Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            color: statusColor,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          subText,
+                                          style: TextStyle(
+                                            color: subColor,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
-                                const Text('Van #1 (12p)', style: TextStyle(color: Color(0xFF0284C7), fontSize: 8.5, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
@@ -1144,7 +1177,10 @@ class HomeScreen extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 2,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1157,13 +1193,9 @@ class HomeScreen extends StatelessWidget {
                                         style: const TextStyle(fontSize: 10, color: Color(0xFF059669), fontWeight: FontWeight.bold),
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        '• ${zone.areaM2.toInt()} m²',
-                                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    Text(
+                                      '• ${zone.areaM2.toInt()} m²',
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                                     ),
                                   ],
                                 ),
@@ -1470,11 +1502,34 @@ class HomeScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'ĐIỀU KHIỂN RƠ-LE BƠM/QUẠT (CF3)',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5),
-                      overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Text(
+                          'ĐIỀU KHIỂN RƠ-LE BƠM/QUẠT (CF3)',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: farmProvider.currentZoneActuators.isNotEmpty
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${farmProvider.currentZoneActuators.length} thiết bị',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: farmProvider.currentZoneActuators.isNotEmpty
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1494,83 +1549,116 @@ class HomeScreen extends StatelessWidget {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: farmProvider.currentZoneActuators.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final act = farmProvider.currentZoneActuators[index];
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: act.isRunning ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
-                        width: act.isRunning ? 1.5 : 1,
+              child: farmProvider.currentZoneActuators.isEmpty
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.devices_other, size: 28, color: Color(0xFF94A3B8)),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Khu vực "${farmProvider.currentZone.name}" chưa có thiết bị rơ-le',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Không có thiết bị bơm/van/quạt nào được gán cho khu vực này trong cơ sở dữ liệu.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: farmProvider.currentZoneActuators.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final act = farmProvider.currentZoneActuators[index];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: act.isRunning ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: act.isRunning ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                              width: act.isRunning ? 1.5 : 1,
+                            ),
                           ),
-                          child: Icon(
-                            act.actuatorType == 'PUMP'
-                                ? Icons.water
-                                : act.actuatorType == 'FAN'
-                                    ? Icons.wind_power
-                                    : act.actuatorType == 'VALVE'
-                                        ? Icons.tune
-                                        : Icons.lightbulb,
-                            color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF64748B),
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(act.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                              const SizedBox(height: 2),
-                              Text(
-                                act.isRunning ? 'Đang bật (${act.remainingMinutes} phút còn lại)' : 'Đang tắt',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF94A3B8),
-                                  fontWeight: act.isRunning ? FontWeight.bold : FontWeight.normal,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: act.isRunning ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                                child: Icon(
+                                  act.actuatorType == 'PUMP'
+                                      ? Icons.water
+                                      : act.actuatorType == 'FAN'
+                                          ? Icons.wind_power
+                                          : act.actuatorType == 'VALVE'
+                                              ? Icons.tune
+                                              : Icons.lightbulb,
+                                  color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF64748B),
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(act.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      act.isRunning ? 'Đang bật (${act.remainingMinutes} phút còn lại)' : 'Đang tắt',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                                        fontWeight: act.isRunning ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch.adaptive(
+                                value: act.isRunning,
+                                activeThumbColor: const Color(0xFF10B981),
+                                onChanged: (_) {
+                                  if (farmProvider.currentRole != 'OWNER') {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('⚠️ Phân quyền Slide 6: Chỉ Chủ trang trại (Owner) mới có quyền bật/tắt thiết bị chấp hành!'),
+                                        backgroundColor: Color(0xFFE11D48),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  farmProvider.toggleActuator(act.actuatorId);
+                                },
                               ),
                             ],
                           ),
-                        ),
-                        Switch.adaptive(
-                          value: act.isRunning,
-                          activeThumbColor: const Color(0xFF10B981),
-                          onChanged: (_) {
-                            if (farmProvider.currentRole != 'OWNER') {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('⚠️ Phân quyền Slide 6: Chỉ Chủ trang trại (Owner) mới có quyền bật/tắt thiết bị chấp hành!'),
-                                  backgroundColor: Color(0xFFE11D48),
-                                ),
-                              );
-                              return;
-                            }
-                            farmProvider.toggleActuator(act.actuatorId);
-                          },
-                        ),
-
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
 
             const SizedBox(height: 24),
@@ -3142,16 +3230,26 @@ class HomeScreen extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             elevation: 0,
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             final name = nameCtrl.text.trim().isEmpty ? 'Nông trại 0$nextNum' : nameCtrl.text.trim();
                             final address = addressCtrl.text.trim().isEmpty ? 'Lâm Đồng' : addressCtrl.text.trim();
 
-                            provider.addFarm(
+                            final farmArea = await askPositiveNumber(context, 'Diện tích trang trại (m²)');
+if (farmArea == null) return;
+final err = await provider.addFarm(
+totalAreaM2: farmArea,
                               name: name,
                               address: address,
                               latitude: currentLat,
                               longitude: currentLng,
                             );
+if (err != null) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+  }
+  return;
+}
+if (!ctx.mounted) return;
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -3176,7 +3274,7 @@ class HomeScreen extends StatelessWidget {
       },
     );
   },
-);
+).then((_) => disposeControllersLater([nameCtrl, addressCtrl]));
   }
 
   // ─── Modal Thêm Nhanh Thửa Đất (Field) Mới ───
@@ -3341,7 +3439,7 @@ class HomeScreen extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               elevation: 0,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
                               // Kiểm tra chống chọn đè lên Thửa đất (Field) khác của Farm
                               if (fieldPolygon != null && fieldPolygon!.length >= 3) {
                                 bool isInsidePoly(LatLng pt, List<LatLng> poly) {
@@ -3383,15 +3481,22 @@ class HomeScreen extends StatelessWidget {
 
                               final name = nameCtrl.text.trim().isEmpty ? 'Lô đất 0$nextNum' : nameCtrl.text.trim();
                               final desc = descCtrl.text.trim().isEmpty ? 'Khu quy hoạch chuẩn VietGAP' : descCtrl.text.trim();
-                              final area = double.tryParse(areaCtrl.text) ?? 10000.0;
+                              final area = double.tryParse(areaCtrl.text) ?? 0.0;
 
-                              provider.addField(
+                              final err = await provider.addField(
                                 farmId: provider.selectedFarmId,
                                 name: name,
                                 description: desc,
                                 areaM2: area,
                                 polygon: fieldPolygon,
                               );
+if (err != null) {
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)));
+  }
+  return;
+}
+if (!ctx.mounted) return;
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -3414,7 +3519,7 @@ class HomeScreen extends StatelessWidget {
             ),
           );
   },
-);
+).then((_) => disposeControllersLater([nameCtrl, descCtrl, areaCtrl]));
   }
 
   // ─── Modal Cài Đặt Ngưỡng An Toàn & Kích Hoạt Thiết Bị (Threshold Setting) ───

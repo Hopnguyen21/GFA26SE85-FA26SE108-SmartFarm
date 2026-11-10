@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/farm_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/dispose_later.dart';
 
 class ContractsDepreciationScreen extends StatefulWidget {
   final String? initialZoneId;
@@ -1167,7 +1168,7 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
           ],
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([rentController, discountController, notesController]));
   }
 
   void _showCreateContractDialog(FarmProvider provider) {
@@ -1294,7 +1295,7 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
           ],
         ),
       ),
-    );
+    ).then((_) => disposeControllersLater([lesseeNameCtrl, lesseePhoneCtrl, lesseeCccdCtrl, monthlyRentCtrl, depositCtrl, cropTypeCtrl]));
   }
 
   void _showCreateDepreciationDialog(FarmProvider provider) {
@@ -1365,7 +1366,7 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
           ),
         ],
       ),
-    );
+    ).then((_) => disposeControllersLater([costCtrl, lifetimeCtrl, notesCtrl]));
   }
 
   // ─────────────────────────────────────────
