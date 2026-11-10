@@ -106,7 +106,7 @@ class FarmerModel {
     required this.phone,
     this.email = '',
     this.username = '',
-    this.password = '',
+    this.password = 'Farmer@12345',
     this.avatar,
     this.farmId,
     this.isActive = true,
