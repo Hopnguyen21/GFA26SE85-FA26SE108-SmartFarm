@@ -22,4 +22,41 @@ flutter pub get
 flutter run
 ```
 
-Cấu hình API kết nối backend trong `lib/services/api_service.dart`.
+Cấu hình API kết nối backend trong `lib/core/services/api_service.dart`.
+
+## Cấu Trúc Mã Nguồn
+
+```
+lib/
+  main.dart                    Khởi động app, chọn màn theo vai trò, thanh điều hướng
+  core/
+    models/models.dart         Import duy nhất cho mọi model; từng nhóm nằm ở models/parts/
+    services/api_service.dart  Lõi HTTP: base URL, token, tự refresh, helper giải mã lỗi
+    services/api/*_api.dart    API theo nghiệp vụ: FarmApi, CropApi, TaskApi, AutomationApi,
+                               DeploymentApi, SupportApi, ContractApi, AccountApi, AiApi,
+                               DocumentApi, ReportApi (gọi dạng ContractApi.getZoneContracts(...))
+    providers/farm_provider.dart  State dùng chung; các nhóm hành động ở providers/parts/
+    widgets/  utils/           Widget & tiện ích dùng chung (bản đồ GIS, xuất file...)
+  features/<tính năng>/
+    *_screen.dart              Màn hình chính của tính năng (đọc file này trước)
+    parts/                     Các phần của màn hình đó (tab, hộp thoại, thẻ) — `part of` file chính
+    widgets/                   Widget riêng của tính năng, dùng được từ nơi khác
+```
+
+Tính năng: `auth`, `home`, `farms`, `workforce`, `zones`, `crops`, `farmer`, `irrigation`,
+`tasks`, `monitoring`, `ai`, `contracts`, `devices`, `support`, `inventory`, `reports`, `profile`.
+
+Quy ước:
+- Mỗi file nên dưới ~600 dòng. Khi màn hình dài thêm, tách tab/hộp thoại sang `parts/`
+  (dạng `extension _TênPhần on _TênState { ... }`; trong part dùng `_rebuild(...)` thay cho `setState`).
+- Gọi backend qua class `*Api` tương ứng; không gọi `http` trực tiếp từ màn hình.
+- Không hiển thị số liệu giả: khi API lỗi hoặc chưa có dữ liệu, hiện trạng thái lỗi/trống rõ ràng.
+
+Quy ước giao diện:
+- Màu, bo góc, nút, ô nhập, hộp thoại, snackbar do `core/theme/app_theme.dart` quy định (`AppColors`, `AppSpacing`,
+  `buildAppTheme`); màn mới dùng token này thay vì tự viết mã màu.
+- Trạng thái tải/rỗng/lỗi dùng `core/widgets/state_views.dart` (`AppLoading`, `AppEmptyState`, `AppErrorState`);
+  danh sách chính phải kéo xuống để làm mới được (`RefreshIndicator`, kể cả khi rỗng).
+- Cỡ chữ tối thiểu 11; mọi `IconButton` cần `tooltip`; vùng chạm tối thiểu 44–48dp.
+- Bố cục phải chịu được màn hình 320px và chữ phóng 1.3× — `test/layout_overflow_test.dart` kiểm tra tự động
+  các màn chính; thêm màn quan trọng mới thì thêm vào đó.

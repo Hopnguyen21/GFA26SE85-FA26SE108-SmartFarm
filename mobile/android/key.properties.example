@@ -1,0 +1,15 @@
+# Mẫu cấu hình Release Keystore cho Android
+# HƯỚNG DẪN BẢO MẬT:
+# 1. KHÔNG BAO GIỜ commit file 'key.properties' hoặc file '*.keystore' / '*.jks' chứa mật khẩu thật vào Git!
+# 2. Để ký phát hành (Release Build), hãy sao chép file này thành 'key.properties' (đã nằm trong .gitignore)
+#    hoặc truyền trực tiếp qua biến môi trường CI/CD Secrets:
+#    - SMARTFARM_KEY_ALIAS
+#    - SMARTFARM_KEY_PASSWORD
+#    - SMARTFARM_STORE_FILE
+#    - SMARTFARM_STORE_PASSWORD
+
+keyAlias=your_release_key_alias
+keyPassword=your_release_key_password
+storeFile=../keystores/release.keystore
+storePassword=your_keystore_password
+

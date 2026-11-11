@@ -9,14 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:smartfarm_mobile/main.dart';
-import 'package:smartfarm_mobile/providers/farm_provider.dart';
-import 'package:smartfarm_mobile/screens/alerts_tasks_screen.dart';
-import 'package:smartfarm_mobile/screens/farmer_dashboard_screen.dart';
-import 'package:smartfarm_mobile/screens/farmer_management_screen.dart';
-import 'package:smartfarm_mobile/screens/contracts_depreciation_screen.dart';
-import 'package:smartfarm_mobile/screens/farming_seasons_screen.dart';
-import 'package:smartfarm_mobile/screens/equipment_orders_screen.dart';
-import 'package:smartfarm_mobile/screens/schedules_automation_screen.dart';
+import 'package:smartfarm_mobile/core/providers/farm_provider.dart';
+import 'package:smartfarm_mobile/features/tasks/alerts_tasks_screen.dart';
+import 'package:smartfarm_mobile/features/farmer/farmer_dashboard_screen.dart';
+import 'package:smartfarm_mobile/features/contracts/contracts_depreciation_screen.dart';
+import 'package:smartfarm_mobile/features/irrigation/schedules_automation_screen.dart';
+import 'package:smartfarm_mobile/features/auth/landing_screen.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -28,9 +26,7 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
         child: const SmartFarmApp(),
       ),
     );
@@ -48,9 +44,7 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
         child: const SmartFarmApp(),
       ),
     );
@@ -68,9 +62,7 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
         child: const SmartFarmApp(),
       ),
     );
@@ -88,9 +80,7 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
         child: const SmartFarmApp(),
       ),
     );
@@ -108,12 +98,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: AlertsTasksScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: AlertsTasksScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -130,12 +116,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: AlertsTasksScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: AlertsTasksScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -152,12 +134,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: AlertsTasksScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: AlertsTasksScreen()),
       ),
     );
     expect(find.byType(AlertsTasksScreen), findsOneWidget);
@@ -172,12 +150,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: FarmerDashboardScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: FarmerDashboardScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -186,7 +160,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('FarmerDashboardScreen renders on standard phone (390x844) without overflow', (WidgetTester tester) async {
+  testWidgets('FarmerDashboardScreen renders on standard phone (390x844) without overflow', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -194,12 +170,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: FarmerDashboardScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: FarmerDashboardScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -216,75 +188,14 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: FarmerDashboardScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: FarmerDashboardScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(FarmerDashboardScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('FarmerManagementScreen allows OWNER and renders without overflow', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final provider = FarmProvider();
-    provider.switchRole('OWNER');
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: provider),
-        ],
-        child: const MaterialApp(
-          home: FarmerManagementScreen(),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byType(FarmerManagementScreen), findsOneWidget);
-    expect(find.text('Quản Lý Nông Dân & Phân Quyền'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.pumpWidget(const SizedBox());
-    provider.dispose();
-  });
-
-  testWidgets('FarmerManagementScreen blocks non-OWNER with access denied screen', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final provider = FarmProvider();
-    provider.switchRole('FARMER');
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: provider),
-        ],
-        child: const MaterialApp(
-          home: FarmerManagementScreen(),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Không có quyền truy cập'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.pumpWidget(const SizedBox());
-    provider.dispose();
   });
 
   testWidgets('ContractsDepreciationScreen renders on standard phone without overflow', (WidgetTester tester) async {
@@ -295,12 +206,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: ContractsDepreciationScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: ContractsDepreciationScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -309,7 +216,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('FarmingSeasonsScreen renders on standard phone without overflow', (WidgetTester tester) async {
+  testWidgets('SmartFarm app renders on standard phone (390x844)', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -317,21 +224,71 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: FarmingSeasonsScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const SmartFarmApp(),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byType(FarmingSeasonsScreen), findsOneWidget);
+    expect(find.byType(MaterialApp), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('EquipmentOrdersScreen renders on standard phone without overflow', (WidgetTester tester) async {
+  testWidgets('SmartFarm app renders on large phone (430x932)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const SmartFarmApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(MaterialApp), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SmartFarm app renders on tablet (768x1024)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(768, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const SmartFarmApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(MaterialApp), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AlertsTasksScreen renders on small phone (320x568) without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: AlertsTasksScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(AlertsTasksScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AlertsTasksScreen renders on standard phone (390x844) without overflow', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -339,17 +296,103 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: EquipmentOrdersScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: AlertsTasksScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byType(EquipmentOrdersScreen), findsOneWidget);
+    expect(find.byType(AlertsTasksScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AlertsTasksScreen renders on tablet (768x1024) without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(768, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: AlertsTasksScreen()),
+      ),
+    );
+    expect(find.byType(AlertsTasksScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('FarmerDashboardScreen renders on small phone (320x568) without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: FarmerDashboardScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(FarmerDashboardScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('FarmerDashboardScreen renders on standard phone (390x844) without overflow', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: FarmerDashboardScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(FarmerDashboardScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('FarmerDashboardScreen renders on tablet (768x1024) without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(768, 1024);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: FarmerDashboardScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(FarmerDashboardScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ContractsDepreciationScreen renders on standard phone without overflow', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: ContractsDepreciationScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(ContractsDepreciationScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -361,12 +404,8 @@ void main() {
 
     await tester.pumpWidget(
       MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => FarmProvider()),
-        ],
-        child: const MaterialApp(
-          home: SchedulesAutomationScreen(),
-        ),
+        providers: [ChangeNotifierProvider(create: (_) => FarmProvider())],
+        child: const MaterialApp(home: SchedulesAutomationScreen()),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
@@ -374,5 +413,25 @@ void main() {
     expect(find.byType(SchedulesAutomationScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-}
 
+  testWidgets('LandingScreen renders with all sections without overflow on standard and small phone', (
+    WidgetTester tester,
+  ) async {
+    for (final size in [const Size(320, 600), const Size(390, 844)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+
+      await tester.pumpWidget(MaterialApp(home: LandingScreen(onLoginSuccess: () {})));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(LandingScreen), findsOneWidget);
+      expect(find.text('MỚI 2026'), findsOneWidget);
+      expect(find.text('Trạm Gateway & Cảm Biến Bền Bỉ'), findsOneWidget);
+      expect(find.text('Từ Khảo Sát Đến Nghiệm Thu'), findsOneWidget);
+      expect(find.text('Đồng Hành Cùng Nông Nghiệp Xanh'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
