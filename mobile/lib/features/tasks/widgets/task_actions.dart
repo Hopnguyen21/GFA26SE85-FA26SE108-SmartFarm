@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/models.dart';
-import '../providers/farm_provider.dart';
+import '../../../core/models/models.dart';
+import '../../../core/providers/farm_provider.dart';
 
 const Map<String, String> _statusLabels = {
   'Pending': 'Chờ nhận việc',
@@ -48,9 +48,9 @@ class _TaskActionsState extends State<TaskActions> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: const Color(0xFFDC2626)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error), backgroundColor: const Color(0xFFDC2626)));
     }
   }
 
@@ -83,12 +83,7 @@ class _TaskActionsState extends State<TaskActions> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
           title: Text('Tiến độ: ${value.round()}%', style: const TextStyle(fontSize: 15)),
-          content: Slider(
-            value: value,
-            max: 100,
-            divisions: 20,
-            onChanged: (v) => setLocal(() => value = v),
-          ),
+          content: Slider(value: value, max: 100, divisions: 20, onChanged: (v) => setLocal(() => value = v)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             ElevatedButton(onPressed: () => Navigator.pop(ctx, value.round()), child: const Text('Lưu')),
@@ -97,6 +92,19 @@ class _TaskActionsState extends State<TaskActions> {
       ),
     );
     if (picked != null) await _run('UpdateProgress', progressPercent: picked);
+  }
+
+  /// Task đã đóng (duyệt/hủy) thì không giao thêm người.
+  bool _canManageAssignees(TaskModel task) => task.status != 'Approved' && task.status != 'Cancelled';
+
+  /// Owner thêm/gỡ Farmer thực hiện (POST/DELETE .../assignees). Chỉ hiển thị theo dữ liệu backend trả về.
+  Future<void> _manageAssignees() async {
+    final provider = context.read<FarmProvider>();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _AssigneesSheet(taskId: widget.task.taskId, provider: provider),
+    );
   }
 
   Widget _button(String label, VoidCallback onPressed, {bool primary = false, bool danger = false}) {
@@ -157,6 +165,7 @@ class _TaskActionsState extends State<TaskActions> {
         ? [
             for (final a in task.assignments.where((a) => a.status == 'CompletedPendingReview'))
               _button('Duyệt ${a.farmerName}', () => _run('Approve', farmerId: a.farmerId), primary: true),
+            if (_canManageAssignees(task)) _button('Người thực hiện', _manageAssignees),
           ]
         : (mine == null ? const <Widget>[] : _farmerButtons(mine));
 
@@ -177,12 +186,154 @@ class _TaskActionsState extends State<TaskActions> {
                 '${a.farmerName}: ${_statusLabels[a.status] ?? a.status}${a.result != null ? ' — ${a.result}' : ''}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
-          if (buttons.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Wrap(spacing: 6, runSpacing: 4, children: buttons),
-          ],
+          if (buttons.isNotEmpty) ...[const SizedBox(height: 4), Wrap(spacing: 6, runSpacing: 4, children: buttons)],
         ],
       ),
+    );
+  }
+}
+
+class _AssigneesSheet extends StatefulWidget {
+  final String taskId;
+  final FarmProvider provider;
+  const _AssigneesSheet({required this.taskId, required this.provider});
+
+  @override
+  State<_AssigneesSheet> createState() => _AssigneesSheetState();
+}
+
+class _AssigneesSheetState extends State<_AssigneesSheet> {
+  final Set<String> _toAdd = {};
+  bool _busy = false;
+
+  /// Farmer đã gỡ/từ chối/thất bại/quá hạn vẫn được giao lại; các trạng thái còn lại coi như đang giữ việc.
+  static const _reassignable = {'Cancelled', 'Declined', 'Failed', 'Overdue'};
+
+  TaskModel? get _task => widget.provider.tasks.where((t) => t.taskId == widget.taskId).firstOrNull;
+
+  void _show(String? error, String ok) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? ok),
+        backgroundColor: error == null ? const Color(0xFF059669) : const Color(0xFFDC2626),
+      ),
+    );
+  }
+
+  Future<void> _remove(TaskAssignmentModel a) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Gỡ người thực hiện?'),
+        content: Text('Gỡ ${a.farmerName} khỏi công việc này.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Hủy')),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Gỡ')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    final error = await widget.provider.removeTaskAssignee(widget.taskId, a.farmerId);
+    if (mounted) setState(() => _busy = false);
+    _show(error, 'Đã gỡ ${a.farmerName}.');
+  }
+
+  Future<void> _add() async {
+    setState(() => _busy = true);
+    final n = _toAdd.length;
+    final error = await widget.provider.addTaskAssignees(widget.taskId, _toAdd.toList());
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (error == null) _toAdd.clear();
+    });
+    _show(error, 'Đã giao thêm $n người.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.provider,
+      builder: (context, _) {
+        final task = _task;
+        if (task == null) return const SizedBox(height: 120, child: Center(child: Text('Không tìm thấy công việc.')));
+        final active = task.assignments.where((a) => !_reassignable.contains(a.status)).toList();
+        final activeIds = active.map((a) => a.farmerId.toLowerCase()).toSet();
+        final candidates = widget.provider.farmersForCurrentFarm
+            .where((f) => !activeIds.contains(f.farmerId.toLowerCase()))
+            .toList();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Người thực hiện · ${task.title}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                if (active.isEmpty)
+                  const Text('Chưa có ai đang giữ việc.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                for (final a in active)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.person_outline),
+                    title: Text(a.farmerName),
+                    subtitle: Text(_statusLabels[a.status] ?? a.status),
+                    trailing: a.status == 'Approved'
+                        ? null
+                        : IconButton(
+                            tooltip: 'Gỡ',
+                            icon: const Icon(Icons.person_remove_outlined, color: Color(0xFFDC2626)),
+                            onPressed: _busy ? null : () => _remove(a),
+                          ),
+                  ),
+                const Divider(),
+                const Text('Giao thêm', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                if (candidates.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Không còn Farmer nào để giao.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final f in candidates)
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: _toAdd.contains(f.farmerId),
+                          onChanged: _busy
+                              ? null
+                              : (v) => setState(() => v == true ? _toAdd.add(f.farmerId) : _toAdd.remove(f.farmerId)),
+                          title: Text(f.name),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _busy || _toAdd.isEmpty ? null : _add,
+                    child: Text(_toAdd.isEmpty ? 'Chọn Farmer để giao' : 'Giao cho ${_toAdd.length} người'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

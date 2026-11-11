@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/farm_provider.dart';
-import '../services/api_service.dart';
-import '../main.dart';
-import 'farms_management_screen.dart';
-import 'device_health_screen.dart';
-import 'monitoring_history_screen.dart';
-import 'schedules_automation_screen.dart';
-import 'reports_screen.dart';
-import 'provisioning_screen.dart';
-import 'alerts_tasks_screen.dart';
-import 'workforce_screen.dart';
+import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
+import '../../main.dart';
+import '../farms/farms_management_screen.dart';
+import '../devices/device_health_screen.dart';
+import '../monitoring/monitoring_history_screen.dart';
+import '../irrigation/schedules_automation_screen.dart';
+import '../reports/reports_screen.dart';
+import '../devices/provisioning_screen.dart';
+import '../tasks/alerts_tasks_screen.dart';
+import '../workforce/workforce_screen.dart';
 import 'connection_notification_screens.dart';
-import 'password_screens.dart';
-import 'technician_maintenance_screen.dart';
-import 'farm_invitations_screen.dart';
-import 'support_requests_screen.dart';
-import 'inventory_screen.dart';
-import 'contracts_depreciation_screen.dart';
-import 'farming_seasons_screen.dart';
-import '../widgets/dispose_later.dart';
+import '../auth/password_screens.dart';
+import '../support/technician_maintenance_screen.dart';
+import '../workforce/farm_invitations_screen.dart';
+import '../cf1/cf1_progress_screen.dart';
+import '../support/support_requests_screen.dart';
+import '../inventory/inventory_screen.dart';
+import '../contracts/contracts_depreciation_screen.dart';
+import '../../core/widgets/dispose_later.dart';
+import '../devices/technician_gateway_tools_screen.dart';
+
+part 'parts/profile_screen_widgets.dart';
+part 'parts/profile_screen_menu.dart';
+part 'parts/profile_screen_dialogs.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   static String _formatJoined(String? iso) {
     final d = iso == null ? null : DateTime.tryParse(iso);
-    return d == null ? '—' : '${d.toLocal().day.toString().padLeft(2, '0')}/${d.toLocal().month.toString().padLeft(2, '0')}/${d.toLocal().year}';
+    return d == null
+        ? '—'
+        : '${d.toLocal().day.toString().padLeft(2, '0')}/${d.toLocal().month.toString().padLeft(2, '0')}/${d.toLocal().year}';
   }
 
   @override
@@ -36,21 +43,27 @@ class ProfileScreen extends StatelessWidget {
     final roleLabel = provider.currentRole == 'OWNER'
         ? 'Chủ Trang Trại (Farm Owner)'
         : provider.currentRole == 'TECHNICIAN'
-            ? 'Kỹ Thuật Viên IoT (Technician)'
-            : 'Nông Dân Thực Địa (Field Worker)';
+        ? 'Kỹ Thuật Viên IoT (Technician)'
+        : 'Nông Dân Thực Địa (Field Worker)';
 
     final roleColor = provider.currentRole == 'OWNER'
         ? const Color(0xFF059669)
         : provider.currentRole == 'TECHNICIAN'
-            ? const Color(0xFF0284C7)
-            : const Color(0xFFD97706);
+        ? const Color(0xFF0284C7)
+        : const Color(0xFFD97706);
 
     final me = provider.me;
     final userName = me?['fullName']?.toString() ?? ApiService.userEmail ?? 'Tài khoản';
 
     final userEmail = me?['email']?.toString() ?? ApiService.userEmail ?? '—';
 
-    final userInitials = userName.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(3).map((w) => w[0].toUpperCase()).join();
+    final userInitials = userName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .take(3)
+        .map((w) => w[0].toUpperCase())
+        .join();
     final userPhoneRaw = me?['phone']?.toString() ?? '';
     final userPhone = userPhoneRaw.isEmpty ? 'Chưa cập nhật' : userPhoneRaw;
     final userIdRaw = me?['userId']?.toString() ?? '';
@@ -62,7 +75,7 @@ class ProfileScreen extends StatelessWidget {
         slivers: [
           // ─── Profile Hero AppBar ───
           SliverAppBar(
-            expandedHeight: 220,
+            expandedHeight: 200 + 40 * MediaQuery.textScalerOf(context).scale(1.0) + MediaQuery.paddingOf(context).top,
             pinned: true,
             backgroundColor: const Color(0xFF062326),
             foregroundColor: Colors.white,
@@ -90,13 +103,18 @@ class ProfileScreen extends StatelessWidget {
                               height: 80,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [roleColor, roleColor.withValues(alpha: 0.7)],
-                                ),
+                                gradient: LinearGradient(colors: [roleColor, roleColor.withValues(alpha: 0.7)]),
                                 border: Border.all(color: Colors.white, width: 3),
                               ),
                               child: Center(
-                                child: Text(userInitials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+                                child: Text(
+                                  userInitials,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 22,
+                                  ),
+                                ),
                               ),
                             ),
                             Positioned(
@@ -118,6 +136,8 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(
                           userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
                         ),
                         const SizedBox(height: 4),
@@ -151,11 +171,26 @@ class ProfileScreen extends StatelessWidget {
                   // Stats row
                   Row(
                     children: [
-                      _buildStatCard('Trang Trại', '${provider.farms.length}', Icons.corporate_fare, const Color(0xFF062326)),
+                      _buildStatCard(
+                        'Trang Trại',
+                        '${provider.farms.length}',
+                        Icons.corporate_fare,
+                        const Color(0xFF062326),
+                      ),
                       const SizedBox(width: 10),
-                      _buildStatCard('Zone Canh Tác', '${provider.zones.length}', Icons.grid_view_rounded, const Color(0xFF10B981)),
+                      _buildStatCard(
+                        'Zone Canh Tác',
+                        '${provider.zones.length}',
+                        Icons.grid_view_rounded,
+                        const Color(0xFF10B981),
+                      ),
                       const SizedBox(width: 10),
-                      _buildStatCard('Cảnh Báo', '${provider.alerts.where((a) => !a.isAcknowledged).length}', Icons.notifications_active, const Color(0xFFDC2626)),
+                      _buildStatCard(
+                        'Cảnh Báo',
+                        '${provider.alerts.where((a) => !a.isAcknowledged).length}',
+                        Icons.notifications_active,
+                        const Color(0xFFDC2626),
+                      ),
                     ],
                   ),
 
@@ -165,14 +200,15 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: _buildSectionHeader('THÔNG TIN TÀI KHOẢN (ĐỒNG BỘ BACKEND & DEMO)'),
-                      ),
+                      Expanded(child: _buildSectionHeader('THÔNG TIN TÀI KHOẢN (ĐỒNG BỘ BACKEND & DEMO)')),
                       const SizedBox(width: 8),
                       TextButton.icon(
                         onPressed: () => _showEditProfileDialog(context, provider, userName, userPhoneRaw),
                         icon: const Icon(Icons.edit, size: 14, color: Color(0xFF10B981)),
-                        label: const Text('Chỉnh sửa', style: TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: const Text(
+                          'Chỉnh sửa',
+                          style: TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           minimumSize: Size.zero,
@@ -195,9 +231,15 @@ class ProfileScreen extends StatelessWidget {
                   _buildSectionHeader('TỔ CHỨC / TENANT'),
                   const SizedBox(height: 10),
                   _buildInfoCard([
+                    if (provider.tenantName != null)
+                      _infoItem(Icons.business_outlined, 'Tổ chức', provider.tenantName!),
                     _infoItem(Icons.confirmation_number_outlined, 'Mã Tenant', me?['tenantId']?.toString() ?? '—'),
                     _infoItem(Icons.agriculture_outlined, 'Trang trại hiện tại', provider.currentFarm.name),
-                    _infoItem(Icons.calendar_today_outlined, 'Tham gia từ', _formatJoined(me?['createdAtUtc']?.toString())),
+                    _infoItem(
+                      Icons.calendar_today_outlined,
+                      'Tham gia từ',
+                      _formatJoined(me?['createdAtUtc']?.toString()),
+                    ),
                   ]),
 
                   const SizedBox(height: 16),
@@ -216,11 +258,32 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _roleOption(context, provider, 'OWNER', '👑 Chủ Trang Trại', 'Toàn quyền: xem, điều khiển, quản lý tổ chức', const Color(0xFF059669)),
+                          _roleOption(
+                            context,
+                            provider,
+                            'OWNER',
+                            '👑 Chủ Trang Trại',
+                            'Toàn quyền: xem, điều khiển, quản lý tổ chức',
+                            const Color(0xFF059669),
+                          ),
                           const Divider(height: 16),
-                          _roleOption(context, provider, 'FARMER', '👤 Nông Dân Thực Địa', 'Giám sát, nhận thông báo và xem lịch tưới', const Color(0xFFD97706)),
+                          _roleOption(
+                            context,
+                            provider,
+                            'FARMER',
+                            '👤 Nông Dân Thực Địa',
+                            'Giám sát, nhận thông báo và xem lịch tưới',
+                            const Color(0xFFD97706),
+                          ),
                           const Divider(height: 16),
-                          _roleOption(context, provider, 'TECHNICIAN', '🔧 Kỹ Thuật Viên IoT', 'Cấp phát thiết bị, quét QR, gán node vào zone', const Color(0xFF0284C7)),
+                          _roleOption(
+                            context,
+                            provider,
+                            'TECHNICIAN',
+                            '🔧 Kỹ Thuật Viên IoT',
+                            'Cấp phát thiết bị, quét QR, gán node vào zone',
+                            const Color(0xFF0284C7),
+                          ),
                         ],
                       ),
                     ),
@@ -239,10 +302,7 @@ class ProfileScreen extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: roleColor.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
+                            decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.12), shape: BoxShape.circle),
                             child: Icon(Icons.verified_user, color: roleColor, size: 22),
                           ),
                           const SizedBox(width: 12),
@@ -250,8 +310,14 @@ class ProfileScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(roleLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: roleColor)),
-                                const Text('Vai trò được xác thực bởi hệ thống (JWT)', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                                Text(
+                                  roleLabel,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: roleColor),
+                                ),
+                                const Text(
+                                  'Vai trò được xác thực bởi hệ thống (JWT)',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                ),
                               ],
                             ),
                           ),
@@ -262,14 +328,16 @@ class ProfileScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: roleColor.withValues(alpha: 0.3)),
                             ),
-                            child: Text('Đang dùng', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: roleColor)),
+                            child: Text(
+                              'Đang dùng',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: roleColor),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
-
 
                   // Quick Actions
                   _buildSectionHeader('CÀI ĐẶT & TIỆN ÍCH'),
@@ -323,7 +391,10 @@ class ProfileScreen extends StatelessWidget {
                                 color: const Color(0xFFF0F9FF),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text('v1.0.0', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                              child: const Text(
+                                'v1.0.0',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                              ),
                             ),
                           ],
                         ),
@@ -373,421 +444,6 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF64748B),
-        letterSpacing: 0.8,
-      ),
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildInfoCard(List<Widget> children) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: children,
-      ),
-    );
-  }
-
-  Widget _infoItem(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF94A3B8)),
-          const SizedBox(width: 10),
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)))),
-        ],
-      ),
-    );
-  }
-
-  Widget _roleOption(BuildContext context, FarmProvider provider, String role, String title, String desc, Color color) {
-    final isSelected = provider.currentRole == role;
-    return InkWell(
-      onTap: () => provider.switchRole(role),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Text(title.substring(0, 2), style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title.substring(3), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelected ? color : const Color(0xFF374151))),
-                  Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text('Đang dùng', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
-              )
-            else
-              Icon(Icons.radio_button_unchecked, size: 18, color: const Color(0xFFCBD5E1)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuItems(BuildContext context, FarmProvider provider) {
-    final isOwner = provider.currentRole == 'OWNER';
-    final isTech = provider.currentRole == 'TECHNICIAN';
-    final isFarmer = provider.currentRole == 'FARMER';
-
-    final items = [
-      // Farmer: xem cảnh báo & tác vụ
-      {
-        'icon': Icons.warning_amber_rounded,
-        'label': 'Cảnh báo & Tác vụ thực địa',
-        'color': const Color(0xFFE11D48),
-        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AlertsTasksScreen())),
-      },
-      if (isFarmer)
-        {
-          'icon': Icons.mail_outline,
-          'label': 'Lời mời tham gia Farm',
-          'color': const Color(0xFF0284C7),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmInvitationsScreen())),
-        },
-      // Farmer + Tech + Owner: lịch sử cảm biến
-      {
-        'icon': Icons.history,
-        'label': 'Lịch sử Cảm biến & Biểu đồ',
-        'color': const Color(0xFF7C3AED),
-        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MonitoringHistoryScreen())),
-      },
-      // Farmer + Owner: lịch tưới (xem)
-      if (!isTech) ...[ 
-        {
-          'icon': Icons.schedule,
-          'label': 'Lịch tưới & Tự động hóa',
-          'color': const Color(0xFFD97706),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchedulesAutomationScreen())),
-        },
-      ],
-      // Farmer + Owner: báo cáo VietGAP
-      {
-        'icon': Icons.assessment_outlined,
-        'label': 'Báo cáo & Xuất dữ liệu VietGAP',
-        'color': const Color(0xFF10B981),
-        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsScreen())),
-      },
-      // TECHNICIAN + OWNER: thiết bị
-      if (!isFarmer) ...[
-        {
-          'icon': Icons.qr_code_scanner,
-          'label': isTech ? 'Yêu cầu triển khai thiết bị (KTV)' : 'Lắp đặt thiết bị IoT cho Zone',
-          'color': const Color(0xFF10B981),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProvisioningScreen())),
-        },
-        {
-          'icon': Icons.router,
-          'label': 'Sức khỏe & Quản lý Thiết bị (Gateway / Node)',
-          'color': const Color(0xFF0284C7),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeviceHealthScreen())),
-        },
-      ],
-      // OWNER + TECHNICIAN: đơn hàng, khảo sát
-      if (isOwner || isTech) ...[
-        if (isOwner)
-          {
-            'icon': Icons.support_agent,
-            'label': 'Hỗ trợ kỹ thuật & Yêu cầu bảo trì',
-            'color': const Color(0xFF7C3AED),
-            'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportRequestsScreen())),
-          },
-        {
-          'icon': Icons.corporate_fare,
-          'label': 'Quản lý Trang trại & Zone',
-          'color': const Color(0xFF059669),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmsManagementScreen())),
-        },
-      ],
-      // OWNER only: kho vật tư, quản lý nông dân
-      if (isOwner) ...[
-        {
-          'icon': Icons.inventory_2_outlined,
-          'label': 'Kho Vật tư, Phân bón & Hạt giống',
-          'color': const Color(0xFF0F766E),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen())),
-        },
-        {
-          'icon': Icons.assignment_outlined,
-          'label': 'Hợp đồng Thuê Zone & Khấu hao Thiết bị',
-          'color': const Color(0xFF059669),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContractsDepreciationScreen())),
-        },
-        {
-          'icon': Icons.calendar_month_outlined,
-          'label': 'Khung Mùa vụ Canh tác (Farming Seasons)',
-          'color': const Color(0xFF0284C7),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmingSeasonsScreen())),
-        },
-        {
-          'icon': Icons.badge_outlined,
-          'label': 'Quản lý Nông dân & Phân quyền (Farmer)',
-          'color': const Color(0xFF0D9488),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WorkforceScreen())),
-        },
-      ],
-      if (isTech)
-        {
-          'icon': Icons.build_circle_outlined,
-          'label': 'Bảo trì & sửa chữa được giao',
-          'color': const Color(0xFFD97706),
-          'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TechnicianMaintenanceScreen())),
-        },
-      // Tất cả: thông báo, MQTT, trợ giúp
-      {
-        'icon': Icons.notifications_outlined,
-        'label': 'Cài đặt thông báo cảnh báo',
-        'color': const Color(0xFFDC2626),
-        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
-      },
-      {
-        'icon': Icons.wifi_outlined,
-        'label': 'Trạng thái kết nối MQTT',
-        'color': const Color(0xFF059669),
-        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MqttStatusScreen())),
-      },
-      {
-        'icon': Icons.lock_reset,
-        'label': 'Đổi mật khẩu',
-        'color': const Color(0xFF475569),
-        'onTap': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
-      },
-      {
-        'icon': Icons.help_outline,
-        'label': 'Trợ giúp & Hướng dẫn sử dụng',
-        'color': const Color(0xFF64748B),
-        'onTap': () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hỗ trợ kỹ thuật: 1900-SMARTFARM'))),
-      },
-    ];
-
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Column(
-          children: items.asMap().entries.map((e) {
-            final i = e.key;
-            final item = e.value;
-            return Column(
-              children: [
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: (item['color'] as Color).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(item['icon'] as IconData, size: 18, color: item['color'] as Color),
-                  ),
-                  title: Text(item['label'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  trailing: const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCBD5E1)),
-                  onTap: item['onTap'] as VoidCallback,
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                ),
-                if (i < items.length - 1) const Divider(height: 1, indent: 56),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.logout, color: Color(0xFFDC2626)),
-            SizedBox(width: 8),
-            Text('Đăng xuất', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Text('Bạn có chắc muốn đăng xuất khỏi SmartFarm?', style: TextStyle(fontSize: 14)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ApiService.logout();
-              if (context.mounted) {
-                Provider.of<FarmProvider>(context, listen: false).resetState();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const AppEntryPoint()),
-                  (route) => false,
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Đã đăng xuất khỏi tài khoản thành công'),
-                    backgroundColor: Color(0xFF062326),
-                  ),
-                );
-              }
-            },
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditProfileDialog(BuildContext context, FarmProvider provider, String currentName, String currentPhone) {
-    final nameCtrl = TextEditingController(text: currentName);
-    final phoneCtrl = TextEditingController(text: currentPhone);
-    bool isSaving = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.manage_accounts, color: Color(0xFF10B981)),
-              SizedBox(width: 8),
-              Text('Cập Nhật Hồ Sơ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Họ và tên:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-              const SizedBox(height: 4),
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Nhập họ và tên đầy đủ...',
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  prefixIcon: const Icon(Icons.person, size: 18),
-                ),
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              const Text('Số điện thoại:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
-              const SizedBox(height: 4),
-              TextField(
-                controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  hintText: 'Ví dụ: 0912345678',
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  prefixIcon: const Icon(Icons.phone, size: 18),
-                ),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: const Text('Hủy'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: isSaving
-                  ? null
-                  : () async {
-                      final name = nameCtrl.text.trim();
-                      if (name.length < 2 || name.length > 100) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Họ và tên phải từ 2 đến 100 ký tự')),
-                        );
-                        return;
-                      }
-                      setState(() => isSaving = true);
-                      final phone = phoneCtrl.text.trim();
-                      final ok = await provider.updateProfile(
-                        fullName: name,
-                        phone: phone.isEmpty ? null : phone,
-                      );
-                      if (context.mounted) {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(ok ? 'Cập nhật hồ sơ thành công!' : 'Không thể cập nhật hồ sơ, vui lòng thử lại'),
-                            backgroundColor: ok ? const Color(0xFF059669) : Colors.red,
-                          ),
-                        );
-                      }
-                    },
-              child: isSaving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Lưu Thay Đổi'),
-            ),
-          ],
-        ),
-      ),
-    ).then((_) => disposeControllersLater([nameCtrl, phoneCtrl]));
-  }
 }
 
 class _TechChip extends StatelessWidget {
@@ -803,7 +459,10 @@ class _TechChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFF062326).withValues(alpha: 0.12)),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF062326))),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF062326)),
+      ),
     );
   }
 }

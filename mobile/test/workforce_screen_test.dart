@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:smartfarm_mobile/providers/farm_provider.dart';
-import 'package:smartfarm_mobile/screens/workforce_screen.dart';
+import 'package:smartfarm_mobile/core/providers/farm_provider.dart';
+import 'package:smartfarm_mobile/features/workforce/workforce_screen.dart';
 
 Future<FarmProvider> _pump(WidgetTester tester, String role) async {
   tester.view.physicalSize = const Size(390, 844);
@@ -11,10 +11,12 @@ Future<FarmProvider> _pump(WidgetTester tester, String role) async {
   addTearDown(tester.view.resetDevicePixelRatio);
   final provider = FarmProvider();
   provider.switchRole(role);
-  await tester.pumpWidget(ChangeNotifierProvider.value(
-    value: provider,
-    child: const MaterialApp(home: WorkforceScreen()),
-  ));
+  await tester.pumpWidget(
+    ChangeNotifierProvider.value(
+      value: provider,
+      child: const MaterialApp(home: WorkforceScreen()),
+    ),
+  );
   await tester.pump();
   return provider;
 }

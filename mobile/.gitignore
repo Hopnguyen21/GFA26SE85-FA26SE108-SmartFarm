@@ -52,3 +52,8 @@ app.*.map.json
 **/Flutter/flutter_export_environment.sh
 android/gradle/wrapper/gradle-wrapper.jar
 android/app/google-services.json
+
+# Keystore & Signing Secrets (TUYỆT ĐỐI không commit vào Git)
+**/key.properties
+*.keystore
+*.jks

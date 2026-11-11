@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/farm_provider.dart';
-import '../models/models.dart';
+import '../../core/providers/farm_provider.dart';
+import '../../core/models/models.dart';
+import 'device_health_loader.dart';
 
-/// Màn hình Device Health – Giải quyết Vấn đề 4
-/// Sử dụng Timeout-based detection thay vì miss-packet counting
+/// Tình trạng thiết bị IoT (gateway & node) theo dữ liệu thật của backend.
+/// Phát hiện lỗi theo thời gian im lặng (last seen + timeout), không đếm gói rớt vì LoRa mất gói là bình thường.
 class DeviceHealthScreen extends StatefulWidget {
   const DeviceHealthScreen({super.key});
 
@@ -13,97 +14,155 @@ class DeviceHealthScreen extends StatefulWidget {
 }
 
 class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
-  // Refresh để cập nhật healthStatus theo thời gian thực
-  void _refresh() => setState(() {});
+  Future<List<DeviceHealthModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reload();
+    });
+  }
+
+  Future<void> _reload() async {
+    final f = loadDeviceHealth(context.read<FarmProvider>());
+    setState(() => _future = f);
+    try {
+      await f;
+    } catch (_) {
+      // Lỗi được hiển thị bởi FutureBuilder.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<FarmProvider>(context);
-    final devices = provider.deviceHealthList;
-
-    final online = devices.where((d) => d.healthStatus == 'ONLINE').length;
-    final warning = devices.where((d) => d.healthStatus == 'WARNING').length;
-    final offline = devices.where((d) => d.healthStatus == 'OFFLINE').length;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Sức Khỏe Thiết Bị IoT', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-            Text('Timeout-based Detection (Vấn đề 4)', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
-          ],
+        title: const Text(
+          'Sức Khỏe Thiết Bị IoT',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _refresh,
-            tooltip: 'Làm mới trạng thái',
+            onPressed: _reload,
+            tooltip: 'Tải lại từ máy chủ',
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Summary Bar
-            Row(
-              children: [
-                Expanded(child: _summaryCard('ONLINE', online, const Color(0xFF059669), const Color(0xFFECFDF5), Icons.wifi)),
-                const SizedBox(width: 10),
-                Expanded(child: _summaryCard('CẢNH BÁO', warning, const Color(0xFFD97706), const Color(0xFFFFFBEB), Icons.signal_wifi_statusbar_connected_no_internet_4)),
-                const SizedBox(width: 10),
-                Expanded(child: _summaryCard('OFFLINE', offline, const Color(0xFFDC2626), const Color(0xFFFEF2F2), Icons.wifi_off)),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Explanation about timeout mechanism
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBAE6FD)),
+      body: FutureBuilder<List<DeviceHealthModel>>(
+        future: _future,
+        builder: (context, snap) {
+          if (_future == null || snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off, size: 36, color: Color(0xFF94A3B8)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Không tải được tình trạng thiết bị: ${snap.error.toString().replaceFirst('Exception: ', '')}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFF64748B)),
+                    ),
+                    TextButton(onPressed: _reload, child: const Text('Thử lại')),
+                  ],
+                ),
               ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.lightbulb_outline, size: 16, color: Color(0xFF0284C7)),
-                      SizedBox(width: 8),
-                      Text('Cơ chế phát hiện lỗi (Đã sửa theo phản biện GV)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0369A1))),
-                    ],
+            );
+          }
+          final devices = snap.data!;
+          final online = devices.where((d) => d.healthStatus == 'ONLINE').length;
+          final warning = devices.where((d) => d.healthStatus == 'WARNING').length;
+          final offline = devices.where((d) => d.healthStatus == 'OFFLINE').length;
+          return RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _summaryCard(
+                        'ONLINE',
+                        online,
+                        const Color(0xFF059669),
+                        const Color(0xFFECFDF5),
+                        Icons.wifi,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _summaryCard(
+                        'CẢNH BÁO',
+                        warning,
+                        const Color(0xFFD97706),
+                        const Color(0xFFFFFBEB),
+                        Icons.signal_wifi_statusbar_connected_no_internet_4,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _summaryCard(
+                        'OFFLINE',
+                        offline,
+                        const Color(0xFFDC2626),
+                        const Color(0xFFFEF2F2),
+                        Icons.wifi_off,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F9FF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFBAE6FD)),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    '✅ ĐÚNG: Dùng Last Seen Timestamp + Timeout\n'
-                    '   • < 3× chu kỳ gửi → ONLINE\n'
-                    '   • 3–12× chu kỳ gửi → CẢNH BÁO (mất sóng tạm thời)\n'
-                    '   • > 12× chu kỳ gửi → OFFLINE (cần kiểm tra thực địa)\n\n'
-                    '❌ SAI (đã bỏ): Đếm số lần miss gói tin liên tiếp\n'
-                    '   → LoRa RF môi trường mất gói bình thường do nhiễu',
+                  child: const Text(
+                    'Trạng thái tính theo thời điểm nhận dữ liệu gần nhất so với chu kỳ gửi của từng thiết bị:\n'
+                    '• ≤ 3× chu kỳ → ONLINE\n'
+                    '• 3–12× chu kỳ → CẢNH BÁO (mất sóng tạm thời)\n'
+                    '• > 12× chu kỳ hoặc chưa từng nhận dữ liệu → OFFLINE (cần kiểm tra thực địa)',
                     style: TextStyle(fontSize: 11, color: Color(0xFF0369A1), height: 1.5),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'DANH SÁCH THIẾT BỊ (${devices.length})',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (devices.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Chưa có gateway hoặc node nào được lắp đặt.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ...devices.map((device) => _DeviceCard(device: device)),
+              ],
             ),
-
-            const SizedBox(height: 16),
-
-            const Text('DANH SÁCH THIẾT BỊ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5)),
-            const SizedBox(height: 10),
-
-            ...devices.map((device) => _DeviceCard(device: device)),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -120,8 +179,14 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
-          Text('$count', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold)),
+          Text(
+            '$count',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -135,45 +200,58 @@ class _DeviceCard extends StatelessWidget {
 
   Color get _statusColor {
     switch (device.healthStatus) {
-      case 'ONLINE': return const Color(0xFF059669);
-      case 'WARNING': return const Color(0xFFD97706);
-      default: return const Color(0xFFDC2626);
+      case 'ONLINE':
+        return const Color(0xFF059669);
+      case 'WARNING':
+        return const Color(0xFFD97706);
+      default:
+        return const Color(0xFFDC2626);
     }
   }
 
   Color get _statusBgColor {
     switch (device.healthStatus) {
-      case 'ONLINE': return const Color(0xFFECFDF5);
-      case 'WARNING': return const Color(0xFFFFFBEB);
-      default: return const Color(0xFFFEF2F2);
+      case 'ONLINE':
+        return const Color(0xFFECFDF5);
+      case 'WARNING':
+        return const Color(0xFFFFFBEB);
+      default:
+        return const Color(0xFFFEF2F2);
     }
   }
 
   IconData get _deviceIcon {
     switch (device.type) {
-      case 'GATEWAY': return Icons.router;
-      case 'SENSOR_NODE': return Icons.sensors;
-      default: return Icons.electrical_services;
+      case 'GATEWAY':
+        return Icons.router;
+      case 'SENSOR_NODE':
+        return Icons.sensors;
+      default:
+        return Icons.electrical_services;
     }
   }
 
   Color get _batteryColor {
-    if (device.batteryPercent > 60) return const Color(0xFF059669);
-    if (device.batteryPercent > 25) return const Color(0xFFD97706);
+    final pct = device.batteryPercent;
+    if (pct == null) return const Color(0xFF64748B);
+    if (pct > 60) return const Color(0xFF059669);
+    if (pct > 25) return const Color(0xFFD97706);
     return const Color(0xFFDC2626);
   }
 
   String get _timeoutExplanation {
-    final gapSecs = DateTime.now().difference(device.lastSeenAt).inSeconds;
+    final seen = device.lastSeenAt;
+    if (seen == null) return 'Chưa nhận được dữ liệu nào từ thiết bị này.';
+    final gapSecs = DateTime.now().difference(seen).inSeconds;
     final warningThreshold = device.expectedIntervalSeconds * 3;
     final criticalThreshold = device.expectedIntervalSeconds * 12;
-
-    if (device.healthStatus == 'ONLINE') {
-      return 'Còn ${warningThreshold - gapSecs}s nữa đến ngưỡng Warning';
-    } else if (device.healthStatus == 'WARNING') {
-      return 'Mất tín hiệu ${device.lastSeenText} (Warning >${warningThreshold}s, Critical >${criticalThreshold}s)';
-    } else {
-      return 'Mất liên lạc >${device.lastSeenText} – Cần kiểm tra thực địa ngay!';
+    switch (device.healthStatus) {
+      case 'ONLINE':
+        return 'Còn ${warningThreshold - gapSecs}s nữa đến ngưỡng cảnh báo';
+      case 'WARNING':
+        return 'Mất tín hiệu ${device.lastSeenText} (cảnh báo > ${warningThreshold}s, nghiêm trọng > ${criticalThreshold}s)';
+      default:
+        return 'Mất liên lạc ${device.lastSeenText} – cần kiểm tra thực địa.';
     }
   }
 
@@ -189,9 +267,7 @@ class _DeviceCard extends StatelessWidget {
           color: device.healthStatus == 'ONLINE' ? const Color(0xFFE2E8F0) : _statusColor.withValues(alpha: 0.4),
           width: device.healthStatus == 'ONLINE' ? 1 : 1.5,
         ),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,10 +276,7 @@ class _DeviceCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _statusBgColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(color: _statusBgColor, borderRadius: BorderRadius.circular(10)),
                 child: Icon(_deviceIcon, color: _statusColor, size: 20),
               ),
               const SizedBox(width: 12),
@@ -211,75 +284,70 @@ class _DeviceCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(device.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
-                    Text(device.nodeId, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontFamily: 'monospace')),
+                    Text(
+                      device.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      device.nodeId,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontFamily: 'monospace'),
+                    ),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: _statusBgColor, borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(width: 6, height: 6, decoration: BoxDecoration(color: _statusColor, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                    Text(device.healthStatus, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _statusColor)),
-                  ],
+                child: Text(
+                  device.healthStatus,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor),
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          // Stats Row
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
             children: [
-              _stat(Icons.access_time, 'Last Seen', device.lastSeenText),
-              const SizedBox(width: 16),
-              _stat(Icons.signal_cellular_alt, 'RSSI', '${device.signalRssi.toInt()} dBm'),
-              const SizedBox(width: 16),
-              _stat(Icons.battery_full, 'Pin', '${device.batteryPercent}%', valueColor: _batteryColor),
-              const SizedBox(width: 16),
+              _stat(Icons.access_time, 'Lần cuối', device.lastSeenText),
+              _stat(
+                Icons.signal_cellular_alt,
+                'RSSI',
+                device.signalRssi == null ? '—' : '${device.signalRssi!.toInt()} dBm',
+              ),
+              _stat(
+                Icons.battery_full,
+                'Pin',
+                device.batteryPercent == null ? '—' : '${device.batteryPercent}%',
+                valueColor: _batteryColor,
+              ),
               _stat(Icons.timer, 'Chu kỳ', '${device.expectedIntervalSeconds}s'),
             ],
           ),
-
           const SizedBox(height: 10),
-
-          // Timeout explanation
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _statusBgColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  device.healthStatus == 'ONLINE' ? Icons.check_circle_outline : Icons.warning_amber_outlined,
-                  size: 14, color: _statusColor,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(_timeoutExplanation, style: TextStyle(fontSize: 10, color: _statusColor, fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-          ),
+          Text(_timeoutExplanation, style: TextStyle(fontSize: 11, color: _statusColor)),
         ],
       ),
     );
   }
 
   Widget _stat(IconData icon, String label, String value, {Color? valueColor}) {
-    return Column(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: const Color(0xFF94A3B8)),
-        const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: valueColor ?? const Color(0xFF0F172A))),
-        Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+        Icon(icon, size: 13, color: const Color(0xFF94A3B8)),
+        const SizedBox(width: 4),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+            Text(
+              value,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: valueColor ?? const Color(0xFF0F172A)),
+            ),
+          ],
+        ),
       ],
     );
   }

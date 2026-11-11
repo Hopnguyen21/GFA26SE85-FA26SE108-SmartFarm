@@ -8,11 +8,25 @@ String enumName(dynamic value, List<String> names) {
 }
 
 const deploymentStatuses = [
-  'Draft', 'Submitted', 'Accepted', 'Surveyed', 'PlanConfirmed', 'Installing', 'Completed', 'MaintenanceRequired',
+  'Draft',
+  'Submitted',
+  'Accepted',
+  'Surveyed',
+  'PlanConfirmed',
+  'Installing',
+  'Completed',
+  'MaintenanceRequired',
 ];
 const deviceTypes = ['SensorNode', 'ActuatorNode'];
 const deviceStatuses = [
-  'Unassigned', 'Assigned', 'SensorsConfigured', 'ActuatorsConfigured', 'Online', 'Offline', 'MaintenanceRequired', 'Decommissioned',
+  'Unassigned',
+  'Assigned',
+  'SensorsConfigured',
+  'ActuatorsConfigured',
+  'Online',
+  'Offline',
+  'MaintenanceRequired',
+  'Decommissioned',
 ];
 
 const deploymentStatusLabels = <String, String>{
@@ -98,7 +112,12 @@ class DeploymentSurvey {
   final String siteConditions;
   final String notes;
   final String surveyedAtUtc;
-  DeploymentSurvey({required this.isFeasible, required this.siteConditions, required this.notes, required this.surveyedAtUtc});
+  DeploymentSurvey({
+    required this.isFeasible,
+    required this.siteConditions,
+    required this.notes,
+    required this.surveyedAtUtc,
+  });
   factory DeploymentSurvey.fromJson(Map<String, dynamic> j) => DeploymentSurvey(
     isFeasible: j['isFeasible'] == true,
     siteConditions: '${j['siteConditions'] ?? ''}',
@@ -113,7 +132,13 @@ class DeploymentDecision {
   final String toStatus;
   final String? notes;
   final String decidedAtUtc;
-  DeploymentDecision({required this.decisionType, required this.fromStatus, required this.toStatus, this.notes, required this.decidedAtUtc});
+  DeploymentDecision({
+    required this.decisionType,
+    required this.fromStatus,
+    required this.toStatus,
+    this.notes,
+    required this.decidedAtUtc,
+  });
   factory DeploymentDecision.fromJson(Map<String, dynamic> j) => DeploymentDecision(
     decisionType: '${j['decisionType'] ?? ''}',
     fromStatus: enumName(j['fromStatus'], deploymentStatuses),
@@ -163,8 +188,12 @@ class DeploymentRequest {
     failureCode: j['failureCode'] as String?,
     failureDescription: j['failureDescription'] as String?,
     planItems: (j['planItems'] as List? ?? const []).map((e) => PlanItem.fromJson(e as Map<String, dynamic>)).toList(),
-    surveys: (j['surveys'] as List? ?? const []).map((e) => DeploymentSurvey.fromJson(e as Map<String, dynamic>)).toList(),
-    history: (j['decisionHistory'] as List? ?? const []).map((e) => DeploymentDecision.fromJson(e as Map<String, dynamic>)).toList(),
+    surveys: (j['surveys'] as List? ?? const [])
+        .map((e) => DeploymentSurvey.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    history: (j['decisionHistory'] as List? ?? const [])
+        .map((e) => DeploymentDecision.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 
   /// Lần khảo sát mới nhất quyết định có được xác nhận kế hoạch hay không (backend vẫn kiểm tra lại).
@@ -179,7 +208,15 @@ class ConnectionTest {
   final String observedAtUtc;
   final String? errorCode;
   final String? errorMessage;
-  ConnectionTest({required this.succeeded, this.rssi, this.snr, this.latencyMs, required this.observedAtUtc, this.errorCode, this.errorMessage});
+  ConnectionTest({
+    required this.succeeded,
+    this.rssi,
+    this.snr,
+    this.latencyMs,
+    required this.observedAtUtc,
+    this.errorCode,
+    this.errorMessage,
+  });
   factory ConnectionTest.fromJson(Map<String, dynamic> j) => ConnectionTest(
     succeeded: j['succeeded'] == true,
     rssi: (j['rssi'] as num?)?.toDouble(),
@@ -233,7 +270,13 @@ class IotGateway {
   final String macAddress;
   final String gatewaySerial;
   final String status;
-  IotGateway({required this.gatewayId, required this.deploymentRequestId, required this.macAddress, required this.gatewaySerial, required this.status});
+  IotGateway({
+    required this.gatewayId,
+    required this.deploymentRequestId,
+    required this.macAddress,
+    required this.gatewaySerial,
+    required this.status,
+  });
   factory IotGateway.fromJson(Map<String, dynamic> j) => IotGateway(
     gatewayId: '${j['gatewayId']}',
     deploymentRequestId: '${j['deploymentRequestId']}',
@@ -244,6 +287,7 @@ class IotGateway {
 }
 
 class QuotationItem {
+  final String? notes;
   final String code;
   final String name;
   final String category;
@@ -253,6 +297,7 @@ class QuotationItem {
   final double vatPercent;
   final double totalAmount;
   QuotationItem({
+    this.notes,
     required this.code,
     required this.name,
     required this.category,
@@ -263,6 +308,7 @@ class QuotationItem {
     required this.totalAmount,
   });
   factory QuotationItem.fromJson(Map<String, dynamic> j) => QuotationItem(
+    notes: j['notes'] as String?,
     code: '${j['code']}',
     name: '${j['name']}',
     category: '${j['category']}',

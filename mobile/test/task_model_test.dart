@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:smartfarm_mobile/models/models.dart';
+import 'package:smartfarm_mobile/core/models/models.dart';
 
 void main() {
   final json = {
@@ -9,7 +9,13 @@ void main() {
     'status': 'CompletedPendingReview',
     'dueAtUtc': '2026-11-05T10:00:00Z',
     'assignments': [
-      {'farmerId': 'f1', 'farmerName': 'An', 'status': 'CompletedPendingReview', 'progressPercent': 100, 'result': 'Xong'},
+      {
+        'farmerId': 'f1',
+        'farmerName': 'An',
+        'status': 'CompletedPendingReview',
+        'progressPercent': 100,
+        'result': 'Xong',
+      },
       {'farmerId': 'f2', 'farmerName': 'Bình', 'status': 'Pending', 'progressPercent': 0},
     ],
   };
@@ -48,8 +54,14 @@ void main() {
 
   test('inventory item maps the API fields', () {
     final item = MaterialInventoryModel.fromJson({
-      'id': 'i1', 'farmId': 'farm1', 'name': 'NPK', 'materialType': 'Fertilizer',
-      'unit': 'kg', 'quantityOnHand': 5, 'lowStockThreshold': 10, 'isLowStock': true,
+      'id': 'i1',
+      'farmId': 'farm1',
+      'name': 'NPK',
+      'materialType': 'Fertilizer',
+      'unit': 'kg',
+      'quantityOnHand': 5,
+      'lowStockThreshold': 10,
+      'isLowStock': true,
     });
     expect(item.category, 'FERTILIZER');
     expect(item.quantity, 5);
@@ -58,9 +70,16 @@ void main() {
 
   test('auto rule shows readable values and keeps raw data for updates', () {
     final json = {
-      'ruleId': 'r1', 'zoneId': 'z1', 'name': 'Tưới', 'parameterCode': 'SoilMoisture',
-      'operator': 'LessThan', 'threshold': 40, 'actuatorId': 'a1', 'action': 'TurnOn',
-      'durationSeconds': 600, 'isActive': true,
+      'ruleId': 'r1',
+      'zoneId': 'z1',
+      'name': 'Tưới',
+      'parameterCode': 'SoilMoisture',
+      'operator': 'LessThan',
+      'threshold': 40,
+      'actuatorId': 'a1',
+      'action': 'TurnOn',
+      'durationSeconds': 600,
+      'isActive': true,
     };
     final rule = AutomationRuleModel.fromJson(json, actuatorName: 'Bơm');
     expect(rule.operator, '<');

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/iot_deployment.dart';
-import '../providers/farm_provider.dart';
-import '../services/api_service.dart';
+import '../../core/models/iot_deployment.dart';
+import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
 
 class GatewayMqttState {
   final IotGateway gateway;
@@ -32,7 +32,15 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
   }
 
   Future<void> _load() async {
-    final farmId = Provider.of<FarmProvider>(context, listen: false).selectedFarmId;
+    final provider = Provider.of<FarmProvider>(context, listen: false);
+    if (provider.currentRole != 'OWNER' && provider.currentRole != 'TECHNICIAN') {
+      setState(() {
+        _loading = false;
+        _error = 'Bạn không có quyền xem trạng thái MQTT (Yêu cầu tài khoản Chủ trang trại hoặc Kỹ thuật viên).';
+      });
+      return;
+    }
+    final farmId = provider.selectedFarmId;
     if (farmId.isEmpty) {
       setState(() {
         _loading = false;
@@ -45,18 +53,35 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
       _error = null;
     });
     try {
-      final gateways = await ApiService.getFarmGateways(farmId);
-      final states = await Future.wait(gateways.map((g) async {
-        try {
-          final r = await ApiService.getGatewayMqttStatus(g.gatewayId);
-          return GatewayMqttState(g, r['mqttConnected'] == true, null, DateTime.now());
-        } catch (e) {
-          return GatewayMqttState(g, null, e.toString().replaceFirst('Exception: ', ''), DateTime.now());
-        }
-      }));
+      final gateways = await DeploymentApi.getFarmGateways(farmId);
+      final states = await Future.wait(
+        gateways.map((g) async {
+          try {
+            final r = await SupportApi.getGatewayMqttStatus(g.gatewayId);
+            return GatewayMqttState(g, r['mqttConnected'] == true, null, DateTime.now());
+          } catch (e) {
+            final msg = e.toString().replaceFirst('Exception: ', '');
+            final is403 = msg.contains('403') || msg.toLowerCase().contains('forbidden');
+            return GatewayMqttState(
+              g,
+              null,
+              is403 ? 'Không có quyền truy cập trạng thái MQTT (403)' : msg,
+              DateTime.now(),
+            );
+          }
+        }),
+      );
       if (mounted) setState(() => _states = states);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        final is403 = msg.contains('403') || msg.toLowerCase().contains('forbidden');
+        setState(
+          () => _error = is403
+              ? 'Bạn không có quyền xem trạng thái MQTT (403 Forbidden - Yêu cầu tài khoản Chủ trang trại hoặc Kỹ thuật viên).'
+              : msg,
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -75,37 +100,59 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFDC2626))),
-                  const SizedBox(height: 12),
-                  OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
-                ])))
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: _states.isEmpty
-                      ? ListView(children: const [SizedBox(height: 120), Center(child: Text('Trang trại này chưa có gateway nào.'))])
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _states.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (_, i) {
-                            final s = _states[i];
-                            final (label, color) = s.connected == null
-                                ? ('Không xác định', const Color(0xFFD97706))
-                                : s.connected!
-                                    ? ('Đang kết nối', const Color(0xFF059669))
-                                    : ('Mất kết nối', const Color(0xFFDC2626));
-                            return Card(
-                              child: ListTile(
-                                leading: Icon(Icons.wifi, color: color),
-                                title: Text(s.gateway.gatewaySerial.isEmpty ? s.gateway.macAddress : s.gateway.gatewaySerial),
-                                subtitle: Text('${s.error ?? label} · cập nhật ${_hhmmss(s.checkedAt)}'),
-                                trailing: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                            );
-                          },
-                        ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFFDC2626)),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
+                  ],
                 ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: _states.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('Trang trại này chưa có gateway nào.')),
+                      ],
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _states.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final s = _states[i];
+                        final (label, color) = s.connected == null
+                            ? ('Không xác định', const Color(0xFFD97706))
+                            : s.connected!
+                            ? ('Đang kết nối', const Color(0xFF059669))
+                            : ('Mất kết nối', const Color(0xFFDC2626));
+                        return Card(
+                          child: ListTile(
+                            leading: Icon(Icons.wifi, color: color),
+                            title: Text(
+                              s.gateway.gatewaySerial.isEmpty ? s.gateway.macAddress : s.gateway.gatewaySerial,
+                            ),
+                            subtitle: Text('${s.error ?? label} · cập nhật ${_hhmmss(s.checkedAt)}'),
+                            trailing: Text(
+                              label,
+                              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
     );
   }
 }

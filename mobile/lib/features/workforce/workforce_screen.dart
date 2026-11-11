@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/models.dart';
-import '../providers/farm_provider.dart';
-import '../services/api_service.dart';
+import '../../core/models/models.dart';
+import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
+import 'zone_access_logic.dart';
 
 /// Quản lý nhân công theo Farm: mời Farmer đã có tài khoản, theo dõi lời mời, cấp quyền Zone.
 /// Mọi dữ liệu đi qua API; ứng dụng không tự tạo tài khoản hay mật khẩu nhân công.
@@ -30,8 +31,13 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     final farmId = context.read<FarmProvider>().selectedFarmId;
     if (farmId.isEmpty) return;
     try {
-      final items = await ApiService.getFarmInvitations(farmId);
-      if (mounted) setState(() { _invitations = items; _error = null; });
+      final items = await AccountApi.getFarmInvitations(farmId);
+      if (mounted) {
+        setState(() {
+          _invitations = items;
+          _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = _message(e));
     }
@@ -70,7 +76,7 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     ctrl.dispose();
     if (email == null || email.isEmpty) return;
     await _run(() async {
-      await ApiService.inviteFarmer(farmId, email);
+      await AccountApi.inviteFarmer(farmId, email);
       await _loadInvitations();
     }, 'Đã gửi lời mời tới $email.');
   }
@@ -91,7 +97,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Quyền Zone của ${farmer.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  'Quyền Zone của ${farmer.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
                 const SizedBox(height: 8),
                 if (zones.isEmpty) const Text('Trang trại này chưa có Zone.'),
                 for (final z in zones) ...[
@@ -124,10 +133,14 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     if (saved != true || !mounted) return;
     final provider = context.read<FarmProvider>();
     await _run(() async {
-      await ApiService.updateFarmerZoneAccess(farmer.farmerId, [
-        for (final e in draft.entries)
-          if (e.value != null) {'zoneId': e.key, 'canControl': e.value},
-      ]);
+      await AccountApi.updateFarmerZoneAccess(
+        farmer.farmerId,
+        mergeZoneAccessPayload(
+          existing: [for (final a in farmer.zoneAccess) (zoneId: a.zoneId, canControl: a.canControl)],
+          editableZoneIds: {for (final z in zones) z.zoneId},
+          draft: draft,
+        ),
+      );
       await provider.fetchFromApi();
     }, 'Đã cập nhật quyền Zone cho ${farmer.name}.');
   }
@@ -171,7 +184,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                 decoration: const InputDecoration(labelText: 'Nông trại', border: OutlineInputBorder()),
                 items: [
                   for (final f in provider.farms)
-                    DropdownMenuItem(value: f.farmId, child: Text(f.name, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                      value: f.farmId,
+                      child: Text(f.name, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: (v) async {
                   if (v == null) return;
@@ -189,16 +205,16 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
             if (members.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Trang trại này chưa có nhân công. Mời Farmer bằng email; họ xuất hiện ở đây sau khi chấp nhận.', style: TextStyle(fontSize: 12)),
+                child: Text(
+                  'Trang trại này chưa có nhân công. Mời Farmer bằng email; họ xuất hiện ở đây sau khi chấp nhận.',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             for (final m in members)
               Card(
                 child: ListTile(
                   title: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: Text(
-                    '${m.email}\n${_accessSummary(m, zones)}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                  subtitle: Text('${m.email}\n${_accessSummary(m, zones)}', style: const TextStyle(fontSize: 12)),
                   isThreeLine: true,
                   trailing: TextButton(
                     onPressed: _busy ? null : () => _editZones(m, zones),
@@ -207,7 +223,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                 ),
               ),
             const SizedBox(height: 16),
-            Text('Lời mời (${_invitations.where((i) => i['status'] == 'Pending').length} đang chờ)', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Lời mời (${_invitations.where((i) => i['status'] == 'Pending').length} đang chờ)',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             for (final inv in _invitations)
               Card(
                 child: ListTile(
@@ -222,9 +241,9 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {
-                                        await ApiService.invitationAction(inv['id'].toString(), 'resend');
-                                        await _loadInvitations();
-                                      }, 'Đã gửi lại lời mời.'),
+                                      await AccountApi.invitationAction(inv['id'].toString(), 'resend');
+                                      await _loadInvitations();
+                                    }, 'Đã gửi lại lời mời.'),
                             ),
                             IconButton(
                               tooltip: 'Hủy',
@@ -232,9 +251,9 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {
-                                        await ApiService.invitationAction(inv['id'].toString(), 'cancel');
-                                        await _loadInvitations();
-                                      }, 'Đã hủy lời mời.'),
+                                      await AccountApi.invitationAction(inv['id'].toString(), 'cancel');
+                                      await _loadInvitations();
+                                    }, 'Đã hủy lời mời.'),
                             ),
                           ],
                         )

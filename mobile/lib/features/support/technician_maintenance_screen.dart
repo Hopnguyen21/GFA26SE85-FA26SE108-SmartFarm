@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
-import '../services/app_role.dart';
+import '../../core/services/api_service.dart';
+import '../../core/services/app_role.dart';
 
 const Map<String, String> serviceStatusLabels = {
   'Open': 'Mới tạo',
@@ -12,7 +12,16 @@ const Map<String, String> serviceStatusLabels = {
   'Resolved': 'Đã giải quyết',
   'Closed': 'Đã đóng',
 };
-const _statusByIndex = ['Open', 'Assigned', 'InProgress', 'Diagnosed', 'WorkCompleted', 'Verified', 'Resolved', 'Closed'];
+const _statusByIndex = [
+  'Open',
+  'Assigned',
+  'InProgress',
+  'Diagnosed',
+  'WorkCompleted',
+  'Verified',
+  'Resolved',
+  'Closed',
+];
 const _resolutionByIndex = ['Maintenance', 'Repair', 'Replacement'];
 const Map<String, String> resolutionLabels = {
   'Maintenance': 'Bảo trì',
@@ -56,7 +65,7 @@ class _TechnicianMaintenanceScreenState extends State<TechnicianMaintenanceScree
       _error = null;
     });
     try {
-      final list = await ApiService.getServiceRequests();
+      final list = await SupportApi.getServiceRequests();
       if (mounted) setState(() => _items = list);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -81,44 +90,58 @@ class _TechnicianMaintenanceScreenState extends State<TechnicianMaintenanceScree
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFDC2626))),
-                      const SizedBox(height: 12),
-                      OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
-                    ]),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: _items.isEmpty
-                      ? ListView(children: const [
-                          SizedBox(height: 120),
-                          Center(child: Text('Chưa có yêu cầu bảo trì nào được giao.')),
-                        ])
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _items.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (_, i) {
-                            final r = _items[i];
-                            final st = serviceStatusOf(r);
-                            return Card(
-                              child: ListTile(
-                                title: Text('${r['failureCode'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                                subtitle: Text('${r['description'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
-                                trailing: Chip(label: Text(serviceStatusLabels[st] ?? st, style: const TextStyle(fontSize: 11))),
-                                onTap: () async {
-                                  await Navigator.push(context, MaterialPageRoute(builder: (_) => ServiceRequestDetailScreen(requestId: '${r['id']}')));
-                                  if (mounted) _load();
-                                },
-                              ),
-                            );
-                          },
-                        ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFFDC2626)),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
+                  ],
                 ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: _items.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('Chưa có yêu cầu bảo trì nào được giao.')),
+                      ],
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final r = _items[i];
+                        final st = serviceStatusOf(r);
+                        return Card(
+                          child: ListTile(
+                            title: Text('${r['failureCode'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text('${r['description'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
+                            trailing: Chip(
+                              label: Text(serviceStatusLabels[st] ?? st, style: const TextStyle(fontSize: 11)),
+                            ),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => ServiceRequestDetailScreen(requestId: '${r['id']}')),
+                              );
+                              if (mounted) _load();
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
     );
   }
 }
@@ -149,7 +172,7 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
       _error = null;
     });
     try {
-      final r = await ApiService.getServiceRequest(widget.requestId);
+      final r = await SupportApi.getServiceRequest(widget.requestId);
       if (mounted) setState(() => _req = r);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -184,11 +207,23 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
         builder: (ctx, setLocal) => AlertDialog(
           title: Text(title),
           content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              for (final f in fields)
-                TextField(controller: ctrls[f.$1], maxLines: 3, minLines: 1, decoration: InputDecoration(labelText: f.$2)),
-              if (err != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(err!, style: const TextStyle(color: Color(0xFFDC2626)))),
-            ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final f in fields)
+                  TextField(
+                    controller: ctrls[f.$1],
+                    maxLines: 3,
+                    minLines: 1,
+                    decoration: InputDecoration(labelText: f.$2),
+                  ),
+                if (err != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(err!, style: const TextStyle(color: Color(0xFFDC2626))),
+                  ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
@@ -215,7 +250,10 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
   }
 
   Future<void> _diagnose() async {
-    final v = await _form('Chẩn đoán sự cố', [('notes', 'Ghi chú kiểm tra', true), ('diag', 'Kết luận chẩn đoán', true)]);
+    final v = await _form('Chẩn đoán sự cố', [
+      ('notes', 'Ghi chú kiểm tra', true),
+      ('diag', 'Kết luận chẩn đoán', true),
+    ]);
     if (v == null || !mounted) return;
     var action = 'Repair';
     final ok = await showDialog<bool>(
@@ -237,7 +275,7 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
     );
     if (ok != true || !mounted) return;
     await _run(
-      () => ApiService.serviceRequestAction(widget.requestId, 'diagnosis', {
+      () => SupportApi.serviceRequestAction(widget.requestId, 'diagnosis', {
         'inspectionNotes': v['notes'],
         'diagnosis': v['diag'],
         'resolutionAction': action,
@@ -249,7 +287,10 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
   Future<void> _recordWork() async {
     final v = await _form('Ghi nhận kết quả sửa chữa', [('work', 'Công việc đã thực hiện', true)]);
     if (v == null) return;
-    await _run(() => ApiService.serviceRequestAction(widget.requestId, 'work', {'workPerformed': v['work']}), 'Đã ghi nhận công việc.');
+    await _run(
+      () => SupportApi.serviceRequestAction(widget.requestId, 'work', {'workPerformed': v['work']}),
+      'Đã ghi nhận công việc.',
+    );
   }
 
   Future<void> _connectionTest() async {
@@ -263,13 +304,36 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
         builder: (ctx, setLocal) => AlertDialog(
           title: const Text('Kết quả kiểm tra kết nối'),
           content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('Nhập kết quả bạn quan sát được trên thiết bị. App không tự suy ra kết nối thành công.', style: TextStyle(fontSize: 12)),
-              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Kết nối thành công'), value: succeeded, onChanged: (x) => setLocal(() => succeeded = x)),
-              TextField(controller: rssi, keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true), decoration: const InputDecoration(labelText: 'RSSI (tuỳ chọn)')),
-              TextField(controller: latency, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Độ trễ ms (tuỳ chọn)')),
-              if (!succeeded) TextField(controller: errCode, decoration: const InputDecoration(labelText: 'Mã lỗi')),
-            ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Nhập kết quả bạn quan sát được trên thiết bị. App không tự suy ra kết nối thành công.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Kết nối thành công'),
+                  value: succeeded,
+                  onChanged: (x) => setLocal(() => succeeded = x),
+                ),
+                TextField(
+                  controller: rssi,
+                  keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+                  decoration: const InputDecoration(labelText: 'RSSI (tuỳ chọn)'),
+                ),
+                TextField(
+                  controller: latency,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Độ trễ ms (tuỳ chọn)'),
+                ),
+                if (!succeeded)
+                  TextField(
+                    controller: errCode,
+                    decoration: const InputDecoration(labelText: 'Mã lỗi'),
+                  ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
@@ -289,7 +353,10 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
     latency.dispose();
     errCode.dispose();
     if (ok != true) return;
-    await _run(() => ApiService.serviceRequestAction(widget.requestId, 'connection-tests', body), 'Đã ghi nhận kết quả kiểm tra.');
+    await _run(
+      () => SupportApi.serviceRequestAction(widget.requestId, 'connection-tests', body),
+      'Đã ghi nhận kết quả kiểm tra.',
+    );
   }
 
   /// Thay nóng: chọn thiết bị mới trong cùng zone → xác nhận cũ/mới/zone → gọi API hot-swap.
@@ -302,7 +369,7 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
     }
     List<Map<String, dynamic>> devices;
     try {
-      devices = await ApiService.listZoneDevices(zoneId);
+      devices = await SupportApi.listZoneDevices(zoneId);
     } catch (e) {
       if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
       return;
@@ -321,31 +388,48 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
         builder: (ctx, setLocal) => AlertDialog(
           title: const Text('Thay nóng thiết bị'),
           content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Thiết bị cũ: $oldId', style: const TextStyle(fontSize: 12)),
-              Text('Zone: $zoneId', style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: newId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Thiết bị thay thế'),
-                items: [
-                  for (final d in candidates)
-                    DropdownMenuItem(
-                      value: '${d['deviceId']}',
-                      child: Text('${d['hardwareAddress'] ?? d['deviceId']} · ${d['status'] ?? ''}', overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (x) => setLocal(() => newId = x),
-              ),
-              TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Ghi chú (tuỳ chọn)')),
-              const SizedBox(height: 8),
-              const Text('Backend chịu trách nhiệm giữ liên kết dữ liệu lịch sử của thiết bị cũ.', style: TextStyle(fontSize: 11)),
-            ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Thiết bị cũ: $oldId', style: const TextStyle(fontSize: 12)),
+                Text('Zone: $zoneId', style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: newId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Thiết bị thay thế'),
+                  items: [
+                    for (final d in candidates)
+                      DropdownMenuItem(
+                        value: '${d['deviceId']}',
+                        child: Text(
+                          '${d['hardwareAddress'] ?? d['deviceId']} · ${d['status'] ?? ''}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (x) => setLocal(() => newId = x),
+                ),
+                TextField(
+                  controller: notes,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Ghi chú (tuỳ chọn)'),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Backend chịu trách nhiệm giữ liên kết dữ liệu lịch sử của thiết bị cũ.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-            FilledButton(onPressed: newId == null ? null : () => Navigator.pop(ctx, true), child: const Text('Xác nhận thay nóng')),
+            FilledButton(
+              onPressed: newId == null ? null : () => Navigator.pop(ctx, true),
+              child: const Text('Xác nhận thay nóng'),
+            ),
           ],
         ),
       ),
@@ -354,7 +438,7 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
     notes.dispose();
     if (confirmed != true || newId == null) return;
     await _run(
-      () => ApiService.hotSwapDevice(
+      () => SupportApi.hotSwapDevice(
         zoneId: zoneId,
         oldDeviceId: oldId,
         serviceRequestId: widget.requestId,
@@ -370,13 +454,20 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chi tiết sự cố'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), tooltip: 'Làm mới', onPressed: _loading || _busy ? null : _load)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), tooltip: 'Làm mới', onPressed: _loading || _busy ? null : _load),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null || _req == null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error ?? 'Không có dữ liệu', style: const TextStyle(color: Color(0xFFDC2626)))))
-              : _body(_req!),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(_error ?? 'Không có dữ liệu', style: const TextStyle(color: Color(0xFFDC2626))),
+              ),
+            )
+          : _body(_req!),
     );
   }
 
@@ -385,10 +476,14 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
     final res = resolutionOf(r);
     final history = (r['history'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
     final actions = <Widget>[];
-    void add(String label, VoidCallback f) => actions.add(FilledButton(onPressed: _busy ? null : f, child: Text(label)));
+    void add(String label, VoidCallback f) =>
+        actions.add(FilledButton(onPressed: _busy ? null : f, child: Text(label)));
     switch (st) {
       case 'Assigned':
-        add('Nhận việc', () => _run(() => ApiService.serviceRequestAction(widget.requestId, 'accept'), 'Đã nhận việc.'));
+        add(
+          'Nhận việc',
+          () => _run(() => SupportApi.serviceRequestAction(widget.requestId, 'accept'), 'Đã nhận việc.'),
+        );
       case 'InProgress':
         add('Ghi chẩn đoán', _diagnose);
       case 'Diagnosed':
@@ -397,7 +492,10 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
       case 'WorkCompleted':
         add('Ghi kết quả kiểm tra kết nối', _connectionTest);
       case 'Verified' || 'Resolved':
-        add('Đóng yêu cầu', () => _run(() => ApiService.serviceRequestAction(widget.requestId, 'close'), 'Đã đóng yêu cầu.'));
+        add(
+          'Đóng yêu cầu',
+          () => _run(() => SupportApi.serviceRequestAction(widget.requestId, 'close'), 'Đã đóng yêu cầu.'),
+        );
     }
     return RefreshIndicator(
       onRefresh: _load,
@@ -408,10 +506,13 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
           const SizedBox(height: 4),
           Text('${r['description'] ?? ''}'),
           const SizedBox(height: 8),
-          Wrap(spacing: 8, children: [
-            Chip(label: Text(serviceStatusLabels[st] ?? st)),
-            if (res.isNotEmpty) Chip(label: Text(resolutionLabels[res] ?? res)),
-          ]),
+          Wrap(
+            spacing: 8,
+            children: [
+              Chip(label: Text(serviceStatusLabels[st] ?? st)),
+              if (res.isNotEmpty) Chip(label: Text(resolutionLabels[res] ?? res)),
+            ],
+          ),
           if ('${r['inspectionNotes'] ?? ''}'.isNotEmpty) _kv('Ghi chú kiểm tra', '${r['inspectionNotes']}'),
           if ('${r['diagnosis'] ?? ''}'.isNotEmpty) _kv('Chẩn đoán', '${r['diagnosis']}'),
           if ('${r['workPerformed'] ?? ''}'.isNotEmpty) _kv('Công việc đã làm', '${r['workPerformed']}'),
@@ -429,7 +530,9 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text('${h['eventType']} → ${enumName(h['toStatus'], _statusByIndex)}'),
-              subtitle: Text('${h['createdAtUtc'] ?? ''}${(h['notes'] ?? '').toString().isEmpty ? '' : '\n${h['notes']}'}'),
+              subtitle: Text(
+                '${h['createdAtUtc'] ?? ''}${(h['notes'] ?? '').toString().isEmpty ? '' : '\n${h['notes']}'}',
+              ),
             ),
         ],
       ),
@@ -437,10 +540,13 @@ class _ServiceRequestDetailScreenState extends State<ServiceRequestDetailScreen>
   }
 
   Widget _kv(String k, String v) => Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(k, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-          Text(v),
-        ]),
-      );
+    padding: const EdgeInsets.only(top: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(k, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        Text(v),
+      ],
+    ),
+  );
 }

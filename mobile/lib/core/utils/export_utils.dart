@@ -62,7 +62,12 @@ Future<void> saveAndShareFile(String fileName, List<int> bytes, {String? mimeTyp
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}${Platform.pathSeparator}${safeFileName(fileName)}');
     await file.writeAsBytes(Uint8List.fromList(bytes), flush: true);
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: mimeType)], subject: fileName));
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: mimeType)],
+        subject: fileName,
+      ),
+    );
   } on FileSystemException catch (e) {
     throw Exception('Không thể ghi tệp: ${e.message}');
   }

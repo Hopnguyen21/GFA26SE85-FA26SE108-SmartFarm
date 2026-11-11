@@ -1,7 +1,16 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -25,11 +34,37 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            // Nạp thông tin ký từ biến môi trường (CI/CD Secrets) hoặc key.properties cục bộ
+            val keyAliasProp = System.getenv("SMARTFARM_KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
+            val keyPasswordProp = System.getenv("SMARTFARM_KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
+            val storeFileProp = System.getenv("SMARTFARM_STORE_FILE") ?: keystoreProperties.getProperty("storeFile")
+            val storePasswordProp = System.getenv("SMARTFARM_STORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+
+            if (!keyAliasProp.isNullOrBlank() &&
+                !keyPasswordProp.isNullOrBlank() &&
+                !storeFileProp.isNullOrBlank() &&
+                !storePasswordProp.isNullOrBlank()
+            ) {
+                keyAlias = keyAliasProp
+                keyPassword = keyPasswordProp
+                storeFile = rootProject.file(storeFileProp)
+                storePassword = storePasswordProp
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                signingConfig = releaseSigning
+            } else {
+                // TUYỆT ĐỐI không dùng debug key cho bản release.
+                // Nếu chưa cấu hình chứng chỉ release thực tế, để null để ngăn xuất bản nhầm.
+                signingConfig = null
+            }
         }
     }
 }

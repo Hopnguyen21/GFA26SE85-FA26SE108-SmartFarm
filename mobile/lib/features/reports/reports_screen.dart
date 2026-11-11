@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
-import '../providers/farm_provider.dart';
-import '../services/api_service.dart';
-import '../services/export_utils.dart';
+import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
+import '../../core/utils/export_utils.dart';
 
 /// Gom các bucket (theo zone/tháng) thành tổng theo zone.
 Map<String, double> sumBucketsByZone(Map<String, dynamic>? report) {
@@ -44,7 +44,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
   DateTime get _from => _to.subtract(Duration(days: _days));
 
   Future<void> _load() async {
-    final farmId = Provider.of<FarmProvider>(context, listen: false).selectedFarmId;
+    final provider = Provider.of<FarmProvider>(context, listen: false);
+    if (provider.currentRole != 'OWNER') {
+      setState(() {
+        _loading = false;
+        _error = 'Bạn không có quyền truy cập Báo cáo (Yêu cầu tài khoản Chủ trang trại - FarmOwner).';
+      });
+      return;
+    }
+    final farmId = provider.selectedFarmId;
     if (farmId.isEmpty) {
       setState(() {
         _loading = false;
@@ -58,9 +66,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     });
     try {
       final r = await Future.wait([
-        ApiService.getFarmReport(farmId, 'overview'),
-        ApiService.getFarmReport(farmId, 'water-usage', from: _from, to: _to),
-        ApiService.getFarmReport(farmId, 'electricity', from: _from, to: _to),
+        ReportApi.getFarmReport(farmId, 'overview'),
+        ReportApi.getFarmReport(farmId, 'water-usage', from: _from, to: _to),
+        ReportApi.getFarmReport(farmId, 'electricity', from: _from, to: _to),
       ]);
       if (!mounted) return;
       setState(() {
@@ -69,7 +77,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _power = r[2];
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        final is403 = msg.contains('403') || msg.toLowerCase().contains('forbidden') || msg.contains('không có quyền');
+        setState(
+          () => _error = is403
+              ? 'Bạn không có quyền truy cập Báo cáo (403 Forbidden - Yêu cầu tài khoản Chủ trang trại).'
+              : msg,
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,7 +96,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final farmId = Provider.of<FarmProvider>(context, listen: false).selectedFarmId;
     setState(() => _exporting = true);
     try {
-      final bytes = await ApiService.downloadFarmReportExcel(farmId, from: _from, to: _to);
+      final bytes = await ReportApi.downloadFarmReportExcel(farmId, from: _from, to: _to);
       await saveAndShareFile(
         'bao-cao-tai-nguyen-${DateTime.now().toIso8601String().substring(0, 10)}.xlsx',
         bytes,
@@ -88,9 +104,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Xuất Excel thất bại: ${e.toString().replaceFirst('Exception: ', '')}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Xuất Excel thất bại: ${e.toString().replaceFirst('Exception: ', '')}')));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -106,27 +122,50 @@ class _ReportsScreenState extends State<ReportsScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Báo Cáo Tài Nguyên', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          'Báo Cáo Tài Nguyên',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         actions: [
           IconButton(
             icon: _exporting
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
                 : const Icon(Icons.table_chart_outlined, color: Colors.white),
             tooltip: 'Xuất Excel (.xlsx) từ máy chủ',
             onPressed: _loading || _exporting || _error != null ? null : _exportExcel,
           ),
-          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), tooltip: 'Làm mới', onPressed: _loading ? null : _load),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Làm mới',
+            onPressed: _loading ? null : _load,
+          ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFDC2626))),
-                  const SizedBox(height: 12),
-                  OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
-                ])))
-              : _content(),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFFDC2626)),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
+                  ],
+                ),
+              ),
+            )
+          : _content(),
     );
   }
 
@@ -153,36 +192,60 @@ class _ReportsScreenState extends State<ReportsScreen> {
             },
           ),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: _kpi('Nước tưới', _fmt(totalWater, '${_water?['unit'] ?? 'L'}'), Icons.water_drop, const Color(0xFF0284C7))),
-            const SizedBox(width: 12),
-            Expanded(child: _kpi('Điện năng', _fmt(totalPower, '${_power?['unit'] ?? 'kWh'}'), Icons.bolt, const Color(0xFFD97706))),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                child: _kpi(
+                  'Nước tưới',
+                  _fmt(totalWater, '${_water?['unit'] ?? 'L'}'),
+                  Icons.water_drop,
+                  const Color(0xFF0284C7),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _kpi(
+                  'Điện năng',
+                  _fmt(totalPower, '${_power?['unit'] ?? 'kWh'}'),
+                  Icons.bolt,
+                  const Color(0xFFD97706),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           _card(
             'Nước tưới theo Zone',
             waterByZone.isEmpty
-                ? const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Không có dữ liệu trong khoảng thời gian này.')))
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: Text('Không có dữ liệu trong khoảng thời gian này.')),
+                  )
                 : SizedBox(height: 200, child: _zoneChart(waterByZone)),
           ),
           if (o != null) ...[
             const SizedBox(height: 16),
             _card(
               'Tổng quan trang trại',
-              Column(children: [
-                _row('Zone', '${o['zoneCount']}'),
-                _row('Thiết bị online', '${o['onlineDeviceCount']}'),
-                _row('Cảnh báo đang mở', '${o['openAlertCount']}'),
-                _row('Công việc đang mở', '${o['openTaskCount']}'),
-                _row('Vật tư sắp hết', '${o['lowStockItemCount']}'),
-                _row('Yêu cầu bảo trì mở', '${o['openServiceRequestCount']}'),
-                _row('Thu tháng này', '${o['revenueCurrentMonth']}'),
-                _row('Chi tháng này', '${o['expenseCurrentMonth']}'),
-              ]),
+              Column(
+                children: [
+                  _row('Zone', '${o['zoneCount']}'),
+                  _row('Thiết bị online', '${o['onlineDeviceCount']}'),
+                  _row('Cảnh báo đang mở', '${o['openAlertCount']}'),
+                  _row('Công việc đang mở', '${o['openTaskCount']}'),
+                  _row('Vật tư sắp hết', '${o['lowStockItemCount']}'),
+                  _row('Yêu cầu bảo trì mở', '${o['openServiceRequestCount']}'),
+                  _row('Thu tháng này', '${o['revenueCurrentMonth']}'),
+                  _row('Chi tháng này', '${o['expenseCurrentMonth']}'),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 12),
-          const Text('Xuất PDF chưa được hỗ trợ (backend chỉ tạo Excel).', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          const Text(
+            'Xuất PDF chưa được hỗ trợ (backend chỉ tạo Excel).',
+            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          ),
         ],
       ),
     );
@@ -205,7 +268,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 final i = v.toInt();
                 if (i < 0 || i >= entries.length) return const SizedBox();
                 final n = entries[i].key;
-                return Padding(padding: const EdgeInsets.only(top: 6), child: Text(n.length > 8 ? '${n.substring(0, 8)}…' : n, style: const TextStyle(fontSize: 9)));
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(n.length > 8 ? '${n.substring(0, 8)}…' : n, style: const TextStyle(fontSize: 11)),
+                );
               },
             ),
           ),
@@ -213,37 +279,71 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderData: FlBorderData(show: false),
         barGroups: [
           for (var i = 0; i < entries.length; i++)
-            BarChartGroupData(x: i, barRods: [BarChartRodData(toY: entries[i].value, color: const Color(0xFF062326), width: 14)]),
+            BarChartGroupData(
+              x: i,
+              barRods: [BarChartRodData(toY: entries[i].value, color: const Color(0xFF062326), width: 14)],
+            ),
         ],
       ),
     );
   }
 
   Widget _kpi(String title, String value, IconData icon, Color color) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))), Icon(icon, size: 16, color: color)]),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ]),
-      );
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            ),
+            Icon(icon, size: 16, color: color),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    ),
+  );
 
   Widget _card(String title, Widget child) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          const SizedBox(height: 12),
-          child,
-        ]),
-      );
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 12),
+        child,
+      ],
+    ),
+  );
 
   Widget _row(String l, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Expanded(child: Text(l, style: const TextStyle(fontSize: 12, color: Color(0xFF475569)))),
-          Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ]),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(l, style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+        ),
+        Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+      ],
+    ),
+  );
 }

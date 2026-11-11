@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/farm_provider.dart';
-import '../services/api_service.dart';
+import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
 
 /// Farmer xem và trả lời lời mời tham gia Farm. Chấp nhận chỉ đưa Farmer vào Farm, không tự cấp quyền Zone.
 class FarmInvitationsScreen extends StatefulWidget {
@@ -26,7 +26,7 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final items = await ApiService.getMyInvitations();
+      final items = await AccountApi.getMyInvitations();
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -42,18 +42,20 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
   Future<void> _respond(String id, bool accept) async {
     setState(() => _busy = true);
     try {
-      await ApiService.respondInvitation(id, accept);
+      await AccountApi.respondInvitation(id, accept);
       if (accept) {
         // Phiên cần token mới để mang thông tin Tenant/Farm vừa tham gia.
         await ApiService.refreshToken();
         if (mounted) await context.read<FarmProvider>().fetchFromApi();
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(accept
-            ? 'Đã tham gia trang trại. Chủ trang trại sẽ cấp quyền Zone cho bạn.'
-            : 'Đã từ chối lời mời.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            accept ? 'Đã tham gia trang trại. Chủ trang trại sẽ cấp quyền Zone cho bạn.' : 'Đã từ chối lời mời.',
+          ),
+        ),
+      );
       await _load();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -72,7 +74,10 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12)),
-            if (_loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+            if (_loading)
+              const Center(
+                child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
+              ),
             if (!_loading && _items.isEmpty && _error == null)
               const Padding(
                 padding: EdgeInsets.all(24),
@@ -85,9 +90,15 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(inv['farmName']?.toString() ?? 'Trang trại', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(
+                        inv['farmName']?.toString() ?? 'Trang trại',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Hết hạn: ${_date(inv['expiresAtUtc'])}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text(
+                        'Hết hạn: ${_date(inv['expiresAtUtc'])}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         children: [

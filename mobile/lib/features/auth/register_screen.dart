@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import '../../core/services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onRegisterSuccess;
@@ -15,7 +15,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
-  String _selectedRole = 'Farmer'; // Farmer, FarmOwner, Technician
+  String _selectedRole = 'Farmer'; // Farmer, FarmOwner
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
@@ -104,10 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
-        title: const Text(
-          'Đăng Ký Tài Khoản',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Đăng Ký Tài Khoản', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -118,11 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Header title
               const Text(
                 'Tham gia Mạng lưới SmartFarm IoT',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -147,10 +140,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const Icon(Icons.error_outline, color: Color(0xFFFCA5A5), size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(color: Color(0xFFFEE2E2), fontSize: 11.5),
-                        ),
+                        child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFFEE2E2), fontSize: 11.5)),
                       ),
                     ],
                   ),
@@ -173,9 +163,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     dropdownColor: const Color(0xFF062326),
                     icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF10B981)),
                     items: const [
-                      DropdownMenuItem(value: 'Farmer', child: Text('👤 Nông dân thực địa (Worker)', style: TextStyle(color: Colors.white, fontSize: 13))),
-                      DropdownMenuItem(value: 'FarmOwner', child: Text('👑 Chủ trang trại (Farm Owner)', style: TextStyle(color: Colors.white, fontSize: 13))),
-                      DropdownMenuItem(value: 'Technician', child: Text('🔧 Kỹ thuật viên IoT (Technician)', style: TextStyle(color: Colors.white, fontSize: 13))),
+                      DropdownMenuItem(
+                        value: 'Farmer',
+                        child: Text(
+                          '👤 Nông dân thực địa (Worker)',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'FarmOwner',
+                        child: Text(
+                          '👑 Chủ trang trại (Farm Owner)',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedRole = val);
@@ -183,22 +184,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 6),
+              const Text(
+                '💡 Lưu ý: Tài khoản Kỹ thuật viên (PlatformTechnician) do quản trị hệ thống cấp, không áp dụng đăng ký công khai.',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+              ),
 
               const SizedBox(height: 14),
               _buildLabel('Họ và tên (*)'),
               const SizedBox(height: 6),
-              _buildTextField(
-                controller: _nameCtrl,
-                hint: 'VD: Nguyễn Văn Bình',
-                icon: Icons.person_outline,
-              ),
+              _buildTextField(controller: _nameCtrl, hint: 'VD: Nguyễn Văn Bình', icon: Icons.person_outline),
 
               const SizedBox(height: 14),
               _buildLabel('Email đăng nhập (*)'),
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _emailCtrl,
-                hint: 'VD: binh@smartfarm.demo',
+                hint: 'VD: ten@trangtrai.vn',
                 icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
               ),
@@ -222,6 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 icon: Icons.lock_outline,
                 obscureText: _obscurePassword,
                 suffixIcon: IconButton(
+                  tooltip: 'Hiện hoặc ẩn mật khẩu',
                   icon: Icon(
                     _obscurePassword ? Icons.visibility_off : Icons.visibility,
                     color: const Color(0xFF64748B),
@@ -240,6 +243,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 icon: Icons.lock_reset_outlined,
                 obscureText: _obscureConfirm,
                 suffixIcon: IconButton(
+                  tooltip: 'Hiện hoặc ẩn mật khẩu',
                   icon: Icon(
                     _obscureConfirm ? Icons.visibility_off : Icons.visibility,
                     color: const Color(0xFF64748B),
@@ -269,10 +273,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF062326)),
                         )
-                      : const Text(
-                          'Đăng Ký Tài Khoản',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
+                      : const Text('Đăng Ký Tài Khoản', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 ),
               ),
 
@@ -297,12 +298,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: Color(0xFF94A3B8),
-        letterSpacing: 0.3,
-      ),
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), letterSpacing: 0.3),
     );
   }
 

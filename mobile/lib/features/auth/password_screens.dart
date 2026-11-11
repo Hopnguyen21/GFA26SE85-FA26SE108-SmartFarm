@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
-import '../services/export_utils.dart';
+import '../../core/services/api_service.dart';
+import '../../core/utils/export_utils.dart';
 
 String _errText(Object e) => e is UnsupportedApiException
     ? 'Máy chủ SmartFarm chưa hỗ trợ chức năng này (thiếu API backend). Vui lòng liên hệ quản trị viên.'
     : e.toString().replaceFirst('Exception: ', '');
 
 InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
-      labelText: label,
-      suffixIcon: suffix,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-    );
+  labelText: label,
+  suffixIcon: suffix,
+  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+);
 
 /// Quên mật khẩu: bước 1 nhập email, bước 2 nhập mã (token/OTP) + mật khẩu mới.
 class ForgotPasswordScreen extends StatefulWidget {
@@ -53,7 +53,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _error = null;
     });
     try {
-      await ApiService.forgotPassword(_email.text.trim());
+      await AccountApi.forgotPassword(_email.text.trim());
       if (mounted) setState(() => _codeSent = true);
     } catch (e) {
       if (mounted) setState(() => _error = _errText(e));
@@ -83,11 +83,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _error = null;
     });
     try {
-      await ApiService.resetPassword(
-        email: _email.text.trim(),
-        token: tokenText,
-        newPassword: _newPass.text,
-      );
+      await AccountApi.resetPassword(email: _email.text.trim(), token: tokenText, newPassword: _newPass.text);
       if (mounted) {
         _token.clear();
         _newPass.clear();
@@ -110,13 +106,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
           child: _done
-              ? Column(children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 56),
-                  const SizedBox(height: 12),
-                  const Text('Đặt lại mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.', textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Về đăng nhập')),
-                ])
+              ? Column(
+                  children: [
+                    const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 56),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Đặt lại mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Về đăng nhập')),
+                  ],
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -131,12 +132,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     if (!_codeSent)
                       FilledButton(
                         onPressed: _busy ? null : _sendCode,
-                        child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Gửi mã xác nhận'),
+                        child: _busy
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('Gửi mã xác nhận'),
                       )
                     else ...[
-                      const Text('Nếu email tồn tại, mã xác nhận đã được gửi. Nhập mã và mật khẩu mới.', style: TextStyle(fontSize: 12)),
+                      const Text(
+                        'Nếu email tồn tại, mã xác nhận đã được gửi. Nhập mã và mật khẩu mới.',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       const SizedBox(height: 12),
-                      TextField(controller: _token, enabled: !_busy, decoration: _dec('Mã xác nhận (token/OTP)'), autocorrect: false, enableSuggestions: false),
+                      TextField(
+                        controller: _token,
+                        enabled: !_busy,
+                        decoration: _dec('Mã xác nhận (token/OTP)'),
+                        autocorrect: false,
+                        enableSuggestions: false,
+                      ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _newPass,
@@ -144,22 +156,39 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         obscureText: _obscure,
                         enableSuggestions: false,
                         autocorrect: false,
-                        decoration: _dec('Mật khẩu mới', suffix: IconButton(
-                          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        )),
+                        decoration: _dec(
+                          'Mật khẩu mới',
+                          suffix: IconButton(
+                            tooltip: 'Hiện hoặc ẩn mật khẩu',
+                            icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                            onPressed: () => setState(() => _obscure = !_obscure),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
-                      TextField(controller: _confirm, enabled: !_busy, obscureText: _obscure, enableSuggestions: false, autocorrect: false, decoration: _dec('Xác nhận mật khẩu mới')),
+                      TextField(
+                        controller: _confirm,
+                        enabled: !_busy,
+                        obscureText: _obscure,
+                        enableSuggestions: false,
+                        autocorrect: false,
+                        decoration: _dec('Xác nhận mật khẩu mới'),
+                      ),
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: _busy ? null : _reset,
-                        child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Đặt lại mật khẩu'),
+                        child: _busy
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('Đặt lại mật khẩu'),
                       ),
                     ],
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, key: const Key('password-error'), style: const TextStyle(color: Color(0xFFDC2626))),
+                      Text(
+                        _error!,
+                        key: const Key('password-error'),
+                        style: const TextStyle(color: Color(0xFFDC2626)),
+                      ),
                     ],
                   ],
                 ),
@@ -213,7 +242,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       _error = null;
     });
     try {
-      await ApiService.changePassword(currentPassword: _current.text, newPassword: _newPass.text);
+      await AccountApi.changePassword(currentPassword: _current.text, newPassword: _newPass.text);
       if (mounted) {
         _current.clear();
         _newPass.clear();
@@ -230,6 +259,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final toggle = IconButton(
+      tooltip: 'Hiện hoặc ẩn mật khẩu',
       icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
       onPressed: () => setState(() => _obscure = !_obscure),
     );
@@ -240,29 +270,58 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
           child: _done
-              ? Column(children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 56),
-                  const SizedBox(height: 12),
-                  const Text('Đã đổi mật khẩu thành công.'),
-                  const SizedBox(height: 16),
-                  FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Xong')),
-                ])
+              ? Column(
+                  children: [
+                    const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 56),
+                    const SizedBox(height: 12),
+                    const Text('Đã đổi mật khẩu thành công.'),
+                    const SizedBox(height: 16),
+                    FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Xong')),
+                  ],
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(controller: _current, enabled: !_busy, obscureText: _obscure, enableSuggestions: false, autocorrect: false, decoration: _dec('Mật khẩu hiện tại', suffix: toggle)),
+                    TextField(
+                      controller: _current,
+                      enabled: !_busy,
+                      obscureText: _obscure,
+                      enableSuggestions: false,
+                      autocorrect: false,
+                      decoration: _dec('Mật khẩu hiện tại', suffix: toggle),
+                    ),
                     const SizedBox(height: 12),
-                    TextField(controller: _newPass, enabled: !_busy, obscureText: _obscure, enableSuggestions: false, autocorrect: false, decoration: _dec('Mật khẩu mới')),
+                    TextField(
+                      controller: _newPass,
+                      enabled: !_busy,
+                      obscureText: _obscure,
+                      enableSuggestions: false,
+                      autocorrect: false,
+                      decoration: _dec('Mật khẩu mới'),
+                    ),
                     const SizedBox(height: 12),
-                    TextField(controller: _confirm, enabled: !_busy, obscureText: _obscure, enableSuggestions: false, autocorrect: false, decoration: _dec('Xác nhận mật khẩu mới')),
+                    TextField(
+                      controller: _confirm,
+                      enabled: !_busy,
+                      obscureText: _obscure,
+                      enableSuggestions: false,
+                      autocorrect: false,
+                      decoration: _dec('Xác nhận mật khẩu mới'),
+                    ),
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
-                      child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Đổi mật khẩu'),
+                      child: _busy
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Đổi mật khẩu'),
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, key: const Key('password-error'), style: const TextStyle(color: Color(0xFFDC2626))),
+                      Text(
+                        _error!,
+                        key: const Key('password-error'),
+                        style: const TextStyle(color: Color(0xFFDC2626)),
+                      ),
                     ],
                   ],
                 ),
