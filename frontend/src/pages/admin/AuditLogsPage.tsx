@@ -14,11 +14,20 @@ export const AuditLogsPage: React.FC = () => {
     }).catch((err: any) => console.error('Failed to load audit logs:', err));
   }, []);
 
-  const filteredLogs = logs.filter(l =>
-    (l.userName && l.userName.toLowerCase().includes(search.toLowerCase())) ||
-    (l.action && l.action.toLowerCase().includes(search.toLowerCase())) ||
-    (l.details && l.details.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredLogs = logs.filter(l => {
+    const s = String(search || '').toLowerCase().trim();
+    if (!s) return true;
+    const name = String(l.actorName || l.userName || '').toLowerCase();
+    const action = String(l.action || '').toLowerCase();
+    const details = String(l.details || '').toLowerCase();
+    const ip = String(l.ipAddress || '').toLowerCase();
+    return (
+      name.includes(s) ||
+      action.includes(s) ||
+      details.includes(s) ||
+      ip.includes(s)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -64,7 +73,7 @@ export const AuditLogsPage: React.FC = () => {
                 <tr key={id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="p-4 text-slate-500 font-sans">{time}</td>
                   <td className="p-4 font-sans font-semibold text-slate-900">{name} ({role})</td>
-                  <td className="p-4 text-[#062326] font-bold">{log.action}</td>
+                  <td className="p-4 text-emerald-800 font-bold">{log.action}</td>
                   <td className="p-4 text-slate-700">{log.entityName} #{log.entityId}</td>
                   <td className="p-4 text-slate-500">{log.ipAddress || '-'}</td>
                   <td className="p-4 text-slate-700 font-sans">{log.details || '-'}</td>

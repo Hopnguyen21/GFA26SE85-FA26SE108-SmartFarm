@@ -1,9 +1,11 @@
+using SmartFarm.Application.Common.Interfaces;
 using SmartFarm.Application.Features.Control;
 using SmartFarm.Domain.Enums;
 
 namespace SmartFarm.Application.Features.Ai;
 
 public sealed record AiTelemetryContextItem(EnvironmentalParameterCode ParameterCode, decimal Value, string Unit, DateTime CapturedAtUtc, bool IsFresh);
+public sealed record AiTelemetryHistoryItem(EnvironmentalParameterCode ParameterCode, decimal Value, string Unit, DateTime CapturedAtUtc);
 public sealed record AiRequirementContextItem(EnvironmentalParameterCode ParameterCode, decimal MinValue, decimal MaxValue, decimal TargetValue, string Unit);
 public sealed record AiActuatorContextItem(Guid ActuatorId, string ActuatorType, int MaxDurationSeconds, bool IsOnline);
 public sealed record AiUpcomingScheduleContextItem(string Name, DateTime NextRunAtUtc, string NextRunTimeFormatted, int DurationSeconds, int MinutesUntilRun);
@@ -31,12 +33,25 @@ public sealed record AiZoneContext(
     AiWeatherContext Weather,
     IReadOnlyList<string> MissingData,
     bool IsSufficientForAdvice,
-    AiFarmStructureContext? FarmStructure = null);
+    AiFarmStructureContext? FarmStructure = null,
+    IReadOnlyList<AiTelemetryHistoryItem>? TelemetryHistory = null);
 
 
 public sealed record AiProposedControlAction(Guid ActuatorId, ActuatorCommandAction Action, int DurationSeconds);
-public sealed record AiProviderRequest(string Question, AiZoneContext Context);
-public sealed record AiProviderResult(string ProviderName, string Summary, string Details, decimal Confidence, IReadOnlyList<string> Limitations, AiProposedControlAction? ProposedControlAction);
+public sealed record AiSourceView(Guid DocumentId, string Title, string? Organization, string Category, float Similarity, string? ContentSnippet = null);
+public sealed record AiProviderRequest(
+    string Question,
+    AiZoneContext Context,
+    IReadOnlyList<KnowledgePassageView>? KnowledgePassages = null);
+public sealed record AiProviderResult(
+    string ProviderName,
+    string Summary,
+    string Details,
+    decimal Confidence,
+    IReadOnlyList<string> Limitations,
+    AiProposedControlAction? ProposedControlAction,
+    IReadOnlyList<int>? CitedPassageIndexes = null,
+    IReadOnlyList<string>? Sources = null);
 public sealed record AiWeatherResult(bool Available, string? Summary, decimal? RainProbabilityNext6HoursMaxPercent, decimal? TemperatureCelsius, DateTime? ObservedAtUtc, string? Limitation);
 
 public sealed record AskAiCommand(string Question, Guid? ParentRecommendationId = null);
@@ -46,7 +61,9 @@ public sealed record AiRecommendationView(
     string Summary, string Details, IReadOnlyList<string> Limitations, decimal Confidence,
     AiRecommendationStatus Status, bool IsActionable, DateTime ValidUntilUtc,
     Guid? ProposedActuatorId, ActuatorCommandAction? ProposedAction, int? ProposedDurationSeconds,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    IReadOnlyList<AiSourceView>? Sources = null,
+    string? ContextSnapshotJson = null);
 public sealed record AiDecisionView(Guid DecisionId, Guid RecommendationId, AiRecommendationDecisionType Decision, string? Reason, DateTime CreatedAtUtc, Guid? CommandId, Guid? FollowUpConsultationId);
 public sealed record AiDecisionResult(AiRecommendationView Recommendation, AiDecisionView Decision, ActuatorCommandView? Command, AiRecommendationView? FollowUpRecommendation);
 public sealed record AiHistoryView(Guid ZoneId, IReadOnlyList<AiRecommendationView> Recommendations);

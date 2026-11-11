@@ -23,7 +23,14 @@ export const UsersPage: React.FC = () => {
     loadUsers();
   }, []);
 
-  const filtered = users.filter(u => u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()));
+  const filtered = (users || []).filter(u => {
+    if (!u) return false;
+    const name = String(u.fullName || '').toLowerCase();
+    const email = String(u.email || '').toLowerCase();
+    const query = String(search || '').toLowerCase().trim();
+    if (!query) return true;
+    return name.includes(query) || email.includes(query);
+  });
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +54,7 @@ export const UsersPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Users className="text-[#062326]" size={22} /> Quản lý Tài khoản & Phân quyền Hệ thống
+            <Users className="text-[#119653]" size={22} /> Quản lý Tài khoản & Phân quyền Hệ thống
           </h1>
           <p className="text-xs text-slate-600 mt-1">Danh sách người dùng trên toàn hệ thống bao gồm Admin, Kỹ thuật viên, Farm Owner và Công nhân.</p>
         </div>
@@ -85,14 +92,14 @@ export const UsersPage: React.FC = () => {
                 </td>
                 <td className="p-4 font-mono text-slate-600">@{u.username}</td>
                 <td className="p-4">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-[#062326] border border-slate-200">
-                    <ShieldCheck size={12} className="mr-1 text-[#062326]" /> {u.role}
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <ShieldCheck size={12} className="mr-1 text-[#119653]" /> {u.role}
                   </span>
                 </td>
                 <td className="p-4"><StatusBadge status={u.status} /></td>
                 <td className="p-4 text-slate-500">{u.lastLoginAt || 'Chưa đăng nhập'}</td>
                 <td className="p-4 text-right space-x-2">
-                  <button className="text-[#062326] font-medium hover:underline">Sửa</button>
+                  <button className="text-[#119653] font-medium hover:underline">Sửa</button>
                   <button className="text-rose-600 font-medium hover:underline">Khóa</button>
                 </td>
               </tr>
@@ -120,7 +127,7 @@ export const UsersPage: React.FC = () => {
             <select
               value={newUser.role}
               onChange={e => setNewUser({ ...newUser, role: e.target.value as UserRole })}
-              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-[#062326] focus:ring-1 focus:ring-[#062326] shadow-xs"
+              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-[#119653] focus:ring-1 focus:ring-[#119653] shadow-xs"
             >
               <option value="PLATFORM_ADMIN">Platform Admin</option>
               <option value="PLATFORM_TECHNICIAN">Platform Technician</option>

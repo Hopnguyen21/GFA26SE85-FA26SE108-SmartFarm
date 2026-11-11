@@ -20,16 +20,20 @@ interface AuthContextType {
     role: 'FarmOwner' | 'Farmer';
   }) => Promise<any>;
   logout: () => Promise<void>;
+  refreshFarmsAndZones: () => Promise<void>;
   farms: Farm[];
   zones: Zone[];
 }
 
-const roleCredentials: Record<UserRole, { email: string; pass: string }> = {
+const isDev = Boolean(import.meta.env.DEV);
+
+// Demo credentials are only available in development mode to prevent leaking credentials in production bundles
+const roleCredentials: Partial<Record<UserRole, { email: string; pass: string }>> = isDev ? {
   PLATFORM_ADMIN: { email: 'admin@smartfarm.demo', pass: 'Demo@12345' },
   PLATFORM_TECHNICIAN: { email: 'technician@smartfarm.demo', pass: 'Demo@12345' },
   FARM_OWNER: { email: 'owner@smartfarm.demo', pass: 'Demo@12345' },
   FARMER: { email: 'farmer@smartfarm.demo', pass: 'Demo@12345' },
-};
+} : {};
 
 function mapBackendUser(bUser: any): User {
   const roleMap: Record<string, UserRole> = {
@@ -84,17 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setZones([]);
       setSelectedFarmId('');
       setSelectedZoneId('');
-      localStorage.removeItem('smartfarm_user');
-      localStorage.removeItem('smartfarm_role');
-    };
-    window.addEventListener('sf:unauthenticated', handleUnauthenticated);
-    return () => window.removeEventListener('sf:unauthenticated', handleUnauthenticated);
-  }, []);
-
-  // Listen for unauthenticated event from API interceptor
-  useEffect(() => {
-    const handleUnauthenticated = () => {
-      setUser(null);
       localStorage.removeItem('smartfarm_user');
       localStorage.removeItem('smartfarm_role');
     };
@@ -225,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        refreshFarmsAndZones,
         farms,
         zones,
       }}
