@@ -24,6 +24,7 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     internal FakeRainProvider RainProvider { get; } = new();
     internal FakeAiProvider AiProvider { get; } = new();
     internal FakeAiWeatherProvider AiWeatherProvider { get; } = new();
+    internal FakeDocumentValidator DocumentValidator { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -37,7 +38,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Audience"] = "SmartFarm.TestClients",
                 ["Jwt:SigningKey"] = SigningKey,
                 ["Jwt:AccessTokenMinutes"] = "60",
-                ["Jwt:RefreshTokenDays"] = "30"
+                ["Jwt:RefreshTokenDays"] = "30",
+                ["SimulatedIot:Enabled"] = "false"
             });
         });
         builder.ConfigureServices(services =>
@@ -57,6 +59,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<IRainForecastProvider>(RainProvider);
             services.AddSingleton<IAiAdvisoryProvider>(AiProvider);
             services.AddSingleton<IAiWeatherProvider>(AiWeatherProvider);
+            services.RemoveAll<IDocumentSufficiencyValidator>();
+            services.AddSingleton<IDocumentSufficiencyValidator>(DocumentValidator);
         });
     }
 
@@ -125,12 +129,24 @@ internal sealed class FakeRainProvider : IRainForecastProvider
 internal sealed class FakeAiProvider : IAiAdvisoryProvider
 {
     internal int Calls { get; private set; }
+    internal AiProviderRequest? LastRequest { get; private set; }
     internal AiProviderResult Result { get; set; } = new("FakeAgronomist", "Review conditions", "No automatic action proposed.", 0.9m, [], null);
     public Task<AiProviderResult> GenerateAsync(AiProviderRequest request, CancellationToken cancellationToken)
     {
         Calls++;
+        LastRequest = request;
         return Task.FromResult(Result);
     }
+}
+
+internal sealed class FakeDocumentValidator : IDocumentSufficiencyValidator
+{
+    internal DocumentSufficiencyResult Result { get; set; } = new(true, "quy chuẩn", [], [], "Đủ thông tin.", "fake");
+    internal bool Unavailable { get; set; }
+    public Task<DocumentSufficiencyResult> ValidateAsync(string text, DocumentValidationContext context, CancellationToken cancellationToken) =>
+        Unavailable
+            ? throw new DocumentVerificationUnavailableException("AI không phản hồi.")
+            : Task.FromResult(Result);
 }
 
 internal sealed class FakeAiWeatherProvider : IAiWeatherProvider
