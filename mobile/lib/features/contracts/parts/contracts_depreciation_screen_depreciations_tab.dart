@@ -1,18 +1,37 @@
 part of '../contracts_depreciation_screen.dart';
 
-extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreciationScreenState {
+extension _ContractsDepreciationScreenStateDepreciationsTab
+    on _ContractsDepreciationScreenState {
   // ─────────────────────────────────────────
   // TAB 2: Theo dõi Khấu hao thiết bị
   // ─────────────────────────────────────────
   Widget _buildDepreciationsTab(FarmProvider provider, bool isOwner) {
-    final totalOriginalCost = _depreciations.fold<double>(0, (sum, d) => sum + d.originalCostVnd);
-    final totalAccumulated = _depreciations.fold<double>(0, (sum, d) => sum + d.accumulatedDepreciationVnd);
-    final totalCurrentBookValue = _depreciations.fold<double>(0, (sum, d) => sum + d.currentBookValueVnd);
+    final totalOriginalCost = _depreciations.fold<double>(
+      0,
+      (sum, d) => sum + d.originalCostVnd,
+    );
+    final totalAccumulated = _depreciations.fold<double>(
+      0,
+      (sum, d) => sum + d.accumulatedDepreciationVnd,
+    );
+    final totalCurrentBookValue = _depreciations.fold<double>(
+      0,
+      (sum, d) => sum + d.currentBookValueVnd,
+    );
 
-    final alertNearRenewal = _depreciations.where((d) => d.isNearContractRenewal).toList();
-    final alertExpiringSoon = _depreciations.where((d) => d.remainingMonths > 0 && d.remainingMonths <= 3).toList();
-    final alertFullyDepreciated = _depreciations.where((d) => d.remainingMonths <= 0).toList();
-    final totalAlerts = alertNearRenewal.length + alertExpiringSoon.length + alertFullyDepreciated.length;
+    final alertNearRenewal = _depreciations
+        .where((d) => d.isNearContractRenewal)
+        .toList();
+    final alertExpiringSoon = _depreciations
+        .where((d) => d.remainingMonths > 0 && d.remainingMonths <= 3)
+        .toList();
+    final alertFullyDepreciated = _depreciations
+        .where((d) => d.remainingMonths <= 0)
+        .toList();
+    final totalAlerts =
+        alertNearRenewal.length +
+        alertExpiringSoon.length +
+        alertFullyDepreciated.length;
 
     final filtered = _depreciations.where((d) {
       if (_depreciationStatusFilter == 'ALERTS') {
@@ -49,11 +68,19 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF10B981), size: 18),
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: Color(0xFF10B981),
+                      size: 18,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'TỔNG QUAN TÀI SẢN & KHẤU HAO THIẾT BỊ',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -64,33 +91,63 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Nguyên giá đầu tư', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                        const Text(
+                          'Nguyên giá đầu tư',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           currencyFormat.format(totalOriginalCost),
-                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Đã trích khấu hao', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                        const Text(
+                          'Đã trích khấu hao',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           currencyFormat.format(totalAccumulated),
-                          style: const TextStyle(color: Color(0xFFFCD34D), fontSize: 15, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Color(0xFFFCD34D),
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text('Giá trị còn lại', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                        const Text(
+                          'Giá trị còn lại',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           currencyFormat.format(totalCurrentBookValue),
-                          style: const TextStyle(color: Color(0xFF34D399), fontSize: 15, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Color(0xFF34D399),
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -110,7 +167,11 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFFCD34D)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
               child: Column(
@@ -118,7 +179,11 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Color(0xFFD97706),
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'CẢNH BÁO KHẤU HAO & HAO MÒN ($totalAlerts THIẾT BỊ)',
@@ -140,12 +205,19 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                         children: [
                           const Text(
                             '• ',
-                            style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Color(0xFFB45309),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           Expanded(
                             child: Text(
                               '${alertNearRenewal.length} thiết bị thuộc Zone sắp gia hạn hợp đồng (≤ 45 ngày). Cần đánh giá độ hao mòn để bảo trì hoặc thay mới.',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.3),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF78350F),
+                                height: 1.3,
+                              ),
                             ),
                           ),
                         ],
@@ -159,12 +231,19 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                         children: [
                           const Text(
                             '• ',
-                            style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Color(0xFFB45309),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           Expanded(
                             child: Text(
                               '${alertExpiringSoon.length} thiết bị sắp hết thời gian trích khấu hao (còn ≤ 3 tháng).',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.3),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF78350F),
+                                height: 1.3,
+                              ),
                             ),
                           ),
                         ],
@@ -176,12 +255,19 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                       children: [
                         const Text(
                           '• ',
-                          style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Color(0xFFB45309),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Expanded(
                           child: Text(
                             '${alertFullyDepreciated.length} thiết bị đã trích khấu hao 100% (Giá trị sổ sách = 0₫).',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.3),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF78350F),
+                              height: 1.3,
+                            ),
                           ),
                         ),
                       ],
@@ -197,13 +283,21 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip('Tất cả (${_depreciations.length})', _depreciationStatusFilter == 'ALL', () {
-                  _rebuild(() => _depreciationStatusFilter = 'ALL');
-                }),
+                _buildFilterChip(
+                  'Tất cả (${_depreciations.length})',
+                  _depreciationStatusFilter == 'ALL',
+                  () {
+                    _rebuild(() => _depreciationStatusFilter = 'ALL');
+                  },
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Cần chú ý ($totalAlerts)', _depreciationStatusFilter == 'ALERTS', () {
-                  _rebuild(() => _depreciationStatusFilter = 'ALERTS');
-                }),
+                _buildFilterChip(
+                  'Cần chú ý ($totalAlerts)',
+                  _depreciationStatusFilter == 'ALERTS',
+                  () {
+                    _rebuild(() => _depreciationStatusFilter = 'ALERTS');
+                  },
+                ),
                 const SizedBox(width: 8),
                 _buildFilterChip(
                   'Đang trích (${_depreciations.where((d) => d.remainingMonths > 3).length})',
@@ -230,20 +324,33 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
             children: [
               Text(
                 'HỒ SƠ KHẤU HAO THIẾT BỊ (${filtered.length})',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                ),
               ),
               Text(
                 '${_depreciations.where((d) => d.remainingMonths > 0).length} đang trích',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF059669),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
 
           if (filtered.isEmpty)
-            _buildEmptyState('Không tìm thấy thiết bị nào theo bộ lọc.', Icons.memory_outlined)
+            _buildEmptyState(
+              'Không tìm thấy thiết bị nào theo bộ lọc.',
+              Icons.memory_outlined,
+            )
           else
-            ...filtered.map((depreciation) => _buildDepreciationCard(depreciation)),
+            ...filtered.map(
+              (depreciation) => _buildDepreciationCard(depreciation),
+            ),
           const SizedBox(height: 70),
         ],
       ),
@@ -275,7 +382,11 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                       color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.memory, color: Color(0xFF0284C7), size: 18),
+                    child: const Icon(
+                      Icons.memory,
+                      color: Color(0xFF0284C7),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Column(
@@ -283,11 +394,18 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
                     children: [
                       Text(
                         d.deviceName,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       Text(
                         '${d.zoneName} • MAC: ${d.hardwareAddress}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -296,15 +414,21 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: d.remainingMonths > 0 ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                  color: d.remainingMonths > 0
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  d.remainingMonths > 0 ? 'Còn ${d.remainingMonths} tháng' : 'Đã trích hết',
+                  d.remainingMonths > 0
+                      ? 'Còn ${d.remainingMonths} tháng'
+                      : 'Đã trích hết',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: d.remainingMonths > 0 ? const Color(0xFF059669) : const Color(0xFF64748B),
+                    color: d.remainingMonths > 0
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF64748B),
                   ),
                 ),
               ),
@@ -322,7 +446,11 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
               ),
               Text(
                 '${(progress * 100).toStringAsFixed(1)}%',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF059669),
+                ),
               ),
             ],
           ),
@@ -333,7 +461,9 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
               value: progress,
               minHeight: 6,
               backgroundColor: const Color(0xFFE2E8F0),
-              color: progress > 0.8 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+              color: progress > 0.8
+                  ? const Color(0xFFF59E0B)
+                  : const Color(0xFF10B981),
             ),
           ),
           const SizedBox(height: 12),
@@ -345,30 +475,50 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Nguyên giá', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                  const Text(
+                    'Nguyên giá',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
                   Text(
                     currencyFormat.format(d.originalCostVnd),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Khấu hao / tháng', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                  const Text(
+                    'Khấu hao / tháng',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
                   Text(
                     currencyFormat.format(d.monthlyDepreciationVnd),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0284C7),
+                    ),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Giá trị còn lại', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                  const Text(
+                    'Giá trị còn lại',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
                   Text(
                     currencyFormat.format(d.currentBookValueVnd),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF059669),
+                    ),
                   ),
                 ],
               ),
@@ -379,7 +529,10 @@ extension _ContractsDepreciationScreenStateDepreciationsTab on _ContractsDepreci
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(6),
+              ),
               child: const Row(
                 children: [
                   Icon(Icons.info_outline, size: 14, color: Color(0xFFD97706)),

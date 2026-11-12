@@ -34,7 +34,12 @@ class ZoneSeasonsSection extends StatefulWidget {
 
   /// Gọi sau khi một thao tác làm đổi dữ liệu (tạo vụ, ghi sản lượng...) để màn cha tải lại Zone.
   final Future<void> Function()? onChanged;
-  const ZoneSeasonsSection({super.key, required this.zone, this.version = 0, this.onChanged});
+  const ZoneSeasonsSection({
+    super.key,
+    required this.zone,
+    this.version = 0,
+    this.onChanged,
+  });
 
   @override
   State<ZoneSeasonsSection> createState() => _ZoneSeasonsSectionState();
@@ -54,7 +59,8 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
   @override
   void didUpdateWidget(ZoneSeasonsSection old) {
     super.didUpdateWidget(old);
-    if (old.version != widget.version || old.zone.zoneId != widget.zone.zoneId) _load();
+    if (old.version != widget.version || old.zone.zoneId != widget.zone.zoneId)
+      _load();
   }
 
   Future<void> _load() async {
@@ -70,7 +76,9 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
       setState(() {
         _seasons = [
           for (final s in all)
-            if ('${s['zoneId'] ?? zoneId}'.toLowerCase() == zoneId.toLowerCase()) s,
+            if ('${s['zoneId'] ?? zoneId}'.toLowerCase() ==
+                zoneId.toLowerCase())
+              s,
         ]..sort((a, b) => '${b['startDate']}'.compareTo('${a['startDate']}'));
         _loading = false;
       });
@@ -116,7 +124,12 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
               const Expanded(
                 child: Text(
                   'VỤ TRỒNG CỦA ZONE NÀY',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _green, letterSpacing: 0.4),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: _green,
+                    letterSpacing: 0.4,
+                  ),
                 ),
               ),
               IconButton(
@@ -128,14 +141,20 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
             ],
           ),
           if (_loading)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator(minHeight: 2))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
           else if (_error != null)
             Row(
               children: [
                 Expanded(
                   child: Text(
                     'Không tải được vụ trồng: $_error',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB91C1C),
+                    ),
                   ),
                 ),
                 TextButton(onPressed: _load, child: const Text('Thử lại')),
@@ -144,7 +163,10 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
           else if (_seasons.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Zone chưa có vụ trồng nào.', style: TextStyle(fontSize: 12, color: _muted)),
+              child: Text(
+                'Zone chưa có vụ trồng nào.',
+                style: TextStyle(fontSize: 12, color: _muted),
+              ),
             )
           else
             for (final s in _seasons) _card(s, canYield: canYield),
@@ -174,12 +196,19 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: const TextStyle(fontSize: 11.5, color: _muted)),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11.5, color: _muted),
+            ),
           ),
           Expanded(
             child: Text(
               v,
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: v == '—' ? _muted : _ink),
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: v == '—' ? _muted : _ink,
+              ),
             ),
           ),
         ],
@@ -194,7 +223,10 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
     final seasonId = validId(s['seasonId'] ?? s['plantingSeasonId']);
     final profileId = validId(s['growthProfileId']);
     final yieldKg = s['actualYieldKg'];
-    final canRecord = canYield && (statusCode == 'InProgress' || statusCode == 'Completed') && seasonId != null;
+    final canRecord =
+        canYield &&
+        (statusCode == 'InProgress' || statusCode == 'Completed') &&
+        seasonId != null;
     final progress = s['progressPercent'] ?? s['progress'];
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -212,12 +244,20 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
               Expanded(
                 child: Text(
                   '${s['name'] ?? '—'}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _ink),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: _ink,
+                  ),
                 ),
               ),
               Text(
                 status.$1,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: status.$2),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: status.$2,
+                ),
               ),
             ],
           ),
@@ -230,7 +270,8 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
           _row('Giai đoạn hiện tại', s['currentGrowthStageName']),
           _row('Bắt đầu', s['startDate']),
           _row('Dự kiến kết thúc', s['expectedEndDate']),
-          if (validId(s['actualEndDate']) != null) _row('Kết thúc thực tế', s['actualEndDate']),
+          if (validId(s['actualEndDate']) != null)
+            _row('Kết thúc thực tế', s['actualEndDate']),
           if (progress != null) _row('Tiến độ', '$progress%'),
           if (yieldKg != null) _row('Sản lượng', '$yieldKg kg'),
           Wrap(
@@ -238,7 +279,9 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
             children: [
               TextButton.icon(
                 icon: const Icon(Icons.timeline, size: 16),
-                label: Text(profileId == null ? 'Giai đoạn (thiếu hồ sơ)' : 'Giai đoạn'),
+                label: Text(
+                  profileId == null ? 'Giai đoạn (thiếu hồ sơ)' : 'Giai đoạn',
+                ),
                 onPressed: profileId == null
                     ? null
                     : () => Navigator.push(
@@ -246,7 +289,8 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                         MaterialPageRoute(
                           builder: (_) => GrowthStagesScreen(
                             profileId: profileId,
-                            title: '${s['growthProfileName'] ?? s['cropName'] ?? 'Hồ sơ sinh trưởng'}',
+                            title:
+                                '${s['growthProfileName'] ?? s['cropName'] ?? 'Hồ sơ sinh trưởng'}',
                             currentStageId: validId(s['currentGrowthStageId']),
                           ),
                         ),
@@ -259,16 +303,25 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => SeasonIrrigationCalendarScreen(zone: widget.zone, seasonId: seasonId),
+                      builder: (_) => SeasonIrrigationCalendarScreen(
+                        zone: widget.zone,
+                        seasonId: seasonId,
+                      ),
                     ),
                   ),
                 ),
               if (canRecord)
                 TextButton.icon(
                   icon: const Icon(Icons.scale_outlined, size: 16),
-                  label: Text(yieldKg == null ? 'Ghi sản lượng' : 'Sửa sản lượng'),
+                  label: Text(
+                    yieldKg == null ? 'Ghi sản lượng' : 'Sửa sản lượng',
+                  ),
                   onPressed: () async {
-                    final ok = await showRecordYieldDialog(context, widget.zone.zoneId, s);
+                    final ok = await showRecordYieldDialog(
+                      context,
+                      widget.zone.zoneId,
+                      s,
+                    );
                     if (ok == true) await _changed();
                   },
                 ),

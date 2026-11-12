@@ -28,15 +28,24 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Gỡ nhân công khỏi Zone?', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          'Gỡ nhân công khỏi Zone?',
+          style: TextStyle(fontSize: 15),
+        ),
         content: Text(
           '"${w.name}" sẽ không còn xem/nhận việc/điều khiển tại Zone "${widget.zone.name}". '
           'Quyền với các Zone khác của họ giữ nguyên.',
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Gỡ khỏi Zone')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Gỡ khỏi Zone'),
+          ),
         ],
       ),
     );
@@ -50,11 +59,16 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
       // Gửi lại toàn bộ quyền khác của nhân công, chỉ bỏ Zone này.
       await AccountApi.updateFarmerZoneAccess(w.farmerId, [
         for (final a in w.zoneAccess)
-          if (a.zoneId.toLowerCase() != target) {'zoneId': a.zoneId, 'canControl': a.canControl},
+          if (a.zoneId.toLowerCase() != target)
+            {'zoneId': a.zoneId, 'canControl': a.canControl},
       ]);
       await provider.fetchFromApi();
     } catch (e) {
-      if (mounted) setState(() => _error = 'Không gỡ được: ${e.toString().replaceFirst('Exception: ', '')}');
+      if (mounted)
+        setState(
+          () => _error =
+              'Không gỡ được: ${e.toString().replaceFirst('Exception: ', '')}',
+        );
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -66,9 +80,16 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
     final isOwner = provider.canManageFarmStructure;
     // Zone mới nhất theo ID (tên người phụ trách do API Zone trả).
     final live =
-        provider.allZones.where((z) => z.zoneId.toLowerCase() == widget.zone.zoneId.toLowerCase()).firstOrNull ??
+        provider.allZones
+            .where(
+              (z) => z.zoneId.toLowerCase() == widget.zone.zoneId.toLowerCase(),
+            )
+            .firstOrNull ??
         widget.zone;
-    final workers = provider.getWorkersForZone(live.zoneId).where((w) => w.isActive).toList();
+    final workers = provider
+        .getWorkersForZone(live.zoneId)
+        .where((w) => w.isActive)
+        .toList();
     final hasLegacyName = workers.isEmpty && live.assignedWorkerName != null;
     return Container(
       width: double.infinity,
@@ -83,7 +104,11 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
         children: [
           Row(
             children: [
-              const Icon(Icons.person_pin_circle, size: 16, color: Color(0xFF0284C7)),
+              const Icon(
+                Icons.person_pin_circle,
+                size: 16,
+                color: Color(0xFF0284C7),
+              ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
@@ -102,12 +127,20 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
           if (workers.isEmpty && !hasLegacyName)
             const Text(
               'Chưa phân công',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _muted),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _muted,
+              ),
             ),
           if (hasLegacyName)
             Text(
               '${live.assignedWorkerName} · ${live.workerRole ?? 'Nông dân'}',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _ink),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
             ),
           for (final w in workers)
             Padding(
@@ -120,7 +153,11 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
                       children: [
                         Text(
                           w.name,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _ink),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: _ink,
+                          ),
                         ),
                         Text(
                           '${w.role}${w.phone.isEmpty ? '' : ' · ${w.phone}'}'
@@ -132,15 +169,25 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
                   ),
                   if (isOwner)
                     _busyId == w.farmerId
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : TextButton(onPressed: () => _remove(provider, w), child: const Text('Gỡ')),
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : TextButton(
+                            onPressed: () => _remove(provider, w),
+                            child: const Text('Gỡ'),
+                          ),
                 ],
               ),
             ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+              child: Text(
+                _error!,
+                style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+              ),
             ),
           if (isOwner && widget.onAssign != null)
             Align(
@@ -148,7 +195,11 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
               child: TextButton.icon(
                 onPressed: _busyId != null ? null : widget.onAssign,
                 icon: const Icon(Icons.group_add_outlined, size: 18),
-                label: Text(workers.isEmpty && !hasLegacyName ? 'Phân công ngay' : 'Gán / đổi nhân công'),
+                label: Text(
+                  workers.isEmpty && !hasLegacyName
+                      ? 'Phân công ngay'
+                      : 'Gán / đổi nhân công',
+                ),
               ),
             ),
         ],

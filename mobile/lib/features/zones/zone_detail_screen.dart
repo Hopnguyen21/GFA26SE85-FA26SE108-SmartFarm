@@ -22,6 +22,7 @@ import 'widgets/zone_support_section.dart';
 import 'widgets/zone_profile_page.dart';
 import 'widgets/zone_irrigation_page.dart';
 import 'widgets/actuator_feedback.dart';
+import 'honeycomb_estimate.dart';
 import 'widgets/zone_iot_plan_tab.dart';
 
 part 'parts/zone_detail_screen_climate.dart';
@@ -39,7 +40,8 @@ class ZoneDetailScreen extends StatefulWidget {
   State<ZoneDetailScreen> createState() => _ZoneDetailScreenState();
 }
 
-class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerProviderStateMixin {
+class _ZoneDetailScreenState extends State<ZoneDetailScreen>
+    with SingleTickerProviderStateMixin {
   /// Cho phép code trong các file part (extension) cập nhật state.
   void _rebuild(VoidCallback fn) => setState(fn);
 
@@ -49,7 +51,8 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
   List<LatLng>? _editedPolygon;
   bool _isEditingGis = false;
   bool _isSavingGis = false;
-  int _cultivationVersion = 0; // tăng để tải lại thẻ canh tác sau khi gắn hồ sơ/tạo vụ
+  int _cultivationVersion =
+      0; // tăng để tải lại thẻ canh tác sau khi gắn hồ sơ/tạo vụ
 
   @override
   void initState() {
@@ -60,7 +63,10 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
     _tabController = TabController(length: _showAdminTab ? 5 : 4, vsync: this);
     // Thiết bị của CHÍNH Zone đang mở (không phụ thuộc Zone đang chọn ở nơi khác).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<FarmProvider>().refreshCurrentZoneActuators(zoneId: widget.zone.zoneId);
+      if (mounted)
+        context.read<FarmProvider>().refreshCurrentZoneActuators(
+          zoneId: widget.zone.zoneId,
+        );
     });
   }
 
@@ -100,8 +106,14 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                 style: const TextStyle(color: Color(0xFF475569), height: 1.4),
               ),
               const SizedBox(height: 16),
-              FilledButton(onPressed: provider.fetchFromApi, child: const Text('Tải lại')),
-              TextButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Quay lại')),
+              FilledButton(
+                onPressed: provider.fetchFromApi,
+                child: const Text('Tải lại'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text('Quay lại'),
+              ),
             ],
           ),
         ),
@@ -113,7 +125,11 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     final provider = Provider.of<FarmProvider>(context);
     // ID là định danh ổn định; không dùng index để tránh mở nhầm Zone sau khi lọc/tải lại.
-    final live = provider.allZones.where((z) => z.zoneId.toLowerCase() == widget.zone.zoneId.toLowerCase()).firstOrNull;
+    final live = provider.allZones
+        .where(
+          (z) => z.zoneId.toLowerCase() == widget.zone.zoneId.toLowerCase(),
+        )
+        .firstOrNull;
     if (live == null) {
       // Zone không còn trong dữ liệu vừa tải (bị lưu trữ/xóa, mất quyền, hoặc tải lỗi): không hiển thị Zone khác, không crash.
       if (provider.isLoadingApi) {
@@ -125,7 +141,9 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
       return _missingZoneScaffold(provider);
     }
     final zone = live;
-    final zoneActuators = provider.actuators.where((a) => a.zoneId.toLowerCase() == zone.zoneId.toLowerCase()).toList();
+    final zoneActuators = provider.actuators
+        .where((a) => a.zoneId.toLowerCase() == zone.zoneId.toLowerCase())
+        .toList();
     final isOwner = provider.currentRole == 'OWNER';
 
     return Scaffold(
@@ -140,7 +158,11 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
             foregroundColor: Colors.white,
             title: Text(
               zone.name.split(' - ')[0],
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -161,11 +183,19 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                            color: const Color(
+                              0xFF10B981,
+                            ).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                            border: Border.all(
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.5),
+                            ),
                           ),
-                          child: const Center(child: Text('🌱', style: TextStyle(fontSize: 26))),
+                          child: const Center(
+                            child: Text('🌱', style: TextStyle(fontSize: 26)),
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -176,7 +206,11 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                             children: [
                               Text(
                                 zone.name,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -184,9 +218,14 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                      color: const Color(
+                                        0xFF10B981,
+                                      ).withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -216,7 +255,10 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                               const SizedBox(height: 2),
                               Text(
                                 '${zone.areaM2.toInt()} m² • Phụ trách: ${_workerNames(provider, zone)}',
-                                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                  fontSize: 11,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -241,7 +283,11 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(result == 'archived' ? 'Đã lưu trữ Zone.' : 'Đã cập nhật Zone.'),
+                        content: Text(
+                          result == 'archived'
+                              ? 'Đã lưu trữ Zone.'
+                              : 'Đã cập nhật Zone.',
+                        ),
                         backgroundColor: const Color(0xFF059669),
                       ),
                     );
@@ -254,11 +300,16 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                   icon: const Icon(Icons.more_vert),
                   onSelected: (v) {
                     final Widget page = switch (v) {
-                      'contracts' => ContractsDepreciationScreen(lockedZone: zone),
+                      'contracts' => ContractsDepreciationScreen(
+                        lockedZone: zone,
+                      ),
                       'support' => SupportRequestsScreen(zone: zone),
                       _ => AiAssistantScreen(initialZoneId: zone.zoneId),
                     };
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => page),
+                    );
                   },
                   itemBuilder: (_) => const [
                     PopupMenuItem(
@@ -297,7 +348,10 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
               indicatorWeight: 3,
               labelColor: const Color(0xFF10B981),
               unselectedLabelColor: const Color(0xFF94A3B8),
-              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              labelStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
               tabs: [
                 Tab(text: 'Vi khí hậu'),
                 Tab(text: 'Thiết bị'),
@@ -321,6 +375,12 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
                   zoneName: zone.name,
                   areaM2: zone.areaM2,
                   cropName: zone.currentCrop,
+                  perimeterM: zone.polygon == null
+                      ? null
+                      : convexHullPerimeterM([
+                          for (final p in zone.polygon!)
+                            (lat: p.latitude, lng: p.longitude),
+                        ]),
                 ),
                 if (_showAdminTab) _buildContractsSupportTab(zone, provider),
               ],
@@ -333,12 +393,17 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen> with SingleTickerPr
           ? FloatingActionButton.extended(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => AiAssistantScreen(initialZoneId: zone.zoneId)),
+                MaterialPageRoute(
+                  builder: (_) => AiAssistantScreen(initialZoneId: zone.zoneId),
+                ),
               ),
               backgroundColor: const Color(0xFF062326),
               foregroundColor: Colors.white,
               icon: const Icon(Icons.psychology, size: 20),
-              label: const Text('Hỏi AI Zone', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Hỏi AI Zone',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
             )
           : null,
     );

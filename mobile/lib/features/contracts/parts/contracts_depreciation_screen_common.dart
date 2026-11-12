@@ -1,6 +1,7 @@
 part of '../contracts_depreciation_screen.dart';
 
-extension _ContractsDepreciationScreenStateCommon on _ContractsDepreciationScreenState {
+extension _ContractsDepreciationScreenStateCommon
+    on _ContractsDepreciationScreenState {
   // ─────────────────────────────────────────
   // Reusable Widgets
   // ─────────────────────────────────────────
@@ -28,7 +29,11 @@ extension _ContractsDepreciationScreenStateCommon on _ContractsDepreciationScree
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -36,12 +41,25 @@ extension _ContractsDepreciationScreenStateCommon on _ContractsDepreciationScree
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
           ),
           const SizedBox(height: 2),
-          Text(subText, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+          Text(
+            subText,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+          ),
         ],
       ),
     );
@@ -56,7 +74,11 @@ extension _ContractsDepreciationScreenStateCommon on _ContractsDepreciationScree
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF062326) : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF062326) : const Color(0xFFCBD5E1)),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF062326)
+                : const Color(0xFFCBD5E1),
+          ),
         ),
         child: Text(
           label,

@@ -20,10 +20,13 @@ class MiniGISMapPicker extends StatefulWidget {
   final ValueChanged<List<LatLng>>? onPolygonChanged;
   final String level; // 'FARM', 'FIELD', 'ZONE'
   final List<LatLng>? parentPolygon;
-  final List<Map<String, dynamic>>? existingZones; // [{name: 'Nhà màng 01', polygon: [...]}]
-  final List<Map<String, dynamic>>? existingPolygons; // [{name: 'Lô đất A1', polygon: [...]}]
+  final List<Map<String, dynamic>>?
+  existingZones; // [{name: 'Nhà màng 01', polygon: [...]}]
+  final List<Map<String, dynamic>>?
+  existingPolygons; // [{name: 'Lô đất A1', polygon: [...]}]
   final double height;
-  final ValueChanged<double>? onAreaCalculated; // Callback diện tích tính toán (m²)
+  final ValueChanged<double>?
+  onAreaCalculated; // Callback diện tích tính toán (m²)
 
   /// Chỉ được gọi với tên địa điểm THẬT từ backend (không bao giờ là toạ độ hay chữ "đang lấy").
   final ValueChanged<String>? onAddressResolved;
@@ -87,8 +90,10 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
 
   // Điều chỉnh kích thước polygon (scale) & Chọn đỉnh đang thao tác
   final double _polygonScale = 1.0;
-  int? _selectedVertexIndex; // null: di chuyển toàn bộ ranh giới, 0..3: di chuyển đỉnh cụ thể #1..#4
-  bool _isDraggingVertex = false; // Đang kéo đỉnh: vô hiệu hóa pan map để không giật lag
+  int?
+  _selectedVertexIndex; // null: di chuyển toàn bộ ranh giới, 0..3: di chuyển đỉnh cụ thể #1..#4
+  bool _isDraggingVertex =
+      false; // Đang kéo đỉnh: vô hiệu hóa pan map để không giật lag
 
   void _deleteSelectedVertex() {
     if (_selectedVertexIndex == null || _polygonPoints.length <= 3) return;
@@ -124,7 +129,8 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
   void initState() {
     super.initState();
     _mapController = MapController();
-    final effectiveCenter = widget.parentPolygon != null && widget.parentPolygon!.isNotEmpty
+    final effectiveCenter =
+        widget.parentPolygon != null && widget.parentPolygon!.isNotEmpty
         ? _calculateCentroid(widget.parentPolygon!)
         : widget.initialCenter;
     _currentCenter = effectiveCenter;
@@ -139,7 +145,9 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
       if (mounted) {
         if (widget.autoResolveOnInit) _resolveAddress(_currentCenter);
         _notifyArea();
-        if (widget.emitInitialPolygon && widget.level != 'FARM' && _polygonPoints.length >= 3) {
+        if (widget.emitInitialPolygon &&
+            widget.level != 'FARM' &&
+            _polygonPoints.length >= 3) {
           widget.onPolygonChanged?.call(List<LatLng>.from(_polygonPoints));
         }
       }
@@ -158,14 +166,18 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
       });
       _notifyArea();
     }
-    if (widget.initialCenter != oldWidget.initialCenter || widget.parentPolygon != oldWidget.parentPolygon) {
-      final newCenter = widget.parentPolygon != null && widget.parentPolygon!.isNotEmpty
+    if (widget.initialCenter != oldWidget.initialCenter ||
+        widget.parentPolygon != oldWidget.parentPolygon) {
+      final newCenter =
+          widget.parentPolygon != null && widget.parentPolygon!.isNotEmpty
           ? _calculateCentroid(widget.parentPolygon!)
           : widget.initialCenter;
       _currentCenter = newCenter;
       _coordNotifier.value = newCenter;
       setState(() {
-        _polygonPoints = widget.level == 'FARM' ? [] : _generateDefaultBox(newCenter, scale: _polygonScale);
+        _polygonPoints = widget.level == 'FARM'
+            ? []
+            : _generateDefaultBox(newCenter, scale: _polygonScale);
         _selectedVertexIndex = null;
       });
       try {
@@ -207,14 +219,16 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
     final double d3 = ccw(a, b, c);
     final double d4 = ccw(a, b, d);
 
-    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
       return true;
     }
     return false;
   }
 
   /// Danh sách các polygon đã có cần tránh đè lên (Zone hoặc Field)
-  List<Map<String, dynamic>> get _otherPolygons => widget.existingPolygons ?? widget.existingZones ?? [];
+  List<Map<String, dynamic>> get _otherPolygons =>
+      widget.existingPolygons ?? widget.existingZones ?? [];
 
   /// Tên vùng đang bị đè lên (nếu có)
   String? get _overlappedZoneName {
@@ -232,8 +246,11 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
 
   /// Kiểm tra xem toàn bộ ô hiện tại có đỉnh nào bị thò ra ngoài không
   bool get _hasPointOutsideParent {
-    if (widget.parentPolygon == null || widget.parentPolygon!.length < 3) return false;
-    return _polygonPoints.any((pt) => !_isPointInsidePolygon(pt, widget.parentPolygon!));
+    if (widget.parentPolygon == null || widget.parentPolygon!.length < 3)
+      return false;
+    return _polygonPoints.any(
+      (pt) => !_isPointInsidePolygon(pt, widget.parentPolygon!),
+    );
   }
 
   /// Kiểm tra đa giác có tự cắt chính nó không (hình số 8 / hình nơ)
@@ -258,13 +275,15 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
   /// Trạng thái vi phạm: tự cắt, hoặc lòi ra ngoài Thửa đất, hoặc đè lên Vùng khác (chỉ xét ở cấp FIELD và ZONE)
   bool get _isPolygonInvalid =>
       polygonSelfIntersects(_polygonPoints) ||
-      (widget.level != 'FARM' && (_hasPointOutsideParent || _overlappedZoneName != null));
+      (widget.level != 'FARM' &&
+          (_hasPointOutsideParent || _overlappedZoneName != null));
 
   /// Dịch polygon theo độ lệch tâm, giữ nguyên hình dạng.
   List<LatLng> _shiftPolygon(List<LatLng> pts, double dLat, double dLng) =>
       pts.map((p) => LatLng(p.latitude + dLat, p.longitude + dLng)).toList();
 
-  String _coordFallback(LatLng p) => '${p.latitude.toStringAsFixed(5)}°B, ${p.longitude.toStringAsFixed(5)}°Đ';
+  String _coordFallback(LatLng p) =>
+      '${p.latitude.toStringAsFixed(5)}°B, ${p.longitude.toStringAsFixed(5)}°Đ';
 
   String _getTileUrl() => _mapType == 'satellite'
       ? 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
@@ -273,7 +292,9 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
   @override
   Widget build(BuildContext context) {
     // Chiều cao mặc định to hơn (250px), khi mở rộng lên 420px
-    final currentHeight = _isExpanded ? 420.0 : (widget.height < 250 ? 250.0 : widget.height);
+    final currentHeight = _isExpanded
+        ? 420.0
+        : (widget.height < 250 ? 250.0 : widget.height);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -282,7 +303,13 @@ class _MiniGISMapPickerState extends State<MiniGISMapPicker> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),

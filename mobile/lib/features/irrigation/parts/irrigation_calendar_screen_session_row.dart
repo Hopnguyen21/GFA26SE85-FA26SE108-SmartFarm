@@ -1,6 +1,7 @@
 part of '../irrigation_calendar_screen.dart';
 
-extension _IrrigationCalendarScreenStateSessionRow on _IrrigationCalendarScreenState {
+extension _IrrigationCalendarScreenStateSessionRow
+    on _IrrigationCalendarScreenState {
   Widget _buildInteractiveSessionRow(DayIrrigationSession s) {
     final iconColor = s.session == 'MORNING'
         ? const Color(0xFFF59E0B)
@@ -20,7 +21,9 @@ extension _IrrigationCalendarScreenStateSessionRow on _IrrigationCalendarScreenS
       decoration: BoxDecoration(
         color: s.enabled ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: s.enabled ? const Color(0xFFE2E8F0) : const Color(0xFFCBD5E1)),
+        border: Border.all(
+          color: s.enabled ? const Color(0xFFE2E8F0) : const Color(0xFFCBD5E1),
+        ),
       ),
       child: Row(
         children: [
@@ -30,7 +33,11 @@ extension _IrrigationCalendarScreenStateSessionRow on _IrrigationCalendarScreenS
               color: iconColor.withValues(alpha: s.enabled ? 0.12 : 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(iconData, size: 18, color: s.enabled ? iconColor : Colors.grey),
+            child: Icon(
+              iconData,
+              size: 18,
+              color: s.enabled ? iconColor : Colors.grey,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -45,8 +52,12 @@ extension _IrrigationCalendarScreenStateSessionRow on _IrrigationCalendarScreenS
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: s.enabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
-                        decoration: s.enabled ? null : TextDecoration.lineThrough,
+                        color: s.enabled
+                            ? const Color(0xFF0F172A)
+                            : const Color(0xFF94A3B8),
+                        decoration: s.enabled
+                            ? null
+                            : TextDecoration.lineThrough,
                       ),
                     ),
                     Text(
@@ -54,7 +65,9 @@ extension _IrrigationCalendarScreenStateSessionRow on _IrrigationCalendarScreenS
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: s.enabled ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                        color: s.enabled
+                            ? const Color(0xFF059669)
+                            : const Color(0xFF94A3B8),
                       ),
                     ),
                   ],
@@ -74,7 +87,10 @@ extension _IrrigationCalendarScreenStateSessionRow on _IrrigationCalendarScreenS
                     Expanded(
                       child: Text(
                         '• ${s.method} (${s.volumeMl}ml)',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

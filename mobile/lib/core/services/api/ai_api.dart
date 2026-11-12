@@ -4,11 +4,16 @@ part of '../api_service.dart';
 abstract final class AiApi {
   // ─── 12. AI Ask ────────────────────────────────────────────────────────
   /// Gửi câu hỏi đến AI Advisory, trả về AiRecommendationModel (Timeout 60s cho LLM Gemini)
-  static Future<AiRecommendationModel?> askAi({required String zoneId, required String prompt}) async {
+  static Future<AiRecommendationModel?> askAi({
+    required String zoneId,
+    required String prompt,
+  }) async {
     try {
-      final resp = await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/ask', {
-        'question': prompt,
-      }, timeout: const Duration(seconds: 60));
+      final resp = await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/ask',
+        {'question': prompt},
+        timeout: const Duration(seconds: 60),
+      );
       if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
         final data = jsonDecode(resp.body);
         return AiRecommendationModel.fromJson(data);
@@ -36,7 +41,9 @@ abstract final class AiApi {
   /// Lấy lịch sử hội thoại và khuyến nghị AI của một Zone
   static Future<List<Map<String, dynamic>>> getAiHistory(String zoneId) async {
     try {
-      final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/history');
+      final resp = await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/history',
+      );
       if (resp != null && resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         if (data is Map<String, dynamic> && data['recommendations'] is List) {
@@ -67,7 +74,9 @@ abstract final class AiApi {
       if (resp.statusCode == 200 || resp.statusCode == 202) {
         final body = jsonDecode(utf8.decode(resp.bodyBytes));
         final command = body is Map<String, dynamic> ? body['command'] : null;
-        final commandStatus = command is Map<String, dynamic> ? command['status']?.toString() : null;
+        final commandStatus = command is Map<String, dynamic>
+            ? command['status']?.toString()
+            : null;
         return {'success': true, 'commandStatus': commandStatus};
       }
       if (resp.statusCode == 409) {
@@ -76,10 +85,17 @@ abstract final class AiApi {
           return {
             'success': false,
             'blocked': true,
-            'message': body['message'] ?? body['detail'] ?? 'Không đủ điều kiện an toàn',
+            'message':
+                body['message'] ??
+                body['detail'] ??
+                'Không đủ điều kiện an toàn',
           };
         } catch (_) {
-          return {'success': false, 'blocked': true, 'message': 'Hệ thống từ chối: kiểm tra an toàn không đạt'};
+          return {
+            'success': false,
+            'blocked': true,
+            'message': 'Hệ thống từ chối: kiểm tra an toàn không đạt',
+          };
         }
       }
       return {'success': false, 'message': 'Lỗi máy chủ (${resp.statusCode})'};
@@ -92,7 +108,9 @@ abstract final class AiApi {
   /// Xóa lịch sử tư vấn AI hiển thị của một Zone (API catalog #88)
   static Future<bool> clearAiHistory(String zoneId) async {
     try {
-      final resp = await ApiService._deleteWithAuth('${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/history');
+      final resp = await ApiService._deleteWithAuth(
+        '${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/history',
+      );
       return resp != null && (resp.statusCode == 200 || resp.statusCode == 204);
     } catch (_) {
       return false;

@@ -3,15 +3,27 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../zones/honeycomb_estimate.dart';
 
 /// Quy tắc kiểm tra và đọc kết quả của wizard thiết lập trang trại (thuần Dart, không phụ thuộc UI để dễ kiểm thử).
 /// Các ràng buộc khớp với backend: POST /farms/wizard-setup (FarmOwner).
 
 bool isValidLatLng(double? lat, double? lng) =>
-    lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 && !(lat == 0 && lng == 0);
+    lat != null &&
+    lng != null &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    !(lat == 0 && lng == 0);
 
 /// Bước 1: Trang trại.
-String? validateFarmStep({required String name, required double? lat, required double? lng, double? totalAreaM2}) {
+String? validateFarmStep({
+  required String name,
+  required double? lat,
+  required double? lng,
+  double? totalAreaM2,
+}) {
   if (name.trim().length < 2) return 'Nhập tên trang trại (ít nhất 2 ký tự).';
   if (!isValidLatLng(lat, lng)) {
     return 'Chưa chọn vị trí trang trại. Di chuyển bản đồ hoặc dùng nút tìm kiếm để đặt ghim.';
@@ -27,11 +39,13 @@ String? validateFieldStep({
   required List<LatLng>? boundary,
 }) {
   if (name.trim().length < 2) return 'Nhập tên lô đất (ít nhất 2 ký tự).';
-  if (areaM2 == null || areaM2 <= 0) return 'Nhập diện tích lô đất (m²) lớn hơn 0.';
+  if (areaM2 == null || areaM2 <= 0)
+    return 'Nhập diện tích lô đất (m²) lớn hơn 0.';
   if (farmAreaM2 != null && areaM2 > farmAreaM2) {
     return 'Diện tích lô đất (${areaM2.toStringAsFixed(0)} m²) vượt tổng diện tích trang trại (${farmAreaM2.toStringAsFixed(0)} m²).';
   }
-  if (boundary != null && boundary.isNotEmpty && boundary.length < 3) return 'Ranh giới lô đất cần ít nhất 3 đỉnh.';
+  if (boundary != null && boundary.isNotEmpty && boundary.length < 3)
+    return 'Ranh giới lô đất cần ít nhất 3 đỉnh.';
   return null;
 }
 
@@ -44,13 +58,16 @@ String? validateZoneStep({
   List<LatLng>? fieldBoundary,
 }) {
   if (name.trim().length < 2) return 'Nhập tên Zone (ít nhất 2 ký tự).';
-  if (areaM2 == null || areaM2 <= 0) return 'Nhập diện tích Zone (m²) lớn hơn 0.';
+  if (areaM2 == null || areaM2 <= 0)
+    return 'Nhập diện tích Zone (m²) lớn hơn 0.';
   if (fieldAreaM2 != null && areaM2 > fieldAreaM2) {
     return 'Diện tích Zone (${areaM2.toStringAsFixed(0)} m²) vượt diện tích lô đất (${fieldAreaM2.toStringAsFixed(0)} m²).';
   }
   if (boundary != null && boundary.isNotEmpty) {
     if (boundary.length < 3) return 'Ranh giới Zone cần ít nhất 3 đỉnh.';
-    if (fieldBoundary != null && fieldBoundary.length >= 3 && boundary.any((p) => !pointInPolygon(p, fieldBoundary))) {
+    if (fieldBoundary != null &&
+        fieldBoundary.length >= 3 &&
+        boundary.any((p) => !pointInPolygon(p, fieldBoundary))) {
       return 'Ranh giới Zone đang vượt ra ngoài lô đất. Hãy kéo các đỉnh vào trong.';
     }
   }
@@ -80,14 +97,20 @@ String? validateSeasonStep({
   }
   if (expectedEnd == null)
     return 'Chọn ngày thu hoạch dự kiến (hồ sơ này không khai báo số ngày nên không tự tính được).';
-  if (!expectedEnd.isAfter(start)) return 'Ngày thu hoạch dự kiến phải sau ngày bắt đầu.';
+  if (!expectedEnd.isAfter(start))
+    return 'Ngày thu hoạch dự kiến phải sau ngày bắt đầu.';
   return null;
 }
 
 /// Bước 5: Yêu cầu IoT (tuỳ chọn) — backend chỉ tạo khi đã có vụ trồng.
-String? validateIotStep({required bool seasonEnabled, required bool iotEnabled, required Set<String> parameters}) {
+String? validateIotStep({
+  required bool seasonEnabled,
+  required bool iotEnabled,
+  required Set<String> parameters,
+}) {
   if (!iotEnabled) return null;
-  if (!seasonEnabled) return 'Yêu cầu triển khai IoT trong wizard cần có vụ trồng. Bật vụ trồng hoặc tắt yêu cầu IoT.';
+  if (!seasonEnabled)
+    return 'Yêu cầu triển khai IoT trong wizard cần có vụ trồng. Bật vụ trồng hoặc tắt yêu cầu IoT.';
   if (parameters.isEmpty) return 'Chọn ít nhất một thông số cần đo.';
   return null;
 }
@@ -112,7 +135,8 @@ String? boundaryGeoJsonString(List<LatLng>? pts) {
   final ring = [
     for (final p in pts) [p.longitude, p.latitude],
   ];
-  if (ring.first[0] != ring.last[0] || ring.first[1] != ring.last[1]) ring.add(List.of(ring.first));
+  if (ring.first[0] != ring.last[0] || ring.first[1] != ring.last[1])
+    ring.add(List.of(ring.first));
   return jsonEncode({
     'type': 'Polygon',
     'coordinates': [ring],
@@ -123,7 +147,8 @@ String? boundaryGeoJsonString(List<LatLng>? pts) {
 enum WizardItemState { created, notRequested, notCreated }
 
 class WizardItem {
-  final String key; // khoá trong phản hồi: farmId | fieldId | zoneId | seasonId | deploymentRequestId
+  final String
+  key; // khoá trong phản hồi: farmId | fieldId | zoneId | seasonId | deploymentRequestId
   final String label;
   final WizardItemState state;
   final String? id;
@@ -135,9 +160,12 @@ class WizardOutcome {
   final List<WizardItem> items;
   const WizardOutcome(this.items);
 
-  bool get isComplete => items.every((i) => i.state != WizardItemState.notCreated);
-  bool get isPartial => !isComplete && items.any((i) => i.state == WizardItemState.created);
-  List<WizardItem> get missing => items.where((i) => i.state == WizardItemState.notCreated).toList();
+  bool get isComplete =>
+      items.every((i) => i.state != WizardItemState.notCreated);
+  bool get isPartial =>
+      !isComplete && items.any((i) => i.state == WizardItemState.created);
+  List<WizardItem> get missing =>
+      items.where((i) => i.state == WizardItemState.notCreated).toList();
   String? idOf(String key) => items.where((i) => i.key == key).firstOrNull?.id;
 }
 
@@ -153,28 +181,50 @@ WizardOutcome analyzeWizardResult({
 }) {
   String? idOf(String k) {
     final v = result[k]?.toString();
-    return (v == null || v.isEmpty || v == 'null' || v == '00000000-0000-0000-0000-000000000000') ? null : v;
+    return (v == null ||
+            v.isEmpty ||
+            v == 'null' ||
+            v == '00000000-0000-0000-0000-000000000000')
+        ? null
+        : v;
   }
 
   WizardItem build(String key, String label, bool requested, String problem) {
     final id = idOf(key);
     if (!requested) return WizardItem(key, label, WizardItemState.notRequested);
-    if (id != null) return WizardItem(key, label, WizardItemState.created, id: id);
+    if (id != null)
+      return WizardItem(key, label, WizardItemState.created, id: id);
     return WizardItem(key, label, WizardItemState.notCreated, problem: problem);
   }
 
   final farmId = idOf('farmId');
   return WizardOutcome([
     farmId != null
-        ? WizardItem('farmId', 'Trang trại', WizardItemState.created, id: farmId)
+        ? WizardItem(
+            'farmId',
+            'Trang trại',
+            WizardItemState.created,
+            id: farmId,
+          )
         : const WizardItem(
             'farmId',
             'Trang trại',
             WizardItemState.notCreated,
-            problem: 'Máy chủ không trả về mã trang trại. Hãy tải lại danh sách để kiểm tra trước khi tạo lại.',
+            problem:
+                'Máy chủ không trả về mã trang trại. Hãy tải lại danh sách để kiểm tra trước khi tạo lại.',
           ),
-    build('fieldId', 'Lô đất', requestedField, 'Lô đất chưa được tạo. Thêm lô đất trong mục Quản lý trang trại.'),
-    build('zoneId', 'Zone', requestedZone, 'Zone chưa được tạo. Thêm Zone trong mục Quản lý trang trại.'),
+    build(
+      'fieldId',
+      'Lô đất',
+      requestedField,
+      'Lô đất chưa được tạo. Thêm lô đất trong mục Quản lý trang trại.',
+    ),
+    build(
+      'zoneId',
+      'Zone',
+      requestedZone,
+      'Zone chưa được tạo. Thêm Zone trong mục Quản lý trang trại.',
+    ),
     build(
       'seasonId',
       'Vụ trồng',
@@ -193,11 +243,21 @@ WizardOutcome analyzeWizardResult({
 // ───────────────────────── Bước 4: Cây trồng & Vụ mùa ─────────────────────────
 
 /// Tên tham số môi trường của backend (EnvironmentalParameterCode) theo thứ tự enum, để đọc cả dạng số.
-const _parameterEnumNames = ['Temperature', 'SoilMoisture', 'AirHumidity', 'Ph', 'LightIntensity', 'Ec'];
+const _parameterEnumNames = [
+  'Temperature',
+  'SoilMoisture',
+  'AirHumidity',
+  'Ph',
+  'LightIntensity',
+  'Ec',
+];
 
 String? _parameterName(Object? raw) {
   if (raw == null) return null;
-  if (raw is int) return raw >= 0 && raw < _parameterEnumNames.length ? _parameterEnumNames[raw] : null;
+  if (raw is int)
+    return raw >= 0 && raw < _parameterEnumNames.length
+        ? _parameterEnumNames[raw]
+        : null;
   final s = raw.toString().trim();
   if (s.isEmpty) return null;
   final asInt = int.tryParse(s);
@@ -216,7 +276,11 @@ List<Map<String, dynamic>> profileStages(Map<String, dynamic>? profile) {
     for (final s in st)
       if (s is Map) Map<String, dynamic>.from(s),
   ];
-  list.sort((a, b) => (num.tryParse('${a['stageOrder']}') ?? 0).compareTo(num.tryParse('${b['stageOrder']}') ?? 0));
+  list.sort(
+    (a, b) => (num.tryParse('${a['stageOrder']}') ?? 0).compareTo(
+      num.tryParse('${b['stageOrder']}') ?? 0,
+    ),
+  );
   return list;
 }
 
@@ -268,28 +332,99 @@ String suggestedSeasonName(String cropName, DateTime start) {
 enum WizardFailureKind { ambiguousNetwork, rejected }
 
 WizardFailureKind classifyWizardFailure(Object error) {
-  if (error is TimeoutException || error is SocketException || error is http.ClientException) {
+  if (error is TimeoutException ||
+      error is SocketException ||
+      error is http.ClientException) {
     return WizardFailureKind.ambiguousNetwork;
   }
   final t = error.runtimeType.toString();
-  if (t.contains('Socket') || t.contains('Timeout') || t.contains('ClientException') || t.contains('Handshake')) {
+  if (t.contains('Socket') ||
+      t.contains('Timeout') ||
+      t.contains('ClientException') ||
+      t.contains('Handshake')) {
     return WizardFailureKind.ambiguousNetwork;
   }
   return WizardFailureKind.rejected;
 }
 
-/// Ghi chú gửi kèm yêu cầu IoT. Backend wizard CHƯA lưu danh sách thiết bị (Plan Items), nên số lượng ước tính
-/// chỉ được ghi vào ghi chú dưới dạng tham khảo, có gắn nhãn rõ là ước tính.
-String buildWizardIotNotes({String? userNotes, int? gateways, int? sensors, int? actuators, double? totalVnd}) {
+/// Ghi chú gửi kèm yêu cầu IoT: tóm tắt số lượng ước tính (danh sách chi tiết được lưu riêng thành các dòng dự toán, xem
+/// buildWizardEstimateItems), có gắn nhãn rõ là ước tính.
+String buildWizardIotNotes({
+  String? userNotes,
+  int? gateways,
+  int? sensors,
+  int? actuators,
+  double? totalVnd,
+}) {
   final parts = <String>[];
   final u = userNotes?.trim() ?? '';
   if (u.isNotEmpty) parts.add(u);
   if (gateways != null && sensors != null && actuators != null) {
-    final cost = totalVnd == null ? '' : ', chi phí ước tính ~${totalVnd.round()} đ';
+    final cost = totalVnd == null
+        ? ''
+        : ', chi phí ước tính ~${totalVnd.round()} đ';
     parts.add(
-      '[Ước tính từ ứng dụng, chưa phải kế hoạch thiết bị] $gateways gateway, $sensors node cảm biến, $actuators node van/bơm$cost.',
+      '[Dự toán tham khảo từ ứng dụng, chưa phải kế hoạch thiết bị chính thức] $gateways gateway, $sensors node cảm biến, $actuators node van/bơm$cost.',
     );
   }
   final text = parts.join('\n');
   return text.length > 1000 ? text.substring(0, 1000) : text;
+}
+
+// ───────────────────────── Lưu dự toán kèm yêu cầu ─────────────────────────
+
+/// Dự toán chuyển thành các dòng hàng để lưu cùng Deployment Request (sau này kỹ thuật viên chỉnh sửa rồi đưa vào hợp đồng).
+/// Backend lấy mã/tên/đơn giá từ kho theo `hardwareItemId` (không tin giá từ app); chỉ dòng thi công gửi kèm đơn giá cố định.
+class WizardEstimateDraft {
+  final List<Map<String, dynamic>> items;
+
+  /// Lý do KHÔNG lưu dự toán (thiếu thiết bị/đơn giá…). Null khi có dòng để lưu hoặc Zone không cần bổ sung gì.
+  final String? skippedReason;
+  const WizardEstimateDraft(this.items, this.skippedReason);
+  bool get hasItems => items.isNotEmpty;
+}
+
+final RegExp _guidRe = RegExp(
+  r'^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$',
+);
+
+WizardEstimateDraft buildWizardEstimateItems(HoneycombEstimate? est) {
+  if (est == null) {
+    return const WizardEstimateDraft(
+      [],
+      'Chưa có dự toán (không tải được danh mục thiết bị hoặc chưa đủ dữ liệu).',
+    );
+  }
+  if (!est.hasFullPricing) {
+    return WizardEstimateDraft(
+      [],
+      est.totalBlockedReason ?? 'Thiếu dữ liệu thiết bị hoặc đơn giá.',
+    );
+  }
+  final items = <Map<String, dynamic>>[];
+  for (final l in est.lines) {
+    if (l.covered || l.item == null || l.quantity <= 0) continue;
+    if (!_guidRe.hasMatch(l.item!.id)) {
+      return WizardEstimateDraft(
+        [],
+        'Thiết bị ${l.item!.code} không có mã định danh hợp lệ trong danh mục.',
+      );
+    }
+    items.add({
+      'hardwareItemId': l.item!.id,
+      'role': l.role.wire,
+      'quantity': l.quantity,
+      'notes':
+          'Cần ${l.neededTotal}, đã gắn ${l.installed}, bổ sung ${l.requiredUnits} ${l.role.label.toLowerCase()}',
+    });
+  }
+  if (items.isNotEmpty && est.installationCost > 0) {
+    items.add({
+      'role': 'Installation',
+      'quantity': 1,
+      'unitPrice': est.installationCost,
+      'name': 'Thi công, định vị GPS & cấu hình mạng mesh',
+    });
+  }
+  return WizardEstimateDraft(items, null);
 }

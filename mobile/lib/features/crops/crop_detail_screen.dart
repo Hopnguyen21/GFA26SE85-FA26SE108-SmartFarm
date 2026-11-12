@@ -4,7 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
 import '../irrigation/irrigation_calendar_screen.dart';
-import '../zones/widgets/zone_profile_detail_page.dart' show confirmApplyProfile;
+import '../zones/widgets/zone_profile_detail_page.dart'
+    show confirmApplyProfile;
 
 part 'parts/crop_detail_screen_apply_zone.dart';
 part 'parts/crop_detail_screen_overview.dart';
@@ -20,7 +21,8 @@ class CropDetailScreen extends StatefulWidget {
   State<CropDetailScreen> createState() => _CropDetailScreenState();
 }
 
-class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerProviderStateMixin {
+class _CropDetailScreenState extends State<CropDetailScreen>
+    with SingleTickerProviderStateMixin {
   /// Cho phép code trong các file part (extension) cập nhật state.
   void _rebuild(VoidCallback fn) => setState(fn);
 
@@ -60,7 +62,10 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => IrrigationCalendarScreen(profile: profile)),
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          IrrigationCalendarScreen(profile: profile),
+                    ),
                   );
                 },
               ),
@@ -84,18 +89,28 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(profile.emoji, style: const TextStyle(fontSize: 44)),
+                            Text(
+                              profile.emoji,
+                              style: const TextStyle(fontSize: 44),
+                            ),
                             const SizedBox(height: 6),
                             Text(
                               profile.name,
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(
                               profile.variety,
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -113,7 +128,10 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
               indicatorWeight: 3,
               labelColor: const Color(0xFF10B981),
               unselectedLabelColor: const Color(0xFF64748B),
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
               tabs: const [
                 Tab(text: 'Tổng quan'),
                 Tab(text: 'Giai đoạn'),
@@ -140,7 +158,11 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -4)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -4),
+              ),
             ],
           ),
           child: Row(
@@ -152,11 +174,18 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                   children: [
                     Text(
                       '${profile.emoji} ${profile.name}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       'Chuẩn ${profile.standardType} • ${profile.totalCycleDays} ngày',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -166,12 +195,20 @@ class _CropDetailScreenState extends State<CropDetailScreen> with SingleTickerPr
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('Áp Dụng Cho Zone', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: const Text(
+                  'Áp Dụng Cho Zone',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
                 onPressed: () => _showApplyToZoneModal(context, profile),
               ),
             ],

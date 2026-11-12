@@ -48,7 +48,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (provider.currentRole != 'OWNER') {
       setState(() {
         _loading = false;
-        _error = 'Bạn không có quyền truy cập Báo cáo (Yêu cầu tài khoản Chủ trang trại - FarmOwner).';
+        _error =
+            'Bạn không có quyền truy cập Báo cáo (Yêu cầu tài khoản Chủ trang trại - FarmOwner).';
       });
       return;
     }
@@ -79,7 +80,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     } catch (e) {
       if (mounted) {
         final msg = e.toString().replaceFirst('Exception: ', '');
-        final is403 = msg.contains('403') || msg.toLowerCase().contains('forbidden') || msg.contains('không có quyền');
+        final is403 =
+            msg.contains('403') ||
+            msg.toLowerCase().contains('forbidden') ||
+            msg.contains('không có quyền');
         setState(
           () => _error = is403
               ? 'Bạn không có quyền truy cập Báo cáo (403 Forbidden - Yêu cầu tài khoản Chủ trang trại).'
@@ -93,27 +97,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _exportExcel() async {
     if (_exporting) return;
-    final farmId = Provider.of<FarmProvider>(context, listen: false).selectedFarmId;
+    final farmId = Provider.of<FarmProvider>(
+      context,
+      listen: false,
+    ).selectedFarmId;
     setState(() => _exporting = true);
     try {
-      final bytes = await ReportApi.downloadFarmReportExcel(farmId, from: _from, to: _to);
+      final bytes = await ReportApi.downloadFarmReportExcel(
+        farmId,
+        from: _from,
+        to: _to,
+      );
       await saveAndShareFile(
         'bao-cao-tai-nguyen-${DateTime.now().toIso8601String().substring(0, 10)}.xlsx',
         bytes,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Xuất Excel thất bại: ${e.toString().replaceFirst('Exception: ', '')}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Xuất Excel thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
   }
 
-  String _fmt(num? v, String unit) => v == null ? '—' : '${v.toStringAsFixed(v % 1 == 0 ? 0 : 1)} $unit';
+  String _fmt(num? v, String unit) =>
+      v == null ? '—' : '${v.toStringAsFixed(v % 1 == 0 ? 0 : 1)} $unit';
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +141,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Báo Cáo Tài Nguyên',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         actions: [
           IconButton(
@@ -132,11 +153,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.table_chart_outlined, color: Colors.white),
             tooltip: 'Xuất Excel (.xlsx) từ máy chủ',
-            onPressed: _loading || _exporting || _error != null ? null : _exportExcel,
+            onPressed: _loading || _exporting || _error != null
+                ? null
+                : _exportExcel,
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
@@ -160,7 +186,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       style: const TextStyle(color: Color(0xFFDC2626)),
                     ),
                     const SizedBox(height: 12),
-                    OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
+                    OutlinedButton(
+                      onPressed: _load,
+                      child: const Text('Thử lại'),
+                    ),
                   ],
                 ),
               ),
@@ -219,7 +248,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
             waterByZone.isEmpty
                 ? const Padding(
                     padding: EdgeInsets.all(24),
-                    child: Center(child: Text('Không có dữ liệu trong khoảng thời gian này.')),
+                    child: Center(
+                      child: Text(
+                        'Không có dữ liệu trong khoảng thời gian này.',
+                      ),
+                    ),
                   )
                 : SizedBox(height: 200, child: _zoneChart(waterByZone)),
           ),
@@ -258,9 +291,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
       BarChartData(
         maxY: maxY <= 0 ? 1 : maxY * 1.2,
         titlesData: FlTitlesData(
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -270,7 +309,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 final n = entries[i].key;
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(n.length > 8 ? '${n.substring(0, 8)}…' : n, style: const TextStyle(fontSize: 11)),
+                  child: Text(
+                    n.length > 8 ? '${n.substring(0, 8)}…' : n,
+                    style: const TextStyle(fontSize: 11),
+                  ),
                 );
               },
             ),
@@ -281,41 +323,54 @@ class _ReportsScreenState extends State<ReportsScreen> {
           for (var i = 0; i < entries.length; i++)
             BarChartGroupData(
               x: i,
-              barRods: [BarChartRodData(toY: entries[i].value, color: const Color(0xFF062326), width: 14)],
+              barRods: [
+                BarChartRodData(
+                  toY: entries[i].value,
+                  color: const Color(0xFF062326),
+                  width: 14,
+                ),
+              ],
             ),
         ],
       ),
     );
   }
 
-  Widget _kpi(String title, String value, IconData icon, Color color) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _kpi(String title, String value, IconData icon, Color color) =>
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+                Icon(icon, size: 16, color: color),
+              ],
             ),
-            Icon(icon, size: 16, color: color),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    ),
-  );
+      );
 
   Widget _card(String title, Widget child) => Container(
     padding: const EdgeInsets.all(16),
@@ -327,7 +382,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         const SizedBox(height: 12),
         child,
       ],
@@ -340,9 +398,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: Text(l, style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+          child: Text(
+            l,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+          ),
         ),
-        Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(
+          v,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
       ],
     ),
   );

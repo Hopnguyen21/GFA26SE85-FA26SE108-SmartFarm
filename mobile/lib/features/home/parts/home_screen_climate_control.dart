@@ -1,10 +1,17 @@
 part of '../home_screen.dart';
 
 extension _HomeScreenClimateControl on HomeScreen {
-  List<Widget> _climateSection(BuildContext context, FarmProvider farmProvider, ZoneModel zone) {
+  List<Widget> _climateSection(
+    BuildContext context,
+    FarmProvider farmProvider,
+    ZoneModel zone,
+  ) {
     return [
       // Outdoor Local Weather Card
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildOutdoorWeatherCard(farmProvider)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _buildOutdoorWeatherCard(farmProvider),
+      ),
 
       const SizedBox(height: 16),
 
@@ -32,12 +39,19 @@ extension _HomeScreenClimateControl on HomeScreen {
                 Container(
                   width: 6,
                   height: 6,
-                  decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 4),
                 const Text(
                   '10s/lần',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF10B981),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -48,7 +62,10 @@ extension _HomeScreenClimateControl on HomeScreen {
       const SizedBox(height: 10),
 
       // Temperature Safe Range Visual Card
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildTemperatureRangeCard(context, zone)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _buildTemperatureRangeCard(context, zone),
+      ),
 
       const SizedBox(height: 12),
 
@@ -67,12 +84,18 @@ extension _HomeScreenClimateControl on HomeScreen {
               zoneId: zone.zoneId,
               parameterCode: 'SoilMoisture',
               title: 'Độ ẩm đất (Soil)',
-              value: zone.telemetryIsFresh ? '${zone.currentSoilMoisture}%' : '—',
-              target: zone.cropContextIsDbBacked ? 'Ngưỡng theo mùa vụ DB' : 'Ngưỡng chưa đồng bộ từ DB',
+              value: zone.telemetryIsFresh
+                  ? '${zone.currentSoilMoisture}%'
+                  : '—',
+              target: zone.cropContextIsDbBacked
+                  ? 'Ngưỡng theo mùa vụ DB'
+                  : 'Ngưỡng chưa đồng bộ từ DB',
               icon: Icons.water_drop,
               iconColor: const Color(0xFF0284C7),
               bgColor: const Color(0xFFF0F9FF),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked ? null : zone.currentSoilMoisture < 60,
+              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
+                  ? null
+                  : zone.currentSoilMoisture < 60,
               unit: '%',
             ),
             _buildSensorCard(
@@ -81,7 +104,9 @@ extension _HomeScreenClimateControl on HomeScreen {
               parameterCode: 'Temperature',
               title: 'Nhiệt độ không khí',
               value: zone.telemetryIsFresh ? '${zone.currentTemp}°C' : '—',
-              target: zone.cropContextIsDbBacked ? 'Ngưỡng theo mùa vụ DB' : 'Ngưỡng chưa đồng bộ từ DB',
+              target: zone.cropContextIsDbBacked
+                  ? 'Ngưỡng theo mùa vụ DB'
+                  : 'Ngưỡng chưa đồng bộ từ DB',
               icon: Icons.thermostat,
               iconColor: const Color(0xFFEA580C),
               bgColor: const Color(0xFFFFF7ED),
@@ -96,11 +121,15 @@ extension _HomeScreenClimateControl on HomeScreen {
               parameterCode: 'AirHumidity',
               title: 'Độ ẩm không khí',
               value: zone.telemetryIsFresh ? '${zone.currentHumidity}%' : '—',
-              target: zone.cropContextIsDbBacked ? 'Ngưỡng theo mùa vụ DB' : 'Ngưỡng chưa đồng bộ từ DB',
+              target: zone.cropContextIsDbBacked
+                  ? 'Ngưỡng theo mùa vụ DB'
+                  : 'Ngưỡng chưa đồng bộ từ DB',
               icon: Icons.cloud,
               iconColor: const Color(0xFF059669),
               bgColor: const Color(0xFFF0FDF4),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked ? null : false,
+              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
+                  ? null
+                  : false,
               unit: '%',
             ),
             _buildSensorCard(
@@ -108,12 +137,18 @@ extension _HomeScreenClimateControl on HomeScreen {
               zoneId: zone.zoneId,
               parameterCode: 'LightIntensity',
               title: 'Ánh sáng (Lux)',
-              value: zone.telemetryIsFresh ? '${zone.currentLux.toInt()} lx' : '—',
-              target: zone.cropContextIsDbBacked ? 'Ngưỡng theo mùa vụ DB' : 'Ngưỡng chưa đồng bộ từ DB',
+              value: zone.telemetryIsFresh
+                  ? '${zone.currentLux.toInt()} lx'
+                  : '—',
+              target: zone.cropContextIsDbBacked
+                  ? 'Ngưỡng theo mùa vụ DB'
+                  : 'Ngưỡng chưa đồng bộ từ DB',
               icon: Icons.wb_sunny,
               iconColor: const Color(0xFFCA8A04),
               bgColor: const Color(0xFFFEFCE8),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked ? null : false,
+              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
+                  ? null
+                  : false,
               unit: 'lx',
             ),
           ],
@@ -124,7 +159,11 @@ extension _HomeScreenClimateControl on HomeScreen {
     ];
   }
 
-  List<Widget> _quickControlSection(BuildContext context, FarmProvider farmProvider, ZoneModel zone) {
+  List<Widget> _quickControlSection(
+    BuildContext context,
+    FarmProvider farmProvider,
+    ZoneModel zone,
+  ) {
     return [
       // Quick Control Section (CF3)
       Padding(
@@ -148,7 +187,9 @@ extension _HomeScreenClimateControl on HomeScreen {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: farmProvider.currentZoneActuators.isNotEmpty ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                color: farmProvider.currentZoneActuators.isNotEmpty
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -169,14 +210,20 @@ extension _HomeScreenClimateControl on HomeScreen {
       const SizedBox(height: 10),
 
       if (farmProvider.actuators.isNotEmpty && farmProvider.canEmergencyStop)
-        const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 10), child: EmergencyStopButton()),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: EmergencyStopButton(),
+        ),
 
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: farmProvider.currentZoneActuators.isEmpty
             ? Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 20,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
@@ -186,14 +233,25 @@ extension _HomeScreenClimateControl on HomeScreen {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(color: Color(0xFFF8FAFC), shape: BoxShape.circle),
-                      child: const Icon(Icons.devices_other, size: 28, color: Color(0xFF94A3B8)),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8FAFC),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.devices_other,
+                        size: 28,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Khu vực "${farmProvider.currentZone.name}" chưa có thiết bị rơ-le',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF334155),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
@@ -212,12 +270,17 @@ extension _HomeScreenClimateControl on HomeScreen {
                 itemBuilder: (context, index) {
                   final act = farmProvider.currentZoneActuators[index];
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: act.isRunning ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                        color: act.isRunning
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFE2E8F0),
                         width: act.isRunning ? 1.5 : 1,
                       ),
                     ),
@@ -226,7 +289,9 @@ extension _HomeScreenClimateControl on HomeScreen {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: act.isRunning ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                            color: act.isRunning
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -237,7 +302,9 @@ extension _HomeScreenClimateControl on HomeScreen {
                                 : act.actuatorType == 'VALVE'
                                 ? Icons.tune
                                 : Icons.lightbulb,
-                            color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF64748B),
+                            color: act.isRunning
+                                ? const Color(0xFF059669)
+                                : const Color(0xFF64748B),
                             size: 22,
                           ),
                         ),
@@ -256,11 +323,17 @@ extension _HomeScreenClimateControl on HomeScreen {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                act.isRunning ? 'Đang bật (${act.remainingMinutes} phút còn lại)' : 'Đang tắt',
+                                act.isRunning
+                                    ? 'Đang bật (${act.remainingMinutes} phút còn lại)'
+                                    : 'Đang tắt',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF94A3B8),
-                                  fontWeight: act.isRunning ? FontWeight.bold : FontWeight.normal,
+                                  color: act.isRunning
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFF94A3B8),
+                                  fontWeight: act.isRunning
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -273,13 +346,19 @@ extension _HomeScreenClimateControl on HomeScreen {
                             if (!farmProvider.canControlZone(act.zoneId)) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('⚠️ Bạn chưa được cấp quyền điều khiển thiết bị tại khu vực này!'),
+                                  content: Text(
+                                    '⚠️ Bạn chưa được cấp quyền điều khiển thiết bị tại khu vực này!',
+                                  ),
                                   backgroundColor: Color(0xFFE11D48),
                                 ),
                               );
                               return;
                             }
-                            toggleActuatorWithFeedback(context, farmProvider, act.actuatorId);
+                            toggleActuatorWithFeedback(
+                              context,
+                              farmProvider,
+                              act.actuatorId,
+                            );
                           },
                         ),
                       ],

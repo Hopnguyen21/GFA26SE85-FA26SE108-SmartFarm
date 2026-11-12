@@ -26,7 +26,14 @@ class _Step {
   final Cf1StepState state;
   final String? detail;
   final WidgetBuilder open;
-  const _Step(this.title, this.hint, this.icon, this.state, this.open, {this.detail});
+  const _Step(
+    this.title,
+    this.hint,
+    this.icon,
+    this.state,
+    this.open, {
+    this.detail,
+  });
 }
 
 class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
@@ -56,14 +63,25 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
     setState(() => _loading = true);
     final farmId = p.selectedFarmId;
     final zones = p.allZones.where((z) => z.farmId == farmId).toList();
-    final seasons = await _try(() => CropApi.getPlantingSeasons(farmId: farmId));
-    final contracts = await _try(() => ContractApi.getZoneContracts(farmId: farmId));
+    final seasons = await _try(
+      () => CropApi.getPlantingSeasons(farmId: farmId),
+    );
+    final contracts = await _try(
+      () => ContractApi.getZoneContracts(farmId: farmId),
+    );
     final invitations = await _try(() => AccountApi.getFarmInvitations(farmId));
-    final deployments = await _try(() => DeploymentApi.getOwnerDeploymentRequests());
+    final deployments = await _try(
+      () => DeploymentApi.getOwnerDeploymentRequests(),
+    );
     if (!mounted) return;
     final farmers = p.allFarmers.where((f) => f.farmId == farmId).toList();
-    final pending = invitations?.where((i) => i['status']?.toString() == 'Pending').length;
-    final statuses = deployments?.where((d) => d.farmId == farmId).map((d) => d.status).toList();
+    final pending = invitations
+        ?.where((i) => i['status']?.toString() == 'Pending')
+        .length;
+    final statuses = deployments
+        ?.where((d) => d.farmId == farmId)
+        .map((d) => d.status)
+        .toList();
     final fields = p.fieldsForCurrentFarm.length;
 
     setState(() {
@@ -72,9 +90,14 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
           'Trang trại → Lô đất → Zone',
           'Tạo cấu trúc Farm, Field, Zone (kèm ranh giới nếu có).',
           Icons.agriculture,
-          structureState(farms: p.farms.length, fields: fields, zones: zones.length),
+          structureState(
+            farms: p.farms.length,
+            fields: fields,
+            zones: zones.length,
+          ),
           (_) => const FarmsManagementScreen(),
-          detail: '${p.farms.length} trang trại · $fields lô · ${zones.length} Zone (trang trại đang chọn)',
+          detail:
+              '${p.farms.length} trang trại · $fields lô · ${zones.length} Zone (trang trại đang chọn)',
         ),
         _Step(
           'Vụ trồng',
@@ -82,12 +105,14 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
           Icons.grass,
           seasonState(zones: zones.length, seasons: seasons?.length),
           // Vụ trồng thuộc từng Zone: mở danh sách vụ của Zone đầu tiên (chưa có Zone thì về quản lý cấu trúc).
-          (_) => zones.isEmpty ? const FarmsManagementScreen() : ZonePlantingSeasonsScreen(zone: zones.first),
+          (_) => zones.isEmpty
+              ? const FarmsManagementScreen()
+              : ZonePlantingSeasonsScreen(zone: zones.first),
           detail: seasons == null ? null : '${seasons.length} vụ',
         ),
         _Step(
-          'Hợp đồng thuê Zone (tuỳ chọn)',
-          'Chỉ cần khi cho bên thứ ba thuê Zone. Triển khai IoT không phụ thuộc bước này.',
+          'Hợp đồng của Zone (tuỳ chọn)',
+          'Xem và quản lý hợp đồng cũ, hiện tại của Zone. Triển khai IoT không phụ thuộc bước này.',
           Icons.description_outlined,
           contractState(contracts: contracts?.length),
           (_) => const ContractsDepreciationScreen(),
@@ -99,18 +124,21 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
           Icons.groups_outlined,
           staffState(
             farmers: farmers.length,
-            farmersWithoutZoneAccess: farmers.where((f) => f.zoneAccess.isEmpty).length,
+            farmersWithoutZoneAccess: farmers
+                .where((f) => f.zoneAccess.isEmpty)
+                .length,
             pendingInvitations: pending,
           ),
           (_) => const WorkforceScreen(),
-          detail: '${farmers.length} Farmer${pending == null ? '' : ' · $pending lời mời đang chờ'}',
+          detail:
+              '${farmers.length} Farmer${pending == null ? '' : ' · $pending lời mời đang chờ'}',
         ),
         _Step(
           'Triển khai IoT',
           'Gửi yêu cầu, kỹ thuật viên khảo sát, lắp đặt, gán thiết bị vào Zone, kiểm tra kết nối.',
           Icons.sensors,
           deploymentState(statuses),
-          (_) => const DeploymentPlanningScreen(),
+          (_) => const OwnerDeploymentRequestsScreen(),
           detail: statuses == null ? null : '${statuses.length} yêu cầu',
         ),
       ];
@@ -131,7 +159,10 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Tiến độ thiết lập CF1')),
       body: !owner
-          ? const AppEmptyState(icon: Icons.lock_outline, message: 'Chỉ chủ trang trại xem được tiến độ thiết lập.')
+          ? const AppEmptyState(
+              icon: Icons.lock_outline,
+              message: 'Chỉ chủ trang trại xem được tiến độ thiết lập.',
+            )
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -143,7 +174,10 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFF10B981), width: 1),
+                      side: const BorderSide(
+                        color: Color(0xFF10B981),
+                        width: 1,
+                      ),
                     ),
                     child: ListTile(
                       leading: const CircleAvatar(
@@ -153,19 +187,35 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
                       ),
                       title: const Text(
                         'Wizard thiết lập trọn gói (1 chạm)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF064E3B)),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF064E3B),
+                        ),
                       ),
                       subtitle: const Text(
                         'Khởi tạo nhanh Trang trại → Lô đất → Zone → Vụ trồng → Yêu cầu IoT trong 1 giao dịch.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF047857),
+                        ),
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF10B981)),
-                      onTap: () =>
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmSetupWizardScreen())),
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Color(0xFF10B981),
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FarmSetupWizardScreen(),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  for (var i = 0; i < _steps.length; i++) _card(i + 1, _steps[i]),
+                  for (var i = 0; i < _steps.length; i++)
+                    _card(i + 1, _steps[i]),
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
@@ -188,14 +238,21 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
           backgroundColor: c.withValues(alpha: 0.12),
           child: Icon(s.icon, color: c, size: 20),
         ),
-        title: Text('$n. ${s.title}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        subtitle: Text('${s.hint}${s.detail == null ? '' : '\n${s.detail}'}', style: const TextStyle(fontSize: 12)),
+        title: Text(
+          '$n. ${s.title}',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${s.hint}${s.detail == null ? '' : '\n${s.detail}'}',
+          style: const TextStyle(fontSize: 12),
+        ),
         isThreeLine: true,
         trailing: Text(
           cf1StateLabel(s.state),
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: c),
         ),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: s.open)),
+        onTap: () =>
+            Navigator.push(context, MaterialPageRoute(builder: s.open)),
       ),
     );
   }

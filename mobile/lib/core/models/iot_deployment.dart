@@ -41,42 +41,22 @@ const deploymentStatusLabels = <String, String>{
 };
 
 double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
-List<String> _strings(dynamic v) => (v as List? ?? const []).map((e) => e.toString()).toList();
+List<String> _strings(dynamic v) =>
+    (v as List? ?? const []).map((e) => e.toString()).toList();
 
 class IotRequirements {
   final String zoneId;
   final double zoneAreaM2;
   final List<String> parameters;
-  IotRequirements({required this.zoneId, required this.zoneAreaM2, required this.parameters});
+  IotRequirements({
+    required this.zoneId,
+    required this.zoneAreaM2,
+    required this.parameters,
+  });
   factory IotRequirements.fromJson(Map<String, dynamic> j) => IotRequirements(
     zoneId: '${j['zoneId']}',
     zoneAreaM2: _num(j['zoneAreaM2']),
     parameters: _strings(j['parameters']),
-  );
-}
-
-class DeviceRecommendation {
-  final String deviceModelId;
-  final String modelName;
-  final String deviceType;
-  final double coverageAreaM2;
-  final int quantity;
-  final List<String> coveredParameters;
-  DeviceRecommendation({
-    required this.deviceModelId,
-    required this.modelName,
-    required this.deviceType,
-    required this.coverageAreaM2,
-    required this.quantity,
-    required this.coveredParameters,
-  });
-  factory DeviceRecommendation.fromJson(Map<String, dynamic> j) => DeviceRecommendation(
-    deviceModelId: '${j['deviceModelId']}',
-    modelName: '${j['modelName']}',
-    deviceType: enumName(j['deviceType'], deviceTypes),
-    coverageAreaM2: _num(j['coverageAreaM2']),
-    quantity: (j['quantity'] as num?)?.toInt() ?? 1,
-    coveredParameters: _strings(j['coveredParameters']),
   );
 }
 
@@ -103,7 +83,8 @@ class PlanItem {
   Map<String, dynamic> toRequestJson() => {
     'deviceModelId': deviceModelId,
     'quantity': quantity,
-    if (installationNotes != null && installationNotes!.trim().isNotEmpty) 'installationNotes': installationNotes,
+    if (installationNotes != null && installationNotes!.trim().isNotEmpty)
+      'installationNotes': installationNotes,
   };
 }
 
@@ -139,13 +120,129 @@ class DeploymentDecision {
     this.notes,
     required this.decidedAtUtc,
   });
-  factory DeploymentDecision.fromJson(Map<String, dynamic> j) => DeploymentDecision(
-    decisionType: '${j['decisionType'] ?? ''}',
-    fromStatus: enumName(j['fromStatus'], deploymentStatuses),
-    toStatus: enumName(j['toStatus'], deploymentStatuses),
-    notes: j['notes'] as String?,
-    decidedAtUtc: '${j['decidedAtUtc'] ?? ''}',
-  );
+  factory DeploymentDecision.fromJson(Map<String, dynamic> j) =>
+      DeploymentDecision(
+        decisionType: '${j['decisionType'] ?? ''}',
+        fromStatus: enumName(j['fromStatus'], deploymentStatuses),
+        toStatus: enumName(j['toStatus'], deploymentStatuses),
+        notes: j['notes'] as String?,
+        decidedAtUtc: '${j['decidedAtUtc'] ?? ''}',
+      );
+}
+
+/// Dòng dự toán thiết bị Owner đã lưu cùng yêu cầu (ảnh chụp mã/tên/đơn giá lúc lưu). Là nguồn để kỹ thuật viên chỉnh sửa
+/// và đưa vào báo giá/hợp đồng; chưa phải kế hoạch thiết bị chính thức.
+class EstimateItem {
+  final String id;
+  final String? hardwareItemId;
+  final String code;
+  final String name;
+  final String? model;
+  final String role;
+  final int quantity;
+  final double unitPrice;
+  final double lineTotal;
+  final String? notes;
+  EstimateItem({
+    required this.id,
+    this.hardwareItemId,
+    required this.code,
+    required this.name,
+    this.model,
+    required this.role,
+    required this.quantity,
+    required this.unitPrice,
+    required this.lineTotal,
+    this.notes,
+  });
+  factory EstimateItem.fromJson(Map<String, dynamic> j) {
+    final qty = (j['quantity'] as num?)?.toInt() ?? 0;
+    final price = (j['unitPrice'] as num?)?.toDouble() ?? 0;
+    return EstimateItem(
+      id: '${j['estimateItemId']}',
+      hardwareItemId: j['hardwareItemId']?.toString(),
+      code: '${j['code'] ?? ''}',
+      name: '${j['name'] ?? ''}',
+      model: j['model']?.toString(),
+      role: '${j['role'] ?? ''}',
+      quantity: qty,
+      unitPrice: price,
+      lineTotal: (j['lineTotal'] as num?)?.toDouble() ?? qty * price,
+      notes: j['notes']?.toString(),
+    );
+  }
+}
+
+const zoneTypeLabels = {
+  'Greenhouse': 'Nhà màng',
+  'OpenField': 'Ngoài trời',
+  'NetHouse': 'Nhà lưới',
+};
+const soilTypeLabels = {
+  'Loam': 'Đất thịt',
+  'Clay': 'Đất sét',
+  'Sandy': 'Đất cát',
+  'Silt': 'Đất phù sa',
+};
+const seasonStatusLabels = {
+  'Planned': 'Kế hoạch',
+  'InProgress': 'Đang canh tác',
+  'Completed': 'Đã kết thúc',
+  'Cancelled': 'Đã hủy',
+};
+
+/// Ngữ cảnh của yêu cầu triển khai: lắp đặt ở farm/thửa đất/Zone nào, cây và vụ mùa nào (backend trả kèm yêu cầu).
+class DeploymentContext {
+  final String farmName;
+  final String? farmLocation;
+  final String fieldName;
+  final String? soilType;
+  final String zoneName;
+  final String zoneType;
+  final double zoneAreaM2;
+  final String? cropName;
+  final String? varietyName;
+  final String seasonName;
+  final String seasonStatus;
+  final String seasonStart; // yyyy-MM-dd
+  final String seasonExpectedEnd;
+  DeploymentContext({
+    required this.farmName,
+    this.farmLocation,
+    required this.fieldName,
+    this.soilType,
+    required this.zoneName,
+    required this.zoneType,
+    required this.zoneAreaM2,
+    this.cropName,
+    this.varietyName,
+    required this.seasonName,
+    required this.seasonStatus,
+    required this.seasonStart,
+    required this.seasonExpectedEnd,
+  });
+  factory DeploymentContext.fromJson(Map<String, dynamic> j) =>
+      DeploymentContext(
+        farmName: '${j['farmName'] ?? ''}',
+        farmLocation: j['farmLocation']?.toString(),
+        fieldName: '${j['fieldName'] ?? ''}',
+        soilType: j['soilType']?.toString(),
+        zoneName: '${j['zoneName'] ?? ''}',
+        zoneType: '${j['zoneType'] ?? ''}',
+        zoneAreaM2: (j['zoneAreaM2'] as num?)?.toDouble() ?? 0,
+        cropName: j['cropName']?.toString(),
+        varietyName: j['varietyName']?.toString(),
+        seasonName: '${j['seasonName'] ?? ''}',
+        seasonStatus: '${j['seasonStatus'] ?? ''}',
+        seasonStart: '${j['seasonStartDate'] ?? ''}',
+        seasonExpectedEnd: '${j['seasonExpectedEndDate'] ?? ''}',
+      );
+
+  /// yyyy-MM-dd → dd/MM/yyyy (giữ nguyên nếu không đúng định dạng).
+  static String vnDate(String iso) {
+    final p = iso.split('-');
+    return p.length == 3 && p[0].length == 4 ? '${p[2]}/${p[1]}/${p[0]}' : iso;
+  }
 }
 
 class DeploymentRequest {
@@ -159,6 +256,8 @@ class DeploymentRequest {
   final String? failureCode;
   final String? failureDescription;
   final List<PlanItem> planItems;
+  final List<EstimateItem> estimateItems;
+  final DeploymentContext? context;
   final List<DeploymentSurvey> surveys;
   final List<DeploymentDecision> history;
 
@@ -173,31 +272,43 @@ class DeploymentRequest {
     this.failureCode,
     this.failureDescription,
     required this.planItems,
+    this.estimateItems = const [],
+    this.context,
     required this.surveys,
     required this.history,
   });
 
-  factory DeploymentRequest.fromJson(Map<String, dynamic> j) => DeploymentRequest(
-    requestId: '${j['requestId']}',
-    farmId: '${j['farmId']}',
-    zoneId: '${j['zoneId']}',
-    technicianUserId: j['technicianUserId']?.toString(),
-    status: enumName(j['status'], deploymentStatuses),
-    requiredParameters: _strings(j['requiredParameters']),
-    ownerNotes: j['ownerNotes'] as String?,
-    failureCode: j['failureCode'] as String?,
-    failureDescription: j['failureDescription'] as String?,
-    planItems: (j['planItems'] as List? ?? const []).map((e) => PlanItem.fromJson(e as Map<String, dynamic>)).toList(),
-    surveys: (j['surveys'] as List? ?? const [])
-        .map((e) => DeploymentSurvey.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    history: (j['decisionHistory'] as List? ?? const [])
-        .map((e) => DeploymentDecision.fromJson(e as Map<String, dynamic>))
-        .toList(),
-  );
+  factory DeploymentRequest.fromJson(Map<String, dynamic> j) =>
+      DeploymentRequest(
+        requestId: '${j['requestId']}',
+        farmId: '${j['farmId']}',
+        zoneId: '${j['zoneId']}',
+        technicianUserId: j['technicianUserId']?.toString(),
+        status: enumName(j['status'], deploymentStatuses),
+        requiredParameters: _strings(j['requiredParameters']),
+        ownerNotes: j['ownerNotes'] as String?,
+        failureCode: j['failureCode'] as String?,
+        failureDescription: j['failureDescription'] as String?,
+        planItems: (j['planItems'] as List? ?? const [])
+            .map((e) => PlanItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        estimateItems: (j['estimateItems'] as List? ?? const [])
+            .map((e) => EstimateItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        context: j['context'] is Map<String, dynamic>
+            ? DeploymentContext.fromJson(j['context'] as Map<String, dynamic>)
+            : null,
+        surveys: (j['surveys'] as List? ?? const [])
+            .map((e) => DeploymentSurvey.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        history: (j['decisionHistory'] as List? ?? const [])
+            .map((e) => DeploymentDecision.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 
   /// Lần khảo sát mới nhất quyết định có được xác nhận kế hoạch hay không (backend vẫn kiểm tra lại).
-  bool get latestSurveyFeasible => surveys.isNotEmpty && surveys.last.isFeasible;
+  bool get latestSurveyFeasible =>
+      surveys.isNotEmpty && surveys.last.isFeasible;
 }
 
 class ConnectionTest {
@@ -259,7 +370,9 @@ class IotDevice {
     deviceType: enumName(j['deviceType'], deviceTypes),
     status: enumName(j['status'], deviceStatuses),
     latestTest: j['latestConnectionTest'] is Map<String, dynamic>
-        ? ConnectionTest.fromJson(j['latestConnectionTest'] as Map<String, dynamic>)
+        ? ConnectionTest.fromJson(
+            j['latestConnectionTest'] as Map<String, dynamic>,
+          )
         : null,
   );
 }
@@ -353,7 +466,9 @@ class Quotation {
     notes: j['notes'] as String?,
     contractTerms: j['contractTerms'] as String?,
     status: '${j['status']}',
-    items: (j['items'] as List? ?? const []).map((e) => QuotationItem.fromJson(e as Map<String, dynamic>)).toList(),
+    items: (j['items'] as List? ?? const [])
+        .map((e) => QuotationItem.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 }
 

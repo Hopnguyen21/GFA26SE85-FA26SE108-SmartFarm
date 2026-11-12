@@ -1,7 +1,10 @@
 part of '../crop_detail_screen.dart';
 
 extension _CropDetailScreenStateStages on _CropDetailScreenState {
-  Widget _buildStagesTab(DefaultCropProfile profile, GrowthStageProfile selectedStage) {
+  Widget _buildStagesTab(
+    DefaultCropProfile profile,
+    GrowthStageProfile selectedStage,
+  ) {
     return Column(
       children: [
         // Stage Selector
@@ -20,21 +23,31 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                 onTap: () => _rebuild(() => _selectedStageIndex = i),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF062326) : const Color(0xFFF1F5F9),
+                    color: isSelected
+                        ? const Color(0xFF062326)
+                        : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     children: [
-                      Text(stage.iconEmoji, style: const TextStyle(fontSize: 14)),
+                      Text(
+                        stage.iconEmoji,
+                        style: const TextStyle(fontSize: 14),
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         stage.name.split(' ').first,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : const Color(0xFF475569),
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF475569),
                         ),
                       ),
                     ],
@@ -67,7 +80,10 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                     children: [
                       Row(
                         children: [
-                          Text(selectedStage.iconEmoji, style: const TextStyle(fontSize: 28)),
+                          Text(
+                            selectedStage.iconEmoji,
+                            style: const TextStyle(fontSize: 28),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -83,15 +99,23 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                                 ),
                                 Text(
                                   selectedStage.nameEn,
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -108,7 +132,11 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                       const SizedBox(height: 10),
                       Text(
                         selectedStage.description,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1), height: 1.4),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFCBD5E1),
+                          height: 1.4,
+                        ),
                       ),
                     ],
                   ),
@@ -124,7 +152,11 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
                   child: Column(
@@ -132,7 +164,11 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.tune, size: 16, color: Color(0xFF10B981)),
+                          const Icon(
+                            Icons.tune,
+                            size: 16,
+                            color: Color(0xFF10B981),
+                          ),
                           const SizedBox(width: 8),
                           const Expanded(
                             child: Text(
@@ -146,14 +182,23 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'Đồng bộ AutoRule',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF059669),
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -166,10 +211,14 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                         min: selectedStage.requirements.soilMoistureMin,
                         max: selectedStage.requirements.soilMoistureMax,
                         target:
-                            (selectedStage.requirements.soilMoistureMin + selectedStage.requirements.soilMoistureMax) /
+                            (selectedStage.requirements.soilMoistureMin +
+                                selectedStage.requirements.soilMoistureMax) /
                             2,
                         current:
-                            (selectedStage.requirements.soilMoistureMin + selectedStage.requirements.soilMoistureMax) /
+                            (selectedStage.requirements.soilMoistureMin +
+                                    selectedStage
+                                        .requirements
+                                        .soilMoistureMax) /
                                 2 -
                             2,
                         unit: '%',
@@ -182,8 +231,15 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                         label: 'Nhiệt độ không khí (Air Temp)',
                         min: selectedStage.requirements.tempMin,
                         max: selectedStage.requirements.tempMax,
-                        target: (selectedStage.requirements.tempMin + selectedStage.requirements.tempMax) / 2,
-                        current: (selectedStage.requirements.tempMin + selectedStage.requirements.tempMax) / 2 + 0.5,
+                        target:
+                            (selectedStage.requirements.tempMin +
+                                selectedStage.requirements.tempMax) /
+                            2,
+                        current:
+                            (selectedStage.requirements.tempMin +
+                                    selectedStage.requirements.tempMax) /
+                                2 +
+                            0.5,
                         unit: '°C',
                         icon: Icons.thermostat,
                         accentColor: const Color(0xFFEA580C),
@@ -194,9 +250,15 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                         label: 'Độ ẩm không khí (Air Humidity)',
                         min: selectedStage.requirements.humidityMin,
                         max: selectedStage.requirements.humidityMax,
-                        target: (selectedStage.requirements.humidityMin + selectedStage.requirements.humidityMax) / 2,
+                        target:
+                            (selectedStage.requirements.humidityMin +
+                                selectedStage.requirements.humidityMax) /
+                            2,
                         current:
-                            (selectedStage.requirements.humidityMin + selectedStage.requirements.humidityMax) / 2 + 1,
+                            (selectedStage.requirements.humidityMin +
+                                    selectedStage.requirements.humidityMax) /
+                                2 +
+                            1,
                         unit: '%',
                         icon: Icons.air,
                         accentColor: const Color(0xFF059669),
@@ -216,10 +278,16 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                                color: const Color(
+                                  0xFF7C3AED,
+                                ).withValues(alpha: 0.15),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.alarm, size: 18, color: Color(0xFF7C3AED)),
+                              child: const Icon(
+                                Icons.alarm,
+                                size: 18,
+                                color: Color(0xFF7C3AED),
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -236,7 +304,10 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    selectedStage.requirements.irrigationDurationMin > 0
+                                    selectedStage
+                                                .requirements
+                                                .irrigationDurationMin >
+                                            0
                                         ? '${selectedStage.requirements.irrigationDurationMin} phút / lần • ${selectedStage.requirements.irrigationFrequencyPerDay} lần mỗi ngày'
                                         : 'Xem lịch tưới của hồ sơ',
                                     style: const TextStyle(
@@ -249,15 +320,24 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFDDD6FE)),
+                                border: Border.all(
+                                  color: const Color(0xFFDDD6FE),
+                                ),
                               ),
                               child: const Text(
                                 'Bật Bơm Tự Động',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF7C3AED),
+                                ),
                               ),
                             ),
                           ],
@@ -300,7 +380,9 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                                 width: 20,
                                 height: 20,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -318,7 +400,11 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                               Expanded(
                                 child: Text(
                                   entry.value,
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), height: 1.4),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF1E293B),
+                                    height: 1.4,
+                                  ),
                                 ),
                               ),
                             ],
@@ -371,13 +457,19 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF334155),
+                  ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isHealthy ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                  color: isHealthy
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFFFFBEB),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -385,7 +477,9 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: isHealthy ? const Color(0xFF059669) : const Color(0xFFD97706),
+                    color: isHealthy
+                        ? const Color(0xFF059669)
+                        : const Color(0xFFD97706),
                   ),
                 ),
               ),
@@ -395,7 +489,9 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: isHealthy ? const Color(0xFF065F46) : const Color(0xFFB45309),
+                  color: isHealthy
+                      ? const Color(0xFF065F46)
+                      : const Color(0xFFB45309),
                 ),
               ),
             ],
@@ -412,7 +508,10 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                   // Full background track
                   Container(
                     height: 10,
-                    decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(5)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
                   ),
                   // Optimal band segment
                   Positioned(
@@ -423,7 +522,12 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withValues(alpha: 0.35),
                         border: Border.symmetric(
-                          vertical: BorderSide(color: const Color(0xFF10B981).withValues(alpha: 0.8), width: 1.5),
+                          vertical: BorderSide(
+                            color: const Color(
+                              0xFF10B981,
+                            ).withValues(alpha: 0.8),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -436,7 +540,9 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                       width: 14,
                       height: 14,
                       decoration: BoxDecoration(
-                        color: isHealthy ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                        color: isHealthy
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFF59E0B),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
@@ -461,7 +567,11 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
             children: [
               Text(
                 'MIN: ${min.toInt()} $unit',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'monospace'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontFamily: 'monospace',
+                ),
               ),
               Text(
                 'MỤC TIÊU: ${target.toStringAsFixed(1)} $unit',
@@ -474,7 +584,11 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
               ),
               Text(
                 'MAX: ${max.toInt()} $unit',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontFamily: 'monospace'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontFamily: 'monospace',
+                ),
               ),
             ],
           ),

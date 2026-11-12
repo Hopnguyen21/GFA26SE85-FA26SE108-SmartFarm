@@ -32,15 +32,27 @@ extension FarmProviderSync on FarmProvider {
     }
     // Tải song song toàn bộ luật tự động hoá của các Zone
     final zoneRulesList = await Future.wait(
-      _zones.map((z) => AutomationApi.getAutoRules(z.zoneId).catchError((_) => <Map<String, dynamic>>[])),
+      _zones.map(
+        (z) => AutomationApi.getAutoRules(
+          z.zoneId,
+        ).catchError((_) => <Map<String, dynamic>>[]),
+      ),
     );
     final rules = <AutomationRuleModel>[];
     for (int i = 0; i < _zones.length; i++) {
       final z = _zones[i];
       final zoneRules = zoneRulesList[i];
       for (final r in zoneRules) {
-        final actuator = _actuators.where((a) => a.actuatorId == r['actuatorId']?.toString()).firstOrNull;
-        rules.add(AutomationRuleModel.fromJson(r, actuatorName: actuator?.name, defaultZoneName: z.name));
+        final actuator = _actuators
+            .where((a) => a.actuatorId == r['actuatorId']?.toString())
+            .firstOrNull;
+        rules.add(
+          AutomationRuleModel.fromJson(
+            r,
+            actuatorName: actuator?.name,
+            defaultZoneName: z.name,
+          ),
+        );
       }
     }
     _automationRules
@@ -55,7 +67,11 @@ extension FarmProviderSync on FarmProvider {
     _notify();
     try {
       // 1. Tải song song danh tính người dùng và danh sách nông trại
-      final initResults = await Future.wait([AccountApi.getMe(), FarmApi.getFarms(), AccountApi.getMyTenant()]);
+      final initResults = await Future.wait([
+        AccountApi.getMe(),
+        FarmApi.getFarms(),
+        AccountApi.getMyTenant(),
+      ]);
       _me = initResults[0] as Map<String, dynamic>?;
       _tenant = initResults[2] as Map<String, dynamic>?;
       unawaited(loadCropProfiles());
@@ -75,8 +91,11 @@ extension FarmProviderSync on FarmProvider {
         // 2. Tải song song dữ liệu cấp Farm: Thời tiết, Thửa đất, Nhân sự (nếu Owner), Cảnh báo, Tác vụ, Thông báo
         final farmLevelResults = await Future.wait([
           FarmApi.getFarmWeather(_selectedFarmId).catchError((_) => null),
-          FarmApi.getFields(_selectedFarmId).then<List<FieldModel>?>((v) => v).catchError((Object e) {
-            _structureError = 'Không tải được Thửa đất: ${e.toString().replaceFirst('Exception: ', '')}';
+          FarmApi.getFields(
+            _selectedFarmId,
+          ).then<List<FieldModel>?>((v) => v).catchError((Object e) {
+            _structureError =
+                'Không tải được Thửa đất: ${e.toString().replaceFirst('Exception: ', '')}';
             return null;
           }),
           if (_currentRole == 'OWNER')
@@ -90,7 +109,8 @@ extension FarmProviderSync on FarmProvider {
 
         _farmWeather = farmLevelResults[0] as Map<String, dynamic>?;
         // Tải lỗi → GIỮ danh sách đang có (không biến thành rỗng) và báo lỗi qua structureError.
-        final apiFields = (farmLevelResults[1] as List<FieldModel>?) ?? _fields.toList();
+        final apiFields =
+            (farmLevelResults[1] as List<FieldModel>?) ?? _fields.toList();
         final apiFarmers = farmLevelResults[2] as List<FarmerModel>;
         final apiAlerts = farmLevelResults[3] as List<AlertModel>;
         final apiTasks = farmLevelResults[4] as List<TaskModel>;
@@ -121,7 +141,9 @@ extension FarmProviderSync on FarmProvider {
                   _structureError ??=
                       'Không tải được Zone của lô "${field.name}": ${e.toString().replaceFirst('Exception: ', '')}';
                   // Giữ Zone đã có của lô này thay vì xoá.
-                  return _zones.where((z) => z.fieldId == field.fieldId).toList();
+                  return _zones
+                      .where((z) => z.fieldId == field.fieldId)
+                      .toList();
                 }),
           ),
         );
@@ -141,15 +163,23 @@ extension FarmProviderSync on FarmProvider {
           final zoneDetails = await Future.wait(
             _zones.map((z) async {
               // Lỗi tải thiết bị KHÔNG được coi là "Zone không có thiết bị": trả null để giữ danh sách cũ và ghi nhận lỗi.
-              final actsFuture = FarmApi.fetchZoneActuators(z.zoneId).then<List<ActuatorModel>?>((v) => v).catchError((
-                Object e,
-              ) {
-                _actuatorErrors[z.zoneId.toLowerCase()] = e.toString().replaceFirst('Exception: ', '');
-                return null;
-              });
-              final ctxFuture = AiApi.getAiContext(z.zoneId).catchError((_) => null);
+              final actsFuture = FarmApi.fetchZoneActuators(z.zoneId)
+                  .then<List<ActuatorModel>?>((v) => v)
+                  .catchError((Object e) {
+                    _actuatorErrors[z.zoneId.toLowerCase()] = e
+                        .toString()
+                        .replaceFirst('Exception: ', '');
+                    return null;
+                  });
+              final ctxFuture = AiApi.getAiContext(
+                z.zoneId,
+              ).catchError((_) => null);
               final res = await Future.wait([actsFuture, ctxFuture]);
-              return (zoneId: z.zoneId, acts: res[0] as List<ActuatorModel>?, ctx: res[1] as Map<String, dynamic>?);
+              return (
+                zoneId: z.zoneId,
+                acts: res[0] as List<ActuatorModel>?,
+                ctx: res[1] as Map<String, dynamic>?,
+              );
             }),
           );
 
@@ -166,8 +196,14 @@ extension FarmProviderSync on FarmProvider {
               final idx = _zones.indexWhere((z) => z.zoneId == d.zoneId);
               if (idx != -1) {
                 final crop = ctx['cropName'].toString();
-                final stage = ctx['growthStageName']?.toString() ?? _zones[idx].currentStage;
-                _zones[idx] = _zones[idx].copyWith(currentCrop: crop, currentStage: stage, cropContextIsDbBacked: true);
+                final stage =
+                    ctx['growthStageName']?.toString() ??
+                    _zones[idx].currentStage;
+                _zones[idx] = _zones[idx].copyWith(
+                  currentCrop: crop,
+                  currentStage: stage,
+                  cropContextIsDbBacked: true,
+                );
               }
             }
           }
@@ -209,11 +245,16 @@ extension FarmProviderSync on FarmProvider {
                   telemetry.containsKey('TEMPERATURE') &&
                   telemetry.containsKey('SOILMOISTURE') &&
                   telemetry.containsKey('AIRHUMIDITY') &&
-                  (telemetry.containsKey('LIGHTINTENSITY') || telemetry.containsKey('LIGHT'));
+                  (telemetry.containsKey('LIGHTINTENSITY') ||
+                      telemetry.containsKey('LIGHT'));
               final newTemp = telemetry['TEMPERATURE'] ?? curZ.currentTemp;
-              final newMoist = telemetry['SOILMOISTURE'] ?? curZ.currentSoilMoisture;
+              final newMoist =
+                  telemetry['SOILMOISTURE'] ?? curZ.currentSoilMoisture;
               final newHumid = telemetry['AIRHUMIDITY'] ?? curZ.currentHumidity;
-              final newLux = telemetry['LIGHTINTENSITY'] ?? telemetry['LIGHT'] ?? curZ.currentLux;
+              final newLux =
+                  telemetry['LIGHTINTENSITY'] ??
+                  telemetry['LIGHT'] ??
+                  curZ.currentLux;
 
               final changed =
                   newTemp != curZ.currentTemp ||
@@ -238,13 +279,16 @@ extension FarmProviderSync on FarmProvider {
               try {
                 final freshActs = await FarmApi.getZoneActuators(curZ.zoneId);
                 final zIdLower = curZ.zoneId.toLowerCase();
-                final oldActs = _actuators.where((a) => a.zoneId.toLowerCase() == zIdLower).toList();
+                final oldActs = _actuators
+                    .where((a) => a.zoneId.toLowerCase() == zIdLower)
+                    .toList();
                 bool actsChanged = oldActs.length != freshActs.length;
                 if (!actsChanged) {
                   for (int j = 0; j < oldActs.length; j++) {
                     if (oldActs[j].actuatorId != freshActs[j].actuatorId ||
                         oldActs[j].isRunning != freshActs[j].isRunning ||
-                        oldActs[j].remainingMinutes != freshActs[j].remainingMinutes ||
+                        oldActs[j].remainingMinutes !=
+                            freshActs[j].remainingMinutes ||
                         oldActs[j].name != freshActs[j].name) {
                       actsChanged = true;
                       break;
@@ -252,7 +296,9 @@ extension FarmProviderSync on FarmProvider {
                   }
                 }
                 if (actsChanged) {
-                  _actuators.removeWhere((a) => a.zoneId.toLowerCase() == zIdLower);
+                  _actuators.removeWhere(
+                    (a) => a.zoneId.toLowerCase() == zIdLower,
+                  );
                   _actuators.addAll(freshActs);
                   _notify();
                 }

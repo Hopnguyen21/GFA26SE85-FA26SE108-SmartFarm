@@ -59,7 +59,12 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF062326) : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF062326) : const Color(0xFFE2E8F0), width: 1),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF062326)
+                : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
@@ -90,7 +95,8 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
     final isFarmer = provider.currentRole == 'FARMER';
     final role = ApiService.userRole?.toLowerCase();
     // Kho tài liệu VietGAP chỉ dành cho PlatformAdmin (khớp frontend và backend).
-    final canReviewVietGapDocuments = ApiService.isAuthenticated && role == 'platformadmin';
+    final canReviewVietGapDocuments =
+        ApiService.isAuthenticated && role == 'platformadmin';
 
     final profiles = provider.defaultCropProfiles.where((p) {
       if (_selectedCategory != 'ALL' && p.realCropId != _selectedCategory) {
@@ -113,7 +119,11 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
           children: [
             Text(
               'Thư Viện Cây Trồng VietGAP',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             Text(
               'Quy trình kỹ thuật, sâu bệnh & ngưỡng vi khí hậu',
@@ -125,9 +135,16 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
           if (canReviewVietGapDocuments)
             IconButton(
               tooltip: 'Tài liệu VietGAP',
-              icon: const Icon(Icons.library_books_outlined, color: Colors.white),
-              onPressed: () =>
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const VietGapDocumentsScreen())),
+              icon: const Icon(
+                Icons.library_books_outlined,
+                color: Colors.white,
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VietGapDocumentsScreen(),
+                ),
+              ),
             ),
           Container(
             margin: EdgeInsets.only(right: isFarmer ? 14 : 0),
@@ -139,14 +156,21 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
             ),
             child: Text(
               '${provider.defaultCropProfiles.length} loại cây',
-              style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Color(0xFF10B981),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           // Chỉ FarmOwner được tạo Zone (backend: POST /fields/{id}/zones chỉ cho FarmOwner)
           if (provider.canManageFarmStructure) ...[
             IconButton(
               tooltip: 'Tạo Zone Mới',
-              icon: const Icon(Icons.add_circle_outline, color: Color(0xFF10B981)),
+              icon: const Icon(
+                Icons.add_circle_outline,
+                color: Color(0xFF10B981),
+              ),
               onPressed: () => showCreateZoneDialog(context, provider),
             ),
           ],
@@ -161,7 +185,10 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: const BoxDecoration(
               color: Color(0xFF062326),
-              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
             ),
             child: Row(
               children: [
@@ -171,7 +198,11 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                     color: const Color(0xFF10B981).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.menu_book_rounded, color: Color(0xFF10B981), size: 20),
+                  child: const Icon(
+                    Icons.menu_book_rounded,
+                    color: Color(0xFF10B981),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -190,7 +221,11 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                       SizedBox(height: 2),
                       Text(
                         'Tra cứu giai đoạn phát triển, sâu bệnh hại và ngưỡng tự động hóa cho từng loại cây.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), height: 1.3),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ),
@@ -207,12 +242,23 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm cây trồng (Tên, giống, VietGAP)...',
-                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 20,
+                  color: Color(0xFF94A3B8),
+                ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         tooltip: 'Xóa nội dung tìm kiếm',
-                        icon: const Icon(Icons.clear, size: 18, color: Color(0xFF94A3B8)),
+                        icon: const Icon(
+                          Icons.clear,
+                          size: 18,
+                          color: Color(0xFF94A3B8),
+                        ),
                         onPressed: () => setState(() => _searchQuery = ''),
                       )
                     : null,
@@ -226,11 +272,17 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF10B981),
+                    width: 1.5,
+                  ),
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
               ),
             ),
           ),
@@ -242,10 +294,15 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                _buildFilterChip('Tất cả', _selectedCategory == 'ALL', () => setState(() => _selectedCategory = 'ALL')),
+                _buildFilterChip(
+                  'Tất cả',
+                  _selectedCategory == 'ALL',
+                  () => setState(() => _selectedCategory = 'ALL'),
+                ),
                 // Bộ lọc theo cây trồng thật trong thư viện (lấy từ API)
                 for (final crop in {
-                  for (final p in provider.defaultCropProfiles) p.realCropId: '${p.emoji} ${p.name}',
+                  for (final p in provider.defaultCropProfiles)
+                    p.realCropId: '${p.emoji} ${p.name}',
                 }.entries) ...[
                   const SizedBox(width: 8),
                   _buildFilterChip(
@@ -272,7 +329,10 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                           provider.defaultCropProfiles.isEmpty
                               ? 'Chưa tải được thư viện cây trồng từ máy chủ'
                               : 'Không tìm thấy cây trồng nào',
-                          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
                         ),
                       ],
                     ),
@@ -287,7 +347,9 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
                         profile: profile,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => CropDetailScreen(profile: profile)),
+                          MaterialPageRoute(
+                            builder: (_) => CropDetailScreen(profile: profile),
+                          ),
                         ),
                       );
                     },
@@ -298,6 +360,8 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
     );
   }
 
-  static void showCreateZoneDialog(BuildContext context, FarmProvider provider) =>
-      _showCreateZoneDialogImpl(context, provider);
+  static void showCreateZoneDialog(
+    BuildContext context,
+    FarmProvider provider,
+  ) => _showCreateZoneDialogImpl(context, provider);
 }

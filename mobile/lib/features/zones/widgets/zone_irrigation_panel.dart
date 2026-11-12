@@ -35,13 +35,18 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
   String? _schedulesError;
   String? _actuatorsError;
   String? _actuatorId;
-  String? _stageId; // null = để máy chủ chọn (giai đoạn hiện tại của vụ cùng hồ sơ, hoặc giai đoạn đầu)
+  String?
+  _stageId; // null = để máy chủ chọn (giai đoạn hiện tại của vụ cùng hồ sơ, hoặc giai đoạn đầu)
   bool _busy = false;
   String? _message;
   ({SyncProblemKind kind, String message, String hint})? _problem;
 
   String? get _profileId {
-    final live = context.read<FarmProvider>().allZones.where((z) => z.zoneId == widget.zone.zoneId).firstOrNull;
+    final live = context
+        .read<FarmProvider>()
+        .allZones
+        .where((z) => z.zoneId == widget.zone.zoneId)
+        .firstOrNull;
     return (live ?? widget.zone).growthProfileId;
   }
 
@@ -65,11 +70,17 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
     // Mỗi nguồn tải độc lập: một nguồn lỗi không làm mất các nguồn còn lại, và lỗi không bị biến thành "rỗng".
     final results = await Future.wait<Object?>([
       if (profileId != null)
-        CropApi.getProfileIrrigation(profileId).then<Object?>((v) => v).catchError((Object e) => e)
+        CropApi.getProfileIrrigation(
+          profileId,
+        ).then<Object?>((v) => v).catchError((Object e) => e)
       else
         Future<Object?>.value(null),
-      AutomationApi.fetchZoneSchedules(zoneId).then<Object?>((v) => v).catchError((Object e) => e),
-      FarmApi.fetchZoneActuators(zoneId).then<Object?>((v) => v).catchError((Object e) => e),
+      AutomationApi.fetchZoneSchedules(
+        zoneId,
+      ).then<Object?>((v) => v).catchError((Object e) => e),
+      FarmApi.fetchZoneActuators(
+        zoneId,
+      ).then<Object?>((v) => v).catchError((Object e) => e),
     ]);
     if (!mounted) return;
     setState(() {
@@ -81,7 +92,10 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
         _profileSchedule = null;
         if (p != null) _profileError = _err(p);
       }
-      if (_stageId != null && !(_profileSchedule?.stages.any((s) => s.stageId == _stageId) ?? false)) _stageId = null;
+      if (_stageId != null &&
+          !(_profileSchedule?.stages.any((s) => s.stageId == _stageId) ??
+              false))
+        _stageId = null;
       final sch = results[1];
       if (sch is List<ScheduleModel>) {
         _schedules = sch;
@@ -92,7 +106,8 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
       if (act is List<ActuatorModel>) {
         _actuators = act;
         final usable = irrigationActuators(act);
-        if (!usable.any((a) => a.actuatorId == _actuatorId)) _actuatorId = usable.firstOrNull?.actuatorId;
+        if (!usable.any((a) => a.actuatorId == _actuatorId))
+          _actuatorId = usable.firstOrNull?.actuatorId;
       } else {
         _actuatorsError = _err(act!);
       }
@@ -103,7 +118,11 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
   Future<void> _editStage(StageSchedule stage) async {
     final ps = _profileSchedule;
     if (ps == null) return;
-    final edit = await showStageSessionsEditor(context, stage, canApplyAll: ps.stages.length > 1);
+    final edit = await showStageSessionsEditor(
+      context,
+      stage,
+      canApplyAll: ps.stages.length > 1,
+    );
     if (edit == null || !mounted) return;
     setState(() {
       _busy = true;
@@ -113,7 +132,8 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
     try {
       final targets = edit.applyToAllStages ? ps.stages : [stage];
       await CropApi.updateProfileIrrigation(ps.profileId, [
-        for (final t in targets) stageIrrigationPayload(t.stageId, edit.sessions),
+        for (final t in targets)
+          stageIrrigationPayload(t.stageId, edit.sessions),
       ]);
       // Tải lại từ backend: thứ người dùng thấy là thứ đã được lưu.
       final fresh = await CropApi.getProfileIrrigation(ps.profileId);
@@ -125,14 +145,21 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
             'Lịch điều khiển của thiết bị chưa đổi cho tới khi bạn đồng bộ.';
       });
     } catch (e) {
-      if (mounted) setState(() => _message = 'Không lưu được lịch tưới của hồ sơ: ${_err(e)}');
+      if (mounted)
+        setState(
+          () => _message = 'Không lưu được lịch tưới của hồ sơ: ${_err(e)}',
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _toggle(ScheduleModel s, bool on) async {
-    await _saveSchedule(s, isActive: on, success: on ? 'Đã bật lịch "${s.name}".' : 'Đã tắt lịch "${s.name}".');
+    await _saveSchedule(
+      s,
+      isActive: on,
+      success: on ? 'Đã bật lịch "${s.name}".' : 'Đã tắt lịch "${s.name}".',
+    );
   }
 
   Future<void> _saveSchedule(
@@ -174,16 +201,25 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
   }
 
   Future<void> _edit(ScheduleModel s) async {
-    final timeC = TextEditingController(text: cronToHhmm(s.cronExpression) ?? '');
-    final minC = TextEditingController(text: (s.durationSeconds / 60).toString().replaceAll(RegExp(r'\.0$'), ''));
-    final rainC = TextEditingController(text: s.rainThresholdPercent.toStringAsFixed(0));
+    final timeC = TextEditingController(
+      text: cronToHhmm(s.cronExpression) ?? '',
+    );
+    final minC = TextEditingController(
+      text: (s.durationSeconds / 60).toString().replaceAll(RegExp(r'\.0$'), ''),
+    );
+    final rainC = TextEditingController(
+      text: s.rainThresholdPercent.toStringAsFixed(0),
+    );
     var rainDelay = s.enableRainDelay;
     String? error;
     final ok = await showDialog<({int seconds, String cron})>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text('Sửa lịch "${s.name}"', style: const TextStyle(fontSize: 15)),
+          title: Text(
+            'Sửa lịch "${s.name}"',
+            style: const TextStyle(fontSize: 15),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -204,7 +240,9 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: minC,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Thời lượng (phút)',
                     isDense: true,
@@ -213,14 +251,19 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Hoãn khi có mưa', style: TextStyle(fontSize: 13)),
+                  title: const Text(
+                    'Hoãn khi có mưa',
+                    style: TextStyle(fontSize: 13),
+                  ),
                   value: rainDelay,
                   onChanged: (v) => setLocal(() => rainDelay = v),
                 ),
                 if (rainDelay)
                   TextField(
                     controller: rainC,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Ngưỡng xác suất mưa (%)',
                       isDense: true,
@@ -230,13 +273,22 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+                    child: Text(
+                      error!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB91C1C),
+                      ),
+                    ),
                   ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () {
                 final v = validateScheduleEdit(
@@ -256,7 +308,9 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
         ),
       ),
     );
-    final rain = double.tryParse(rainC.text.trim().replaceAll(',', '.')) ?? s.rainThresholdPercent;
+    final rain =
+        double.tryParse(rainC.text.trim().replaceAll(',', '.')) ??
+        s.rainThresholdPercent;
     Future.delayed(const Duration(milliseconds: 600), () {
       timeC.dispose();
       minC.dispose();
@@ -280,7 +334,10 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Đồng bộ lịch từ hồ sơ?', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          'Đồng bộ lịch từ hồ sơ?',
+          style: TextStyle(fontSize: 15),
+        ),
         content: Text(
           'Các lịch "[AutoSync]" cũ của thiết bị này sẽ được thay bằng lịch mới. Nguồn: nếu hôm nay của vụ đang chạy có lịch tùy chỉnh '
           'thì dùng lịch đó; nếu không thì dùng lịch theo giai đoạn của hồ sơ "${ps.profileName}". '
@@ -290,8 +347,14 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
           style: const TextStyle(fontSize: 13),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Đồng bộ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Đồng bộ'),
+          ),
         ],
       ),
     );
@@ -340,7 +403,10 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
       });
     }
     if (_loading) {
-      return const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: LinearProgressIndicator(minHeight: 2));
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
     }
     final usable = irrigationActuators(_actuators);
     final ps = _profileSchedule;
@@ -359,7 +425,11 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
         else if (_profileError != null)
           _error('Không tải được lịch của hồ sơ: $_profileError')
         else if (ps != null)
-          ProfileIrrigationView(schedule: ps, busy: _busy, onEdit: ps.isEditable ? _editStage : null),
+          ProfileIrrigationView(
+            schedule: ps,
+            busy: _busy,
+            onEdit: ps.isEditable ? _editStage : null,
+          ),
         const SizedBox(height: 12),
 
         // 2. Lịch đang áp dụng cho Zone
@@ -377,7 +447,13 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
               margin: const EdgeInsets.only(top: 6),
               child: ListTile(
                 dense: true,
-                title: Text(s.name, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                title: Text(
+                  s.name,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 subtitle: Text(
                   '${describeSchedule(s)}${s.nextRunFormatted == null ? '' : '\nLần chạy tới: ${s.nextRunFormatted}'}',
                   style: const TextStyle(fontSize: 11),
@@ -389,9 +465,14 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
                     IconButton(
                       tooltip: 'Sửa lịch',
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      onPressed: _busy || cronToHhmm(s.cronExpression) == null ? null : () => _edit(s),
+                      onPressed: _busy || cronToHhmm(s.cronExpression) == null
+                          ? null
+                          : () => _edit(s),
                     ),
-                    Switch(value: s.isActive, onChanged: _busy ? null : (v) => _toggle(s, v)),
+                    Switch(
+                      value: s.isActive,
+                      onChanged: _busy ? null : (v) => _toggle(s, v),
+                    ),
                   ],
                 ),
               ),
@@ -411,9 +492,12 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
           child: OutlinedButton.icon(
             onPressed: _busy
                 ? null
-                : () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => SeasonIrrigationCalendarScreen(zone: widget.zone))),
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SeasonIrrigationCalendarScreen(zone: widget.zone),
+                    ),
+                  ),
             icon: const Icon(Icons.calendar_month_outlined, size: 18),
             label: const Text('Mở lịch tưới theo ngày'),
           ),
@@ -438,7 +522,11 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
           DropdownButtonFormField<String>(
             initialValue: _actuatorId,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Thiết bị tưới', isDense: true, border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Thiết bị tưới',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
             items: [
               for (final a in usable)
                 DropdownMenuItem(
@@ -461,10 +549,15 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
               items: [
                 const DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('Tự chọn (giai đoạn hiện tại của vụ, hoặc giai đoạn đầu)'),
+                  child: Text(
+                    'Tự chọn (giai đoạn hiện tại của vụ, hoặc giai đoạn đầu)',
+                  ),
                 ),
                 for (final st in ps.stages)
-                  DropdownMenuItem<String?>(value: st.stageId, child: Text('${st.order}. ${st.name}')),
+                  DropdownMenuItem<String?>(
+                    value: st.stageId,
+                    child: Text('${st.order}. ${st.name}'),
+                  ),
               ],
               onChanged: _busy ? null : (v) => setState(() => _stageId = v),
             ),
@@ -476,22 +569,34 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.sync, size: 18),
             label: const Text('Đồng bộ lịch của hồ sơ'),
           ),
         ],
         if (_message != null) _Note(_message!),
-        if (_problem != null) ...[_error(_problem!.message), if (_problem!.hint.isNotEmpty) _Note(_problem!.hint)],
-        TextButton(onPressed: _busy ? null : _load, child: const Text('Tải lại')),
+        if (_problem != null) ...[
+          _error(_problem!.message),
+          if (_problem!.hint.isNotEmpty) _Note(_problem!.hint),
+        ],
+        TextButton(
+          onPressed: _busy ? null : _load,
+          child: const Text('Tải lại'),
+        ),
       ],
     );
   }
 
   Widget _error(String text) => Padding(
     padding: const EdgeInsets.only(top: 4),
-    child: Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+    ),
   );
 }
 
@@ -501,6 +606,9 @@ class _Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 4),
-    child: Text(text, style: const TextStyle(fontSize: 11, color: _muted, height: 1.35)),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 11, color: _muted, height: 1.35),
+    ),
   );
 }

@@ -20,11 +20,18 @@ import 'features/auth/landing_screen.dart';
 /// Chỉ dùng cho môi trường Debug/Phát triển nội bộ khi làm việc với chứng chỉ tự ký cục bộ.
 /// Tuyệt đối KHÔNG bỏ qua xác minh chứng chỉ trong bản Release hoặc cho các host ngoài danh sách cục bộ.
 class DebugLocalHttpOverrides extends HttpOverrides {
-  static const Set<String> localDevHosts = {'localhost', '127.0.0.1', '10.0.2.2'};
+  static const Set<String> localDevHosts = {
+    'localhost',
+    '127.0.0.1',
+    '10.0.2.2',
+  };
 
   /// Kiểm tra host có được phép dùng chứng chỉ tự ký hay không.
   /// Tuyệt đối từ chối nếu không phải chế độ debug hoặc không phải host nội bộ.
-  static bool isHostPermittedForSelfSigned(String host, {bool isDebug = kDebugMode}) {
+  static bool isHostPermittedForSelfSigned(
+    String host, {
+    bool isDebug = kDebugMode,
+  }) {
     if (!isDebug) return false;
     return localDevHosts.contains(host.toLowerCase());
   }
@@ -35,7 +42,8 @@ class DebugLocalHttpOverrides extends HttpOverrides {
     if (!kDebugMode) {
       return client;
     }
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+    client
+        .badCertificateCallback = (X509Certificate cert, String host, int port) {
       // Chỉ cho phép chứng chỉ tự ký cục bộ trong chế độ debug cho host phát triển nội bộ
       return isHostPermittedForSelfSigned(host, isDebug: true);
     };
@@ -71,7 +79,12 @@ class SmartFarmApp extends StatelessWidget {
         // Cho phép người dùng phóng chữ theo cài đặt hệ thống nhưng giới hạn để bố cục không vỡ.
         final media = MediaQuery.of(context);
         return MediaQuery(
-          data: media.copyWith(textScaler: media.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3)),
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(
+              minScaleFactor: 0.9,
+              maxScaleFactor: 1.3,
+            ),
+          ),
           // Chạm vào vùng trống để ẩn bàn phím.
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -82,19 +95,27 @@ class SmartFarmApp extends StatelessWidget {
       },
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): const ExtendSelectionByCharacterIntent(
+        const SingleActivator(
+          LogicalKeyboardKey.arrowLeft,
+        ): const ExtendSelectionByCharacterIntent(
           forward: false,
           collapseSelection: true,
         ),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): const ExtendSelectionByCharacterIntent(
+        const SingleActivator(
+          LogicalKeyboardKey.arrowRight,
+        ): const ExtendSelectionByCharacterIntent(
           forward: true,
           collapseSelection: true,
         ),
-        const SingleActivator(LogicalKeyboardKey.arrowUp): const ExtendSelectionVerticallyToAdjacentLineIntent(
+        const SingleActivator(
+          LogicalKeyboardKey.arrowUp,
+        ): const ExtendSelectionVerticallyToAdjacentLineIntent(
           forward: false,
           collapseSelection: true,
         ),
-        const SingleActivator(LogicalKeyboardKey.arrowDown): const ExtendSelectionVerticallyToAdjacentLineIntent(
+        const SingleActivator(
+          LogicalKeyboardKey.arrowDown,
+        ): const ExtendSelectionVerticallyToAdjacentLineIntent(
           forward: true,
           collapseSelection: true,
         ),
@@ -157,7 +178,9 @@ class _AppEntryPointState extends State<AppEntryPoint> {
     if (_isCheckingAuth) {
       return const Scaffold(
         backgroundColor: Color(0xFF062326),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF10B981))),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF10B981)),
+        ),
       );
     }
     if (!ApiService.isAuthenticated) {
@@ -211,8 +234,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final isFarmer = role == 'FARMER';
     final isTech = role == 'TECHNICIAN';
     final isOwner = !isFarmer && !isTech;
-    final screens = isFarmer ? _farmerScreens : (isTech ? _technicianScreens : _ownerScreens);
-    final pendingAlerts = farmProvider.alerts.where((a) => !a.isAcknowledged).length;
+    final screens = isFarmer
+        ? _farmerScreens
+        : (isTech ? _technicianScreens : _ownerScreens);
+    final pendingAlerts = farmProvider.alerts
+        .where((a) => !a.isAcknowledged)
+        .length;
 
     return PopScope(
       canPop: _currentIndex == 0,
@@ -228,22 +255,37 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 child: SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     child: Row(
                       children: [
-                        const Icon(Icons.cloud_off, size: 16, color: Color(0xFF92400E)),
+                        const Icon(
+                          Icons.cloud_off,
+                          size: 16,
+                          color: Color(0xFF92400E),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Không đồng bộ được: ${farmProvider.syncError}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF92400E),
+                            ),
                           ),
                         ),
                         TextButton(
-                          onPressed: farmProvider.isLoadingApi ? null : farmProvider.fetchFromApi,
-                          child: const Text('Thử lại', style: TextStyle(fontSize: 12)),
+                          onPressed: farmProvider.isLoadingApi
+                              ? null
+                              : farmProvider.fetchFromApi,
+                          child: const Text(
+                            'Thử lại',
+                            style: TextStyle(fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
@@ -266,17 +308,30 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               icon: Icon(
                 isFarmer
                     ? Icons.grass_outlined
-                    : (isTech ? Icons.precision_manufacturing_outlined : Icons.dashboard_outlined),
+                    : (isTech
+                          ? Icons.precision_manufacturing_outlined
+                          : Icons.dashboard_outlined),
               ),
               selectedIcon: Icon(
-                isFarmer ? Icons.grass : (isTech ? Icons.precision_manufacturing : Icons.dashboard),
+                isFarmer
+                    ? Icons.grass
+                    : (isTech
+                          ? Icons.precision_manufacturing
+                          : Icons.dashboard),
                 color: const Color(0xFF062326),
               ),
-              label: isFarmer ? 'Khu Vực' : (isTech ? 'Khảo Sát' : 'Trang Trại'),
+              label: isFarmer
+                  ? 'Khu Vực'
+                  : (isTech ? 'Khảo Sát' : 'Trang Trại'),
             ),
             NavigationDestination(
-              icon: Icon(isTech ? Icons.monitor_heart_outlined : Icons.eco_outlined),
-              selectedIcon: Icon(isTech ? Icons.monitor_heart : Icons.eco, color: const Color(0xFF062326)),
+              icon: Icon(
+                isTech ? Icons.monitor_heart_outlined : Icons.eco_outlined,
+              ),
+              selectedIcon: Icon(
+                isTech ? Icons.monitor_heart : Icons.eco,
+                color: const Color(0xFF062326),
+              ),
               label: isTech ? 'Thiết Bị' : 'Cây Trồng',
             ),
             const NavigationDestination(
@@ -292,7 +347,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       label: Text('$pendingAlerts'),
                       child: const Icon(Icons.assignment_outlined),
                     ),
-              selectedIcon: Icon(isOwner ? Icons.psychology : Icons.assignment, color: const Color(0xFF062326)),
+              selectedIcon: Icon(
+                isOwner ? Icons.psychology : Icons.assignment,
+                color: const Color(0xFF062326),
+              ),
               label: isOwner ? 'Trợ Lý AI' : 'Tác Vụ',
             ),
             const NavigationDestination(

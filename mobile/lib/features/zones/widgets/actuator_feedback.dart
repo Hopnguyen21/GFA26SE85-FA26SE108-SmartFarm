@@ -10,10 +10,16 @@ Future<bool> toggleActuatorWithFeedback(
   int? durationMinutes,
 }) async {
   final messenger = ScaffoldMessenger.of(context);
-  final error = await provider.toggleActuator(actuatorId, durationMinutes: durationMinutes);
+  final error = await provider.toggleActuator(
+    actuatorId,
+    durationMinutes: durationMinutes,
+  );
   if (error != null) {
     messenger.showSnackBar(
-      SnackBar(content: Text('Lệnh điều khiển thất bại: $error'), backgroundColor: const Color(0xFFDC2626)),
+      SnackBar(
+        content: Text('Lệnh điều khiển thất bại: $error'),
+        backgroundColor: const Color(0xFFDC2626),
+      ),
     );
     return false;
   }

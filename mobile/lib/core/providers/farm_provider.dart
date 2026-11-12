@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:latlong2/latlong.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -78,7 +79,11 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   @visibleForTesting
-  void setStructureForTesting({List<FieldModel> fields = const [], List<ZoneModel> zones = const [], String? error}) {
+  void setStructureForTesting({
+    List<FieldModel> fields = const [],
+    List<ZoneModel> zones = const [],
+    String? error,
+  }) {
     _fields
       ..clear()
       ..addAll(fields);
@@ -92,7 +97,9 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   void updateZonePolygon(String zoneId, List<LatLng> newPolygon) {
-    final idx = _zones.indexWhere((z) => z.zoneId.toLowerCase() == zoneId.toLowerCase());
+    final idx = _zones.indexWhere(
+      (z) => z.zoneId.toLowerCase() == zoneId.toLowerCase(),
+    );
     if (idx != -1) {
       _zones[idx] = _zones[idx].copyWith(polygon: newPolygon);
       notifyListeners();
@@ -126,8 +133,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (_isApiConnected && _realtimeTimer == null) _startRealtimeSensorTimer();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      if (_isApiConnected && _realtimeTimer == null)
+        _startRealtimeSensorTimer();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       _realtimeTimer?.cancel();
       _realtimeTimer = null;
     }
@@ -160,11 +169,19 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     (f) => f.farmId == _selectedFarmId,
     orElse: () => _farms.isNotEmpty
         ? _farms.first
-        : FarmModel(farmId: '', name: 'Chưa có nông trại', address: '', totalAreaM2: 0, latitude: 0, longitude: 0),
+        : FarmModel(
+            farmId: '',
+            name: 'Chưa có nông trại',
+            address: '',
+            totalAreaM2: 0,
+            latitude: 0,
+            longitude: 0,
+          ),
   );
 
-  FieldModel? get currentField =>
-      _selectedFieldId == null ? null : _fields.where((f) => f.fieldId == _selectedFieldId).firstOrNull;
+  FieldModel? get currentField => _selectedFieldId == null
+      ? null
+      : _fields.where((f) => f.fieldId == _selectedFieldId).firstOrNull;
 
   // Selected Zone
   int _selectedZoneIndex = 0;
@@ -176,7 +193,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   final List<FieldModel> _fields = [];
   List<FieldModel> get fields => _fields;
 
-  List<FieldModel> get fieldsForCurrentFarm => _fields.where((f) => f.farmId == _selectedFarmId).toList();
+  List<FieldModel> get fieldsForCurrentFarm =>
+      _fields.where((f) => f.farmId == _selectedFarmId).toList();
 
   final List<ZoneModel> _zones = [];
 
@@ -186,13 +204,21 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   List<FarmerModel> get allFarmers => _farmers;
 
   /// Lấy danh sách các farmer thuộc về Farm của Owner hiện tại
-  List<FarmerModel> get farmersForCurrentFarm =>
-      _farmers.where((f) => f.farmId != null && f.farmId!.toLowerCase() == _selectedFarmId.toLowerCase()).toList();
+  List<FarmerModel> get farmersForCurrentFarm => _farmers
+      .where(
+        (f) =>
+            f.farmId != null &&
+            f.farmId!.toLowerCase() == _selectedFarmId.toLowerCase(),
+      )
+      .toList();
 
   /// Nhân công đang hoạt động của một Farm CỤ THỂ (theo `farmId` của Zone), không phụ thuộc Farm đang chọn toàn cục.
   List<FarmerModel> farmersForFarm(String farmId) => [
     for (final f in _farmers)
-      if (f.isActive && f.farmId != null && f.farmId!.toLowerCase() == farmId.toLowerCase()) f,
+      if (f.isActive &&
+          f.farmId != null &&
+          f.farmId!.toLowerCase() == farmId.toLowerCase())
+        f,
   ];
 
   /// Lấy danh sách nhân công phụ trách một Zone cụ thể.
@@ -200,11 +226,16 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     if (zoneId.isEmpty) return const [];
     final targetId = zoneId.toLowerCase();
     if (_currentRole == 'OWNER') {
-      return _farmers.where((f) => f.zoneAccess.any((a) => a.zoneId.toLowerCase() == targetId)).toList();
+      return _farmers
+          .where(
+            (f) => f.zoneAccess.any((a) => a.zoneId.toLowerCase() == targetId),
+          )
+          .toList();
     }
     if (_currentRole == 'FARMER') {
       final me = currentUserFarmer;
-      if (me != null && me.zoneAccess.any((a) => a.zoneId.toLowerCase() == targetId)) {
+      if (me != null &&
+          me.zoneAccess.any((a) => a.zoneId.toLowerCase() == targetId)) {
         return [me];
       }
     }
@@ -212,14 +243,17 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   /// Nông dân đang đăng nhập (lấy từ GET /api/v1/users/me).
-  FarmerModel? get currentUserFarmer => _me != null ? FarmerModel.fromJson(_me!) : null;
+  FarmerModel? get currentUserFarmer =>
+      _me != null ? FarmerModel.fromJson(_me!) : null;
 
   /// Danh sách các khu vực được phân công cho Farmer đang đăng nhập.
   /// Tuyệt đối không fallback sang toàn bộ vùng hay danh sách của Farmer khác.
   List<ZoneModel> get assignedZonesForCurrentFarmer {
     final farmer = currentUserFarmer;
     if (farmer == null || farmer.zoneAccess.isEmpty) return const [];
-    final allowedZoneIds = farmer.zoneAccess.map((z) => z.zoneId.toLowerCase()).toSet();
+    final allowedZoneIds = farmer.zoneAccess
+        .map((z) => z.zoneId.toLowerCase())
+        .toSet();
     final seen = <String>{};
     final result = <ZoneModel>[];
     for (final z in _zones) {
@@ -242,7 +276,9 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
     if (_currentRole == 'FARMER') {
       final farmer = currentUserFarmer;
       if (farmer == null) return false;
-      return farmer.zoneAccess.any((z) => z.zoneId.toLowerCase() == zoneId.toLowerCase() && z.canControl);
+      return farmer.zoneAccess.any(
+        (z) => z.zoneId.toLowerCase() == zoneId.toLowerCase() && z.canControl,
+      );
     }
     return false;
   }
@@ -257,7 +293,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   List<ZoneModel> get zones {
     return _zones.where((z) {
       if (z.farmId != _selectedFarmId) return false;
-      if (_selectedFieldId != null && z.fieldId != _selectedFieldId) return false;
+      if (_selectedFieldId != null && z.fieldId != _selectedFieldId)
+        return false;
       return true;
     }).toList();
   }
@@ -288,17 +325,21 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
 
   /// Lỗi tải thiết bị chấp hành theo Zone (zoneId chữ thường). Có lỗi nghĩa là danh sách thiết bị CHƯA đáng tin, không phải "không có thiết bị".
   final Map<String, String> _actuatorErrors = {};
-  String? actuatorErrorFor(String zoneId) => _actuatorErrors[zoneId.toLowerCase()];
+  String? actuatorErrorFor(String zoneId) =>
+      _actuatorErrors[zoneId.toLowerCase()];
   List<ActuatorModel> get actuators => _actuators;
 
   List<ActuatorModel> get currentZoneActuators {
     if (_zones.isEmpty || _selectedZoneIndex >= _zones.length) return [];
     final currentZId = currentZone.zoneId.toLowerCase();
-    return _actuators.where((a) => a.zoneId.toLowerCase() == currentZId).toList();
+    return _actuators
+        .where((a) => a.zoneId.toLowerCase() == currentZId)
+        .toList();
   }
 
   /// Owner và Farmer được gọi dừng khẩn cấp (khớp [Authorize(Roles = "FarmOwner,Farmer")] ở backend).
-  bool get canEmergencyStop => _currentRole == 'OWNER' || _currentRole == 'FARMER';
+  bool get canEmergencyStop =>
+      _currentRole == 'OWNER' || _currentRole == 'FARMER';
 
   bool _isEmergencyStopping = false;
   bool get isEmergencyStopping => _isEmergencyStopping;
@@ -310,18 +351,25 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   final List<AppNotificationModel> _notifications = [];
 
   List<AppNotificationModel> get notifications => _notifications;
-  int get unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
+  int get unreadNotificationCount =>
+      _notifications.where((n) => !n.isRead).length;
 
   final List<TaskModel> _tasks = [];
   List<TaskModel> get tasks => _tasks;
 
   /// Owner giao thêm Farmer cho task (POST .../assignees). Trả về lỗi hoặc null.
   Future<String?> addTaskAssignees(String taskId, List<String> farmerIds) =>
-      _replaceTask(taskId, () => TaskApi.addTaskAssignees(_selectedFarmId, taskId, farmerIds));
+      _replaceTask(
+        taskId,
+        () => TaskApi.addTaskAssignees(_selectedFarmId, taskId, farmerIds),
+      );
 
   /// Owner gỡ một Farmer khỏi task (DELETE .../assignees/{farmerId}). Trả về lỗi hoặc null.
   Future<String?> removeTaskAssignee(String taskId, String farmerId) =>
-      _replaceTask(taskId, () => TaskApi.removeTaskAssignee(_selectedFarmId, taskId, farmerId));
+      _replaceTask(
+        taskId,
+        () => TaskApi.removeTaskAssignee(_selectedFarmId, taskId, farmerId),
+      );
 
   final List<ChatMessageModel> _chatMessages = [
     ChatMessageModel(
@@ -367,5 +415,6 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   List<MaterialInventoryModel> get inventoryItemsForCurrentFarm =>
       _inventoryItems.where((i) => i.farmId == _selectedFarmId).toList();
 
-  int get lowStockCount => inventoryItemsForCurrentFarm.where((i) => i.isLowStock).length;
+  int get lowStockCount =>
+      inventoryItemsForCurrentFarm.where((i) => i.isLowStock).length;
 }

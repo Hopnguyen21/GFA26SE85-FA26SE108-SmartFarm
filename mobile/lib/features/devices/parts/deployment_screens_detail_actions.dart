@@ -1,22 +1,30 @@
 part of '../deployment_screens.dart';
 
-extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetailScreenState {
+extension _DeploymentRequestDetailScreenStateActions
+    on _DeploymentRequestDetailScreenState {
   // ─── Hành động theo role + trạng thái; backend vẫn là nơi kiểm tra cuối cùng ───
   List<Widget> _actions(DeploymentRequest r) {
     final id = r.requestId;
     final buttons = <Widget>[];
-    Widget btn(String label, VoidCallback onTap, {bool danger = false}) => Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: FilledButton(
-        style: danger ? FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)) : null,
-        onPressed: _busy ? null : onTap,
-        child: Text(label),
-      ),
-    );
+    Widget btn(String label, VoidCallback onTap, {bool danger = false}) =>
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: FilledButton(
+            style: danger
+                ? FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                  )
+                : null,
+            onPressed: _busy ? null : onTap,
+            child: Text(label),
+          ),
+        );
 
     if (!widget.technician) {
       if (r.status == 'Draft') {
-        buttons.add(btn('Chỉnh số lượng kế hoạch', () => _editPlan(r, technician: false)));
+        buttons.add(
+          btn('Chỉnh số lượng kế hoạch', () => _editPlan(r, technician: false)),
+        );
         buttons.add(
           btn(
             'Gửi yêu cầu cho kỹ thuật viên',
@@ -37,14 +45,20 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
               () => _act(
                 () async => DeploymentApi.acceptDeploymentRequest(id),
                 confirmTitle: 'Tiếp nhận',
-                confirmBody: 'Bạn sẽ chịu trách nhiệm khảo sát và lắp đặt yêu cầu này.',
+                confirmBody:
+                    'Bạn sẽ chịu trách nhiệm khảo sát và lắp đặt yêu cầu này.',
               ),
             ),
           );
         case 'Accepted':
           buttons.add(btn('Ghi nhận khảo sát địa điểm', () => _survey(r)));
         case 'Surveyed':
-          buttons.add(btn('Điều chỉnh kế hoạch sau khảo sát', () => _editPlan(r, technician: true)));
+          buttons.add(
+            btn(
+              'Điều chỉnh kế hoạch sau khảo sát',
+              () => _editPlan(r, technician: true),
+            ),
+          );
           buttons.add(btn('Ghi nhận khảo sát khác', () => _survey(r)));
           if (r.latestSurveyFeasible) {
             buttons.add(
@@ -53,7 +67,8 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
                 () => _act(
                   () async => DeploymentApi.confirmDeploymentPlan(id),
                   confirmTitle: 'Xác nhận kế hoạch',
-                  confirmBody: 'Kế hoạch sẽ bị khoá và dùng làm căn cứ cấp phát.',
+                  confirmBody:
+                      'Kế hoạch sẽ bị khoá và dùng làm căn cứ cấp phát.',
                 ),
               ),
             );
@@ -91,16 +106,22 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
               ),
             ),
           );
-          buttons.add(btn('Báo thất bại & chuyển bảo trì', () => _fail(r), danger: true));
+          buttons.add(
+            btn('Báo thất bại & chuyển bảo trì', () => _fail(r), danger: true),
+          );
       }
     }
     return buttons;
   }
 
-  Future<void> _editPlan(DeploymentRequest r, {required bool technician}) async {
+  Future<void> _editPlan(
+    DeploymentRequest r, {
+    required bool technician,
+  }) async {
     final qty = {for (final i in r.planItems) i.deviceModelId: i.quantity};
     final notes = {
-      for (final i in r.planItems) i.deviceModelId: TextEditingController(text: i.installationNotes ?? ''),
+      for (final i in r.planItems)
+        i.deviceModelId: TextEditingController(text: i.installationNotes ?? ''),
     };
     final ok = await showDialog<bool>(
       context: context,
@@ -112,35 +133,50 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (final i in r.planItems) ...[
-                  Text(i.modelName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    i.modelName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Row(
                     children: [
                       IconButton(
                         tooltip: 'Giảm số lượng',
                         icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: () =>
-                            setLocal(() => qty[i.deviceModelId] = ((qty[i.deviceModelId] ?? 1) - 1).clamp(1, 100)),
+                        onPressed: () => setLocal(
+                          () => qty[i.deviceModelId] =
+                              ((qty[i.deviceModelId] ?? 1) - 1).clamp(1, 100),
+                        ),
                       ),
                       Text('${qty[i.deviceModelId]}'),
                       IconButton(
                         tooltip: 'Tăng số lượng',
                         icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () =>
-                            setLocal(() => qty[i.deviceModelId] = ((qty[i.deviceModelId] ?? 1) + 1).clamp(1, 100)),
+                        onPressed: () => setLocal(
+                          () => qty[i.deviceModelId] =
+                              ((qty[i.deviceModelId] ?? 1) + 1).clamp(1, 100),
+                        ),
                       ),
                     ],
                   ),
                   TextField(
                     controller: notes[i.deviceModelId],
-                    decoration: const InputDecoration(labelText: 'Ghi chú lắp đặt'),
+                    decoration: const InputDecoration(
+                      labelText: 'Ghi chú lắp đặt',
+                    ),
                   ),
                 ],
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Lưu')),
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Lưu'),
+            ),
           ],
         ),
       ),
@@ -188,19 +224,29 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
                 TextField(
                   controller: site,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Điều kiện địa điểm'),
+                  decoration: const InputDecoration(
+                    labelText: 'Điều kiện địa điểm',
+                  ),
                 ),
                 TextField(
                   controller: notes,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Ghi chú khảo sát'),
+                  decoration: const InputDecoration(
+                    labelText: 'Ghi chú khảo sát',
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Ghi nhận')),
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Ghi nhận'),
+            ),
           ],
         ),
       ),
@@ -246,8 +292,14 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Báo thất bại')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Báo thất bại'),
+          ),
         ],
       ),
     );
@@ -266,7 +318,11 @@ extension _DeploymentRequestDetailScreenStateActions on _DeploymentRequestDetail
         failureCode: codeText,
         description: descText,
       );
-      if (mounted) _toast(context, 'Đã chuyển bảo trì, mã service request: ${serviceId.substring(0, 8)}');
+      if (mounted)
+        _toast(
+          context,
+          'Đã chuyển bảo trì, mã service request: ${serviceId.substring(0, 8)}',
+        );
     });
   }
 }

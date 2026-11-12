@@ -2,11 +2,17 @@ part of '../farmer_dashboard_screen.dart';
 
 extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
   // ─── TAB 1: ZONES ──────────────────────────────────────────────────────────
-  Widget _buildZonesTab(BuildContext context, FarmProvider provider, List<ZoneModel> zones, FarmerModel? farmer) {
+  Widget _buildZonesTab(
+    BuildContext context,
+    FarmProvider provider,
+    List<ZoneModel> zones,
+    FarmerModel? farmer,
+  ) {
     final assignedTasks = provider.tasks.where((t) {
       if (farmer == null) return true;
       if (t.assignedFarmerId == farmer.farmerId) return true;
-      if (t.assignedFarmerName != null && t.assignedFarmerName!.contains(farmer.name)) {
+      if (t.assignedFarmerName != null &&
+          t.assignedFarmerName!.contains(farmer.name)) {
         return true;
       }
       if (t.assignedFarmerId == null || t.assignedFarmerId!.isEmpty) {
@@ -47,12 +53,19 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.access_time, color: Color(0xFF6EE7B7), size: 14),
+                      const Icon(
+                        Icons.access_time,
+                        color: Color(0xFF6EE7B7),
+                        size: 14,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: _LiveClock(
                           weekdayLabel: _weekdayVi,
-                          style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 11),
+                          style: const TextStyle(
+                            color: Color(0xFF6EE7B7),
+                            fontSize: 11,
+                          ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -66,16 +79,29 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Khu vực phụ trách', style: TextStyle(color: Colors.white60, fontSize: 11)),
+                            const Text(
+                              'Khu vực phụ trách',
+                              style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 11,
+                              ),
+                            ),
                             Text(
                               '${zones.length} nhà màng',
-                              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
@@ -86,12 +112,19 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                             Container(
                               width: 7,
                               height: 7,
-                              decoration: const BoxDecoration(color: Color(0xFF34D399), shape: BoxShape.circle),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF34D399),
+                                shape: BoxShape.circle,
+                              ),
                             ),
                             const SizedBox(width: 5),
                             const Text(
                               'LoRa Live',
-                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -106,15 +139,24 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                     children: (farmer?.permissions ?? []).map((p) {
                       final info = _permissionInfo(p);
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           '${info.$1} ${info.$2}',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -143,14 +185,21 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${assignedTasks.where((t) => !t.isCompleted).length} việc cần làm',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF065F46),
+                    ),
                   ),
                 ),
               ],
@@ -167,24 +216,38 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 24),
+                    Icon(
+                      Icons.check_circle_outline,
+                      color: Color(0xFF10B981),
+                      size: 24,
+                    ),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Tất cả công việc đã hoàn thành hoặc chưa có việc mới!',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ),
                   ],
                 ),
               )
             else
-              ...assignedTasks.map((task) => _buildFarmerTaskCard(context, provider, task)),
+              ...assignedTasks.map(
+                (task) => _buildFarmerTaskCard(context, provider, task),
+              ),
 
             const SizedBox(height: 24),
             const Text(
               'NHÀ MÀNG ĐƯỢC PHÂN CÔNG',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.8),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF065F46),
+                letterSpacing: 0.8,
+              ),
             ),
             const SizedBox(height: 10),
 
@@ -201,7 +264,11 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
     );
   }
 
-  Widget _buildFarmerTaskCard(BuildContext context, FarmProvider provider, TaskModel task) {
+  Widget _buildFarmerTaskCard(
+    BuildContext context,
+    FarmProvider provider,
+    TaskModel task,
+  ) {
     final isHigh = task.priority == 'HIGH';
 
     return Container(
@@ -215,7 +282,13 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
               ? const Color(0xFFE2E8F0)
               : (isHigh ? const Color(0xFFFECACA) : const Color(0xFFD1FAE5)),
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,8 +305,12 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                          color: task.isCompleted ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                          decoration: task.isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: task.isCompleted
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF0F172A),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -241,21 +318,30 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: task.isCompleted
                             ? const Color(0xFFF1F5F9)
-                            : (isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFECFDF5)),
+                            : (isHigh
+                                  ? const Color(0xFFFEE2E2)
+                                  : const Color(0xFFECFDF5)),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        task.isCompleted ? 'Xong' : (isHigh ? 'Khẩn cấp' : 'Bình thường'),
+                        task.isCompleted
+                            ? 'Xong'
+                            : (isHigh ? 'Khẩn cấp' : 'Bình thường'),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: task.isCompleted
                               ? const Color(0xFF64748B)
-                              : (isHigh ? const Color(0xFFDC2626) : const Color(0xFF059669)),
+                              : (isHigh
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF059669)),
                         ),
                       ),
                     ),
@@ -264,28 +350,51 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 12,
+                      color: Color(0xFF64748B),
+                    ),
                     const SizedBox(width: 3),
                     Flexible(
                       child: Text(
                         task.zoneName,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.schedule, size: 12, color: Color(0xFF64748B)),
+                    const Icon(
+                      Icons.schedule,
+                      size: 12,
+                      color: Color(0xFF64748B),
+                    ),
                     const SizedBox(width: 3),
-                    Text(task.dueDate, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Text(
+                      task.dueDate,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
                   ],
                 ),
                 TaskActions(task: task, isOwner: false),
-                if (task.description != null && task.description!.isNotEmpty) ...[
+                if (task.description != null &&
+                    task.description!.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     task.description!,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontStyle: FontStyle.italic),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF475569),
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ],
@@ -296,7 +405,11 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
     );
   }
 
-  Widget _buildZoneCard(BuildContext context, ZoneModel zone, FarmProvider provider) {
+  Widget _buildZoneCard(
+    BuildContext context,
+    ZoneModel zone,
+    FarmProvider provider,
+  ) {
     final moisture = zone.currentSoilMoisture;
     final temp = zone.currentTemp;
     final humidity = zone.currentHumidity;
@@ -311,7 +424,10 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ZoneDetailScreen(zone: zone)));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ZoneDetailScreen(zone: zone)),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -334,7 +450,10 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
               decoration: const BoxDecoration(
                 color: Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
               ),
               child: Row(
                 children: [
@@ -344,7 +463,10 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                       color: const Color(0xFF10B981).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(_cropEmoji(zone.currentCrop), style: const TextStyle(fontSize: 20)),
+                    child: Text(
+                      _cropEmoji(zone.currentCrop),
+                      style: const TextStyle(fontSize: 20),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -353,21 +475,32 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                       children: [
                         Text(
                           zone.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFF065F46),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${zone.currentCrop} • ${zone.currentStage}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B7280),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Color(0xFF10B981), size: 20),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFF10B981),
+                    size: 20,
+                  ),
                 ],
               ),
             ),
@@ -381,15 +514,21 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                       _sensorTile(
                         '💧',
                         'Ẩm đất',
-                        zone.telemetryIsFresh ? '${moisture.toStringAsFixed(1)}%' : '—',
+                        zone.telemetryIsFresh
+                            ? '${moisture.toStringAsFixed(1)}%'
+                            : '—',
                         moistureColor,
                       ),
                       const SizedBox(width: 8),
                       _sensorTile(
                         '🌡️',
                         'Nhiệt độ',
-                        zone.telemetryIsFresh ? '${temp.toStringAsFixed(1)}°C' : '—',
-                        zone.telemetryIsFresh && zone.cropContextIsDbBacked && temp > 30
+                        zone.telemetryIsFresh
+                            ? '${temp.toStringAsFixed(1)}°C'
+                            : '—',
+                        zone.telemetryIsFresh &&
+                                zone.cropContextIsDbBacked &&
+                                temp > 30
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF059669),
                       ),
@@ -397,7 +536,9 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                       _sensorTile(
                         '💨',
                         'Độ ẩm KK',
-                        zone.telemetryIsFresh ? '${humidity.toStringAsFixed(0)}%' : '—',
+                        zone.telemetryIsFresh
+                            ? '${humidity.toStringAsFixed(0)}%'
+                            : '—',
                         const Color(0xFF0284C7),
                       ),
                     ],
@@ -406,12 +547,19 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.straighten, size: 12, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.straighten,
+                        size: 12,
+                        color: Color(0xFF94A3B8),
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           '${zone.areaM2.toInt()} m²',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -419,7 +567,10 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                       // Moisture status indicator
                       Flexible(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: moistureColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
@@ -436,7 +587,11 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
                                 : '✅ Ổn định',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: moistureColor),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: moistureColor,
+                            ),
                           ),
                         ),
                       ),
@@ -466,7 +621,11 @@ extension _FarmerDashboardScreenStateZones on _FarmerDashboardScreenState {
             const SizedBox(height: 2),
             Text(
               value,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
             Text(
               label,

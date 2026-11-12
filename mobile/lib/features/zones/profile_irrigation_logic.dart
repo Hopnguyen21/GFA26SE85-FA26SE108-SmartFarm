@@ -42,7 +42,9 @@ class ProfileSession {
     durationSeconds: durationSeconds ?? this.durationSeconds,
     enabled: enabled ?? this.enabled,
     method: clearMethod ? null : (method ?? this.method),
-    waterPerPlantMl: clearWater ? null : (waterPerPlantMl ?? this.waterPerPlantMl),
+    waterPerPlantMl: clearWater
+        ? null
+        : (waterPerPlantMl ?? this.waterPerPlantMl),
   );
 
   /// Đúng schema của PUT /growth-profiles/{id}/irrigation-schedule.
@@ -51,7 +53,9 @@ class ProfileSession {
     'startTime': startTime.trim(),
     'durationSeconds': durationSeconds,
     'enabled': enabled,
-    'method': ?(method == null || method!.trim().isEmpty ? null : method!.trim()),
+    'method': ?(method == null || method!.trim().isEmpty
+        ? null
+        : method!.trim()),
     'waterPerPlantMl': ?waterPerPlantMl,
   };
 
@@ -135,34 +139,44 @@ class ProfileSchedule {
 
 /// Kiểm tra các ca của MỘT giai đoạn trước khi gửi (cùng quy tắc với backend).
 String? validateStageSessions(List<ProfileSession> sessions) {
-  if (sessions.length > maxProfileSessionsPerStage) return 'Mỗi giai đoạn tối đa $maxProfileSessionsPerStage ca tưới.';
+  if (sessions.length > maxProfileSessionsPerStage)
+    return 'Mỗi giai đoạn tối đa $maxProfileSessionsPerStage ca tưới.';
   final times = <String>{};
   for (var i = 0; i < sessions.length; i++) {
     final s = sessions[i];
     final n = i + 1;
     if (s.title.trim().isEmpty) return 'Ca $n chưa có tên.';
     final t = parseHhmm(s.startTime);
-    if (t == null) return 'Giờ của ca $n không hợp lệ (định dạng HH:mm, 00:00–23:59).';
+    if (t == null)
+      return 'Giờ của ca $n không hợp lệ (định dạng HH:mm, 00:00–23:59).';
     if (s.durationSeconds < 1 || s.durationSeconds > maxSessionSeconds) {
       return 'Thời lượng ca $n phải từ 1 giây đến 30 phút.';
     }
     final w = s.waterPerPlantMl;
-    if (w != null && (w < 0 || w > 100000)) return 'Lượng nước ca $n phải từ 0 đến 100000 ml/gốc.';
-    final normalized = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    if (!times.add(normalized)) return 'Hai ca không được trùng giờ bắt đầu ($normalized).';
+    if (w != null && (w < 0 || w > 100000))
+      return 'Lượng nước ca $n phải từ 0 đến 100000 ml/gốc.';
+    final normalized =
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    if (!times.add(normalized))
+      return 'Hai ca không được trùng giờ bắt đầu ($normalized).';
   }
   return null;
 }
 
 /// Body PUT cho một giai đoạn.
-Map<String, dynamic> stageIrrigationPayload(String stageId, List<ProfileSession> sessions) => {
+Map<String, dynamic> stageIrrigationPayload(
+  String stageId,
+  List<ProfileSession> sessions,
+) => {
   'stageId': stageId,
   'sessions': [for (final s in sessions) s.toJson()],
 };
 
 /// Mô tả ngắn một ca: "Tưới sáng · 06:15 · 8 phút · 150 ml/gốc · Nhỏ giọt (tắt)".
 String describeProfileSession(ProfileSession s) {
-  final mins = s.durationSeconds % 60 == 0 ? '${s.durationSeconds ~/ 60}' : (s.durationSeconds / 60).toStringAsFixed(1);
+  final mins = s.durationSeconds % 60 == 0
+      ? '${s.durationSeconds ~/ 60}'
+      : (s.durationSeconds / 60).toStringAsFixed(1);
   final parts = [
     s.title,
     s.startTime,

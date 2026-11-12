@@ -39,7 +39,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final confirm = _confirmPasswordCtrl.text;
 
     if (email.isEmpty || name.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Vui lòng điền đầy đủ các thông tin bắt buộc (*).');
+      setState(
+        () =>
+            _errorMessage = 'Vui lòng điền đầy đủ các thông tin bắt buộc (*).',
+      );
       return;
     }
 
@@ -104,7 +107,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
-        title: const Text('Đăng Ký Tài Khoản', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Đăng Ký Tài Khoản',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -115,12 +121,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Header title
               const Text(
                 'Tham gia Mạng lưới SmartFarm IoT',
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Quản lý vi khí hậu, trạm cảm biến LoRa và trợ lý AI nông học chuyên sâu',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.4),
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -137,10 +151,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Color(0xFFFCA5A5), size: 18),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Color(0xFFFCA5A5),
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(_errorMessage!, style: const TextStyle(color: Color(0xFFFEE2E2), fontSize: 11.5)),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFFFEE2E2),
+                            fontSize: 11.5,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -154,14 +178,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF0A2225),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  ),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedRole,
                     isExpanded: true,
                     dropdownColor: const Color(0xFF062326),
-                    icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF10B981)),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Color(0xFF10B981),
+                    ),
                     items: const [
                       DropdownMenuItem(
                         value: 'Farmer',
@@ -193,7 +222,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 14),
               _buildLabel('Họ và tên (*)'),
               const SizedBox(height: 6),
-              _buildTextField(controller: _nameCtrl, hint: 'VD: Nguyễn Văn Bình', icon: Icons.person_outline),
+              _buildTextField(
+                controller: _nameCtrl,
+                hint: 'VD: Nguyễn Văn Bình',
+                icon: Icons.person_outline,
+              ),
 
               const SizedBox(height: 14),
               _buildLabel('Email đăng nhập (*)'),
@@ -230,7 +263,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: const Color(0xFF64748B),
                     size: 18,
                   ),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
 
@@ -249,7 +283,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     color: const Color(0xFF64748B),
                     size: 18,
                   ),
-                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
               ),
 
@@ -264,16 +299,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                     foregroundColor: const Color(0xFF062326),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     elevation: 0,
                   ),
                   child: _isLoading
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF062326)),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF062326),
+                          ),
                         )
-                      : const Text('Đăng Ký Tài Khoản', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      : const Text(
+                          'Đăng Ký Tài Khoản',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
 
@@ -283,7 +329,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text(
                     'Đã có tài khoản? Đăng nhập ngay',
-                    style: TextStyle(color: Color(0xFF10B981), fontSize: 12.5, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Color(0xFF10B981),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -298,7 +348,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), letterSpacing: 0.3),
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF94A3B8),
+        letterSpacing: 0.3,
+      ),
     );
   }
 
@@ -324,17 +379,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
         fillColor: const Color(0xFF0A2225),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: const Color(0xFF10B981).withValues(alpha: 0.2)),
+          borderSide: BorderSide(
+            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: const Color(0xFF10B981).withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
     );
   }

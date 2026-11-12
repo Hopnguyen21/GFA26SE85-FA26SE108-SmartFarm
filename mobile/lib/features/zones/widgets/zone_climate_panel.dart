@@ -77,7 +77,8 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     _loadTelemetry();
     _loadProfile();
     final every = widget.refreshEvery;
-    if (every != null) _timer = Timer.periodic(every, (_) => _loadTelemetry(silent: true));
+    if (every != null)
+      _timer = Timer.periodic(every, (_) => _loadTelemetry(silent: true));
   }
 
   @override
@@ -87,7 +88,8 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
       _telemetry = null;
       _loadTelemetry();
     }
-    if (old.zone.zoneId != widget.zone.zoneId || old.zone.growthProfileId != widget.zone.growthProfileId) {
+    if (old.zone.zoneId != widget.zone.zoneId ||
+        old.zone.growthProfileId != widget.zone.growthProfileId) {
       _loadProfile();
     }
   }
@@ -138,12 +140,17 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     try {
       final all = await CropApi.getGrowthProfiles();
       if (!mounted || widget.zone.growthProfileId != profileId) return;
-      final p = all.where((x) => '${x['profileId']}'.toLowerCase() == profileId.toLowerCase()).firstOrNull;
+      final p = all
+          .where(
+            (x) => '${x['profileId']}'.toLowerCase() == profileId.toLowerCase(),
+          )
+          .firstOrNull;
       setState(() {
         if (p == null) {
           _stages = [];
           _profileName = widget.zone.growthProfileName;
-          _profileError = 'Không đọc được hồ sơ canh tác của Zone (có thể không còn hiển thị với tài khoản này).';
+          _profileError =
+              'Không đọc được hồ sơ canh tác của Zone (có thể không còn hiển thị với tài khoản này).';
         } else {
           _profileName = '${p['name']}';
           _stages = [
@@ -169,7 +176,11 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     return '${two(l.hour)}:${two(l.minute)} ${two(l.day)}/${two(l.month)}';
   }
 
-  Widget _banner(String text, {Color color = _muted, Color bg = const Color(0xFFF8FAFC)}) => Container(
+  Widget _banner(
+    String text, {
+    Color color = _muted,
+    Color bg = const Color(0xFFF8FAFC),
+  }) => Container(
     width: double.infinity,
     margin: const EdgeInsets.only(bottom: 10),
     padding: const EdgeInsets.all(10),
@@ -178,7 +189,10 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0xFFE2E8F0)),
     ),
-    child: Text(text, style: TextStyle(fontSize: 12, color: color, height: 1.4)),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 12, color: color, height: 1.4),
+    ),
   );
 
   /// Dòng trạng thái vụ + hồ sơ (tách khỏi telemetry).
@@ -193,7 +207,11 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     final profile = z.growthProfileId == null
         ? 'Chưa gắn hồ sơ canh tác (không có ngưỡng để đánh giá)'
         : 'Hồ sơ của Zone: ${_profileName ?? z.growthProfileName ?? '—'}';
-    final stageNote = z.growthProfileId != null && z.seasonStatus == 'InProgress' && stage == null && !_profileLoading
+    final stageNote =
+        z.growthProfileId != null &&
+            z.seasonStatus == 'InProgress' &&
+            stage == null &&
+            !_profileLoading
         ? '\nKhông xác định được giai đoạn "${z.currentStage}" trong hồ sơ của Zone nên chưa đánh giá ngưỡng.'
         : '';
     return _banner('$season\n$profile$stageNote', bg: Colors.white);
@@ -223,9 +241,15 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(_profileError!, style: const TextStyle(fontSize: 12, color: _red)),
+                    child: Text(
+                      _profileError!,
+                      style: const TextStyle(fontSize: 12, color: _red),
+                    ),
                   ),
-                  TextButton(onPressed: _loadProfile, child: const Text('Thử lại')),
+                  TextButton(
+                    onPressed: _loadProfile,
+                    child: const Text('Thử lại'),
+                  ),
                 ],
               ),
             ),
@@ -243,10 +267,17 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    for (final spec in _coreMetrics) SizedBox(width: w, child: _metricCard(spec, snap, stage, now)),
+                    for (final spec in _coreMetrics)
+                      SizedBox(
+                        width: w,
+                        child: _metricCard(spec, snap, stage, now),
+                      ),
                     for (final e in _extraMetrics.entries)
                       if (snap?.metrics.containsKey(e.key) == true)
-                        SizedBox(width: w, child: _metricCard(e.value, snap, stage, now)),
+                        SizedBox(
+                          width: w,
+                          child: _metricCard(e.value, snap, stage, now),
+                        ),
                   ],
                 );
               },
@@ -285,11 +316,13 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     final String text;
     final Color color;
     if (snap.isEmpty) {
-      text = 'Chưa có số đo telemetry nào cho Zone này (chưa gán node cảm biến hoặc node chưa gửi dữ liệu).';
+      text =
+          'Chưa có số đo telemetry nào cho Zone này (chưa gán node cảm biến hoặc node chưa gửi dữ liệu).';
       color = _amber;
     } else if (snap.hasFreshTelemetry) {
       final at = snap.latestReceivedAtUtc;
-      text = 'Telemetry mới${at == null ? '' : ' · nhận lúc ${_fmtTime(at)} (${ageText(at, now)})'}';
+      text =
+          'Telemetry mới${at == null ? '' : ' · nhận lúc ${_fmtTime(at)} (${ageText(at, now)})'}';
       color = _green;
     } else {
       final at = snap.latestReceivedAtUtc;
@@ -310,7 +343,11 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 11.5,
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -318,10 +355,16 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     );
   }
 
-  RequirementDraft? _req(StageDraft? stage, String code) =>
-      stage?.requirements.where((r) => normalizeParameterCode(r.code) == code).firstOrNull;
+  RequirementDraft? _req(StageDraft? stage, String code) => stage?.requirements
+      .where((r) => normalizeParameterCode(r.code) == code)
+      .firstOrNull;
 
-  Widget _metricCard(_MetricSpec spec, ZoneTelemetrySnapshot? snap, StageDraft? stage, DateTime now) {
+  Widget _metricCard(
+    _MetricSpec spec,
+    ZoneTelemetrySnapshot? snap,
+    StageDraft? stage,
+    DateTime now,
+  ) {
     final metric = snap?.metrics[spec.code];
     final req = _req(stage, spec.code);
     final verdict = evaluateMetric(metric, req);
@@ -383,7 +426,11 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: labelColor),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: labelColor,
+            ),
           ),
         ],
       ),
@@ -394,13 +441,18 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     final z = widget.zone;
     final reasons = <String>[
       if (z.growthProfileId == null) 'Zone chưa gắn hồ sơ canh tác.',
-      if (z.growthProfileId != null && _profileLoading) 'Đang tải hồ sơ canh tác…',
-      if (z.growthProfileId != null && !_profileLoading && _loadedProfileId == z.growthProfileId && stage == null)
+      if (z.growthProfileId != null && _profileLoading)
+        'Đang tải hồ sơ canh tác…',
+      if (z.growthProfileId != null &&
+          !_profileLoading &&
+          _loadedProfileId == z.growthProfileId &&
+          stage == null)
         z.seasonStatus == 'InProgress'
             ? 'Không xác định được giai đoạn hiện tại trong hồ sơ của Zone.'
             : 'Zone chưa có vụ đang canh tác nên chưa biết đang ở giai đoạn nào.',
       if (snap == null || snap.isEmpty) 'Chưa có số đo telemetry.',
-      if (snap != null && !snap.isEmpty && !snap.hasFreshTelemetry) 'Telemetry đã cũ.',
+      if (snap != null && !snap.isEmpty && !snap.hasFreshTelemetry)
+        'Telemetry đã cũ.',
     ];
     final rows = <Widget>[];
     if (stage != null && snap != null) {
@@ -416,7 +468,9 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
             child: Row(
               children: [
                 Icon(
-                  v == MetricVerdict.ok ? Icons.check_circle : Icons.warning_amber_rounded,
+                  v == MetricVerdict.ok
+                      ? Icons.check_circle
+                      : Icons.warning_amber_rounded,
                   size: 16,
                   color: v == MetricVerdict.ok ? _green : _red,
                 ),
@@ -446,8 +500,14 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            stage == null ? 'Đánh giá theo ngưỡng giai đoạn' : 'Đánh giá theo ngưỡng giai đoạn "${stage.name}"',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _ink),
+            stage == null
+                ? 'Đánh giá theo ngưỡng giai đoạn'
+                : 'Đánh giá theo ngưỡng giai đoạn "${stage.name}"',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 8),
           if (rows.isEmpty)

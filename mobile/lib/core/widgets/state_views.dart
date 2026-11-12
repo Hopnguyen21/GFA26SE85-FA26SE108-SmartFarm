@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// Chữ lỗi gọn cho người dùng: bỏ tiền tố "Exception: " của lỗi kỹ thuật.
-String friendlyError(Object error) => error.toString().replaceFirst('Exception: ', '');
+String friendlyError(Object error) =>
+    error.toString().replaceFirst('Exception: ', '');
 
 /// Trạng thái đang tải dùng chung (thay cho các CircularProgressIndicator rải rác).
 class AppLoading extends StatelessWidget {
@@ -18,7 +19,10 @@ class AppLoading extends StatelessWidget {
           const CircularProgressIndicator(),
           if (message != null) ...[
             const SizedBox(height: AppSpacing.md),
-            Text(message!, style: const TextStyle(fontSize: 13, color: AppColors.textMuted)),
+            Text(
+              message!,
+              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            ),
           ],
         ],
       ),
@@ -54,7 +58,11 @@ class AppEmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textMuted, height: 1.4),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textMuted,
+                height: 1.4,
+              ),
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -82,12 +90,20 @@ class AppErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined, size: 44, color: AppColors.textFaint),
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 44,
+              color: AppColors.textFaint,
+            ),
             const SizedBox(height: AppSpacing.md),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textMuted, height: 1.4),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textMuted,
+                height: 1.4,
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -109,7 +125,11 @@ class PullToRefresh extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Widget child;
 
-  const PullToRefresh({super.key, required this.onRefresh, required this.child});
+  const PullToRefresh({
+    super.key,
+    required this.onRefresh,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {

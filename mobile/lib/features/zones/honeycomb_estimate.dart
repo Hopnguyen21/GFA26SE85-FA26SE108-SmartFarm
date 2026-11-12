@@ -70,14 +70,18 @@ class HardwareCatalogItem {
     final rawPrice = g('unitPrice');
     final price = rawPrice == null
         ? null
-        : (rawPrice is num ? rawPrice.toDouble() : double.tryParse('$rawPrice'.trim().replaceAll(',', '.')));
+        : (rawPrice is num
+              ? rawPrice.toDouble()
+              : double.tryParse('$rawPrice'.trim().replaceAll(',', '.')));
     final measured = g('measuredParameters');
     final units = int.tryParse('${g('estimateUnits') ?? 1}') ?? 1;
     return HardwareCatalogItem(
       id: '${g('id') ?? ''}',
       code: '${g('code') ?? ''}'.trim(),
       name: '${g('name') ?? ''}'.trim(),
-      model: g('model')?.toString().trim().isEmpty ?? true ? null : g('model').toString().trim(),
+      model: g('model')?.toString().trim().isEmpty ?? true
+          ? null
+          : g('model').toString().trim(),
       category: '${g('category') ?? ''}'.trim(),
       status: '${g('status') ?? ''}'.trim(),
       quantityInStock: int.tryParse('${g('quantityInStock') ?? 0}') ?? 0,
@@ -85,7 +89,9 @@ class HardwareCatalogItem {
       assignedTechnicianId: g('assignedTechnicianId')?.toString(),
       role: parseEstimateRole(g('estimateRole')),
       estimateUnits: units < 1 ? 1 : units,
-      measuredParameters: measured is List ? [for (final e in measured) '$e'] : null,
+      measuredParameters: measured is List
+          ? [for (final e in measured) '$e']
+          : null,
     );
   }
 
@@ -94,17 +100,30 @@ class HardwareCatalogItem {
   /// Bản ghi đã ngừng dùng thì không đưa vào dự toán. Hết hàng KHÔNG bị coi là không có giá.
   bool get isRetired {
     final s = status.toLowerCase();
-    return s.contains('retire') || s.contains('discontinu') || s.contains('ngừng');
+    return s.contains('retire') ||
+        s.contains('discontinu') ||
+        s.contains('ngừng');
   }
 
   /// Gateway luôn là thiết bị hoàn chỉnh nên được nhận theo category khi chưa gán vai trò.
-  bool get isGatewayByCategory => role == null && category.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '') == 'gateway';
+  bool get isGatewayByCategory =>
+      role == null &&
+      category.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '') == 'gateway';
 }
 
-enum ResolutionIssue { none, notConfigured, noPrice, ambiguous, priceConflict, retiredOnly }
+enum ResolutionIssue {
+  none,
+  notConfigured,
+  noPrice,
+  ambiguous,
+  priceConflict,
+  retiredOnly,
+}
 
 /// Thiết bị được chọn cho một hạng mục.
 class HoneycombItem {
+  /// Id bản ghi kho (PlatformHardwareItems.Id), dùng khi lưu dự toán kèm yêu cầu.
+  final String id;
   final String code;
   final String name;
   final String? model;
@@ -113,6 +132,7 @@ class HoneycombItem {
   final List<String>? measuredParameters;
   final bool fromCategoryFallback;
   const HoneycombItem({
+    this.id = '',
     required this.code,
     required this.name,
     this.model,
@@ -173,15 +193,24 @@ class HoneycombCatalog {
   HoneycombItem? get accessories => resolutions[EstimateRole.installKit]!.item;
 
   factory HoneycombCatalog.fromHardwareItems(List<Map<String, dynamic>> raw) =>
-      HoneycombCatalog.fromItems([for (final m in raw) HardwareCatalogItem.fromJson(m)]);
+      HoneycombCatalog.fromItems([
+        for (final m in raw) HardwareCatalogItem.fromJson(m),
+      ]);
 
   factory HoneycombCatalog.fromItems(List<HardwareCatalogItem> items) =>
-      HoneycombCatalog._(items, {for (final r in EstimateRole.values) r: _resolve(r, items)});
+      HoneycombCatalog._(items, {
+        for (final r in EstimateRole.values) r: _resolve(r, items),
+      });
 
-  static ItemResolution _resolve(EstimateRole role, List<HardwareCatalogItem> all) {
+  static ItemResolution _resolve(
+    EstimateRole role,
+    List<HardwareCatalogItem> all,
+  ) {
     final candidates = [
       for (final i in all)
-        if (i.role == role || (role == EstimateRole.gateway && i.isGatewayByCategory)) i,
+        if (i.role == role ||
+            (role == EstimateRole.gateway && i.isGatewayByCategory))
+          i,
     ];
     if (candidates.isEmpty) {
       return ItemResolution(
@@ -205,7 +234,9 @@ class HoneycombCatalog {
     // Gộp theo mã: bản sao cấp cho kỹ thuật viên cùng mã là CÙNG một sản phẩm.
     final byCode = <String, List<HardwareCatalogItem>>{};
     for (final c in active) {
-      byCode.putIfAbsent(c.code.isEmpty ? c.id : c.code.toUpperCase(), () => []).add(c);
+      byCode
+          .putIfAbsent(c.code.isEmpty ? c.id : c.code.toUpperCase(), () => [])
+          .add(c);
     }
     final priced = <HardwareCatalogItem>[];
     final unusable = <String>[];
@@ -232,7 +263,9 @@ class HoneycombCatalog {
       );
     }
     // Gateway: một vùng chỉ dùng một loại gateway nên nhiều loại là mơ hồ.
-    if (role != EstimateRole.sensorNode && role != EstimateRole.installKit && priced.length > 1) {
+    if (role != EstimateRole.sensorNode &&
+        role != EstimateRole.installKit &&
+        priced.length > 1) {
       return ItemResolution(
         role,
         const [],
@@ -255,6 +288,7 @@ class HoneycombCatalog {
       [
         for (final p in priced)
           HoneycombItem(
+            id: p.id,
             code: p.code,
             name: p.name,
             model: p.model,
@@ -278,7 +312,8 @@ class HoneycombCatalog {
     return [
       for (final i in items)
         () {
-          final role = i.role ?? (i.isGatewayByCategory ? EstimateRole.gateway : null);
+          final role =
+              i.role ?? (i.isGatewayByCategory ? EstimateRole.gateway : null);
           final used = chosen[i.code.toUpperCase()];
           if (used != null && used == role) {
             return CatalogDiagnosticRow(
@@ -298,7 +333,15 @@ class HoneycombCatalog {
               : !i.hasValidPrice
               ? 'Đơn giá null/0'
               : resolutions[role]!.detail;
-          return CatalogDiagnosticRow(i.code, i.category, i.unitPrice, i.status, role, false, reason);
+          return CatalogDiagnosticRow(
+            i.code,
+            i.category,
+            i.unitPrice,
+            i.status,
+            role,
+            false,
+            reason,
+          );
         }(),
     ];
   }
@@ -310,7 +353,8 @@ String _norm(String s) => s.trim().toLowerCase();
 /// Kiểm tra năng lực đo của node cảm biến so với nhu cầu đo của Zone/hồ sơ.
 class CapabilityCheck {
   final bool declared; // thiết bị đã khai báo thông số đo
-  final List<String> missing; // nhu cầu mà thiết bị đã khai báo nhưng KHÔNG đo được
+  final List<String>
+  missing; // nhu cầu mà thiết bị đã khai báo nhưng KHÔNG đo được
   const CapabilityCheck(this.declared, this.missing);
   bool get hasGap => declared && missing.isNotEmpty;
 }
@@ -321,7 +365,8 @@ class ZoneInstalledDevices {
   final int sensorNodes;
   final int actuatorNodes;
   final int gateways; // số gateway khác nhau mà các thiết bị của Zone đang dùng
-  final Set<String> measured; // thông số (đã chuẩn hóa chữ thường) mà cảm biến đã gắn đo được
+  final Set<String>
+  measured; // thông số (đã chuẩn hóa chữ thường) mà cảm biến đã gắn đo được
   const ZoneInstalledDevices({
     this.sensorNodes = 0,
     this.actuatorNodes = 0,
@@ -338,12 +383,16 @@ class ZoneInstalledDevices {
     final gw = <String>{};
     final measured = <String>{};
     for (final d in devices) {
-      if ('${d['status']}'.toLowerCase().contains('decommission')) continue; // đã ngừng thì không tính
+      if ('${d['status']}'.toLowerCase().contains('decommission'))
+        continue; // đã ngừng thì không tính
       final type = '${d['deviceType']}'.toLowerCase();
       if (type == 'sensornode') sensors++;
       if (type == 'actuatornode') actuators++;
       final g = '${d['gatewayId'] ?? ''}';
-      if (g.isNotEmpty && g != 'null' && g != '00000000-0000-0000-0000-000000000000') gw.add(g);
+      if (g.isNotEmpty &&
+          g != 'null' &&
+          g != '00000000-0000-0000-0000-000000000000')
+        gw.add(g);
       final ss = d['sensors'];
       if (ss is List) {
         for (final x in ss) {
@@ -368,10 +417,15 @@ CapabilityCheck checkCapability(
 }) {
   if (required.isEmpty) return const CapabilityCheck(true, []);
   // Chỉ kết luận thiếu hụt khi MỌI node sẽ bổ sung đã khai báo thông số; thiếu khai báo thì không khẳng định gì.
-  if (addedSensors.any((s) => s.measuredParameters == null || s.measuredParameters!.isEmpty)) {
+  if (addedSensors.any(
+    (s) => s.measuredParameters == null || s.measuredParameters!.isEmpty,
+  )) {
     return const CapabilityCheck(false, []);
   }
-  final have = {...installedMeasured, for (final s in addedSensors) ...s.measuredParameters!.map(_norm)};
+  final have = {
+    ...installedMeasured,
+    for (final s in addedSensors) ...s.measuredParameters!.map(_norm),
+  };
   return CapabilityCheck(true, [
     for (final r in {...required})
       if (!have.contains(_norm(r))) r,
@@ -381,9 +435,11 @@ CapabilityCheck checkCapability(
 class EstimateLine {
   final EstimateRole role;
   final int requiredUnits; // số đơn vị CẦN BỔ SUNG (đã trừ thiết bị đã gắn)
-  final int quantity; // số thiết bị phải mua = ceil(requiredUnits / unitsPerItem của thiết bị này)
+  final int
+  quantity; // số thiết bị phải mua = ceil(requiredUnits / unitsPerItem của thiết bị này)
   final ItemResolution resolution;
-  final HoneycombItem? item; // null = hạng mục chưa có thiết bị/đơn giá (hoặc đã đủ, xem covered)
+  final HoneycombItem?
+  item; // null = hạng mục chưa có thiết bị/đơn giá (hoặc đã đủ, xem covered)
   final int neededTotal; // tổng nhu cầu theo thuật toán
   final int installed; // đã gắn trong Zone
   final bool covered; // không cần bổ sung hạng mục này
@@ -401,7 +457,8 @@ class EstimateLine {
   });
 
   double? get unitPrice => item?.unitPrice;
-  double? get lineTotal => covered ? 0 : (item == null ? null : quantity * item!.unitPrice);
+  double? get lineTotal =>
+      covered ? 0 : (item == null ? null : quantity * item!.unitPrice);
 }
 
 class HoneycombEstimate {
@@ -460,8 +517,13 @@ class HoneycombEstimate {
 
   /// Lý do không có tổng (null khi có tổng).
   String? get totalBlockedReason {
-    final missing = lines.where((l) => l.lineTotal == null).map((l) => l.role.label).toSet().toList();
-    if (missing.isNotEmpty) return 'Thiếu dữ liệu thiết bị/đơn giá: ${missing.join(', ')}.';
+    final missing = lines
+        .where((l) => l.lineTotal == null)
+        .map((l) => l.role.label)
+        .toSet()
+        .toList();
+    if (missing.isNotEmpty)
+      return 'Thiếu dữ liệu thiết bị/đơn giá: ${missing.join(', ')}.';
     if (capability.hasGap) {
       return 'Chưa có thiết bị nào (đã gắn hoặc trong danh mục) đo được: ${capability.missing.join(', ')}.';
     }
@@ -469,15 +531,19 @@ class HoneycombEstimate {
   }
 
   /// Tổng = đúng tổng các dòng + phí thi công; thiếu một hạng mục hoặc có thiếu hụt năng lực đo thì không có tổng.
-  double? get total =>
-      totalBlockedReason != null ? null : lines.fold<double>(0, (a, l) => a + l.lineTotal!) + installationCost;
+  double? get total => totalBlockedReason != null
+      ? null
+      : lines.fold<double>(0, (a, l) => a + l.lineTotal!) + installationCost;
 
   /// Tạm tính khi MỌI hạng mục đã có thiết bị và đơn giá nhưng thiết bị chưa đáp ứng hết nhu cầu đo (capability.hasGap).
   /// Không phải tổng đầy đủ: phải hiển thị kèm cảnh báo thông số còn thiếu. Null khi còn thiếu hạng mục/đơn giá.
-  double? get partialTotal =>
-      total == null && hasFullPricing ? lines.fold<double>(0, (a, l) => a + l.lineTotal!) + installationCost : null;
-  double? get minTotal => total == null || total == 0 ? null : (total! * 0.88).roundToDouble();
-  double? get maxTotal => total == null || total == 0 ? null : (total! * 1.18).roundToDouble();
+  double? get partialTotal => total == null && hasFullPricing
+      ? lines.fold<double>(0, (a, l) => a + l.lineTotal!) + installationCost
+      : null;
+  double? get minTotal =>
+      total == null || total == 0 ? null : (total! * 0.88).roundToDouble();
+  double? get maxTotal =>
+      total == null || total == 0 ? null : (total! * 1.18).roundToDouble();
 }
 
 /// Phí khảo sát, định vị GPS & cấu hình mạng mesh: tham số cố định của thuật toán (khớp web), KHÔNG lấy từ danh mục.
@@ -488,6 +554,15 @@ const double honeycombFixedRadiusM = 25;
 
 /// Hệ số bù biên cho hình học thực tế không vuông vức (khớp web).
 const double honeycombBoundaryFactor = 1.12;
+
+/// Số node cảm biến = ceil(a·S_zone/S_ô + b·chu_vi/khoảng_cách_node + c). Hệ số khớp từ mô phỏng bài toán phủ kín 70 ca
+/// (14 diện tích × 5 tỉ lệ cạnh, bán kính 25 m): đúng ở đa số ca, thiếu tối đa 1 node ở 2/70 ca. Công thức cũ
+/// (1,12·S_zone/S_ô, tối thiểu 2) thiếu node ở 29/70 ca, có ca thiếu tới 3 node. Đây vẫn là ước tính: kỹ thuật viên
+/// khảo sát xác nhận vị trí thực tế.
+const double honeycombNodeAreaFactor = 1.24;
+const double honeycombNodePerimeterFactor = 0.08;
+const double honeycombNodeOffset = 0.15;
+const int honeycombMinSensors = 1;
 
 /// Mỗi Gateway LoRa phủ tối đa ~15.000 m² nhà màng (khớp web).
 const double honeycombGatewayCoverM2 = 15000;
@@ -516,10 +591,16 @@ class SensorKitPick {
 /// - bộ chính (phủ nhiều thông số cần nhất, ngang nhau thì rẻ hơn) dùng cho các điểm còn lại;
 /// - mỗi thông số mà bộ chính chưa đo được thì thêm 1 bộ biến thể phủ nó, thay cho 1 bộ chính (tổng số điểm không đổi).
 /// Không có căn cứ chọn theo thông số (chưa khai báo/không có nhu cầu): dùng bộ rẻ nhất cho mọi điểm, không khẳng định gì.
-List<SensorKitPick> planSensorKits(List<HoneycombItem> kits, List<String> target, int nodes) {
+List<SensorKitPick> planSensorKits(
+  List<HoneycombItem> kits,
+  List<String> target,
+  int nodes,
+) {
   if (kits.isEmpty || nodes <= 0) return const [];
   final want = {for (final t in target) _norm(t)};
-  Set<String> paramsOf(HoneycombItem k) => {for (final p in k.measuredParameters ?? const <String>[]) _norm(p)};
+  Set<String> paramsOf(HoneycombItem k) => {
+    for (final p in k.measuredParameters ?? const <String>[]) _norm(p),
+  };
   int byPrice(HoneycombItem a, HoneycombItem b) {
     final c = a.unitPrice.compareTo(b.unitPrice);
     return c != 0 ? c : a.code.compareTo(b.code);
@@ -545,7 +626,9 @@ List<SensorKitPick> planSensorKits(List<HoneycombItem> kits, List<String> target
 
   final primary = best(want);
   if (primary == null)
-    return [SensorKitPick(cheapest, nodes)]; // không bộ nào đo được: vẫn tính điểm đo, thiếu hụt báo riêng
+    return [
+      SensorKitPick(cheapest, nodes),
+    ]; // không bộ nào đo được: vẫn tính điểm đo, thiếu hụt báo riêng
   final remaining = {...want}..removeAll(paramsOf(primary));
   final extras = <HoneycombItem>[];
   while (remaining.isNotEmpty) {
@@ -555,7 +638,51 @@ List<SensorKitPick> planSensorKits(List<HoneycombItem> kits, List<String> target
     remaining.removeAll(paramsOf(k));
   }
   final total = math.max(nodes, extras.length + 1);
-  return [SensorKitPick(primary, total - extras.length), for (final k in extras) SensorKitPick(k, 1)];
+  return [
+    SensorKitPick(primary, total - extras.length),
+    for (final k in extras) SensorKitPick(k, 1),
+  ];
+}
+
+/// Chu vi (m) bao lồi của ranh giới Zone, quy đổi từ toạ độ lat/lng sang mét. Null khi ranh giới không hợp lệ (<3 đỉnh).
+/// Dùng bao lồi vì node cảm biến chỉ cần phủ vùng thực tế nằm trong bao lồi; chu vi lõm sẽ làm số node phình lên vô lý.
+double? convexHullPerimeterM(List<({double lat, double lng})> pts) {
+  if (pts.length < 3) return null;
+  final lat0 = pts.map((p) => p.lat).reduce((a, b) => a + b) / pts.length;
+  final kx = 111320.0 * math.cos(lat0 * math.pi / 180);
+  const ky = 110540.0;
+  final xy = [
+    for (final p in pts) (p.lng * kx, p.lat * ky),
+  ]..sort((a, b) => a.$1 != b.$1 ? a.$1.compareTo(b.$1) : a.$2.compareTo(b.$2));
+  double cross((double, double) o, (double, double) a, (double, double) b) =>
+      (a.$1 - o.$1) * (b.$2 - o.$2) - (a.$2 - o.$2) * (b.$1 - o.$1);
+  final lower = <(double, double)>[];
+  for (final p in xy) {
+    while (lower.length >= 2 &&
+        cross(lower[lower.length - 2], lower.last, p) <= 0) {
+      lower.removeLast();
+    }
+    lower.add(p);
+  }
+  final upper = <(double, double)>[];
+  for (final p in xy.reversed) {
+    while (upper.length >= 2 &&
+        cross(upper[upper.length - 2], upper.last, p) <= 0) {
+      upper.removeLast();
+    }
+    upper.add(p);
+  }
+  final hull = [...lower]..removeLast();
+  hull.addAll(upper..removeLast());
+  if (hull.length < 3) return null;
+  var per = 0.0;
+  for (var i = 0; i < hull.length; i++) {
+    final a = hull[i], b = hull[(i + 1) % hull.length];
+    per += math.sqrt(
+      (a.$1 - b.$1) * (a.$1 - b.$1) + (a.$2 - b.$2) * (a.$2 - b.$2),
+    );
+  }
+  return per;
 }
 
 /// Thuật toán mạng Tổ ong (ô lục giác bán kính R): S = 3√3/2·R², khoảng cách node D = √3·R.
@@ -568,11 +695,23 @@ HoneycombEstimate computeHoneycombEstimate({
   required HoneycombCatalog catalog,
   List<String> requiredParameters = const [],
   ZoneInstalledDevices installed = ZoneInstalledDevices.none,
+  double? perimeterM,
 }) {
   final area = math.max(50.0, areaM2);
   final r = radiusM.clamp(6.0, 30.0).toDouble();
   final cell = 3 * math.sqrt(3) / 2 * r * r;
-  final sensors = math.max(2, (area / cell * honeycombBoundaryFactor).ceil());
+  // Chu vi: ưu tiên chu vi thật của ranh giới Zone; không có thì giả định hình chữ nhật 1:2 (thận trọng hơn hình vuông).
+  // Giới hạn trong [đường tròn, 12·√S] để ranh giới sai/lệch không làm số node vô lý.
+  final per = (perimeterM ?? 4.2426 * math.sqrt(area))
+      .clamp(3.545 * math.sqrt(area), 12 * math.sqrt(area))
+      .toDouble();
+  final sensors = math.max(
+    honeycombMinSensors,
+    (honeycombNodeAreaFactor * area / cell +
+            honeycombNodePerimeterFactor * per / (math.sqrt(3) * r) +
+            honeycombNodeOffset)
+        .ceil(),
+  );
   final actuators = math.max(1, (sensors * actuatorRatio).ceil());
   final gateways = math.max(1, (area / honeycombGatewayCoverM2).ceil());
 
@@ -588,25 +727,64 @@ HoneycombEstimate computeHoneycombEstimate({
   final missingNorm = missing.map(_norm).toSet();
   // Đủ số node nhưng thiếu thông số: chỉ bổ sung khi kho có bộ đo được thông số còn thiếu (không thêm node vô ích).
   final canTopUp = sensorRes.items.any(
-    (k) => (k.measuredParameters ?? const <String>[]).map(_norm).any(missingNorm.contains),
+    (k) => (k.measuredParameters ?? const <String>[])
+        .map(_norm)
+        .any(missingNorm.contains),
   );
   final sensorToAdd = sensorsAdd > 0 ? sensorsAdd : (topUp && canTopUp ? 1 : 0);
   // Thông số cần phủ bằng bộ mới: những thông số thiết bị đã gắn chưa đo; Zone chưa gắn gì thì toàn bộ nhu cầu.
   final plan = sensorToAdd > 0
-      ? planSensorKits(sensorRes.items, missing.isNotEmpty ? missing : [...requiredParameters], sensorToAdd)
+      ? planSensorKits(
+          sensorRes.items,
+          missing.isNotEmpty ? missing : [...requiredParameters],
+          sensorToAdd,
+        )
       : const <SensorKitPick>[];
 
-  List<EstimateLine> mk(EstimateRole role, int toAdd, int needed, int have, {String? gapNote}) {
+  List<EstimateLine> mk(
+    EstimateRole role,
+    int toAdd,
+    int needed,
+    int have, {
+    String? gapNote,
+  }) {
     final res = catalog.of(role);
-    EstimateLine covered(String? note) =>
-        EstimateLine(role, 0, 0, res, null, neededTotal: needed, installed: have, covered: true, note: note);
+    EstimateLine covered(String? note) => EstimateLine(
+      role,
+      0,
+      0,
+      res,
+      null,
+      neededTotal: needed,
+      installed: have,
+      covered: true,
+      note: note,
+    );
     if (toAdd <= 0) return [covered(gapNote)];
     if (res.items.isEmpty) {
-      return [EstimateLine(role, toAdd, toAdd, res, null, neededTotal: needed, installed: have)];
+      return [
+        EstimateLine(
+          role,
+          toAdd,
+          toAdd,
+          res,
+          null,
+          neededTotal: needed,
+          installed: have,
+        ),
+      ];
     }
     return [
       for (final it in res.items)
-        EstimateLine(role, toAdd, _ceilDiv(toAdd, it.unitsPerItem), res, it, neededTotal: needed, installed: have),
+        EstimateLine(
+          role,
+          toAdd,
+          _ceilDiv(toAdd, it.unitsPerItem),
+          res,
+          it,
+          neededTotal: needed,
+          installed: have,
+        ),
     ];
   }
 
@@ -617,10 +795,17 @@ HoneycombEstimate computeHoneycombEstimate({
       0,
       sensors,
       installed.sensorNodes,
-      gapNote: topUp ? 'Danh mục chưa có bộ node đo được: ${missing.join(', ')}' : null,
+      gapNote: topUp
+          ? 'Danh mục chưa có bộ node đo được: ${missing.join(', ')}'
+          : null,
     );
   } else if (plan.isEmpty) {
-    sensorLines = mk(EstimateRole.sensorNode, sensorToAdd, sensors, installed.sensorNodes);
+    sensorLines = mk(
+      EstimateRole.sensorNode,
+      sensorToAdd,
+      sensors,
+      installed.sensorNodes,
+    );
   } else {
     sensorLines = [
       for (final p in plan)
@@ -652,11 +837,20 @@ HoneycombEstimate computeHoneycombEstimate({
     lines: [
       ...mk(EstimateRole.gateway, gwAdd, gateways, installed.gateways),
       ...sensorLines,
-      ...mk(EstimateRole.actuatorNode, actuatorsAdd, actuators, installed.actuatorNodes),
+      ...mk(
+        EstimateRole.actuatorNode,
+        actuatorsAdd,
+        actuators,
+        installed.actuatorNodes,
+      ),
       ...mk(EstimateRole.installKit, points, sensors + actuators, 0),
     ],
     installationCost: hasWork ? honeycombInstallationFlatVnd : 0,
-    capability: checkCapability(addedSensorItems, requiredParameters, installedMeasured: installed.measured),
+    capability: checkCapability(
+      addedSensorItems,
+      requiredParameters,
+      installedMeasured: installed.measured,
+    ),
     installed: installed,
   );
 }

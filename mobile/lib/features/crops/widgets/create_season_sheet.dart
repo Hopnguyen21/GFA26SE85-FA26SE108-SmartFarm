@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
-import '../../zones/zone_operations_screens.dart' show ZonePlantingSeasonsScreen;
+import '../../zones/zone_operations_screens.dart'
+    show ZonePlantingSeasonsScreen;
 
 /// Tạo vụ trồng cho một Zone (Owner). Cây của Zone chỉ được gán khi tạo vụ:
 /// Zone chưa có cây thì vụ mới gán cây; Zone đang có cây khác thì phải tích xác nhận đổi cây.
@@ -11,9 +12,13 @@ Future<bool?> showCreateSeasonSheet(BuildContext context, ZoneModel zone) {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
     builder: (_) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: _CreateSeasonForm(zone: zone),
     ),
   );
@@ -62,13 +67,23 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       final crops = await CropApi.getCropsForProfiles();
       final profiles = await CropApi.getGrowthProfiles();
       // Kiểm tra TRƯỚC khi gửi: Zone đã có vụ đang canh tác thì không thể tạo vụ mới (hệ thống không tự đóng vụ đang chạy).
-      final seasons = await CropApi.getPlantingSeasons(zoneId: widget.zone.zoneId);
+      final seasons = await CropApi.getPlantingSeasons(
+        zoneId: widget.zone.zoneId,
+      );
       if (!mounted) return;
       setState(() {
-        _running = seasons.where((x) => '${x['status']}' == 'InProgress').firstOrNull;
+        _running = seasons
+            .where((x) => '${x['status']}' == 'InProgress')
+            .firstOrNull;
         _profiles = profiles;
         // Chỉ cây đã có hồ sơ sinh trưởng mới tạo được vụ.
-        _crops = crops.where((c) => profiles.any((p) => p['cropId']?.toString() == c['cropId']?.toString())).toList();
+        _crops = crops
+            .where(
+              (c) => profiles.any(
+                (p) => p['cropId']?.toString() == c['cropId']?.toString(),
+              ),
+            )
+            .toList();
         _loading = false;
       });
     } catch (e) {
@@ -84,14 +99,25 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
   void _openRunningSeason() {
     final nav = Navigator.of(context);
     nav.pop(false);
-    nav.push(MaterialPageRoute(builder: (_) => ZonePlantingSeasonsScreen(zone: widget.zone)));
+    nav.push(
+      MaterialPageRoute(
+        builder: (_) => ZonePlantingSeasonsScreen(zone: widget.zone),
+      ),
+    );
   }
 
   /// Sau lỗi từ máy chủ (vd. 409 do vụ vừa được tạo ở nơi khác): kiểm tra lại vụ đang chạy để hiện hướng xử lý.
   Future<void> _refreshRunning() async {
     try {
-      final seasons = await CropApi.getPlantingSeasons(zoneId: widget.zone.zoneId);
-      if (mounted) setState(() => _running = seasons.where((x) => '${x['status']}' == 'InProgress').firstOrNull);
+      final seasons = await CropApi.getPlantingSeasons(
+        zoneId: widget.zone.zoneId,
+      );
+      if (mounted)
+        setState(
+          () => _running = seasons
+              .where((x) => '${x['status']}' == 'InProgress')
+              .firstOrNull,
+        );
     } catch (_) {}
   }
 
@@ -104,7 +130,9 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
   /// Hồ sơ hợp lệ cho cây + giống đã chọn: backend yêu cầu hồ sơ trùng đúng giống (hồ sơ chung chỉ dùng khi không chọn giống).
   List<Map<String, dynamic>> get _matchingProfiles => [
     for (final p in _profiles)
-      if (p['cropId']?.toString() == _cropId && (p['varietyId']?.toString() == _varietyId)) p,
+      if (p['cropId']?.toString() == _cropId &&
+          (p['varietyId']?.toString() == _varietyId))
+        p,
   ];
 
   Future<void> _selectCrop(String? id) async {
@@ -119,21 +147,30 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       final v = await CropApi.getVarieties(cropId: id);
       if (mounted && _cropId == id) setState(() => _varieties = v);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Không tải được giống: ${e.toString().replaceFirst('Exception: ', '')}');
+      if (mounted)
+        setState(
+          () => _error =
+              'Không tải được giống: ${e.toString().replaceFirst('Exception: ', '')}',
+        );
     }
   }
 
-  String _fmt(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _pick(bool isStart) async {
-    final initial = isStart ? _start : (_end ?? _start.add(const Duration(days: 90)));
+    final initial = isStart
+        ? _start
+        : (_end ?? _start.add(const Duration(days: 90)));
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: isStart
           ? DateTime.now()
-          : DateTime(2100), // backend chỉ tạo vụ đang canh tác: không nhận ngày bắt đầu tương lai
+          : DateTime(
+              2100,
+            ), // backend chỉ tạo vụ đang canh tác: không nhận ngày bắt đầu tương lai
     );
     if (picked == null) return;
     if (mounted) setState(() => isStart ? _start = picked : _end = picked);
@@ -146,21 +183,43 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       return;
     }
     if (end != null && end.isBefore(_start.add(const Duration(days: 20)))) {
-      setState(() => _error = 'Ngày kết thúc dự kiến phải sau ngày bắt đầu ít nhất 20 ngày.');
+      setState(
+        () => _error =
+            'Ngày kết thúc dự kiến phải sau ngày bắt đầu ít nhất 20 ngày.',
+      );
       return;
     }
-    if (_cropId == null || _profileId == null || _nameCtrl.text.trim().isEmpty || end == null) {
-      setState(() => _error = 'Hãy chọn cây, hồ sơ sinh trưởng, đặt tên và chọn ngày kết thúc dự kiến.');
+    if (_cropId == null ||
+        _profileId == null ||
+        _nameCtrl.text.trim().isEmpty ||
+        end == null) {
+      setState(
+        () => _error =
+            'Hãy chọn cây, hồ sơ sinh trưởng, đặt tên và chọn ngày kết thúc dự kiến.',
+      );
       return;
     }
     // Xác nhận trước khi tạo vụ cho Zone (một vụ riêng của Zone này; không tự đóng vụ khác).
-    final cropName = _crops.where((c) => c['cropId']?.toString() == _cropId).firstOrNull?['name'] ?? '—';
-    final varietyName = _varieties.where((v) => '${v['varietyId']}' == _varietyId).firstOrNull?['name'];
-    final profileName = _matchingProfiles.where((p) => '${p['profileId']}' == _profileId).firstOrNull?['name'] ?? '—';
+    final cropName =
+        _crops
+            .where((c) => c['cropId']?.toString() == _cropId)
+            .firstOrNull?['name'] ??
+        '—';
+    final varietyName = _varieties
+        .where((v) => '${v['varietyId']}' == _varietyId)
+        .firstOrNull?['name'];
+    final profileName =
+        _matchingProfiles
+            .where((p) => '${p['profileId']}' == _profileId)
+            .firstOrNull?['name'] ??
+        '—';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tạo vụ trồng cho Zone?', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          'Tạo vụ trồng cho Zone?',
+          style: TextStyle(fontSize: 15),
+        ),
         content: Text(
           'Zone: ${widget.zone.name}\n'
           'Cây: $cropName${varietyName == null ? '' : ' · giống $varietyName'}\n'
@@ -172,8 +231,14 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xác nhận tạo vụ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xác nhận tạo vụ'),
+          ),
         ],
       ),
     );
@@ -221,19 +286,28 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                 children: [
                   Text(
                     'Tạo vụ trồng — ${widget.zone.name}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _zoneHasCrop
                         ? 'Cây hiện tại của Zone: ${widget.zone.currentCrop}'
                         : 'Zone chưa gán cây; cây của vụ này sẽ được gán cho Zone.',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: _cropId,
-                    decoration: const InputDecoration(labelText: 'Cây trồng *', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Cây trồng *',
+                      border: OutlineInputBorder(),
+                    ),
                     items: _crops
                         .map(
                           (c) => DropdownMenuItem(
@@ -254,31 +328,50 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                       border: OutlineInputBorder(),
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Không chọn giống (hồ sơ chung)')),
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Không chọn giống (hồ sơ chung)'),
+                      ),
                       for (final v in _varieties)
-                        DropdownMenuItem<String?>(value: '${v['varietyId']}', child: Text('${v['name']}')),
+                        DropdownMenuItem<String?>(
+                          value: '${v['varietyId']}',
+                          child: Text('${v['name']}'),
+                        ),
                     ],
                     onChanged: _cropId == null
                         ? null
                         : (v) => setState(() {
                             _varietyId = v;
-                            _profileId = null; // hồ sơ cũ có thể không còn khớp giống mới
+                            _profileId =
+                                null; // hồ sơ cũ có thể không còn khớp giống mới
                           }),
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     key: ValueKey('profile-$_cropId-$_varietyId'),
                     initialValue: _profileId,
-                    decoration: const InputDecoration(labelText: 'Hồ sơ sinh trưởng *', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Hồ sơ sinh trưởng *',
+                      border: OutlineInputBorder(),
+                    ),
                     items: profiles
                         .map(
                           (p) => DropdownMenuItem(
-                            value: (p['profileId'] ?? p['growthProfileId'] ?? p['id'])?.toString(),
-                            child: Text(p['name']?.toString() ?? '', overflow: TextOverflow.ellipsis),
+                            value:
+                                (p['profileId'] ??
+                                        p['growthProfileId'] ??
+                                        p['id'])
+                                    ?.toString(),
+                            child: Text(
+                              p['name']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
-                    onChanged: _cropId == null ? null : (v) => setState(() => _profileId = v),
+                    onChanged: _cropId == null
+                        ? null
+                        : (v) => setState(() => _profileId = v),
                     isExpanded: true,
                   ),
                   if (_cropId != null && profiles.isEmpty)
@@ -286,26 +379,39 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                       padding: EdgeInsets.only(top: 6),
                       child: Text(
                         'Chưa có hồ sơ canh tác khớp đúng cây và giống này. Hãy chọn giống khác hoặc "Không chọn giống".',
-                        style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFB45309),
+                        ),
                       ),
                     ),
                   const SizedBox(height: 10),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Tên vụ *', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Tên vụ *',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(onPressed: () => _pick(true), child: Text('Bắt đầu: ${_fmt(_start)}')),
+                        child: OutlinedButton(
+                          onPressed: () => _pick(true),
+                          child: Text('Bắt đầu: ${_fmt(_start)}'),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => _pick(false),
-                          child: Text(_end == null ? 'Kết thúc dự kiến *' : 'Kết thúc: ${_fmt(_end!)}'),
+                          child: Text(
+                            _end == null
+                                ? 'Kết thúc dự kiến *'
+                                : 'Kết thúc: ${_fmt(_end!)}',
+                          ),
                         ),
                       ),
                     ],
@@ -315,7 +421,8 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                       value: _confirmChange,
                       contentPadding: EdgeInsets.zero,
                       controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (v) => setState(() => _confirmChange = v ?? false),
+                      onChanged: (v) =>
+                          setState(() => _confirmChange = v ?? false),
                       title: const Text(
                         'Xác nhận đổi cây của Zone nếu cây của vụ khác cây hiện tại',
                         style: TextStyle(fontSize: 12),
@@ -335,7 +442,11 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                         children: [
                           Text(
                             _runningMessage(),
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF92400E),
+                              height: 1.4,
+                            ),
                           ),
                           TextButton.icon(
                             onPressed: _openRunningSeason,
@@ -348,7 +459,13 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12)),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                          color: Color(0xFFB91C1C),
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   const SizedBox(height: 12),
                   SizedBox(

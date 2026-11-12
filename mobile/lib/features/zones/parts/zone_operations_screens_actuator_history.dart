@@ -26,25 +26,38 @@ class ActuatorHistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.read<FarmProvider>();
     final names = {
-      for (final a in provider.actuators.where((a) => a.zoneId.toLowerCase() == zone.zoneId.toLowerCase()))
+      for (final a in provider.actuators.where(
+        (a) => a.zoneId.toLowerCase() == zone.zoneId.toLowerCase(),
+      ))
         a.actuatorId.toLowerCase(): a.name,
     };
     return Scaffold(
-      appBar: AppBar(title: Text('Lịch sử điều khiển · ${zone.name}', style: const TextStyle(fontSize: 15))),
+      appBar: AppBar(
+        title: Text(
+          'Lịch sử điều khiển · ${zone.name}',
+          style: const TextStyle(fontSize: 15),
+        ),
+      ),
       body: _AsyncList<List<Map<String, dynamic>>>(
         load: () => AutomationApi.getActuatorHistory(zone.zoneId),
         builder: (context, items, _) {
-          if (items.isEmpty) return _empty('Chưa có lệnh điều khiển nào trong 7 ngày qua.', Icons.history);
+          if (items.isEmpty)
+            return _empty(
+              'Chưa có lệnh điều khiển nào trong 7 ngày qua.',
+              Icons.history,
+            );
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final c = items[i];
-              final status = _statusVi['${c['status']}'] ?? ('${c['status']}', _muted);
+              final status =
+                  _statusVi['${c['status']}'] ?? ('${c['status']}', _muted);
               final on = '${c['action']}' == 'TurnOn';
               final name =
-                  names['${c['actuatorId']}'.toLowerCase()] ?? 'Thiết bị ${'${c['actuatorId']}'.split('-').first}';
+                  names['${c['actuatorId']}'.toLowerCase()] ??
+                  'Thiết bị ${'${c['actuatorId']}'.split('-').first}';
               final secs = (c['durationSeconds'] as num?)?.toInt() ?? 0;
               final error = c['errorMessage'] ?? c['errorCode'];
               return Container(
@@ -57,7 +70,12 @@ class ActuatorHistoryScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(on ? Icons.play_circle_outline : Icons.stop_circle_outlined, color: on ? _green : _red),
+                    Icon(
+                      on
+                          ? Icons.play_circle_outline
+                          : Icons.stop_circle_outlined,
+                      color: on ? _green : _red,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -65,7 +83,11 @@ class ActuatorHistoryScreen extends StatelessWidget {
                         children: [
                           Text(
                             '${on ? 'BẬT' : 'TẮT'} · $name',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _ink),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: _ink,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -76,20 +98,33 @@ class ActuatorHistoryScreen extends StatelessWidget {
                           if (error != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text('$error', style: const TextStyle(fontSize: 11, color: _red)),
+                              child: Text(
+                                '$error',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _red,
+                                ),
+                              ),
                             ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: status.$2.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         status.$1,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: status.$2),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: status.$2,
+                        ),
                       ),
                     ),
                   ],

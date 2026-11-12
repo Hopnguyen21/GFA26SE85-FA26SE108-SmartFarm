@@ -13,6 +13,11 @@ class FarmModel {
   final double latitude;
   final double longitude;
 
+  /// Số Zone / Thửa đất của farm do backend đếm (GET /farms). Null khi backend không trả — khi đó UI không được suy ra
+  /// từ danh sách Zone đã tải, vì danh sách đó chỉ chứa farm đang chọn.
+  final int? zonesCount;
+  final int? fieldsCount;
+
   FarmModel({
     required this.farmId,
     required this.name,
@@ -25,6 +30,8 @@ class FarmModel {
     required this.totalAreaM2,
     this.latitude = 0,
     this.longitude = 0,
+    this.zonesCount,
+    this.fieldsCount,
   });
 
   String get formattedArea {
@@ -36,7 +43,8 @@ class FarmModel {
     return FarmModel(
       farmId: json['farmId']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Nông trại',
-      address: json['locationText']?.toString() ?? json['address']?.toString() ?? '',
+      address:
+          json['locationText']?.toString() ?? json['address']?.toString() ?? '',
       province: json['province']?.toString() ?? '',
       district: json['district']?.toString() ?? '',
       ward: json['ward']?.toString() ?? '',
@@ -45,6 +53,8 @@ class FarmModel {
       totalAreaM2: (json['totalAreaM2'] as num?)?.toDouble() ?? 0.0,
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      zonesCount: (json['zonesCount'] as num?)?.toInt(),
+      fieldsCount: (json['fieldsCount'] as num?)?.toInt(),
     );
   }
 }
@@ -58,7 +68,8 @@ class ZoneAccessItem {
 class FarmerModel {
   final String farmerId;
   final String name;
-  final String role; // Nông dân Thực địa (CF2), Kỹ thuật viên IoT (CF1), Quản lý vườn
+  final String
+  role; // Nông dân Thực địa (CF2), Kỹ thuật viên IoT (CF1), Quản lý vườn
   final String phone;
   final String email;
   final String username;
@@ -128,33 +139,45 @@ class FarmerModel {
     final permissionsList = <String>['CAN_LOG_DIARY'];
     final zoneAccess = json['zoneAccess'] as List<dynamic>?;
     final rawPerms = json['permissions'] as List<dynamic>?;
-    if ((zoneAccess != null && zoneAccess.any((z) => z['canControl'] == true)) ||
+    if ((zoneAccess != null &&
+            zoneAccess.any((z) => z['canControl'] == true)) ||
         (rawPerms != null && rawPerms.contains('CAN_CONTROL_PUMP')) ||
         json['canControl'] == true) {
       permissionsList.add('CAN_CONTROL_PUMP');
     }
 
     return FarmerModel(
-      farmerId: json['userId']?.toString() ?? json['farmerId']?.toString() ?? '',
-      name: json['fullName']?.toString() ?? json['name']?.toString() ?? 'Nông dân',
+      farmerId:
+          json['userId']?.toString() ?? json['farmerId']?.toString() ?? '',
+      name:
+          json['fullName']?.toString() ??
+          json['name']?.toString() ??
+          'Nông dân',
       role: displayRole,
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       username: json['email']?.toString() ?? '',
       farmId: json['farmId']?.toString(),
-      isActive: json['status']?.toString() == 'Active' || json['status'] == null,
-      joinedDate: json['createdAtUtc'] != null ? json['createdAtUtc'].toString().substring(0, 10) : '01/2026',
+      isActive:
+          json['status']?.toString() == 'Active' || json['status'] == null,
+      joinedDate: json['createdAtUtc'] != null
+          ? json['createdAtUtc'].toString().substring(0, 10)
+          : '01/2026',
       assignedZoneNames: const [],
       zoneAccess: [
         for (final z in zoneAccess ?? const [])
-          ZoneAccessItem(zoneId: z['zoneId']?.toString() ?? '', canControl: z['canControl'] == true),
+          ZoneAccessItem(
+            zoneId: z['zoneId']?.toString() ?? '',
+            canControl: z['canControl'] == true,
+          ),
       ],
       permissions: permissionsList,
     );
   }
 }
 
-String? _nonEmpty(String? v) => (v == null || v.isEmpty || v == 'null') ? null : v;
+String? _nonEmpty(String? v) =>
+    (v == null || v.isEmpty || v == 'null') ? null : v;
 
 class FieldModel {
   final String fieldId;
@@ -177,15 +200,26 @@ class FieldModel {
     this.boundaryProblem,
   });
 
-  factory FieldModel.fromJson(Map<String, dynamic> json, {String defaultFarmId = ''}) {
+  factory FieldModel.fromJson(
+    Map<String, dynamic> json, {
+    String defaultFarmId = '',
+  }) {
     // Backend trả BoundaryGeoJson dạng object JSON (camelCase mặc định); giữ fallback PascalCase.
-    final geo = parseGeoJsonPolygon(json['BoundaryGeoJson'] ?? json['boundaryGeoJson']);
+    final geo = parseGeoJsonPolygon(
+      json['BoundaryGeoJson'] ?? json['boundaryGeoJson'],
+    );
 
     return FieldModel(
       fieldId: json['FieldId']?.toString() ?? json['fieldId']?.toString() ?? '',
-      farmId: json['FarmId']?.toString() ?? json['farmId']?.toString() ?? defaultFarmId,
+      farmId:
+          json['FarmId']?.toString() ??
+          json['farmId']?.toString() ??
+          defaultFarmId,
       name: json['Name']?.toString() ?? json['name']?.toString() ?? 'Lô đất',
-      description: json['SoilType']?.toString() ?? json['soilType']?.toString() ?? 'Đất đỏ bazan màu mỡ',
+      description:
+          json['SoilType']?.toString() ??
+          json['soilType']?.toString() ??
+          'Đất đỏ bazan màu mỡ',
       areaM2: ((json['AreaM2'] ?? json['areaM2']) as num?)?.toDouble() ?? 0.0,
       polygon: geo.points,
       boundaryProblem: geo.problem,
@@ -207,7 +241,8 @@ class ZoneModel {
   final String seasonStatus;
 
   /// Zone chưa có vụ đang canh tác (chưa có vụ hoặc chỉ có vụ dự kiến): hiển thị gợi ý tạo vụ trên web.
-  bool get needsSeason => seasonStatus == 'None' || seasonStatus == 'PlannedOnly';
+  bool get needsSeason =>
+      seasonStatus == 'None' || seasonStatus == 'PlannedOnly';
   final double areaM2;
   final double currentSoilMoisture;
   final double currentTemp;
@@ -288,8 +323,11 @@ class ZoneModel {
       currentHumidity: currentHumidity ?? this.currentHumidity,
       currentLux: currentLux ?? this.currentLux,
       telemetryIsFresh: telemetryIsFresh ?? this.telemetryIsFresh,
-      cropContextIsDbBacked: cropContextIsDbBacked ?? this.cropContextIsDbBacked,
-      assignedWorkerName: clearAssignedWorker ? null : (assignedWorkerName ?? this.assignedWorkerName),
+      cropContextIsDbBacked:
+          cropContextIsDbBacked ?? this.cropContextIsDbBacked,
+      assignedWorkerName: clearAssignedWorker
+          ? null
+          : (assignedWorkerName ?? this.assignedWorkerName),
       workerRole: clearAssignedWorker ? null : (workerRole ?? this.workerRole),
       polygon: polygon ?? this.polygon,
       boundaryProblem: polygon != null ? null : boundaryProblem,
@@ -309,13 +347,19 @@ class ZoneModel {
   }) {
     // GET trả BoundaryGeoJson; phản hồi PUT có thể là PolygonGeoJson.
     final geo = parseGeoJsonPolygon(
-      json['BoundaryGeoJson'] ?? json['boundaryGeoJson'] ?? json['PolygonGeoJson'] ?? json['polygonGeoJson'],
+      json['BoundaryGeoJson'] ??
+          json['boundaryGeoJson'] ??
+          json['PolygonGeoJson'] ??
+          json['polygonGeoJson'],
     );
 
     // Helper để đọc key PascalCase trước, fallback camelCase (backend ASP.NET mặc định PascalCase).
     String? fieldStr(String pascal) =>
-        json[pascal]?.toString() ?? json[pascal[0].toLowerCase() + pascal.substring(1)]?.toString();
-    num? fieldNum(String pascal) => (json[pascal] ?? json[pascal[0].toLowerCase() + pascal.substring(1)]) as num?;
+        json[pascal]?.toString() ??
+        json[pascal[0].toLowerCase() + pascal.substring(1)]?.toString();
+    num? fieldNum(String pascal) =>
+        (json[pascal] ?? json[pascal[0].toLowerCase() + pascal.substring(1)])
+            as num?;
 
     final seasonSt = fieldStr('SeasonStatus') ?? 'None';
     final plannedCrop = fieldStr('PlannedCrop');
@@ -337,7 +381,8 @@ class ZoneModel {
       currentStage:
           fieldStr('CurrentStage') ??
           switch (seasonSt) {
-            'Mismatch' => 'Vụ đang chạy thuộc cây khác (${seasonCropName ?? 'không rõ'}) — cần cập nhật trên web',
+            'Mismatch' =>
+              'Vụ đang chạy thuộc cây khác (${seasonCropName ?? 'không rõ'}) — cần cập nhật trên web',
             'PlannedOnly' => 'Chưa có vụ đang canh tác (có vụ dự kiến)',
             _ => 'Chưa có vụ đang canh tác',
           },
@@ -354,7 +399,10 @@ class ZoneModel {
       boundaryProblem: geo.problem,
       growthProfileId: _nonEmpty(fieldStr('GrowthProfileId')),
       growthProfileName: fieldStr('GrowthProfileName'),
-      growthProfileIsSystem: (json['growthProfileIsSystemDefined'] ?? json['GrowthProfileIsSystemDefined']) as bool?,
+      growthProfileIsSystem:
+          (json['growthProfileIsSystemDefined'] ??
+                  json['GrowthProfileIsSystemDefined'])
+              as bool?,
       notes: fieldStr('Notes'),
       cropContextIsDbBacked:
           fieldStr('CurrentCrop') != null &&

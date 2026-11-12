@@ -3,7 +3,10 @@ part of '../farm_provider.dart';
 extension FarmProviderControl on FarmProvider {
   /// Bật/tắt thiết bị chấp hành. Trả về null khi backend xác nhận, hoặc thông báo lỗi để hiển thị.
   /// Không giả lập: chưa kết nối máy chủ thì không đổi trạng thái; lệnh bị từ chối thì khôi phục trạng thái cũ.
-  Future<String?> toggleActuator(String actuatorId, {int? durationMinutes}) async {
+  Future<String?> toggleActuator(
+    String actuatorId, {
+    int? durationMinutes,
+  }) async {
     final actIndex = _actuators.indexWhere((a) => a.actuatorId == actuatorId);
     if (actIndex == -1) return 'Không tìm thấy thiết bị chấp hành.';
     if (!_isApiConnected) {
@@ -44,7 +47,9 @@ extension FarmProviderControl on FarmProvider {
   /// Không giả lập: chỉ báo thành công khi backend xác nhận, sau đó tải lại trạng thái thật từ server.
   Future<EmergencyStopResult> emergencyStop({String? zoneId}) async {
     if (!_isApiConnected) {
-      throw Exception('Chưa kết nối máy chủ, không thể phát lệnh dừng khẩn cấp.');
+      throw Exception(
+        'Chưa kết nối máy chủ, không thể phát lệnh dừng khẩn cấp.',
+      );
     }
     if (_isEmergencyStopping) {
       throw Exception('Lệnh dừng khẩn cấp đang được xử lý.');
@@ -53,7 +58,9 @@ extension FarmProviderControl on FarmProvider {
     _notify();
     try {
       final result = await AutomationApi.emergencyStop(zoneId: zoneId);
-      await _refreshActuatorsForZones(zoneId != null ? [zoneId] : _zones.map((z) => z.zoneId).toList());
+      await _refreshActuatorsForZones(
+        zoneId != null ? [zoneId] : _zones.map((z) => z.zoneId).toList(),
+      );
       return result;
     } finally {
       _isEmergencyStopping = false;
@@ -71,7 +78,10 @@ extension FarmProviderControl on FarmProvider {
         _actuatorErrors.remove(idLower);
       } catch (e) {
         // Giữ trạng thái cũ của Zone này nếu không tải lại được, nhưng ghi nhận lỗi.
-        _actuatorErrors[id.toLowerCase()] = e.toString().replaceFirst('Exception: ', '');
+        _actuatorErrors[id.toLowerCase()] = e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        );
       }
     }
     _notify();

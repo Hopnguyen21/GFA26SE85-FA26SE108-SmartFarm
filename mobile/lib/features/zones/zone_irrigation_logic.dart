@@ -13,25 +13,48 @@ import '../../core/utils/cron_utils.dart';
   required String rainThresholdText,
 }) {
   final cron = buildDailyCron(time);
-  if (cron == null) return (error: 'Giờ phải có dạng HH:mm (00:00–23:59).', seconds: 0, cron: '');
+  if (cron == null)
+    return (
+      error: 'Giờ phải có dạng HH:mm (00:00–23:59).',
+      seconds: 0,
+      cron: '',
+    );
   final minutes = double.tryParse(minutesText.trim().replaceAll(',', '.'));
-  if (minutes == null || minutes <= 0) return (error: 'Nhập thời lượng tưới (phút) lớn hơn 0.', seconds: 0, cron: cron);
+  if (minutes == null || minutes <= 0)
+    return (
+      error: 'Nhập thời lượng tưới (phút) lớn hơn 0.',
+      seconds: 0,
+      cron: cron,
+    );
   final seconds = (minutes * 60).round();
-  if (seconds > 1800) return (error: 'Mỗi lần tưới tối đa 30 phút (giới hạn phần cứng).', seconds: 0, cron: cron);
+  if (seconds > 1800)
+    return (
+      error: 'Mỗi lần tưới tối đa 30 phút (giới hạn phần cứng).',
+      seconds: 0,
+      cron: cron,
+    );
   final rain = double.tryParse(rainThresholdText.trim().replaceAll(',', '.'));
   if (rain == null || rain < 0 || rain > 100) {
-    return (error: 'Ngưỡng hoãn khi mưa phải từ 0 đến 100%.', seconds: seconds, cron: cron);
+    return (
+      error: 'Ngưỡng hoãn khi mưa phải từ 0 đến 100%.',
+      seconds: seconds,
+      cron: cron,
+    );
   }
   return (error: null, seconds: seconds, cron: cron);
 }
 
 bool _isIrrigationActuator(ActuatorModel a) {
   final t = a.actuatorType.toLowerCase();
-  return t.contains('pump') || t.contains('valve') || t.contains('water') || t.contains('irrigation');
+  return t.contains('pump') ||
+      t.contains('valve') ||
+      t.contains('water') ||
+      t.contains('irrigation');
 }
 
 /// Thiết bị có thể dùng để đồng bộ lịch tưới: bơm/van/tưới. Không tự chọn thiết bị khác (quạt, đèn...).
-List<ActuatorModel> irrigationActuators(List<ActuatorModel> all) => all.where(_isIrrigationActuator).toList();
+List<ActuatorModel> irrigationActuators(List<ActuatorModel> all) =>
+    all.where(_isIrrigationActuator).toList();
 
 enum SyncProblemKind {
   noActuator,
@@ -45,7 +68,9 @@ enum SyncProblemKind {
 }
 
 /// Phân loại lỗi đồng bộ theo thông điệp THẬT của backend để hiện gợi ý đúng; thông điệp gốc luôn được giữ nguyên.
-({SyncProblemKind kind, String message, String hint}) classifySyncError(String backendMessage) {
+({SyncProblemKind kind, String message, String hint}) classifySyncError(
+  String backendMessage,
+) {
   final m = backendMessage.toLowerCase();
   if (m.contains('chưa gắn hồ sơ')) {
     return (
@@ -65,14 +90,18 @@ enum SyncProblemKind {
     return (
       kind: SyncProblemKind.noActuator,
       message: backendMessage,
-      hint: 'Zone cần có bơm hoặc van tưới (do kỹ thuật viên lắp và gán vào Zone) trước khi đồng bộ.',
+      hint:
+          'Zone cần có bơm hoặc van tưới (do kỹ thuật viên lắp và gán vào Zone) trước khi đồng bộ.',
     );
   }
-  if (m.contains('chưa có lịch tưới mẫu') || m.contains('chưa có ca tưới') || m.contains('không đọc được')) {
+  if (m.contains('chưa có lịch tưới mẫu') ||
+      m.contains('chưa có ca tưới') ||
+      m.contains('không đọc được')) {
     return (
       kind: SyncProblemKind.noPlan,
       message: backendMessage,
-      hint: 'Cây này chưa có lịch tưới mẫu hợp lệ trong thư viện nên không có gì để đồng bộ.',
+      hint:
+          'Cây này chưa có lịch tưới mẫu hợp lệ trong thư viện nên không có gì để đồng bộ.',
     );
   }
   if (m.contains('lặp kiểu')) {
@@ -86,7 +115,8 @@ enum SyncProblemKind {
     return (
       kind: SyncProblemKind.durationTooLong,
       message: backendMessage,
-      hint: 'Mỗi ca tưới tối đa 30 phút; cần rút ngắn ca trong lịch mẫu của cây.',
+      hint:
+          'Mỗi ca tưới tối đa 30 phút; cần rút ngắn ca trong lịch mẫu của cây.',
     );
   }
   if (m.contains('hồ sơ sinh trưởng')) {
@@ -109,8 +139,14 @@ enum SyncProblemKind {
 /// Mô tả một ControlSchedule bằng dữ liệu thật: giờ (từ cron), thời lượng, hoãn khi mưa.
 String describeSchedule(ScheduleModel s) {
   final time = cronToHhmm(s.cronExpression);
-  final when = time == null ? 'cron "${s.cronExpression}" (không phải lịch hằng ngày)' : 'hằng ngày lúc $time';
-  final mins = s.durationSeconds % 60 == 0 ? '${s.durationSeconds ~/ 60}' : (s.durationSeconds / 60).toStringAsFixed(1);
-  final rain = s.enableRainDelay ? ' · hoãn khi mưa ≥ ${s.rainThresholdPercent.toStringAsFixed(0)}%' : '';
+  final when = time == null
+      ? 'cron "${s.cronExpression}" (không phải lịch hằng ngày)'
+      : 'hằng ngày lúc $time';
+  final mins = s.durationSeconds % 60 == 0
+      ? '${s.durationSeconds ~/ 60}'
+      : (s.durationSeconds / 60).toStringAsFixed(1);
+  final rain = s.enableRainDelay
+      ? ' · hoãn khi mưa ≥ ${s.rainThresholdPercent.toStringAsFixed(0)}%'
+      : '';
   return '$when · $mins phút$rain';
 }

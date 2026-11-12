@@ -91,7 +91,9 @@ class FarmCreateDraft extends ChangeNotifier {
     notifyListeners();
   }
 
-  String get effectiveName => nameCtrl.text.trim().isEmpty ? 'Nông trại 0$nextNum' : nameCtrl.text.trim();
+  String get effectiveName => nameCtrl.text.trim().isEmpty
+      ? 'Nông trại 0$nextNum'
+      : nameCtrl.text.trim();
 
   String? validate() => validateNewFarmInput(
     pinConfirmed: pinConfirmed,
@@ -101,7 +103,10 @@ class FarmCreateDraft extends ChangeNotifier {
   );
 
   /// Kiểm tra rồi gửi. Gọi lặp trong lúc đang gửi sẽ bị bỏ qua (trả null).
-  Future<FarmCreateOutcome?> submit(FarmProvider provider, {required double totalAreaM2}) async {
+  Future<FarmCreateOutcome?> submit(
+    FarmProvider provider, {
+    required double totalAreaM2,
+  }) async {
     if (submitting) return null;
     final err = validate();
     if (err != null) return FarmCreateOutcome.invalid(err);
@@ -140,7 +145,12 @@ Widget farmPinStatusLine(FarmCreateDraft d) => ListenableBuilder(
       d.pinConfirmed
           ? 'Đã chọn vị trí: ${d.lat.toStringAsFixed(6)}, ${d.lng.toStringAsFixed(6)}'
           : 'Chưa chọn vị trí. Kéo/chạm bản đồ hoặc tìm địa chỉ để đặt ghim.',
-      style: TextStyle(fontSize: 11, color: d.pinConfirmed ? const Color(0xFF059669) : const Color(0xFFB45309)),
+      style: TextStyle(
+        fontSize: 11,
+        color: d.pinConfirmed
+            ? const Color(0xFF059669)
+            : const Color(0xFFB45309),
+      ),
     ),
   ),
 );
@@ -154,9 +164,15 @@ Future<void> runFarmCreate({
   required double totalAreaM2,
 }) async {
   if (draft.submitting) return;
-  void snack(String text, {Color? color, SnackBarAction? action}) => messenger.showSnackBar(
-    SnackBar(content: Text(text), backgroundColor: color, action: action, behavior: SnackBarBehavior.floating),
-  );
+  void snack(String text, {Color? color, SnackBarAction? action}) =>
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(text),
+          backgroundColor: color,
+          action: action,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
 
   final pending = draft.validate();
   if (pending != null) {
@@ -181,15 +197,23 @@ Future<void> runFarmCreate({
     snack(
       'Đã tạo trang trại "$name" nhưng chưa tải lại được dữ liệu: ${r.refreshError}',
       color: const Color(0xFFB45309),
-      action: SnackBarAction(label: 'Đồng bộ lại', onPressed: () => provider.fetchFromApi()),
+      action: SnackBarAction(
+        label: 'Đồng bộ lại',
+        onPressed: () => provider.fetchFromApi(),
+      ),
     );
   } else {
-    snack('Đã tạo trang trại "$name" và chuyển vùng làm việc.', color: const Color(0xFF059669));
+    snack(
+      'Đã tạo trang trại "$name" và chuyển vùng làm việc.',
+      color: const Color(0xFF059669),
+    );
   }
 }
 
 /// Câu giới thiệu theo tổ chức thật (GET /tenants/me); chưa có tên thì dùng câu trung tính.
 String farmCreateIntro(FarmProvider p) {
   final t = p.tenantName;
-  return t == null ? 'Khởi tạo cơ sở sản xuất mới.' : 'Khởi tạo cơ sở sản xuất mới thuộc tổ chức $t.';
+  return t == null
+      ? 'Khởi tạo cơ sở sản xuất mới.'
+      : 'Khởi tạo cơ sở sản xuất mới thuộc tổ chức $t.';
 }

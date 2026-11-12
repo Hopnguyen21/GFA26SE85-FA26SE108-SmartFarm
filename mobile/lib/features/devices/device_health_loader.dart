@@ -47,8 +47,11 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
           nodeId: '${g['gatewaySerial'] ?? g['gatewayId']}',
           name: 'Gateway ${g['gatewaySerial'] ?? ''}'.trim(),
           type: 'GATEWAY',
-          lastSeenAt: DateTime.tryParse('${g['lastSeenAtUtc'] ?? ''}')?.toLocal(),
-          expectedIntervalSeconds: (g['telemetryIntervalSec'] as num?)?.toInt() ?? 60,
+          lastSeenAt: DateTime.tryParse(
+            '${g['lastSeenAtUtc'] ?? ''}',
+          )?.toLocal(),
+          expectedIntervalSeconds:
+              (g['telemetryIntervalSec'] as num?)?.toInt() ?? 60,
         ),
       );
     }
@@ -58,10 +61,15 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
       result.add(
         DeviceHealthModel(
           nodeId: '${d['hardwareAddress'] ?? d['deviceId']}',
-          name: '${isActuator ? 'Node chấp hành' : 'Node cảm biến'} ${d['hardwareAddress'] ?? ''}'.trim(),
+          name:
+              '${isActuator ? 'Node chấp hành' : 'Node cảm biến'} ${d['hardwareAddress'] ?? ''}'
+                  .trim(),
           type: isActuator ? 'ACTUATOR_NODE' : 'SENSOR_NODE',
-          lastSeenAt: DateTime.tryParse('${d['lastSeenAtUtc'] ?? ''}')?.toLocal(),
-          expectedIntervalSeconds: (d['heartbeatIntervalSeconds'] as num?)?.toInt() ?? 60,
+          lastSeenAt: DateTime.tryParse(
+            '${d['lastSeenAtUtc'] ?? ''}',
+          )?.toLocal(),
+          expectedIntervalSeconds:
+              (d['heartbeatIntervalSeconds'] as num?)?.toInt() ?? 60,
           signalRssi: (loc?['rssi'] as num?)?.toDouble(),
           batteryPercent: (loc?['batteryLevel'] as num?)?.toInt(),
         ),

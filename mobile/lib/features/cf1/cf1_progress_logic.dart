@@ -12,7 +12,11 @@ String cf1StateLabel(Cf1StepState s) => switch (s) {
 };
 
 /// Bước 1: Farm → Lô → Zone.
-Cf1StepState structureState({required int farms, required int fields, required int zones}) {
+Cf1StepState structureState({
+  required int farms,
+  required int fields,
+  required int zones,
+}) {
   if (zones > 0) return Cf1StepState.done;
   if (farms > 0 || fields > 0) return Cf1StepState.inProgress;
   return Cf1StepState.notStarted;
@@ -32,14 +36,26 @@ Cf1StepState contractState({int? contracts}) {
 }
 
 /// Bước 4: Nhân công — Farmer chưa có quyền Zone nào thì chưa thể được giao việc.
-Cf1StepState staffState({required int farmers, required int farmersWithoutZoneAccess, int? pendingInvitations}) {
-  if (farmers > 0) return farmersWithoutZoneAccess > 0 ? Cf1StepState.needsAction : Cf1StepState.done;
+Cf1StepState staffState({
+  required int farmers,
+  required int farmersWithoutZoneAccess,
+  int? pendingInvitations,
+}) {
+  if (farmers > 0)
+    return farmersWithoutZoneAccess > 0
+        ? Cf1StepState.needsAction
+        : Cf1StepState.done;
   if ((pendingInvitations ?? 0) > 0) return Cf1StepState.inProgress;
   return Cf1StepState.notStarted;
 }
 
 const _deployDone = {'Completed'};
-const _deployProblem = {'MaintenanceRequired', 'Failed', 'Rejected', 'Cancelled'};
+const _deployProblem = {
+  'MaintenanceRequired',
+  'Failed',
+  'Rejected',
+  'Cancelled',
+};
 
 /// Bước 5: Triển khai IoT theo trạng thái yêu cầu trên server.
 Cf1StepState deploymentState(List<String>? statuses) {

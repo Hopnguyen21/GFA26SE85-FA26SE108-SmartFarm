@@ -16,7 +16,13 @@ class _CropProfileCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -41,7 +47,12 @@ class _CropProfileCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFA7F3D0)),
                       ),
-                      child: Center(child: Text(profile.emoji, style: const TextStyle(fontSize: 32))),
+                      child: Center(
+                        child: Text(
+                          profile.emoji,
+                          style: const TextStyle(fontSize: 32),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -63,7 +74,10 @@ class _CropProfileCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF062326),
                                   borderRadius: BorderRadius.circular(8),
@@ -82,7 +96,11 @@ class _CropProfileCard extends StatelessWidget {
                           const SizedBox(height: 3),
                           Text(
                             '${profile.nameEn} • Giống: ${profile.variety.split(' / ').first}',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
@@ -93,7 +111,10 @@ class _CropProfileCard extends StatelessWidget {
                             children: [
                               if (profile.isApplied)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF10B981),
                                     borderRadius: BorderRadius.circular(6),
@@ -101,7 +122,11 @@ class _CropProfileCard extends StatelessWidget {
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.check_circle, size: 11, color: Colors.white),
+                                      Icon(
+                                        Icons.check_circle,
+                                        size: 11,
+                                        color: Colors.white,
+                                      ),
                                       SizedBox(width: 4),
                                       Text(
                                         'ĐANG TRỒNG',
@@ -115,15 +140,24 @@ class _CropProfileCard extends StatelessWidget {
                                   ),
                                 ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.verified, size: 12, color: Color(0xFF059669)),
+                                    Icon(
+                                      Icons.verified,
+                                      size: 12,
+                                      color: Color(0xFF059669),
+                                    ),
                                     SizedBox(width: 4),
                                     Text(
                                       'Tiêu chuẩn VietGAP',
@@ -138,7 +172,10 @@ class _CropProfileCard extends StatelessWidget {
                               ),
                               if (profile.difficulty.isNotEmpty)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: profile.difficulty == 'DỄ'
                                         ? const Color(0xFFECFDF5)
@@ -169,7 +206,10 @@ class _CropProfileCard extends StatelessWidget {
                                   ),
                                 ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(6),
@@ -194,7 +234,11 @@ class _CropProfileCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   profile.description,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.45),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF475569),
+                    height: 1.45,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -203,7 +247,10 @@ class _CropProfileCard extends StatelessWidget {
 
                 // ── Hàng 2: Khối thông số vi khí hậu trực quan ──
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
@@ -222,7 +269,11 @@ class _CropProfileCard extends StatelessWidget {
                           caption: 'Ngưỡng an toàn',
                         ),
                       ),
-                      Container(width: 1, height: 36, color: const Color(0xFFE2E8F0)),
+                      Container(
+                        width: 1,
+                        height: 36,
+                        color: const Color(0xFFE2E8F0),
+                      ),
                       // Nhiệt độ
                       Expanded(
                         child: _metricColumn(
@@ -234,17 +285,26 @@ class _CropProfileCard extends StatelessWidget {
                           caption: 'Tối ưu sinh trưởng',
                         ),
                       ),
-                      Container(width: 1, height: 36, color: const Color(0xFFE2E8F0)),
+                      Container(
+                        width: 1,
+                        height: 36,
+                        color: const Color(0xFFE2E8F0),
+                      ),
                       // Lượng tưới
                       Expanded(
                         child: _metricColumn(
                           icon: Icons.alarm,
                           iconColor: const Color(0xFF059669),
                           label: 'Chế độ tưới',
-                          value: firstStage.requirements.irrigationDurationMin > 0
+                          value:
+                              firstStage.requirements.irrigationDurationMin > 0
                               ? '${firstStage.requirements.irrigationDurationMin}p / lần'
                               : '—',
-                          caption: firstStage.requirements.irrigationFrequencyPerDay > 0
+                          caption:
+                              firstStage
+                                      .requirements
+                                      .irrigationFrequencyPerDay >
+                                  0
                               ? '${firstStage.requirements.irrigationFrequencyPerDay} lần/ngày'
                               : 'xem lịch tưới',
                         ),
@@ -257,24 +317,45 @@ class _CropProfileCard extends StatelessWidget {
 
                 // ── Hàng 3: Timeline chu kỳ tóm tắt (Giai đoạn đầu -> thu hoạch) ──
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Row(
                     children: [
-                      Text(firstStage.iconEmoji, style: const TextStyle(fontSize: 14)),
+                      Text(
+                        firstStage.iconEmoji,
+                        style: const TextStyle(fontSize: 14),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           '${firstStage.name} → ${lastStage.name}',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios, size: 11, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
                       const SizedBox(width: 4),
                       const Text(
                         'Xem chi tiết',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF10B981),
+                        ),
                       ),
                     ],
                   ),
@@ -305,7 +386,11 @@ class _CropProfileCard extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -314,7 +399,11 @@ class _CropProfileCard extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+          ),
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
         ),

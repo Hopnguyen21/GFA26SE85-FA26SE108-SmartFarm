@@ -10,19 +10,34 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(color: Color(0xFFFEF3C7), shape: BoxShape.circle),
-              child: const Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFFD97706)),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEF3C7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                size: 48,
+                color: Color(0xFFD97706),
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
               'Chưa chọn hoặc không có quyền Khu vực',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               'Bạn chưa được phân quyền phụ trách hoặc chưa chọn khu vực canh tác (Zone) nào. Trợ lý AI cần ngữ cảnh khu vực để tư vấn chính xác.',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -33,8 +48,13 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -73,7 +93,10 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -84,16 +107,25 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                       children: [
                         Text(
                           ctx?['zoneName']?.toString() ?? zone.name,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
                         if (cropName != null && cropName.isNotEmpty) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFECFDF5),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFA7F3D0)),
+                              border: Border.all(
+                                color: const Color(0xFFA7F3D0),
+                              ),
                             ),
                             child: Text(
                               '🌿 $cropName${growthStage != null ? ' • $growthStage' : ''}${seasonDays != null ? ' (Ngày $seasonDays)' : ''}',
@@ -108,11 +140,16 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                         if (profileName != null && profileName.isNotEmpty) ...[
                           const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                              ),
                             ),
                             child: Text(
                               '📜 $profileName',
@@ -130,11 +167,20 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: _isLoadingContext ? const Color(0xFFF1F5F9) : const Color(0xFFECFDF5),
+                    color: _isLoadingContext
+                        ? const Color(0xFFF1F5F9)
+                        : const Color(0xFFECFDF5),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _isLoadingContext ? const Color(0xFFE2E8F0) : const Color(0xFFA7F3D0)),
+                    border: Border.all(
+                      color: _isLoadingContext
+                          ? const Color(0xFFE2E8F0)
+                          : const Color(0xFFA7F3D0),
+                    ),
                   ),
                   child: Text(
                     _isLoadingContext
@@ -143,7 +189,9 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: _isLoadingContext ? const Color(0xFF64748B) : const Color(0xFF047857),
+                      color: _isLoadingContext
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF047857),
                     ),
                   ),
                 ),
@@ -188,7 +236,10 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
 
                     return Container(
                       margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(6),
@@ -204,10 +255,20 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('$paramLabel: ', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          Text(
+                            '$paramLabel: ',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
                           Text(
                             '$val $unit',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                           if (reqText != null) ...[
                             const SizedBox(width: 3),
@@ -228,21 +289,30 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                   // Fallback to zone properties
                   _buildSensorChip(
                     '🌱 Ẩm đất',
-                    zone.telemetryIsFresh ? '${zone.currentSoilMoisture.toStringAsFixed(1)}%' : '—',
+                    zone.telemetryIsFresh
+                        ? '${zone.currentSoilMoisture.toStringAsFixed(1)}%'
+                        : '—',
                   ),
                   _buildSensorChip(
                     '🌡️ Nhiệt độ',
-                    zone.telemetryIsFresh ? '${zone.currentTemp.toStringAsFixed(1)}°C' : '—',
+                    zone.telemetryIsFresh
+                        ? '${zone.currentTemp.toStringAsFixed(1)}°C'
+                        : '—',
                   ),
                   _buildSensorChip(
                     '💧 Ẩm KK',
-                    zone.telemetryIsFresh ? '${zone.currentHumidity.toStringAsFixed(0)}% RH' : '—',
+                    zone.telemetryIsFresh
+                        ? '${zone.currentHumidity.toStringAsFixed(0)}% RH'
+                        : '—',
                   ),
                 ],
 
                 if (weatherOk)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0F9FF),
                       borderRadius: BorderRadius.circular(6),
@@ -250,7 +320,11 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                     ),
                     child: Text(
                       '🌤️ Dự báo 6h: ${weather?['rainProbabilityNext6HoursMaxPercent'] ?? 0}% mưa',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0369A1),
+                      ),
                     ),
                   ),
               ],
@@ -272,7 +346,11 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
       ),
       child: Text(
         '$label: $value',
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF334155),
+        ),
       ),
     );
   }
@@ -289,15 +367,25 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
               (p) => GestureDetector(
                 onTap: () => _sendMessage(provider, p),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFECFDF5),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF6EE7B7), width: 1),
+                    border: Border.all(
+                      color: const Color(0xFF6EE7B7),
+                      width: 1,
+                    ),
                   ),
                   child: Text(
                     p,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF065F46), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF065F46),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

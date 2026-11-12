@@ -12,7 +12,8 @@ class TechnicianGatewayToolsScreen extends StatefulWidget {
   const TechnicianGatewayToolsScreen({super.key});
 
   @override
-  State<TechnicianGatewayToolsScreen> createState() => _TechnicianGatewayToolsScreenState();
+  State<TechnicianGatewayToolsScreen> createState() =>
+      _TechnicianGatewayToolsScreenState();
 }
 
 class _GatewayBundle {
@@ -22,7 +23,8 @@ class _GatewayBundle {
   _GatewayBundle(this.request, this.gateway, this.devices);
 }
 
-class _TechnicianGatewayToolsScreenState extends State<TechnicianGatewayToolsScreen> {
+class _TechnicianGatewayToolsScreenState
+    extends State<TechnicianGatewayToolsScreen> {
   late Future<List<_GatewayBundle>> _future = _load();
 
   Future<List<_GatewayBundle>> _load() async {
@@ -40,9 +42,18 @@ class _TechnicianGatewayToolsScreenState extends State<TechnicianGatewayToolsScr
       final gateways = results[0] as List<IotGateway>;
       final devices = results[1] as List<IotDevice>;
       for (final g in gateways) {
-        final req = entry.value.where((r) => r.requestId == g.deploymentRequestId).firstOrNull;
-        if (req == null) continue; // chỉ gateway thuộc yêu cầu được giao cho KTV này
-        bundles.add(_GatewayBundle(req, g, devices.where((d) => d.gatewayId == g.gatewayId).toList()));
+        final req = entry.value
+            .where((r) => r.requestId == g.deploymentRequestId)
+            .firstOrNull;
+        if (req == null)
+          continue; // chỉ gateway thuộc yêu cầu được giao cho KTV này
+        bundles.add(
+          _GatewayBundle(
+            req,
+            g,
+            devices.where((d) => d.gatewayId == g.gatewayId).toList(),
+          ),
+        );
       }
     }
     return bundles;
@@ -62,7 +73,10 @@ class _TechnicianGatewayToolsScreenState extends State<TechnicianGatewayToolsScr
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Gateway, Node & Linh kiện', style: TextStyle(fontSize: 15)),
+          title: const Text(
+            'Gateway, Node & Linh kiện',
+            style: TextStyle(fontSize: 15),
+          ),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Gateway / Node'),
@@ -83,8 +97,14 @@ class _TechnicianGatewayToolsScreenState extends State<TechnicianGatewayToolsScr
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${snap.error}'.replaceFirst('Exception: ', ''), textAlign: TextAlign.center),
-                        TextButton(onPressed: _reload, child: const Text('Thử lại')),
+                        Text(
+                          '${snap.error}'.replaceFirst('Exception: ', ''),
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton(
+                          onPressed: _reload,
+                          child: const Text('Thử lại'),
+                        ),
                       ],
                     ),
                   );
@@ -96,12 +116,19 @@ class _TechnicianGatewayToolsScreenState extends State<TechnicianGatewayToolsScr
                       ? ListView(
                           children: const [
                             SizedBox(height: 80),
-                            Center(child: Text('Chưa có gateway nào trong các yêu cầu được giao.')),
+                            Center(
+                              child: Text(
+                                'Chưa có gateway nào trong các yêu cầu được giao.',
+                              ),
+                            ),
                           ],
                         )
                       : ListView(
                           padding: const EdgeInsets.all(16),
-                          children: [for (final b in items) _GatewayCard(bundle: b, onChanged: _reload)],
+                          children: [
+                            for (final b in items)
+                              _GatewayCard(bundle: b, onChanged: _reload),
+                          ],
                         ),
                 );
               },
@@ -116,7 +143,12 @@ class _TechnicianGatewayToolsScreenState extends State<TechnicianGatewayToolsScr
 
 void _snack(BuildContext context, String m, {bool error = false}) {
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(m), backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF059669)),
+    SnackBar(
+      content: Text(m),
+      backgroundColor: error
+          ? const Color(0xFFDC2626)
+          : const Color(0xFF059669),
+    ),
   );
 }
 
@@ -146,14 +178,21 @@ class _GatewayCardState extends State<_GatewayCard> {
   }
 
   Future<void> _simulate() => _guard(() async {
-    final g = await DeploymentApi.simulateGatewayConnection(widget.bundle.gateway.gatewayId);
+    final g = await DeploymentApi.simulateGatewayConnection(
+      widget.bundle.gateway.gatewayId,
+    );
     if (!mounted) return;
-    _snack(context, 'Kết nối thử: ${g['status'] ?? 'OK'} · ${g['connectedNodes'] ?? 0} node.');
+    _snack(
+      context,
+      'Kết nối thử: ${g['status'] ?? 'OK'} · ${g['connectedNodes'] ?? 0} node.',
+    );
     await widget.onChanged();
   });
 
   Future<void> _firmware() => _guard(() async {
-    final cfg = await DeploymentApi.getGatewayFirmwareConfig(widget.bundle.gateway.gatewayId);
+    final cfg = await DeploymentApi.getGatewayFirmwareConfig(
+      widget.bundle.gateway.gatewayId,
+    );
     if (!mounted) return;
     final text = const JsonEncoder.withIndent('  ').convert(cfg);
     await showDialog<void>(
@@ -161,7 +200,10 @@ class _GatewayCardState extends State<_GatewayCard> {
       builder: (d) => AlertDialog(
         title: const Text('Cấu hình firmware'),
         content: SingleChildScrollView(
-          child: SelectableText(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+          child: SelectableText(
+            text,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+          ),
         ),
         actions: [
           TextButton(
@@ -172,7 +214,10 @@ class _GatewayCardState extends State<_GatewayCard> {
             },
             child: const Text('Sao chép'),
           ),
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Đóng')),
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Đóng'),
+          ),
         ],
       ),
     );
@@ -181,32 +226,51 @@ class _GatewayCardState extends State<_GatewayCard> {
   Future<void> _configure() async {
     Map<String, dynamic> detail;
     try {
-      detail = await DeploymentApi.getGatewayDetail(widget.bundle.gateway.gatewayId);
+      detail = await DeploymentApi.getGatewayDetail(
+        widget.bundle.gateway.gatewayId,
+      );
     } catch (e) {
       if (mounted) _snack(context, _err(e), error: true);
       return;
     }
     if (!mounted) return;
-    final configured = ((detail['configuredNodeIds'] as List?) ?? const []).map((e) => '$e'.toLowerCase()).toSet();
+    final configured = ((detail['configuredNodeIds'] as List?) ?? const [])
+        .map((e) => '$e'.toLowerCase())
+        .toSet();
     final selected = <String>{
       for (final d in widget.bundle.devices)
-        if (configured.isEmpty || configured.contains(d.deviceId.toLowerCase())) d.deviceId,
+        if (configured.isEmpty || configured.contains(d.deviceId.toLowerCase()))
+          d.deviceId,
     };
-    final intervalC = TextEditingController(text: '${detail['telemetryIntervalSec'] ?? 60}');
-    final samplesC = TextEditingController(text: '${detail['samplesPerInterval'] ?? 1}');
-    final locC = TextEditingController(text: '${detail['installationLocation'] ?? ''}');
+    final intervalC = TextEditingController(
+      text: '${detail['telemetryIntervalSec'] ?? 60}',
+    );
+    final samplesC = TextEditingController(
+      text: '${detail['samplesPerInterval'] ?? 1}',
+    );
+    final locC = TextEditingController(
+      text: '${detail['installationLocation'] ?? ''}',
+    );
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Cấu hình gateway', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Cấu hình gateway',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -237,16 +301,25 @@ class _GatewayCardState extends State<_GatewayCard> {
                 TextField(
                   controller: locC,
                   maxLength: 500,
-                  decoration: const InputDecoration(labelText: 'Vị trí lắp đặt', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Vị trí lắp đặt',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-                const Text('Node do gateway quản lý', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Text(
+                  'Node do gateway quản lý',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
                 for (final d in widget.bundle.devices)
                   CheckboxListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: selected.contains(d.deviceId),
-                    onChanged: (v) =>
-                        setLocal(() => v == true ? selected.add(d.deviceId) : selected.remove(d.deviceId)),
+                    onChanged: (v) => setLocal(
+                      () => v == true
+                          ? selected.add(d.deviceId)
+                          : selected.remove(d.deviceId),
+                    ),
                     title: Text('${d.hardwareAddress} · ${d.deviceType}'),
                     subtitle: Text(d.status),
                   ),
@@ -261,7 +334,11 @@ class _GatewayCardState extends State<_GatewayCard> {
                         samples == null ||
                         samples < 1 ||
                         samples > 60) {
-                      _snack(ctx, 'Chu kỳ 10–86400 giây, số mẫu 1–60.', error: true);
+                      _snack(
+                        ctx,
+                        'Chu kỳ 10–86400 giây, số mẫu 1–60.',
+                        error: true,
+                      );
                       return;
                     }
                     try {
@@ -312,15 +389,29 @@ class _GatewayCardState extends State<_GatewayCard> {
           children: [
             Row(
               children: [
-                Icon(Icons.router, color: online ? const Color(0xFF059669) : const Color(0xFF64748B)),
+                Icon(
+                  Icons.router,
+                  color: online
+                      ? const Color(0xFF059669)
+                      : const Color(0xFF64748B),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     b.gateway.gatewaySerial,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-                Text(b.gateway.status, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                Text(
+                  b.gateway.status,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             Text(
@@ -359,7 +450,10 @@ class _GatewayCardState extends State<_GatewayCard> {
                         ),
                       ),
                     ),
-                    icon: const Icon(Icons.edit_location_alt_outlined, size: 16),
+                    icon: const Icon(
+                      Icons.edit_location_alt_outlined,
+                      size: 16,
+                    ),
                     label: const Text('Toạ độ node'),
                   ),
               ],
@@ -369,11 +463,17 @@ class _GatewayCardState extends State<_GatewayCard> {
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.sensors, size: 18),
-                title: Text('${d.hardwareAddress} · ${d.deviceType}', style: const TextStyle(fontSize: 12)),
+                title: Text(
+                  '${d.hardwareAddress} · ${d.deviceType}',
+                  style: const TextStyle(fontSize: 12),
+                ),
                 subtitle: Text(d.status, style: const TextStyle(fontSize: 11)),
                 // Backend chỉ nhận cấu hình cảm biến cho SensorNode.
                 trailing: d.deviceType == 'SensorNode'
-                    ? TextButton(onPressed: _busy ? null : () => _configureSensors(d), child: const Text('Cảm biến'))
+                    ? TextButton(
+                        onPressed: _busy ? null : () => _configureSensors(d),
+                        child: const Text('Cảm biến'),
+                      )
                     : null,
               ),
           ],
@@ -398,7 +498,10 @@ class _GatewayCardState extends State<_GatewayCard> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text('Cảm biến · ${d.hardwareAddress}', style: const TextStyle(fontSize: 15)),
+          title: Text(
+            'Cảm biến · ${d.hardwareAddress}',
+            style: const TextStyle(fontSize: 15),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -408,30 +511,50 @@ class _GatewayCardState extends State<_GatewayCard> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: chosen.contains(code),
-                    onChanged: (v) => setLocal(() => v == true ? chosen.add(code) : chosen.remove(code)),
+                    onChanged: (v) => setLocal(
+                      () => v == true ? chosen.add(code) : chosen.remove(code),
+                    ),
                     title: Text('$label ($unit)'),
                   ),
                 TextField(
                   controller: intervalC,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Chu kỳ lấy mẫu (giây, 10–3600)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Chu kỳ lấy mẫu (giây, 10–3600)',
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy'),
+            ),
             FilledButton(
               onPressed: () async {
                 final interval = int.tryParse(intervalC.text.trim());
-                if (chosen.isEmpty || interval == null || interval < 10 || interval > 3600) {
-                  _snack(ctx, 'Chọn ít nhất một cảm biến; chu kỳ 10–3600 giây.', error: true);
+                if (chosen.isEmpty ||
+                    interval == null ||
+                    interval < 10 ||
+                    interval > 3600) {
+                  _snack(
+                    ctx,
+                    'Chọn ít nhất một cảm biến; chu kỳ 10–3600 giây.',
+                    error: true,
+                  );
                   return;
                 }
                 try {
                   await DeploymentApi.configureDeviceSensors(d.deviceId, [
-                    for (final (code, unit, _) in _sensorPresets.where((p) => chosen.contains(p.$1)))
-                      {'sensorType': code, 'unit': unit, 'samplingIntervalSec': interval},
+                    for (final (code, unit, _) in _sensorPresets.where(
+                      (p) => chosen.contains(p.$1),
+                    ))
+                      {
+                        'sensorType': code,
+                        'unit': unit,
+                        'samplingIntervalSec': interval,
+                      },
                   ]);
                   if (ctx.mounted) Navigator.pop(ctx, true);
                 } catch (e) {
@@ -459,7 +582,8 @@ class _SparePartsTab extends StatefulWidget {
 }
 
 class _SparePartsTabState extends State<_SparePartsTab> {
-  late Future<List<Map<String, dynamic>>> _future = DeploymentApi.getTechnicianSpareParts();
+  late Future<List<Map<String, dynamic>>> _future =
+      DeploymentApi.getTechnicianSpareParts();
 
   Future<void> _reload() async {
     final f = DeploymentApi.getTechnicianSpareParts();
@@ -474,7 +598,8 @@ class _SparePartsTabState extends State<_SparePartsTab> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _future,
       builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+        if (snap.connectionState != ConnectionState.done)
+          return const Center(child: CircularProgressIndicator());
         if (snap.hasError) {
           return Center(
             child: Column(
@@ -504,11 +629,21 @@ class _SparePartsTabState extends State<_SparePartsTab> {
                     final p = parts[i];
                     final rawPrice = p['unitPrice'] as num?;
                     final priceText = rawPrice != null && rawPrice > 0
-                        ? NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(rawPrice)
+                        ? NumberFormat.currency(
+                            locale: 'vi_VN',
+                            symbol: '₫',
+                            decimalDigits: 0,
+                          ).format(rawPrice)
                         : null;
                     return ListTile(
                       leading: const Icon(Icons.memory_outlined),
-                      title: Text('${p['name']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      title: Text(
+                        '${p['name']}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       subtitle: Text(
                         '${p['code']} · ${p['category']}'
                         '${p['serialNumber'] != null ? ' · SN ${p['serialNumber']}' : ''}'
@@ -521,7 +656,10 @@ class _SparePartsTabState extends State<_SparePartsTab> {
                         children: [
                           Text(
                             'x${p['quantityInStock'] ?? 0}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                           if (priceText != null)
                             Text(

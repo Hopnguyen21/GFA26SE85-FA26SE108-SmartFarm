@@ -47,7 +47,9 @@ class AddressAutofill extends ChangeNotifier {
     _loading = false;
     _error = null;
     final text = address.trim();
-    if (text.isNotEmpty && (!_userEdited || controller.text.trim().isEmpty) && controller.text != text) {
+    if (text.isNotEmpty &&
+        (!_userEdited || controller.text.trim().isEmpty) &&
+        controller.text != text) {
       controller.text = text;
       _userEdited = false;
     }
@@ -63,13 +65,18 @@ class AddressAutofill extends ChangeNotifier {
   }
 
   /// Người dùng bấm "Lấy tên địa điểm từ ghim": chủ động nên được phép thay nội dung ô.
-  Future<void> retry(double lat, double lng, {Future<GeocodeResult> Function(double, double)? lookup}) async {
+  Future<void> retry(
+    double lat,
+    double lng, {
+    Future<GeocodeResult> Function(double, double)? lookup,
+  }) async {
     final id = ++_retryId;
     _loading = true;
     _error = null;
     notifyListeners();
     final res = await (lookup ?? FarmApi.reverseGeocodeDetailed)(lat, lng);
-    if (_disposed || id != _retryId) return; // đã đóng form hoặc có lần thử lại mới hơn
+    if (_disposed || id != _retryId)
+      return; // đã đóng form hoặc có lần thử lại mới hơn
     _loading = false;
     if (res.ok) {
       controller.text = res.displayName!;
@@ -88,13 +95,19 @@ class AddressAutofill extends ChangeNotifier {
       if (_loading) {
         return const Padding(
           padding: EdgeInsets.only(top: 4),
-          child: Text('Đang lấy tên địa điểm…', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          child: Text(
+            'Đang lấy tên địa điểm…',
+            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          ),
         );
       }
       if (_error != null) {
         return Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text(_error!, style: const TextStyle(fontSize: 11, color: Color(0xFFB45309))),
+          child: Text(
+            _error!,
+            style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+          ),
         );
       }
       return const SizedBox.shrink();
