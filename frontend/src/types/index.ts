@@ -84,8 +84,17 @@ export interface Zone {
   boundaryGeoJson?: any;
   areaM2: number;
   status: 'ACTIVE' | 'INACTIVE';
-  currentCrop?: string;
-  currentStage?: string;
+  currentCrop?: string | null;
+  currentStage?: string | null;
+  cropId?: string | null;
+  varietyId?: string | null;
+  cropName?: string | null;
+  varietyName?: string | null;
+  /** None | InProgress | Mismatch | PlannedOnly */
+  seasonStatus?: 'None' | 'InProgress' | 'Mismatch' | 'PlannedOnly';
+  seasonName?: string | null;
+  seasonCropName?: string | null;
+  plannedCrop?: string | null;
   createdAt: string;
 }
 
@@ -102,6 +111,57 @@ export interface Employee {
   joinedAt: string;
   assignedFarms: string[]; // farmIds
   assignedZones: string[]; // zoneIds
+  /** Quyền Zone của nhân công: xem/được giao việc và (riêng biệt) được điều khiển thiết bị. */
+  zoneAccess?: { zoneId: string; canControl: boolean }[];
+}
+
+export type FarmInvitationStatus = 'Pending' | 'Accepted' | 'Declined' | 'Cancelled' | 'Expired';
+
+export interface FarmInvitation {
+  id: string;
+  farmId: string;
+  farmName: string;
+  email: string;
+  status: FarmInvitationStatus;
+  createdAtUtc: string;
+  expiresAtUtc: string;
+  respondedAtUtc?: string | null;
+  sendCount: number;
+  lastSentAtUtc?: string | null;
+}
+
+export type TaskAssignmentStatus =
+  | 'Pending' | 'Accepted' | 'InProgress' | 'CompletedPendingReview' | 'Approved' | 'Failed' | 'Overdue' | 'Cancelled' | 'Declined';
+
+export interface FarmTaskAssignment {
+  id: string;
+  farmerId: string;
+  farmerName: string;
+  status: TaskAssignmentStatus;
+  progressPercent: number;
+  progressNote?: string | null;
+  result?: string | null;
+  failureReason?: string | null;
+  assignmentVersion: number;
+  assignedAtUtc: string;
+  acceptedAtUtc?: string | null;
+  startedAtUtc?: string | null;
+  submittedAtUtc?: string | null;
+  approvedAtUtc?: string | null;
+}
+
+export interface FarmTaskDetail {
+  id: string;
+  farmId: string;
+  zoneId: string;
+  title: string;
+  description?: string | null;
+  requirements?: string | null;
+  dueAtUtc: string;
+  status: TaskAssignmentStatus;
+  createdAtUtc: string;
+  assignments: FarmTaskAssignment[];
+  history: { id: string; eventType: string; fromStatus?: string | null; toStatus: string; actorUserId: string; subjectFarmerId?: string | null; notes?: string | null; createdAtUtc: string }[];
 }
 
 export interface IrrigationSession {
@@ -148,10 +208,10 @@ export interface Crop {
   optimalTemperatureMax?: number; // °C
   optimalSoilMoistureMin?: number;// %
   optimalSoilMoistureMax?: number;// %
-  optimalpHMin?: number;          // pH
-  optimalpHMax?: number;          // pH
-  optimalECMin?: number;           // mS/cm
-  optimalECMax?: number;           // mS/cm
+  optimalPhMin?: number;          // pH
+  optimalPhMax?: number;          // pH
+  optimalEcMin?: number;           // mS/cm
+  optimalEcMax?: number;           // mS/cm
   optimalLux?: number;             // Lux
 
   // Lịch tưới theo định dạng cuốn lịch (Sáng - Trưa - Chiều)
@@ -277,8 +337,8 @@ export interface SensorNode {
   longitude: number;
   status: 'ONLINE' | 'OFFLINE' | 'WARNING' | 'CRITICAL';
   firmwareVersion: string;
-  batteryLevel: number; // 0-100%
-  rssi: number;
+  batteryLevel?: number; // 0-100%; thiết bị không báo thì để trống
+  rssi?: number;
   lastSeenAt: string;
   sensorsCount: number;
   actuatorsCount: number;
@@ -589,6 +649,8 @@ export interface ZoneContract {
   discountPercent?: number;
   discountVnd?: number;
   vatRatePercent?: number;
+  vatPercent?: number;
+  equipment?: { code: string; name: string; category: string; unit: string; quantity: number; unitPrice: number }[];
   vatAmountVnd?: number;
   durationMonths?: number;
   hardwareIncluded?: string;

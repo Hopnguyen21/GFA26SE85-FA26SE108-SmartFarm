@@ -49,12 +49,7 @@ public sealed partial class GeminiAiAdvisoryProvider(
 
     public async Task<AiProviderResult> GenerateAsync(AiProviderRequest request, CancellationToken cancellationToken)
     {
-        var apiKeys = (settings.ApiKeys ?? [])
-            .Append(settings.ApiKey)
-            .Where(k => !string.IsNullOrWhiteSpace(k))
-            .Select(k => k.Trim())
-            .Distinct()
-            .ToList();
+        var apiKeys = GeminiKeyPool.Ordered(settings);
         if (apiKeys.Count == 0)
             throw new InvalidOperationException("Gemini API key is not configured.");
         if (!ModelName().IsMatch(settings.Model))
@@ -63,9 +58,9 @@ public sealed partial class GeminiAiAdvisoryProvider(
         var promptText = AiPromptBuilder.Build(request);
 
         logger.LogInformation(
-            "[Gemini] Sending request. Model={Model} PromptLength={PromptLength} Farm={Farm} Zone={Zone} Crop={Crop} Stage={Stage} Telemetry={Telemetry} Actuators={Actuators}",
+            "[Gemini] Sending request. Model={Model} PromptLength={PromptLength} Zone={Zone} Crop={Crop} Stage={Stage} Telemetry={Telemetry} Actuators={Actuators}",
             settings.Model, promptText.Length,
-            request.Context.FarmName, request.Context.ZoneName, request.Context.CropName, request.Context.GrowthStageName,
+            request.Context.ZoneName, request.Context.CropName, request.Context.GrowthStageName,
             request.Context.Telemetry.Count, request.Context.Actuators.Count);
         logger.LogDebug("[Gemini] Question: {Question}", request.Question);
 
@@ -124,6 +119,7 @@ public sealed partial class GeminiAiAdvisoryProvider(
                 }
 
                 var statusCode = (int)response.StatusCode;
+                GeminiKeyPool.ReportStatus(apiKey, statusCode);
                 logger.LogWarning("[Gemini] Model {Model} (key #{KeyIndex}) returned HTTP {StatusCode}. Body: {Body}", model, keyIndex + 1, statusCode, Truncate(currentBody, 1000));
 
                 var retriable = statusCode is 400 or 401 or 403 or 404 or 429 or 500 or 502 or 503 or 504;
