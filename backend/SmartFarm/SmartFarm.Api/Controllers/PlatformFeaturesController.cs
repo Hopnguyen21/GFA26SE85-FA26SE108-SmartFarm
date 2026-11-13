@@ -1,3 +1,4 @@
+using SmartFarm.Application.Common.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,8 @@ public sealed class PlatformFeaturesController(
     IWeatherService weatherService,
     IFarmerService farmerService,
     IScheduleSyncService scheduleSyncService,
-    IControlAutomationService controlAutomationService) : ControllerBase
+    IControlAutomationService controlAutomationService,
+    IGeocodingService geocodingService) : ControllerBase
 {
     // ─── 1. Audit Logs ────────────────────────────────────────────────────────
     [HttpGet("api/v1/audit-logs")]
@@ -85,6 +87,18 @@ public sealed class PlatformFeaturesController(
         CancellationToken ct)
     {
         return Ok(await adminService.UpdateHardwareItemAsync(id, command, ct));
+    }
+
+    [HttpPost("api/v1/platform/hardware-items/{id:guid}/assign")]
+    [Authorize(Roles = "PlatformAdmin,PlatformTechnician")]
+    public async Task<ActionResult<PlatformHardwareItemView>> AssignHardwareItem(Guid id, [FromBody] AssignHardwareItemCommand command, CancellationToken ct)
+        => Ok(await adminService.AssignHardwareItemAsync(id, command with { TechnicianUserId = User.IsInRole("PlatformTechnician") ? User.GetUserId() : command.TechnicianUserId }, ct));
+
+    [HttpPost("api/v1/platform/hardware-items/{id:guid}/return")]
+    [Authorize(Roles = "PlatformTechnician,PlatformAdmin")]
+    public async Task<ActionResult<PlatformHardwareItemView>> ReturnHardwareItem(Guid id, CancellationToken ct)
+    {
+        return Ok(await adminService.ReturnHardwareItemAsync(id, ct));
     }
 
     [HttpDelete("api/v1/platform/hardware-items/{id:guid}")]
@@ -258,6 +272,32 @@ public sealed class PlatformFeaturesController(
     {
         return Ok(await controlAutomationService.UpdateEnvironmentalConfigAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, command, ct));
     }
+
+    // ─── 15. GIS Geocoding Proxy ──────────────────────────────────────────────
+    [HttpPost("api/v1/gis/reverse-geocode")]
+    [Authorize]
+    public async Task<ActionResult<GeocodingAddressView>> ReverseGeocode(
+        [FromBody] ReverseGeocodeRequest request,
+        CancellationToken ct)
+    {
+        if (request is null || request.Latitude is < -90 or > 90 || request.Longitude is < -180 or > 180 || (request.Latitude == 0 && request.Longitude == 0))
+            return BadRequest(new { message = "Tọa độ không hợp lệ." });
+
+        var result = await geocodingService.ReverseGeocodeAsync(request.Latitude, request.Longitude, ct);
+        return result is not null ? Ok(result) : NotFound(new { message = "Không tìm thấy địa chỉ cho tọa độ này." });
+    }
+
+    [HttpPost("api/v1/gis/search-location")]
+    [Authorize]
+    public async Task<ActionResult<IReadOnlyList<GeocodingAddressView>>> SearchLocation(
+        [FromBody] SearchLocationRequest request,
+        CancellationToken ct)
+    {
+        var cleanQuery = request?.Query?.Trim();
+        if (string.IsNullOrWhiteSpace(cleanQuery) || cleanQuery.Length < 2 || cleanQuery.Length > 200)
+            return Ok(Array.Empty<GeocodingAddressView>());
+        return Ok(await geocodingService.SearchLocationAsync(cleanQuery, ct));
+    }
 }
 
 public sealed class EmergencyStopRequest
@@ -275,3 +315,13 @@ public sealed class SyncCropScheduleRequest
     public Guid ActuatorId { get; init; }
 }
 
+public sealed class ReverseGeocodeRequest
+{
+    public decimal Latitude { get; init; }
+    public decimal Longitude { get; init; }
+}
+
+public sealed class SearchLocationRequest
+{
+    public string Query { get; init; } = string.Empty;
+}
