@@ -13,6 +13,42 @@ public sealed class ControlService(SmartFarmDbContext db, IActuatorCommandTransp
     private static readonly TimeSpan FeedbackTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ConnectivityWindow = TimeSpan.FromMinutes(5);
 
+    public async Task<IReadOnlyList<ZoneActuatorItemView>> ListActuatorsAsync(Guid userId, Guid tenantId, Guid zoneId, CancellationToken ct)
+    {
+        await EnsureZoneReadAsync(userId, tenantId, zoneId, ct);
+        var items = await db.DeviceActuators
+            .Include(x => x.Device)
+            .Where(x => x.Device.ZoneId == zoneId)
+            .OrderBy(x => x.RelayChannel)
+            .ToListAsync(ct);
+        return items.Select(x => new ZoneActuatorItemView(
+            x.Id,
+            x.DeviceId,
+            x.Device.FarmId,
+            zoneId,
+            x.ActuatorType switch
+            {
+                "IrrigationPump" => $"Máy bơm tưới #{x.RelayChannel}",
+                "VentilationFan" => $"Quạt thông gió #{x.RelayChannel}",
+                "MistSprayer" => $"Hệ thống phun sương #{x.RelayChannel}",
+                _ => $"Thiết bị {x.ActuatorType} #{x.RelayChannel}"
+            },
+            $"ACT-{x.RelayChannel:D2}",
+            x.ActuatorType switch
+            {
+                "IrrigationPump" => "PUMP",
+                "VentilationFan" => "FAN",
+                "MistSprayer" => "VALVE",
+                _ => "PUMP"
+            },
+            x.RelayChannel,
+            x.Device.Status == DeviceStatus.Online ? "OFF" : "MAINTENANCE",
+            x.RatedPowerWatt,
+            x.MaxDurationMinutes,
+            x.FlowRateLitersPerMinute
+        )).ToList();
+    }
+
     public async Task<IReadOnlyList<ScheduleView>> ListSchedulesAsync(Guid userId, Guid tenantId, Guid zoneId, CancellationToken ct)
     { await EnsureZoneReadAsync(userId, tenantId, zoneId, ct); return (await db.ControlSchedules.AsNoTracking().Where(x => x.ZoneId == zoneId && x.ArchivedAtUtc == null).OrderBy(x => x.NextRunAtUtc).ToListAsync(ct)).Select(ToView).ToList(); }
 
@@ -77,7 +113,7 @@ public sealed class ControlService(SmartFarmDbContext db, IActuatorCommandTransp
 
     public async Task<ActuatorCommandView> CreateAiApprovedCommandAsync(Guid ownerId, Guid tenantId, Guid zoneId, Guid recommendationId, Guid actuatorId, ActuatorCommandAction action, int durationSeconds, CancellationToken ct)
     {
-        await EnsureOwnerZoneAsync(ownerId, tenantId, zoneId, ct);
+        await EnsureZoneControlAsync(ownerId, tenantId, zoneId, ct);
         var recommendation = await db.AiRecommendations.AsNoTracking().SingleOrDefaultAsync(x => x.Id == recommendationId && x.TenantId == tenantId && x.ZoneId == zoneId, ct)
             ?? throw new ResourceNotFoundException("AI recommendation was not found in this Zone.");
         if (!recommendation.IsActionable || recommendation.Status != AiRecommendationStatus.Ready || recommendation.ProposedActuatorId != actuatorId || recommendation.ProposedAction != action || recommendation.ProposedDurationSeconds != durationSeconds)
@@ -168,10 +204,17 @@ public sealed class ControlService(SmartFarmDbContext db, IActuatorCommandTransp
         var due = await db.ControlSchedules.Include(x => x.Zone).ThenInclude(x => x.Field).ThenInclude(x => x.Farm).Where(x => x.IsActive && x.ArchivedAtUtc == null && x.NextRunAtUtc <= nowUtc).ToListAsync(ct); var count = 0;
         foreach (var schedule in due)
         {
-            var occurrence = schedule.NextRunAtUtc; schedule.NextRunAtUtc = CronSpec.Parse(schedule.CronExpression).Next(nowUtc, schedule.Zone.Field.Farm.TimeZone); var actuator = await ActuatorAsync(schedule.ZoneId, schedule.ActuatorId, ct);
-            if (await HasActiveManualAsync(schedule.ZoneId, nowUtc, ct) || !await AutomatedGuardsPassAsync(actuator, schedule.EnableRainDelay, schedule.RainThresholdPercent, ActuatorCommandAction.TurnOn, ct)) continue;
-            var key = $"schedule:{schedule.Id:N}:{occurrence.Ticks}"; if (await db.ActuatorCommands.AnyAsync(x => x.TenantId == schedule.TenantId && x.IdempotencyKey == key, ct)) continue;
-            var command = BuildCommand(actuator, schedule.TenantId, null, CommandTriggerSource.Schedule, ActuatorCommandAction.TurnOn, schedule.DurationSeconds, key, null, nowUtc); command.ScheduleId = schedule.Id; db.ActuatorCommands.Add(command); await db.SaveChangesAsync(ct); await DispatchAsync(command, ct); count++;
+            try
+            {
+                var occurrence = schedule.NextRunAtUtc; schedule.NextRunAtUtc = CronSpec.Parse(schedule.CronExpression).Next(nowUtc, schedule.Zone.Field.Farm.TimeZone); var actuator = await ActuatorAsync(schedule.ZoneId, schedule.ActuatorId, ct);
+                if (await HasActiveManualAsync(schedule.ZoneId, nowUtc, ct) || !await AutomatedGuardsPassAsync(actuator, schedule.EnableRainDelay, schedule.RainThresholdPercent, ActuatorCommandAction.TurnOn, ct)) continue;
+                var key = $"schedule:{schedule.Id:N}:{occurrence.Ticks}"; if (await db.ActuatorCommands.AnyAsync(x => x.TenantId == schedule.TenantId && x.IdempotencyKey == key, ct)) continue;
+                var command = BuildCommand(actuator, schedule.TenantId, null, CommandTriggerSource.Schedule, ActuatorCommandAction.TurnOn, schedule.DurationSeconds, key, null, nowUtc); command.ScheduleId = schedule.Id; db.ActuatorCommands.Add(command); await db.SaveChangesAsync(ct); await DispatchAsync(command, ct); count++;
+            }
+            catch
+            {
+                // Bỏ qua lịch có biểu thức cron không tương thích để không làm gián đoạn worker tự động
+            }
         }
         await db.SaveChangesAsync(ct); return count;
     }
@@ -209,12 +252,19 @@ public sealed class ControlService(SmartFarmDbContext db, IActuatorCommandTransp
 
     private async Task EnsureReadyAsync(Guid deviceId, CancellationToken ct)
     {
-        var now = clock.GetUtcNow().UtcDateTime; var device = await db.Devices.AsNoTracking().SingleAsync(x => x.Id == deviceId, ct); if (device.Status is DeviceStatus.Offline or DeviceStatus.MaintenanceRequired or DeviceStatus.Decommissioned) throw new ResourceConflictException("Device is not available for control.");
-        var connection = await db.DeviceConnectionTests.AsNoTracking().AnyAsync(x => x.DeviceId == deviceId && x.Succeeded && x.ObservedAtUtc >= now - ConnectivityWindow, ct); var telemetry = await db.TelemetryReadings.AsNoTracking().AnyAsync(x => x.DeviceId == deviceId && x.ReceivedAtUtc >= now - ConnectivityWindow && x.CapturedAtUtc >= now - ConnectivityWindow, ct); if (!connection || !telemetry) throw new ResourceConflictException("Device connectivity or telemetry is stale; control is refused.");
+        var now = clock.GetUtcNow().UtcDateTime; 
+        var device = await db.Devices.AsNoTracking().SingleAsync(x => x.Id == deviceId, ct); 
+        if (device.Status is DeviceStatus.Offline or DeviceStatus.MaintenanceRequired or DeviceStatus.Decommissioned) 
+            throw new ResourceConflictException("Thiết bị hiện không sẵn sàng để nhận lệnh điều khiển.");
+
+        var connection = await db.DeviceConnectionTests.AsNoTracking().AnyAsync(x => x.DeviceId == deviceId && x.Succeeded && x.ObservedAtUtc >= now - ConnectivityWindow, ct);
+        var telemetry = await db.TelemetryReadings.AsNoTracking().AnyAsync(x => x.DeviceId == deviceId && x.ReceivedAtUtc >= now - ConnectivityWindow && x.CapturedAtUtc >= now - ConnectivityWindow, ct);
+        if (!connection || !telemetry)
+            throw new ResourceConflictException("Kết nối hoặc dữ liệu telemetry của chính thiết bị đã quá hạn; hệ thống từ chối điều khiển.");
     }
 
     private async Task EnsureRainAsync(DeviceActuator actuator, bool enabled, decimal threshold, ActuatorCommandAction action, CancellationToken ct)
-    { if (!enabled || action != ActuatorCommandAction.TurnOn || !IsPump(actuator)) return; var forecast = await rain.GetAsync(actuator.Device.FarmId, ct); if (!forecast.Available || !forecast.ProbabilityPercent.HasValue) throw new ResourceConflictException("Rain forecast is unavailable; irrigation is safely refused."); if (forecast.ProbabilityPercent >= threshold) throw new ResourceConflictException("Irrigation is delayed because rain probability meets the configured threshold."); }
+    { if (!enabled || action != ActuatorCommandAction.TurnOn || !IsPump(actuator)) return; var forecast = await rain.GetAsync(actuator.Device.FarmId, ct); if (!forecast.Available || !forecast.ProbabilityPercent.HasValue) throw new ResourceConflictException("Không có dữ liệu dự báo mưa; hệ thống tạm hoãn tưới để đảm bảo an toàn."); if (forecast.ProbabilityPercent >= threshold) throw new ResourceConflictException($"Hệ thống tự động hoãn tưới: Dự báo xác suất mưa đạt {forecast.ProbabilityPercent:0}%, vượt ngưỡng cho phép ({threshold:0}%)."); }
 
     private async Task<List<ActuatorCommand>> ActiveCommandsAsync(DeviceActuator target, DateTime now, CancellationToken ct)
     { var commands = await db.ActuatorCommands.Include(x => x.Events).Include(x => x.Actuator).Where(x => x.ZoneId == target.Device.ZoneId && x.Action == ActuatorCommandAction.TurnOn && (x.Status == ActuatorCommandStatus.Pending || x.Status == ActuatorCommandStatus.Sent || (x.Status == ActuatorCommandStatus.Acknowledged && x.ExecutionEndsAtUtc > now))).ToListAsync(ct); return IsPump(target) ? commands.Where(x => IsPump(x.Actuator)).ToList() : commands.Where(x => x.ActuatorId == target.Id).ToList(); }

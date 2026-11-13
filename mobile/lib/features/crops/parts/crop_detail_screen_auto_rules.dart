@@ -23,18 +23,30 @@ extension _CropDetailScreenStateAutoRules on _CropDetailScreenState {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.auto_fix_high, color: Color(0xFF10B981), size: 20),
+                    Icon(
+                      Icons.auto_fix_high,
+                      color: Color(0xFF10B981),
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'AutoRule Engine (CF3)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
                 SizedBox(height: 8),
                 Text(
                   'Khi áp dụng Profile này, hệ thống tự động tạo các quy tắc dưới đây. Bơm/quạt sẽ hoạt động KHÔNG CẦN xác nhận tay – chỉ gửi notify cho bạn.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFCBD5E1), height: 1.4),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFCBD5E1),
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -59,16 +71,26 @@ extension _CropDetailScreenStateAutoRules on _CropDetailScreenState {
                 children: [
                   Row(
                     children: [
-                      Text(stage.iconEmoji, style: const TextStyle(fontSize: 16)),
+                      Text(
+                        stage.iconEmoji,
+                        style: const TextStyle(fontSize: 16),
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         stage.name,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       const Spacer(),
                       Text(
                         'Ngày ${stage.startDayFromPlanting}–${stage.endDayFromPlanting}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     ],
                   ),
@@ -110,12 +132,20 @@ extension _CropDetailScreenStateAutoRules on _CropDetailScreenState {
                     children: [
                       Text(
                         'AI Advisory (CF4) – Human-in-the-loop',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF92400E),
+                        ),
                       ),
                       SizedBox(height: 4),
                       Text(
                         'Các tình huống phức tạp (bệnh lá, thời tiết bất thường, giai đoạn chuyển vụ) → AI đề xuất và BẠN phê duyệt trước khi thực thi. AutoRule xử lý các ngưỡng đơn giản hoàn toàn tự động.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.4),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF78350F),
+                          height: 1.4,
+                        ),
                       ),
                     ],
                   ),
@@ -141,13 +171,24 @@ extension _CropDetailScreenStateAutoRules on _CropDetailScreenState {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
           ),
           const SizedBox(height: 4),
-          Text('NẾU: $condition', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          Text(
+            'NẾU: $condition',
+            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          ),
           Text(
             'THÌ: $action',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF059669),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

@@ -19,7 +19,11 @@ const zoneSupportFailureCodes = <String, String>{
 class ZoneSupportSection extends StatefulWidget {
   final ZoneModel zone;
   final bool canCreate;
-  const ZoneSupportSection({super.key, required this.zone, required this.canCreate});
+  const ZoneSupportSection({
+    super.key,
+    required this.zone,
+    required this.canCreate,
+  });
 
   @override
   State<ZoneSupportSection> createState() => _ZoneSupportSectionState();
@@ -103,7 +107,11 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
         children: [
           Row(
             children: [
-              const Icon(Icons.support_agent, size: 16, color: Color(0xFF0284C7)),
+              const Icon(
+                Icons.support_agent,
+                size: 16,
+                color: Color(0xFF0284C7),
+              ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
@@ -141,14 +149,20 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
               ),
             ),
           if (_loading)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator(minHeight: 2))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
           else if (_error != null)
             Row(
               children: [
                 Expanded(
                   child: Text(
                     'Không tải được yêu cầu: $_error',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB91C1C),
+                    ),
                   ),
                 ),
                 TextButton(onPressed: _load, child: const Text('Thử lại')),
@@ -157,7 +171,10 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
           else if (_requests.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Zone chưa có yêu cầu hỗ trợ nào.', style: TextStyle(fontSize: 12, color: _muted)),
+              child: Text(
+                'Zone chưa có yêu cầu hỗ trợ nào.',
+                style: TextStyle(fontSize: 12, color: _muted),
+              ),
             )
           else
             for (final r in _requests)
@@ -176,8 +193,13 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            zoneSupportFailureCodes['${r['failureCode']}'] ?? '${r['failureCode']}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _ink),
+                            zoneSupportFailureCodes['${r['failureCode']}'] ??
+                                '${r['failureCode']}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: _ink,
+                            ),
                           ),
                           Text(
                             '${r['description'] ?? ''}',
@@ -191,7 +213,11 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
                     const SizedBox(width: 8),
                     Text(
                       '${r['status'] ?? '—'}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _muted),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _muted,
+                      ),
                     ),
                   ],
                 ),
@@ -245,7 +271,9 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
         // Chỉ thiết bị thuộc đúng Zone này.
         _devices = [
           for (final d in list)
-            if ('${d['zoneId'] ?? widget.zone.zoneId}'.toLowerCase() == widget.zone.zoneId.toLowerCase()) d,
+            if ('${d['zoneId'] ?? widget.zone.zoneId}'.toLowerCase() ==
+                widget.zone.zoneId.toLowerCase())
+              d,
         ];
         _loadingDevices = false;
       });
@@ -264,7 +292,8 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
       setState(() => _error = 'Hãy mô tả sự cố (ít nhất 5 ký tự).');
       return;
     }
-    if (_deviceId != null && !_devices.any((d) => '${d['deviceId']}' == _deviceId)) {
+    if (_deviceId != null &&
+        !_devices.any((d) => '${d['deviceId']}' == _deviceId)) {
       setState(() => _error = 'Thiết bị đã chọn không thuộc Zone này.');
       return;
     }
@@ -295,7 +324,10 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Gửi yêu cầu hỗ trợ kỹ thuật', style: TextStyle(fontSize: 16)),
+      title: const Text(
+        'Gửi yêu cầu hỗ trợ kỹ thuật',
+        style: TextStyle(fontSize: 16),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -303,7 +335,11 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
           children: [
             Text(
               '${widget.zone.farmName} › ${widget.zone.name}',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _ink),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
@@ -311,9 +347,12 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Loại sự cố *'),
               items: [
-                for (final e in zoneSupportFailureCodes.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+                for (final e in zoneSupportFailureCodes.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value)),
               ],
-              onChanged: _busy ? null : (v) => setState(() => _code = v ?? _code),
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() => _code = v ?? _code),
             ),
             const SizedBox(height: 10),
             if (_loadingDevices)
@@ -324,19 +363,30 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
                   Expanded(
                     child: Text(
                       'Không tải được thiết bị: $_devicesError',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB91C1C),
+                      ),
                     ),
                   ),
-                  TextButton(onPressed: _loadDevices, child: const Text('Thử lại')),
+                  TextButton(
+                    onPressed: _loadDevices,
+                    child: const Text('Thử lại'),
+                  ),
                 ],
               )
             else
               DropdownButtonFormField<String?>(
                 initialValue: _deviceId,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Thiết bị liên quan (không bắt buộc)'),
+                decoration: const InputDecoration(
+                  labelText: 'Thiết bị liên quan (không bắt buộc)',
+                ),
                 items: [
-                  const DropdownMenuItem<String?>(value: null, child: Text('Không chọn thiết bị cụ thể')),
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Không chọn thiết bị cụ thể'),
+                  ),
                   for (final d in _devices)
                     DropdownMenuItem<String?>(
                       value: '${d['deviceId']}',
@@ -354,25 +404,40 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
               enabled: !_busy,
               maxLines: 4,
               maxLength: 2000,
-              decoration: const InputDecoration(labelText: 'Mô tả sự cố *', alignLabelWithHint: true),
+              decoration: const InputDecoration(
+                labelText: 'Mô tả sự cố *',
+                alignLabelWithHint: true,
+              ),
             ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFB91C1C),
+                  ),
+                ),
               ),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Hủy')),
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
         FilledButton(
           onPressed: _busy ? null : _submit,
           child: _busy
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Gửi'),
         ),

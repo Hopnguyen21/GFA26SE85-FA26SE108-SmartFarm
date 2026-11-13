@@ -4,7 +4,11 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
   // ─── Tab 1: Vi khí hậu ───────────────────────────────────────
   Widget _buildClimateTab(ZoneModel zone, FarmProvider provider) {
     // Telemetry của CHÍNH Zone đang mở (theo zoneId) + ngưỡng của hồ sơ gắn cho Zone; GIS đặt ở cuối tab.
-    return ZoneClimatePanel(key: ValueKey('climate_${zone.zoneId}'), zone: zone, footer: _buildZoneGisSection(zone));
+    return ZoneClimatePanel(
+      key: ValueKey('climate_${zone.zoneId}'),
+      zone: zone,
+      footer: _buildZoneGisSection(zone),
+    );
   }
 
   /// Ô vuông nhỏ (~25 m) quanh [c] để Owner kéo các đỉnh khi vẽ ranh giới Zone lần đầu.
@@ -26,8 +30,11 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
     final effectivePolygon = _editedPolygon ?? zone.polygon ?? const <LatLng>[];
     final hasPolygon = effectivePolygon.isNotEmpty;
     // Vị trí thật của trang trại, dùng làm điểm bắt đầu khi vẽ ranh giới lần đầu.
-    final farm = provider.farms.where((f) => f.farmId == zone.farmId).firstOrNull;
-    final farmLatLng = (farm == null || (farm.latitude == 0 && farm.longitude == 0))
+    final farm = provider.farms
+        .where((f) => f.farmId == zone.farmId)
+        .firstOrNull;
+    final farmLatLng =
+        (farm == null || (farm.latitude == 0 && farm.longitude == 0))
         ? null
         : LatLng(farm.latitude, farm.longitude);
     final center = hasPolygon ? effectivePolygon.first : farmLatLng;
@@ -38,7 +45,13 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,12 +68,20 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                   children: [
                     Row(
                       children: const [
-                        Icon(Icons.location_on, size: 16, color: Color(0xFF062326)),
+                        Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: Color(0xFF062326),
+                        ),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             'Vị trí GIS Map của Nhà màng này',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -73,31 +94,46 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                       runSpacing: 4,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: _isEditingGis ? const Color(0xFFFEF3C7) : const Color(0xFFECFDF5),
+                            color: _isEditingGis
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: _isEditingGis ? const Color(0xFFFDE68A) : const Color(0xFFA7F3D0),
+                              color: _isEditingGis
+                                  ? const Color(0xFFFDE68A)
+                                  : const Color(0xFFA7F3D0),
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                _isEditingGis ? Icons.edit_location_alt_rounded : Icons.lock_outline_rounded,
+                                _isEditingGis
+                                    ? Icons.edit_location_alt_rounded
+                                    : Icons.lock_outline_rounded,
                                 size: 10,
-                                color: _isEditingGis ? const Color(0xFFD97706) : const Color(0xFF047857),
+                                color: _isEditingGis
+                                    ? const Color(0xFFD97706)
+                                    : const Color(0xFF047857),
                               ),
                               const SizedBox(width: 3),
                               Flexible(
                                 child: Text(
-                                  _isEditingGis ? 'Đang sửa ranh giới' : 'Cố định (Chỉ xem)',
+                                  _isEditingGis
+                                      ? 'Đang sửa ranh giới'
+                                      : 'Cố định (Chỉ xem)',
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: _isEditingGis ? const Color(0xFFD97706) : const Color(0xFF047857),
+                                    color: _isEditingGis
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFF047857),
                                   ),
                                 ),
                               ),
@@ -110,7 +146,10 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                               : (zone.boundaryProblem != null
                                     ? '• Ranh giới lỗi: ${zone.boundaryProblem}'
                                     : '• Zone chưa có ranh giới GIS'),
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -132,11 +171,22 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                               });
                             },
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      child: const Text('Hủy', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      child: const Text(
+                        'Hủy',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ),
                     FilledButton.icon(
                       onPressed: _isSavingGis
@@ -147,7 +197,9 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                               if (pts == null || pts.length < 3) {
                                 messenger.showSnackBar(
                                   const SnackBar(
-                                    content: Text('Ranh giới cần ít nhất 3 đỉnh.'),
+                                    content: Text(
+                                      'Ranh giới cần ít nhất 3 đỉnh.',
+                                    ),
                                     backgroundColor: Color(0xFFDC2626),
                                   ),
                                 );
@@ -156,15 +208,23 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                               _rebuild(() => _isSavingGis = true);
                               try {
                                 final geoJsonCoords = [
-                                  pts.map((p) => [p.longitude, p.latitude]).toList()
-                                    ..add([pts.first.longitude, pts.first.latitude]),
+                                  pts
+                                      .map((p) => [p.longitude, p.latitude])
+                                      .toList()
+                                    ..add([
+                                      pts.first.longitude,
+                                      pts.first.latitude,
+                                    ]),
                                 ];
                                 // Chỉ cập nhật bản đồ khi máy chủ xác nhận đã lưu.
                                 await FarmApi.updateZone(
                                   zone.zoneId,
                                   name: zone.name,
                                   notes: zone.notes,
-                                  polygonGeoJson: {'type': 'Polygon', 'coordinates': geoJsonCoords},
+                                  polygonGeoJson: {
+                                    'type': 'Polygon',
+                                    'coordinates': geoJsonCoords,
+                                  },
                                 );
                                 if (!mounted) return;
                                 provider.updateZonePolygon(zone.zoneId, pts);
@@ -178,13 +238,16 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                                 });
                                 messenger.showSnackBar(
                                   const SnackBar(
-                                    content: Text('Đã lưu ranh giới GIS của Zone.'),
+                                    content: Text(
+                                      'Đã lưu ranh giới GIS của Zone.',
+                                    ),
                                     backgroundColor: Color(0xFF059669),
                                     duration: Duration(seconds: 2),
                                   ),
                                 );
                               } catch (e) {
-                                if (mounted) _rebuild(() => _isSavingGis = false);
+                                if (mounted)
+                                  _rebuild(() => _isSavingGis = false);
                                 messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(
@@ -199,14 +262,28 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                           ? const SizedBox(
                               width: 12,
                               height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Icon(Icons.check, size: 13),
-                      label: const Text('Lưu GIS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Lưu GIS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF059669),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],
@@ -215,7 +292,9 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                 OutlinedButton.icon(
                   onPressed: () {
                     // Zone chưa có ranh giới: bắt đầu bằng một ô vuông nhỏ (~25 m) quanh vị trí thật của trang trại.
-                    final start = hasPolygon ? List<LatLng>.from(effectivePolygon) : _defaultZoneBox(farmLatLng!);
+                    final start = hasPolygon
+                        ? List<LatLng>.from(effectivePolygon)
+                        : _defaultZoneBox(farmLatLng!);
                     _rebuild(() {
                       _isEditingGis = true;
                       _editedPolygon = start;
@@ -230,15 +309,28 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.edit_location_alt, size: 13, color: Color(0xFF062326)),
+                  icon: const Icon(
+                    Icons.edit_location_alt,
+                    size: 13,
+                    color: Color(0xFF062326),
+                  ),
                   label: Text(
                     hasPolygon ? 'Sửa GIS' : 'Vẽ ranh giới',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF062326)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF062326),
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
             ],
@@ -251,7 +343,10 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: const Text(
                 'Zone chưa có ranh giới GIS và trang trại chưa có toạ độ. Hãy cập nhật vị trí trang trại trước.',
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
@@ -261,7 +356,10 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Text(
                 canEdit
                     ? 'Zone chưa có ranh giới GIS. Bấm "Vẽ ranh giới" để bắt đầu từ vị trí trang trại.'
@@ -273,7 +371,9 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: MiniGISMapPicker(
-                key: ValueKey('zone_gis_${zone.zoneId}_${_isEditingGis}_${effectivePolygon.length}'),
+                key: ValueKey(
+                  'zone_gis_${zone.zoneId}_${_isEditingGis}_${effectivePolygon.length}',
+                ),
                 initialCenter: center,
                 initialPolygon: effectivePolygon,
                 level: 'ZONE',

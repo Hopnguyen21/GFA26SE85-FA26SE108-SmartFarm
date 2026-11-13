@@ -1,3 +1,4 @@
+import { NO_CROP_LABEL, zoneCropLabel, zoneStageLabel } from '../../utils/zoneCrop';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   ShieldAlert, CheckCircle2, Bot, Plus, Settings, Trash2, Edit3,
@@ -5,8 +6,8 @@ import {
   X, ChevronDown, ChevronUp, Play, Pause, RefreshCw, Power, Info, Sparkles, AlertOctagon, HelpCircle
 } from 'lucide-react';
 import { Button, StatusBadge, Modal } from '../ui/BaseUI';
-import { alertService } from '../../services';
-import { useAuth } from '../../app/providers/AuthContext';
+import { alertService, deviceService } from '../../services';
+import { useAuth } from '@/app/providers/AuthContext';
 import { Alert, AlertRule as DomainAlertRule } from '../../types';
 
 export interface ZoneAlertCenterProps {
@@ -14,6 +15,7 @@ export interface ZoneAlertCenterProps {
   farmId?: string;
   fieldId?: string;
   scopeLevel?: 'ZONE' | 'FIELD' | 'FARM' | 'GLOBAL' | 'FARMER';
+  nodes?: any[];
   onNavigateToControl?: () => void;
 }
 
@@ -45,13 +47,13 @@ interface LiveAlert {
   acked: boolean;
 }
 
-const METRICS = [
-  { key: 'soil_moisture', label: 'Độ ẩm đất', unit: '%', icon: Droplets, color: 'sky', baseVal: 65, min: 0, max: 100 },
+export const METRICS = [
   { key: 'temperature', label: 'Nhiệt độ', unit: '°C', icon: Thermometer, color: 'orange', baseVal: 27, min: -10, max: 60 },
   { key: 'humidity', label: 'Độ ẩm KK', unit: '%', icon: Wind, color: 'teal', baseVal: 72, min: 0, max: 100 },
+  { key: 'soil_moisture', label: 'Độ ẩm đất', unit: '%', icon: Droplets, color: 'sky', baseVal: 65, min: 0, max: 100 },
   { key: 'light', label: 'Ánh sáng', unit: 'lux', icon: Sun, color: 'yellow', baseVal: 18000, min: 0, max: 100000 },
-  { key: 'battery', label: 'Pin Node', unit: '%', icon: Zap, color: 'emerald', baseVal: 78, min: 0, max: 100 },
   { key: 'co2', label: 'CO₂', unit: 'ppm', icon: Cpu, color: 'violet', baseVal: 420, min: 300, max: 5000 },
+  { key: 'battery', label: 'Pin Node', unit: '%', icon: Zap, color: 'emerald', baseVal: 78, min: 0, max: 100 },
 ];
 
 const ICON_COLOR: Record<string, string> = {
@@ -81,10 +83,79 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
   farmId,
   fieldId,
   scopeLevel = 'ZONE',
+  nodes: passedNodes,
   onNavigateToControl
 }) => {
   const { zones: authZones } = useAuth();
-  const targetZone = authZones.find(z => z.zoneId === zoneId) || (zoneId ? { zoneId, name: `Zone ${zoneId}`, currentCrop: 'Cà chua' } : null);
+  const targetZone = authZones.find(z => z.zoneId === zoneId) || (zoneId ? { zoneId, name: `Zone ${zoneId}`, currentCrop: undefined } : null);
+
+  // Hardware-adaptive node tracking:
+  const [internalNodes, setInternalNodes] = useState<any[]>(passedNodes || []);
+
+  useEffect(() => {
+    if (passedNodes && passedNodes.length > 0) {
+      setInternalNodes(passedNodes);
+      return;
+    }
+    deviceService.getNodes(zoneId).then(data => {
+      if (Array.isArray(data)) {
+        if (zoneId) {
+          const matched = data.filter((d: any) => d.zoneId === zoneId || (d as any).id === zoneId);
+          setInternalNodes(matched.length > 0 ? matched : data);
+        } else {
+          setInternalNodes(data);
+        }
+      }
+    }).catch(() => {});
+  }, [zoneId, passedNodes]);
+
+  // Compute active metrics matching ONLY actual connected nodes/modules
+  const activeMetrics = React.useMemo(() => {
+    if (!internalNodes || internalNodes.length === 0) {
+      return METRICS;
+    }
+
+    const detected = new Set<string>();
+    detected.add('battery'); // Always include battery for active IoT nodes
+
+    internalNodes.forEach(node => {
+      const text = [
+        node.name,
+        node.category,
+        node.deviceType,
+        node.model,
+        node.manufacturer,
+        node.nodeCode,
+        ...(Array.isArray(node.sensors) ? node.sensors.map((s: any) => typeof s === 'string' ? s : (s.sensorType || s.name || '')) : [])
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      // Temperature detection
+      if (text.includes('nhiệt') || text.includes('temp') || text.includes('sht') || text.includes('dht') || text.includes('bme') || text.includes('air') || text.includes('khí hậu')) {
+        detected.add('temperature');
+      }
+      // Humidity detection
+      if (text.includes('ẩm kk') || text.includes('độ ẩm') || text.includes('humid') || text.includes('sht') || text.includes('dht') || text.includes('bme') || text.includes('air') || text.includes('khí hậu')) {
+        detected.add('humidity');
+      }
+      // Soil moisture detection
+      if (text.includes('đất') || text.includes('soil') || text.includes('fdr') || text.includes('rs485')) {
+        detected.add('soil_moisture');
+      }
+      // Light detection
+      if (text.includes('sáng') || text.includes('light') || text.includes('lux') || text.includes('bh1750') || text.includes('solar') || text.includes('quang')) {
+        detected.add('light');
+      }
+      // CO2 detection
+      if (text.includes('co2') || text.includes('scd') || text.includes('carbon') || text.includes('khí co2')) {
+        detected.add('co2');
+      }
+    });
+
+    const filtered = METRICS.filter(m => detected.has(m.key));
+    return filtered.length > 0 ? filtered : METRICS;
+  }, [internalNodes]);
+
+  const activeMetricKeys = React.useMemo(() => new Set(activeMetrics.map(m => m.key)), [activeMetrics]);
 
   const [rules, setRules] = useState<AlertRule[]>(() => {
     if (zoneId) {
@@ -92,6 +163,10 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
     }
     return DEFAULT_ZONE_RULES;
   });
+
+  const displayRules = React.useMemo(() => {
+    return rules.filter(r => activeMetricKeys.has(r.metric));
+  }, [rules, activeMetricKeys]);
 
   const [historicAlerts, setHistoricAlerts] = useState<Alert[]>([]);
 
@@ -129,7 +204,7 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
     const newAlerts: LiveAlert[] = [];
     const newActions: Record<string, { action: string; since: string; severity: 'WARNING' | 'CRITICAL' }> = {};
 
-    rulesRef.current.filter(r => r.enabled).forEach(rule => {
+    rulesRef.current.filter(r => r.enabled && activeMetricKeys.has(r.metric)).forEach(rule => {
       const val = vals[rule.metric];
       if (val === undefined) return;
       if (val < rule.minThreshold || val > rule.maxThreshold) {
@@ -161,11 +236,11 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
 
     setLiveAlerts(newAlerts);
     setActiveActions(newActions);
-  }, []);
+  }, [activeMetricKeys]);
 
   useEffect(() => {
     checkRules(sensorValues);
-  }, []);
+  }, [checkRules]);
 
   useEffect(() => {
     if (!simRunning) return;
@@ -173,30 +248,32 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
       tickRef.current += 1;
       setSensorValues(prev => {
         const next: Record<string, number> = {};
-        METRICS.forEach(m => {
+        activeMetrics.forEach(m => {
           // slight drift simulation
-          const drift = prev[m.key] * (1 + (Math.random() * 0.002 - 0.001));
+          const current = prev[m.key] ?? m.baseVal;
+          const drift = current * (1 + (Math.random() * 0.002 - 0.001));
           next[m.key] = parseFloat(Math.min(m.max, Math.max(m.min, drift)).toFixed(2));
         });
         checkRules(next);
-        return next;
+        return { ...prev, ...next };
       });
     }, 5000);
     return () => clearInterval(t);
-  }, [simRunning, checkRules]);
+  }, [simRunning, checkRules, activeMetrics]);
 
   const openNewRule = () => {
+    const firstMetric = activeMetrics[0] || METRICS[0];
     setEditingRule(null);
     setRuleForm({
       name: '',
-      metric: 'soil_moisture',
-      unit: '%',
-      minThreshold: 40,
-      maxThreshold: 90,
+      metric: firstMetric.key,
+      unit: firstMetric.unit,
+      minThreshold: firstMetric.min || 20,
+      maxThreshold: firstMetric.max || 80,
       zone: targetZone?.name || 'Zone Hiện tại',
       zoneId: zoneId || 'zone-01',
       severity: 'WARNING',
-      action: 'Bật máy bơm tưới',
+      action: firstMetric.key === 'temperature' ? 'Bật quạt đối lưu & Phun sương' : firstMetric.key === 'humidity' ? 'Bật phun sương vi khí hậu' : 'Bật máy bơm tưới',
       enabled: true,
     });
     setShowRuleModal(true);
@@ -210,7 +287,7 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
 
   const saveRule = () => {
     if (!ruleForm.name) return;
-    const m = METRICS.find(x => x.key === ruleForm.metric);
+    const m = activeMetrics.find(x => x.key === ruleForm.metric) || METRICS.find(x => x.key === ruleForm.metric);
     const rule: AlertRule = {
       id: editingRule?.id || `r-${Date.now()}`,
       name: ruleForm.name!,
@@ -236,14 +313,14 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner Alert Center Summary */}
-      <div className="p-5 bg-gradient-to-r from-[#062326] via-slate-900 to-[#0b383d] rounded-2xl text-white shadow-lg border border-emerald-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-5 bg-gradient-to-r from-[#119653] via-[#0f874a] to-[#0b6f3c] rounded-2xl text-white shadow-lg border border-emerald-400/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono tracking-wide flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-white/20 text-white border border-white/30 font-mono tracking-wide flex items-center gap-1">
               <ShieldAlert size={12} /> TRUNG TÂM CẢNH BÁO NÔNG NGHIỆP
             </span>
             {targetZone && (
-              <span className="text-xs text-emerald-400 font-semibold font-mono bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/50">
+              <span className="text-xs text-white font-semibold font-mono bg-black/20 px-2 py-0.5 rounded border border-white/25">
                 {targetZone.name} {targetZone.currentCrop ? `(${targetZone.currentCrop})` : ''}
               </span>
             )}
@@ -252,8 +329,8 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
           <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
             Hệ thống Cảnh báo & Quy tắc Tự động Vi khí hậu
           </h2>
-          <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Giám sát thời gian thực các vi phạm ngưỡng vi khí hậu (Độ ẩm đất, Nhiệt độ, Độ ẩm KK, Ánh sáng, CO₂, Pin node) và kích hoạt rơ-le tự động bảo vệ cây trồng.
+          <p className="text-xs text-emerald-100 max-w-2xl leading-relaxed">
+            Giám sát thời gian thực các vi phạm ngưỡng vi khí hậu phù hợp với mô-đun phần cứng ({activeMetrics.map(m => m.label).join(', ')}) và kích hoạt rơ-le tự động bảo vệ cây trồng.
           </p>
         </div>
 
@@ -270,10 +347,10 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
         </div>
       </div>
 
-      {/* Sensor Live Gauge Chips */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {METRICS.map(m => {
-          const val = sensorValues[m.key];
+      {/* Sensor Live Gauge Chips matching active node sensors */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-${Math.min(6, Math.max(2, activeMetrics.length))} gap-3`}>
+        {activeMetrics.map(m => {
+          const val = sensorValues[m.key] ?? m.baseVal;
           const Icon = m.icon;
           const violatingRule = rules.find(r => r.enabled && r.metric === m.key && (val < r.minThreshold || val > r.maxThreshold));
 
@@ -391,22 +468,22 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
 
       {/* Rules Management Engine */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-        <div className="flex items-center justify-between px-5 py-3.5 bg-[#062326] text-white">
+        <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-[#119653] via-emerald-600 to-emerald-500 text-white">
           <div className="flex items-center gap-2 font-bold text-sm">
-            <Settings size={16} className="text-emerald-400" /> Cấu hình Quy tắc Cảnh báo An toàn Zone ({rules.length} luật)
+            <Settings size={16} className="text-white" /> Cấu hình Quy tắc Cảnh báo An toàn Zone ({displayRules.length} luật phù hợp)
           </div>
-          <Button onClick={openNewRule} size="sm" className="bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-xs">
+          <Button onClick={openNewRule} size="sm" className="bg-white/20 hover:bg-white/30 border border-white/30 text-white text-xs font-semibold">
             <Plus size={13} className="mr-1" /> Thêm quy tắc mới
           </Button>
         </div>
 
         <div className="divide-y divide-slate-100">
-          {rules.length === 0 ? (
+          {displayRules.length === 0 ? (
             <div className="p-6 text-center text-slate-500 text-xs italic">
-              Chưa có luật cảnh báo nào được cấu hình cho Zone này. Cực kỳ khuyến nghị khởi tạo luật kiểm soát độ ẩm & nhiệt độ!
+              Chưa có luật cảnh báo nào được cấu hình cho các cảm biến đang hoạt động ({activeMetrics.map(m => m.label).join(', ')}). Bấm "Thêm quy tắc mới" để thiết lập ngưỡng an toàn!
             </div>
           ) : (
-            rules.map(rule => {
+            displayRules.map(rule => {
               const md = METRICS.find(m => m.key === rule.metric);
               const Icon = md?.icon || Activity;
               const isViolating = !!activeActions[rule.id];
@@ -573,7 +650,7 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
               value={ruleForm.name || ''}
               onChange={e => setRuleForm({ ...ruleForm, name: e.target.value })}
               placeholder="Ví dụ: Đất quá khô – Bật máy bơm nhỏ giọt"
-              className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-xs text-slate-900 focus:border-[#062326] focus:outline-none"
+              className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-xs text-slate-900 focus:border-[#119653] focus:outline-none"
             />
           </div>
 
@@ -581,14 +658,14 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
             <div>
               <label className="block font-bold text-slate-800 mb-1">Tham số Cảm biến *</label>
               <select
-                value={ruleForm.metric || 'soil_moisture'}
+                value={ruleForm.metric || activeMetrics[0]?.key || 'temperature'}
                 onChange={e => {
-                  const m = METRICS.find(x => x.key === e.target.value);
+                  const m = activeMetrics.find(x => x.key === e.target.value) || METRICS.find(x => x.key === e.target.value);
                   setRuleForm({ ...ruleForm, metric: e.target.value, unit: m?.unit || '%' });
                 }}
-                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-xs text-slate-900 focus:border-[#062326] focus:outline-none"
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-xs text-slate-900 focus:border-[#119653] focus:outline-none"
               >
-                {METRICS.map(m => (
+                {activeMetrics.map(m => (
                   <option key={m.key} value={m.key}>{m.label} ({m.unit})</option>
                 ))}
               </select>
@@ -599,7 +676,7 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
               <select
                 value={ruleForm.severity || 'WARNING'}
                 onChange={e => setRuleForm({ ...ruleForm, severity: e.target.value as any })}
-                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-xs text-slate-900 focus:border-[#062326] focus:outline-none"
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-xs text-slate-900 focus:border-[#119653] focus:outline-none"
               >
                 <option value="WARNING">Cảnh báo (WARNING)</option>
                 <option value="CRITICAL">Nguy hiểm khẩn cấp (CRITICAL)</option>
@@ -659,7 +736,7 @@ export const ZoneAlertCenter: React.FC<ZoneAlertCenterProps> = ({
                 <Sparkles size={16} className="text-emerald-600" /> Phân tích Sự cố từ AI Chuyên gia Nông nghiệp
               </span>
               <p className="text-slate-700">
-                Dựa trên loại cây trồng <strong>{targetZone?.currentCrop || 'Cà chua'}</strong> tại Zone <strong>{aiAdviceModalAlert.zoneId || targetZone?.name}</strong>:
+                Dựa trên loại cây trồng <strong>{targetZone?.currentCrop || NO_CROP_LABEL}</strong> tại Zone <strong>{aiAdviceModalAlert.zoneId || targetZone?.name}</strong>:
               </p>
             </div>
 

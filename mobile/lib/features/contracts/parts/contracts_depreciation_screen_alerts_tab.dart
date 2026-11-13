@@ -1,6 +1,7 @@
 part of '../contracts_depreciation_screen.dart';
 
-extension _ContractsDepreciationScreenStateAlertsTab on _ContractsDepreciationScreenState {
+extension _ContractsDepreciationScreenStateAlertsTab
+    on _ContractsDepreciationScreenState {
   // ─────────────────────────────────────────
   // TAB 3: Cảnh báo Hết hạn (<30 ngày)
   // ─────────────────────────────────────────
@@ -20,7 +21,11 @@ extension _ContractsDepreciationScreenStateAlertsTab on _ContractsDepreciationSc
             ),
             child: Row(
               children: [
-                const Icon(Icons.notification_important, color: Color(0xFFDC2626), size: 22),
+                const Icon(
+                  Icons.notification_important,
+                  color: Color(0xFFDC2626),
+                  size: 22,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -28,7 +33,11 @@ extension _ContractsDepreciationScreenStateAlertsTab on _ContractsDepreciationSc
                     children: [
                       const Text(
                         'CẢNH BÁO HẾT HẠN THUÊ VÙNG TRỒNG',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF991B1B)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                          color: Color(0xFF991B1B),
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -70,7 +79,11 @@ extension _ContractsDepreciationScreenStateAlertsTab on _ContractsDepreciationSc
                       child: Center(
                         child: Text(
                           '${alert.daysRemaining}d',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626), fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFDC2626),
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
@@ -81,26 +94,42 @@ extension _ContractsDepreciationScreenStateAlertsTab on _ContractsDepreciationSc
                         children: [
                           Text(
                             '${alert.contractNumber} • ${alert.zoneName}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Hết hạn vào: ${alert.endDate} (${alert.farmName})',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Giá trị hợp đồng: ${currencyFormat.format(alert.totalContractValueVnd)}',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF059669),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
                       tooltip: 'Xem chi tiết',
-                      icon: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                      icon: const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Color(0xFF94A3B8),
+                      ),
                       onPressed: () {
-                        final match = _contracts.where((c) => c.id == alert.contractId).firstOrNull;
+                        final match = _contracts
+                            .where((c) => c.id == alert.contractId)
+                            .firstOrNull;
                         if (match != null) {
                           _showContractDetailsModal(match);
                         }

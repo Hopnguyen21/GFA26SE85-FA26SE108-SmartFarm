@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SmartFarm.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using SmartFarm.Application.Common.Interfaces;
 using SmartFarm.Domain.Entities;
 using SmartFarm.Infrastructure.Identity;
@@ -12,6 +13,7 @@ using SmartFarm.Infrastructure.IoTDeployment;
 using SmartFarm.Infrastructure.TelemetryAlerts;
 using SmartFarm.Infrastructure.Control;
 using SmartFarm.Infrastructure.Ai;
+using SmartFarm.Infrastructure.Ai.Knowledge;
 using SmartFarm.Application.Features.Ai;
 using SmartFarm.Application.Features.Inventory;
 using SmartFarm.Infrastructure.Inventory;
@@ -39,6 +41,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString, npgsql =>
             {
                 npgsql.UseNetTopologySuite();
+                npgsql.UseVector();
                 npgsql.MigrationsAssembly(typeof(SmartFarmDbContext).Assembly.FullName);
             }));
 
@@ -83,16 +86,38 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddOptions<GeminiOptions>()
             .Bind(configuration.GetSection(GeminiOptions.SectionName))
+            .PostConfigure(opts =>
+            {
+                if (string.IsNullOrWhiteSpace(opts.ApiKey))
+                {
+                    opts.ApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+                               ?? Environment.GetEnvironmentVariable("Gemini__ApiKey")
+                               ?? string.Empty;
+                }
+            })
             .Validate(x => string.IsNullOrWhiteSpace(x.ApiKey) || !string.IsNullOrWhiteSpace(x.Model), "Gemini:Model is required when an API key is configured.")
             .Validate(x => Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps, "Gemini:BaseUrl must be an absolute HTTPS URL.")
             .Validate(x => x.TimeoutSeconds is >= 1 and <= 120, "Gemini:TimeoutSeconds must be between 1 and 120.")
             .ValidateOnStart();
+        services.AddOptions<GeminiEmbeddingOptions>()
+            .Configure<IOptions<GeminiOptions>>((embOpts, gemOpts) =>
+            {
+                configuration.GetSection(GeminiEmbeddingOptions.SectionName).Bind(embOpts);
+                if (string.IsNullOrWhiteSpace(embOpts.ApiKey))
+                {
+                    embOpts.ApiKey = gemOpts.Value.ApiKey;
+                    embOpts.BaseUrl = gemOpts.Value.BaseUrl;
+                }
+            });
         services.AddOptions<OpenMeteoOptions>()
             .Bind(configuration.GetSection(OpenMeteoOptions.SectionName))
             .Validate(x => Uri.TryCreate(x.BaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps, "OpenMeteo:BaseUrl must be an absolute HTTPS URL.")
             .Validate(x => x.TimeoutSeconds is >= 1 and <= 60, "OpenMeteo:TimeoutSeconds must be between 1 and 60.")
             .ValidateOnStart();
-        services.AddSingleton<HttpClient>();
+        services.AddMemoryCache();
+        // Gemini có thể mất vài chục giây đến hơn 1 phút cho tài liệu dài; mặc định 100 giây của HttpClient cắt sớm hơn
+        // thời gian chờ của từng lần gọi (mỗi lệnh gọi vẫn tự đặt giới hạn riêng bằng CancellationToken).
+        services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(180) });
         services.AddScoped<IAiAdvisoryService, AiAdvisoryService>();
         services.AddScoped<GeminiAiAdvisoryProvider>();
         services.AddScoped<UnavailableAiAdvisoryProvider>();
@@ -100,6 +125,12 @@ public static class DependencyInjection
             string.IsNullOrWhiteSpace(provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeminiOptions>>().Value.ApiKey)
                 ? provider.GetRequiredService<UnavailableAiAdvisoryProvider>()
                 : provider.GetRequiredService<GeminiAiAdvisoryProvider>());
+        services.AddScoped<GeminiEmbeddingProvider>();
+        services.AddScoped<IDocumentSufficiencyValidator, VietGapDocumentAiValidator>();
+        services.AddScoped<VietGapStructuredExtractor>();
+        services.AddScoped<AgricultureDocumentService>();
+        services.AddScoped<IAgricultureDocumentService>(sp => sp.GetRequiredService<AgricultureDocumentService>());
+        services.AddScoped<IAgricultureKnowledgeRetriever, AgricultureKnowledgeRetriever>();
         services.AddScoped<IAiWeatherProvider, OpenMeteoWeatherProvider>();
         services.AddScoped<IInventoryTaskService, InventoryTaskService>();
         services.AddScoped<IFinanceService, FinanceService>();
@@ -113,6 +144,8 @@ public static class DependencyInjection
         services.AddScoped<IFarmerService, FarmerService>();
         services.AddScoped<IScheduleSyncService, ScheduleSyncService>();
         services.AddScoped<IControlAutomationService, ControlAutomationService>();
+        services.AddScoped<INotificationService, SmartFarm.Infrastructure.Notifications.NotificationService>();
+        services.AddScoped<IZoneContractService, ZoneContractService>();
 
         return services;
     }

@@ -45,7 +45,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<FarmProvider>(context, listen: false);
       if (widget.initialZoneId != null && widget.initialZoneId!.isNotEmpty) {
-        final idx = provider.zones.indexWhere((z) => z.zoneId == widget.initialZoneId);
+        final idx = provider.zones.indexWhere(
+          (z) => z.zoneId == widget.initialZoneId,
+        );
         if (idx != -1) {
           provider.selectZone(idx);
           _loadDataForZone(provider, widget.initialZoneId!);
@@ -124,7 +126,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 color: const Color(0xFF10B981).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.psychology, color: Color(0xFF10B981), size: 20),
+              child: const Icon(
+                Icons.psychology,
+                color: Color(0xFF10B981),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -133,13 +139,24 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isFarmer ? 'Trợ lý AI Nông học (Thực địa)' : 'Trợ lý AI Nông học',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                    isFarmer
+                        ? 'Trợ lý AI Nông học (Thực địa)'
+                        : 'Trợ lý AI Nông học',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    isFarmer ? 'Dành cho Nông Dân · VietGAP · Cập nhật liên tục' : 'Gemini · VietGAP · Dữ liệu thực tế',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    isFarmer
+                        ? 'Dành cho Nông Dân · VietGAP · Cập nhật liên tục'
+                        : 'Gemini · VietGAP · Dữ liệu thực tế',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -150,7 +167,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         actions: [
           // Clear history button
           IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined, color: Colors.white70, size: 20),
+            icon: const Icon(
+              Icons.delete_sweep_outlined,
+              color: Colors.white70,
+              size: 20,
+            ),
             tooltip: 'Xóa lịch sử trò chuyện',
             onPressed: () => _confirmClearHistory(farmProvider),
           ),
@@ -172,7 +193,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     constraints: const BoxConstraints(maxWidth: 80),
                     child: Text(
                       zone.name,
-                      style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -195,8 +220,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       e.value.name,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: e.key == farmProvider.selectedZoneIndex ? FontWeight.bold : FontWeight.normal,
-                        color: e.key == farmProvider.selectedZoneIndex ? const Color(0xFF10B981) : Colors.black87,
+                        fontWeight: e.key == farmProvider.selectedZoneIndex
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: e.key == farmProvider.selectedZoneIndex
+                            ? const Color(0xFF10B981)
+                            : Colors.black87,
                       ),
                     ),
                   ),
@@ -220,16 +249,19 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   ),
 
                 // Quick prompts
-                if (farmProvider.chatMessages.length <= 1) _buildQuickPrompts(farmProvider),
+                if (farmProvider.chatMessages.length <= 1)
+                  _buildQuickPrompts(farmProvider),
 
                 // Messages
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: farmProvider.chatMessages.length + (_isTyping ? 1 : 0),
+                    itemCount:
+                        farmProvider.chatMessages.length + (_isTyping ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (_isTyping && index == farmProvider.chatMessages.length) {
+                      if (_isTyping &&
+                          index == farmProvider.chatMessages.length) {
                         return _buildTypingIndicator();
                       }
                       final msg = farmProvider.chatMessages[index];

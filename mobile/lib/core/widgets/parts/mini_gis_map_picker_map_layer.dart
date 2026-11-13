@@ -11,7 +11,9 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
           minZoom: 9.0,
           maxZoom: 20.0,
           interactionOptions: InteractionOptions(
-            flags: _isDraggingVertex ? (InteractiveFlag.all & ~InteractiveFlag.drag) : InteractiveFlag.all,
+            flags: _isDraggingVertex
+                ? (InteractiveFlag.all & ~InteractiveFlag.drag)
+                : InteractiveFlag.all,
           ),
           onTap: _onMapTapped,
           onPositionChanged: _onPositionChanged,
@@ -51,7 +53,9 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                       color: isFieldLevel
                           ? const Color(0xFF0284C7).withValues(alpha: 0.16)
                           : const Color(0xFF10B981).withValues(alpha: 0.16),
-                      borderColor: isFieldLevel ? const Color(0xFF0284C7) : const Color(0xFF059669),
+                      borderColor: isFieldLevel
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFF059669),
                       borderStrokeWidth: 1.8,
                     );
                   })
@@ -68,7 +72,9 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                   })
                   .map((z) {
                     final pts = z['polygon'] as List<LatLng>;
-                    final centroid = _MiniGISMapPickerState._calculateCentroid(pts);
+                    final centroid = _MiniGISMapPickerState._calculateCentroid(
+                      pts,
+                    );
                     final name = z['name']?.toString() ?? 'Vùng đất';
                     final isFieldLevel = widget.level == 'FIELD';
                     return Marker(
@@ -77,20 +83,29 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                       height: 24,
                       alignment: Alignment.center,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: isFieldLevel
                               ? const Color(0xFF0C4A6E).withValues(alpha: 0.85)
                               : const Color(0xFF064E3B).withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                            color: isFieldLevel ? const Color(0xFF38BDF8) : const Color(0xFF34D399),
+                            color: isFieldLevel
+                                ? const Color(0xFF38BDF8)
+                                : const Color(0xFF34D399),
                             width: 0.8,
                           ),
                         ),
                         child: Text(
                           name,
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -108,7 +123,9 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                 Polygon(
                   points: _polygonPoints,
                   color: _isPolygonInvalid
-                      ? const Color(0xFFEF4444).withValues(alpha: 0.38) // BÁO ĐỎ RÕ KHI VƯỢT HOẶC ĐÈ
+                      ? const Color(0xFFEF4444).withValues(
+                          alpha: 0.38,
+                        ) // BÁO ĐỎ RÕ KHI VƯỢT HOẶC ĐÈ
                       : widget.level == 'FIELD'
                       ? const Color(0xFF0284C7).withValues(alpha: 0.28)
                       : widget.level == 'ZONE'
@@ -137,7 +154,8 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                   child: Transform.translate(
                     offset: const Offset(
                       0,
-                      -(_MiniGISMapPickerState._pinSize / 2) + _MiniGISMapPickerState._pinTipInset,
+                      -(_MiniGISMapPickerState._pinSize / 2) +
+                          _MiniGISMapPickerState._pinTipInset,
                     ),
                     child: Stack(
                       alignment: Alignment.center,
@@ -158,7 +176,13 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                           size: _MiniGISMapPickerState._pinSize,
                           color: Color(0xFF0284C7),
                         ),
-                        const Positioned(top: 10.75, child: CircleAvatar(radius: 5, backgroundColor: Colors.white)),
+                        const Positioned(
+                          top: 10.75,
+                          child: CircleAvatar(
+                            radius: 5,
+                            backgroundColor: Colors.white,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -227,7 +251,11 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                       clipBehavior: Clip.none,
                       children: [
                         // Vòng tròn lớn tăng diện tích nhận cảm ứng khi kéo ngón tay
-                        Container(width: 44, height: 44, color: Colors.transparent),
+                        Container(
+                          width: 44,
+                          height: 44,
+                          color: Colors.transparent,
+                        ),
                         // Điểm chấm tròn vertex
                         Container(
                           width: (isSelected || isInvalid) ? 22 : 16,
@@ -239,11 +267,16 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                                 ? const Color(0xFFF97316)
                                 : const Color(0xFF0284C7),
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: (isSelected || isInvalid) ? 2.5 : 2.0),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: (isSelected || isInvalid) ? 2.5 : 2.0,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: isInvalid
-                                    ? const Color(0xFFEF4444).withValues(alpha: 0.6)
+                                    ? const Color(
+                                        0xFFEF4444,
+                                      ).withValues(alpha: 0.6)
                                     : Colors.black.withValues(alpha: 0.4),
                                 blurRadius: isInvalid ? 8 : 5,
                                 offset: const Offset(0, 1),
@@ -255,7 +288,10 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                         Positioned(
                           top: 2,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: isInvalid
                                   ? const Color(0xFFDC2626)
@@ -271,12 +307,19 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                                     : const Color(0xFF38BDF8),
                                 width: 0.8,
                               ),
-                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 3)],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 3,
+                                ),
+                              ],
                             ),
                             child: Text(
                               '#${idx + 1}',
                               style: TextStyle(
-                                color: (isSelected || isInvalid) ? Colors.white : const Color(0xFF38BDF8),
+                                color: (isSelected || isInvalid)
+                                    ? Colors.white
+                                    : const Color(0xFF38BDF8),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'monospace',

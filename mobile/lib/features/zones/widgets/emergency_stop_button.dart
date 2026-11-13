@@ -18,20 +18,29 @@ class EmergencyStopButton extends StatelessWidget {
       ? 'TẤT CẢ thiết bị chấp hành bạn có quyền điều khiển'
       : 'tất cả thiết bị chấp hành trong Zone ${zoneName ?? ''}'.trim();
 
-  Future<void> _confirmAndStop(BuildContext context, FarmProvider provider) async {
+  Future<void> _confirmAndStop(
+    BuildContext context,
+    FarmProvider provider,
+  ) async {
     HapticFeedback.heavyImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.warning_amber_rounded, color: _red, size: 40),
-        title: const Text('Dừng khẩn cấp?', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Dừng khẩn cấp?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text(
           'Lệnh sẽ TẮT NGAY $_scopeLabel, hủy các lệnh đang chờ và được ghi vào nhật ký audit.\n\n'
           'Lịch tưới và luật tự động có thể bật lại thiết bị ở chu kỳ sau.',
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: _red),
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -46,11 +55,15 @@ class EmergencyStopButton extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final result = await provider.emergencyStop(zoneId: zoneId);
-      messenger.showSnackBar(SnackBar(content: Text('🛑 ${result.message}'), backgroundColor: _red));
+      messenger.showSnackBar(
+        SnackBar(content: Text('🛑 ${result.message}'), backgroundColor: _red),
+      );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Dừng khẩn cấp thất bại: ${e.toString().replaceFirst('Exception: ', '')}'),
+          content: Text(
+            'Dừng khẩn cấp thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
           backgroundColor: const Color(0xFF92400E),
         ),
       );
@@ -61,7 +74,8 @@ class EmergencyStopButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<FarmProvider>();
     // Backend: dừng khẩn cấp cho FarmOwner/Farmer; Farmer chỉ khi được cấp quyền điều khiển CHÍNH Zone này.
-    if (!provider.canEmergencyStop || (zoneId != null && !provider.canControlZone(zoneId!)))
+    if (!provider.canEmergencyStop ||
+        (zoneId != null && !provider.canControlZone(zoneId!)))
       return const SizedBox.shrink();
     final busy = provider.isEmergencyStopping;
 
@@ -72,19 +86,30 @@ class EmergencyStopButton extends StatelessWidget {
           backgroundColor: _red,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         onPressed: busy ? null : () => _confirmAndStop(context, provider),
         icon: busy
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Icon(Icons.power_settings_new, size: 20),
         label: Text(
-          zoneId == null ? 'DỪNG KHẨN CẤP TẤT CẢ (E-STOP)' : 'DỪNG KHẨN CẤP ZONE NÀY',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.3),
+          zoneId == null
+              ? 'DỪNG KHẨN CẤP TẤT CẢ (E-STOP)'
+              : 'DỪNG KHẨN CẤP ZONE NÀY',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            letterSpacing: 0.3,
+          ),
         ),
       ),
     );

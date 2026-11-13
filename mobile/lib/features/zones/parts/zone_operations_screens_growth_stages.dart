@@ -7,7 +7,12 @@ class GrowthStagesScreen extends StatefulWidget {
   final String profileId;
   final String title;
   final String? currentStageId;
-  const GrowthStagesScreen({super.key, required this.profileId, required this.title, this.currentStageId});
+  const GrowthStagesScreen({
+    super.key,
+    required this.profileId,
+    required this.title,
+    this.currentStageId,
+  });
 
   @override
   State<GrowthStagesScreen> createState() => _GrowthStagesScreenState();
@@ -31,14 +36,20 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
     final days = await showDialog<int>(
       context: context,
       builder: (d) => AlertDialog(
-        title: Text('Số ngày · ${st['name']}', style: const TextStyle(fontSize: 15)),
+        title: Text(
+          'Số ngày · ${st['name']}',
+          style: const TextStyle(fontSize: 15),
+        ),
         content: TextField(
           controller: c,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Số ngày (1–365)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(c.text.trim());
@@ -74,16 +85,29 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
   Future<void> _editRequirements(Map<String, dynamic> st) async {
     final rows = <_ReqRow>[
       for (final r in StageDraft.fromJson(st).requirements)
-        _ReqRow(r.code, r.unit.isEmpty ? (_units[r.code] ?? '') : r.unit, '${r.min}', '${r.target}', '${r.max}'),
+        _ReqRow(
+          r.code,
+          r.unit.isEmpty ? (_units[r.code] ?? '') : r.unit,
+          '${r.min}',
+          '${r.target}',
+          '${r.max}',
+        ),
     ];
     final payload = await showModalBottomSheet<List<Map<String, dynamic>>>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) {
-          final missing = _units.keys.where((k) => !rows.any((r) => r.code == k)).toList();
+          final missing = _units.keys
+              .where((k) => !rows.any((r) => r.code == k))
+              .toList();
           return Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -91,7 +115,10 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
                 children: [
                   Text(
                     'Ngưỡng môi trường · ${st['name']}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   for (final r in rows)
@@ -106,13 +133,21 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
                               style: const TextStyle(fontSize: 11),
                             ),
                           ),
-                          for (final (c, label) in [(r.min, 'Min'), (r.target, 'Mục tiêu'), (r.max, 'Max')])
+                          for (final (c, label) in [
+                            (r.min, 'Min'),
+                            (r.target, 'Mục tiêu'),
+                            (r.max, 'Max'),
+                          ])
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 4),
                                 child: TextField(
                                   controller: c,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                        signed: true,
+                                      ),
                                   decoration: InputDecoration(
                                     labelText: label,
                                     isDense: true,
@@ -139,7 +174,11 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
                               '+ ${ZoneNodesScreen._paramVi[code] ?? code}',
                               style: const TextStyle(fontSize: 11),
                             ),
-                            onPressed: () => setLocal(() => rows.add(_ReqRow(code, _units[code] ?? '', '', '', ''))),
+                            onPressed: () => setLocal(
+                              () => rows.add(
+                                _ReqRow(code, _units[code] ?? '', '', '', ''),
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -179,14 +218,23 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
     }
     if (payload == null || !mounted) return;
     try {
-      final res = await CropApi.updateStageRequirements('${st['stageId']}', payload);
+      final res = await CropApi.updateStageRequirements(
+        '${st['stageId']}',
+        payload,
+      );
       if (!mounted) return;
       final cloned = res['clonedFromSystem'] == true;
       setState(() {
-        if (cloned && res['effectiveProfileId'] != null) _profileId = '${res['effectiveProfileId']}';
+        if (cloned && res['effectiveProfileId'] != null)
+          _profileId = '${res['effectiveProfileId']}';
         _version++;
       });
-      _toast(context, cloned ? 'Đã tạo bản sao hồ sơ cho trang trại và lưu ngưỡng.' : 'Đã lưu ngưỡng.');
+      _toast(
+        context,
+        cloned
+            ? 'Đã tạo bản sao hồ sơ cho trang trại và lưu ngưỡng.'
+            : 'Đã lưu ngưỡng.',
+      );
     } catch (e) {
       if (mounted) _toast(context, _err(e), error: true);
     }
@@ -196,26 +244,37 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
   Widget build(BuildContext context) {
     final isOwner = context.read<FarmProvider>().currentRole == 'OWNER';
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title, style: const TextStyle(fontSize: 15))),
+      appBar: AppBar(
+        title: Text(widget.title, style: const TextStyle(fontSize: 15)),
+      ),
       body: _AsyncList<List<Map<String, dynamic>>>(
         key: ValueKey('$_profileId-$_version'),
         load: () => CropApi.getGrowthStages(_profileId),
         builder: (context, stages, _) {
-          if (stages.isEmpty) return _empty('Hồ sơ chưa có giai đoạn.', Icons.timeline);
-          stages.sort((a, b) => ((a['stageOrder'] as num?) ?? 0).compareTo((b['stageOrder'] as num?) ?? 0));
+          if (stages.isEmpty)
+            return _empty('Hồ sơ chưa có giai đoạn.', Icons.timeline);
+          stages.sort(
+            (a, b) => ((a['stageOrder'] as num?) ?? 0).compareTo(
+              (b['stageOrder'] as num?) ?? 0,
+            ),
+          );
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: stages.length,
             itemBuilder: (context, i) {
               final st = stages[i];
-              final current = '${st['stageId']}'.toLowerCase() == (widget.currentStageId ?? '').toLowerCase();
+              final current =
+                  '${st['stageId']}'.toLowerCase() ==
+                  (widget.currentStageId ?? '').toLowerCase();
               final draft = StageDraft.fromJson(st);
               return Card(
                 elevation: 0,
                 color: current ? const Color(0xFFECFDF5) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: current ? _green : const Color(0xFFE2E8F0)),
+                  side: BorderSide(
+                    color: current ? _green : const Color(0xFFE2E8F0),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -224,12 +283,24 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
                     children: [
                       Text(
                         '${st['stageOrder']}. ${st['name']} · ${st['durationDays']} ngày${current ? ' (hiện tại)' : ''}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                       if ((st['description'] ?? '').toString().isNotEmpty)
-                        Text('${st['description']}', style: const TextStyle(fontSize: 12, color: _muted)),
+                        Text(
+                          '${st['description']}',
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
                       if (thresholdNotice(draft) case final notice?)
-                        Text(notice, style: const TextStyle(fontSize: 11, color: Color(0xFFB45309))),
+                        Text(
+                          notice,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
                       for (final r in draft.requirements)
                         Text(
                           '• ${ZoneNodesScreen._paramVi[r.code] ?? describeRequirementDraft(r).split(':').first}: '
@@ -242,7 +313,10 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
                           style: const TextStyle(fontSize: 11, color: _muted),
                         ),
                       if (st['ipmAction'] != null)
-                        Text('IPM: ${st['ipmAction']}', style: const TextStyle(fontSize: 11, color: _muted)),
+                        Text(
+                          'IPM: ${st['ipmAction']}',
+                          style: const TextStyle(fontSize: 11, color: _muted),
+                        ),
                       if (isOwner)
                         Wrap(
                           spacing: 4,
@@ -282,10 +356,17 @@ class _ReqRow {
 
   /// null nếu không hợp lệ (cần Min ≤ Mục tiêu ≤ Max).
   Map<String, dynamic>? toJson() {
-    double? v(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
+    double? v(TextEditingController c) =>
+        double.tryParse(c.text.trim().replaceAll(',', '.'));
     final lo = v(min), t = v(target), hi = v(max);
     if (lo == null || t == null || hi == null || lo > t || t > hi) return null;
-    return {'parameterCode': code, 'minValue': lo, 'maxValue': hi, 'targetValue': t, 'unit': unit};
+    return {
+      'parameterCode': code,
+      'minValue': lo,
+      'maxValue': hi,
+      'targetValue': t,
+      'unit': unit,
+    };
   }
 
   void dispose() {

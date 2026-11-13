@@ -1,7 +1,12 @@
 part of '../profile_screen.dart';
 
 extension _ProfileScreenWidgets on ProfileScreen {
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -16,7 +21,11 @@ extension _ProfileScreenWidgets on ProfileScreen {
             const SizedBox(height: 4),
             Text(
               value,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
             Text(
               label,
@@ -34,7 +43,12 @@ extension _ProfileScreenWidgets on ProfileScreen {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.8),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF64748B),
+        letterSpacing: 0.8,
+      ),
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -60,12 +74,19 @@ extension _ProfileScreenWidgets on ProfileScreen {
           const SizedBox(width: 10),
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
             ),
           ),
         ],
@@ -73,7 +94,14 @@ extension _ProfileScreenWidgets on ProfileScreen {
     );
   }
 
-  Widget _roleOption(BuildContext context, FarmProvider provider, String role, String title, String desc, Color color) {
+  Widget _roleOption(
+    BuildContext context,
+    FarmProvider provider,
+    String role,
+    String title,
+    String desc,
+    Color color,
+  ) {
     final isSelected = provider.currentRole == role;
     return InkWell(
       onTap: () => provider.switchRole(role),
@@ -98,7 +126,10 @@ extension _ProfileScreenWidgets on ProfileScreen {
                   ),
                   Text(
                     desc,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -108,14 +139,25 @@ extension _ProfileScreenWidgets on ProfileScreen {
             if (isSelected)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
                 child: Text(
                   'Đang dùng',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               )
             else
-              Icon(Icons.radio_button_unchecked, size: 18, color: const Color(0xFFCBD5E1)),
+              Icon(
+                Icons.radio_button_unchecked,
+                size: 18,
+                color: const Color(0xFFCBD5E1),
+              ),
           ],
         ),
       ),

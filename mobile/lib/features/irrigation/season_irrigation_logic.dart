@@ -17,7 +17,10 @@ enum DaySource {
   final String label;
   const DaySource(this.code, this.label);
 
-  static DaySource parse(String? s) => DaySource.values.firstWhere((e) => e.code == s, orElse: () => DaySource.none);
+  static DaySource parse(String? s) => DaySource.values.firstWhere(
+    (e) => e.code == s,
+    orElse: () => DaySource.none,
+  );
 }
 
 class SeasonDay {
@@ -112,7 +115,8 @@ class SeasonIrrigationCalendar {
       if (d.outOfRange) d,
   ];
 
-  SeasonDay? day(int n) => days.where((d) => d.dayNumber == n && !d.outOfRange).firstOrNull;
+  SeasonDay? day(int n) =>
+      days.where((d) => d.dayNumber == n && !d.outOfRange).firstOrNull;
   SeasonDay? get today => todayDayNumber == null ? null : day(todayDayNumber!);
 
   /// Tên các giai đoạn theo thứ tự xuất hiện (dùng cho bộ lọc).
@@ -121,53 +125,69 @@ class SeasonIrrigationCalendar {
     final out = <({String id, String name})>[];
     for (final d in inRangeDays) {
       final id = d.stageId;
-      if (id != null && seen.add(id)) out.add((id: id, name: d.stageName ?? 'Giai đoạn'));
+      if (id != null && seen.add(id))
+        out.add((id: id, name: d.stageName ?? 'Giai đoạn'));
     }
     return out;
   }
 
-  factory SeasonIrrigationCalendar.fromJson(Map<String, dynamic> j) => SeasonIrrigationCalendar(
-    seasonId: '${jsonField(j, 'seasonId') ?? ''}',
-    zoneId: '${jsonField(j, 'zoneId') ?? ''}',
-    seasonName: '${jsonField(j, 'seasonName') ?? ''}',
-    seasonStatus: '${jsonField(j, 'seasonStatus') ?? ''}',
-    profileId: '${jsonField(j, 'growthProfileId') ?? ''}',
-    profileName: '${jsonField(j, 'growthProfileName') ?? ''}',
-    startDate: '${jsonField(j, 'startDate') ?? ''}',
-    totalDays: jsonNumber(jsonField(j, 'totalDays'))?.toInt() ?? 0,
-    todayDayNumber: jsonNumber(jsonField(j, 'todayDayNumber'))?.toInt(),
-    timeZone: '${jsonField(j, 'timeZone') ?? ''}',
-    status: '${jsonField(j, 'status') ?? 'NoOverrides'}',
-    staleReasons: [for (final r in jsonList(jsonField(j, 'staleReasons'))) '$r'],
-    overrideDayCount: jsonNumber(jsonField(j, 'overrideDayCount'))?.toInt() ?? 0,
-    isEditable: jsonField(j, 'isEditable') == true,
-    updatedAtUtc: jsonField(j, 'updatedAtUtc')?.toString(),
-    days: [
-      for (final d in jsonList(jsonField(j, 'days')))
-        if (d is Map) SeasonDay.fromJson(Map<String, dynamic>.from(d)),
-    ],
-  );
+  factory SeasonIrrigationCalendar.fromJson(Map<String, dynamic> j) =>
+      SeasonIrrigationCalendar(
+        seasonId: '${jsonField(j, 'seasonId') ?? ''}',
+        zoneId: '${jsonField(j, 'zoneId') ?? ''}',
+        seasonName: '${jsonField(j, 'seasonName') ?? ''}',
+        seasonStatus: '${jsonField(j, 'seasonStatus') ?? ''}',
+        profileId: '${jsonField(j, 'growthProfileId') ?? ''}',
+        profileName: '${jsonField(j, 'growthProfileName') ?? ''}',
+        startDate: '${jsonField(j, 'startDate') ?? ''}',
+        totalDays: jsonNumber(jsonField(j, 'totalDays'))?.toInt() ?? 0,
+        todayDayNumber: jsonNumber(jsonField(j, 'todayDayNumber'))?.toInt(),
+        timeZone: '${jsonField(j, 'timeZone') ?? ''}',
+        status: '${jsonField(j, 'status') ?? 'NoOverrides'}',
+        staleReasons: [
+          for (final r in jsonList(jsonField(j, 'staleReasons'))) '$r',
+        ],
+        overrideDayCount:
+            jsonNumber(jsonField(j, 'overrideDayCount'))?.toInt() ?? 0,
+        isEditable: jsonField(j, 'isEditable') == true,
+        updatedAtUtc: jsonField(j, 'updatedAtUtc')?.toString(),
+        days: [
+          for (final d in jsonList(jsonField(j, 'days')))
+            if (d is Map) SeasonDay.fromJson(Map<String, dynamic>.from(d)),
+        ],
+      );
 }
 
 /// Giải thích dễ hiểu cho lý do "Stale" mà backend trả về (dữ liệu KHÔNG bị xóa).
 String staleReasonText(String code) => switch (code) {
-  'StartDateChanged' => 'Ngày bắt đầu của vụ đã đổi sau lần lưu cuối: các ngày tùy chỉnh dịch theo số ngày canh tác.',
+  'StartDateChanged' =>
+    'Ngày bắt đầu của vụ đã đổi sau lần lưu cuối: các ngày tùy chỉnh dịch theo số ngày canh tác.',
   'DurationChanged' => 'Số ngày của vụ đã đổi sau lần lưu cuối.',
-  'ProfileChanged' => 'Hồ sơ của vụ đã đổi: các ngày tùy chỉnh vẫn giữ, hãy kiểm tra lại với lịch mẫu mới.',
-  'DaysOutOfRange' => 'Có ngày tùy chỉnh nằm ngoài vụ (vụ ngắn hơn). Chúng được giữ lại nhưng bị bỏ qua khi đồng bộ.',
+  'ProfileChanged' =>
+    'Hồ sơ của vụ đã đổi: các ngày tùy chỉnh vẫn giữ, hãy kiểm tra lại với lịch mẫu mới.',
+  'DaysOutOfRange' =>
+    'Có ngày tùy chỉnh nằm ngoài vụ (vụ ngắn hơn). Chúng được giữ lại nhưng bị bỏ qua khi đồng bộ.',
   _ => code,
 };
 
 /// Body PUT một ngày.
-Map<String, dynamic> dayIrrigationPayload(int dayNumber, List<ProfileSession> sessions) => {
+Map<String, dynamic> dayIrrigationPayload(
+  int dayNumber,
+  List<ProfileSession> sessions,
+) => {
   'dayNumber': dayNumber,
   'sessions': [for (final s in sessions) s.toJson()],
 };
 
 /// Các ngày để áp dụng ca của một ngày: cả giai đoạn của ngày đó hoặc cả vụ (không gồm ngày ngoài vụ).
-List<int> targetDays(SeasonIrrigationCalendar c, SeasonDay from, {required bool wholeSeason}) => [
+List<int> targetDays(
+  SeasonIrrigationCalendar c,
+  SeasonDay from, {
+  required bool wholeSeason,
+}) => [
   for (final d in c.inRangeDays)
-    if (wholeSeason || (from.stageId != null && d.stageId == from.stageId)) d.dayNumber,
+    if (wholeSeason || (from.stageId != null && d.stageId == from.stageId))
+      d.dayNumber,
 ];
 
 /// Tên nguồn lịch mà việc đồng bộ thiết bị đã dùng, theo trường `source` của kết quả sync.

@@ -3,10 +3,16 @@ import 'zone_crop_plan_logic.dart';
 
 /// Kết quả chuẩn bị hồ sơ để gắn vào Zone. KHÔNG tạo vụ mùa: hồ sơ được gắn trực tiếp vào Zone qua API Zone.
 class ZoneProfilePrepareResult {
-  final String? profileId; // hồ sơ sẽ gắn vào Zone (hệ thống, hoặc bản sao vừa tạo)
+  final String?
+  profileId; // hồ sơ sẽ gắn vào Zone (hệ thống, hoặc bản sao vừa tạo)
   final bool cloned;
-  final String? error; // lý do dừng giữa chừng; có thể kèm profileId của bản sao đã tạo dở để tiếp tục
-  const ZoneProfilePrepareResult({this.profileId, this.cloned = false, this.error});
+  final String?
+  error; // lý do dừng giữa chừng; có thể kèm profileId của bản sao đã tạo dở để tiếp tục
+  const ZoneProfilePrepareResult({
+    this.profileId,
+    this.cloned = false,
+    this.error,
+  });
 
   bool get ok => error == null && profileId != null;
 }
@@ -22,21 +28,28 @@ Future<ZoneProfilePrepareResult> prepareZoneProfile({
   required ZoneCropSelection selection,
   String? reuseCloneId,
 }) async {
-  if (!selection.active || selection.profileId == null) return const ZoneProfilePrepareResult();
-  if (selection.mode != ZoneProfileMode.custom) return ZoneProfilePrepareResult(profileId: selection.profileId);
+  if (!selection.active || selection.profileId == null)
+    return const ZoneProfilePrepareResult();
+  if (selection.mode != ZoneProfileMode.custom)
+    return ZoneProfilePrepareResult(profileId: selection.profileId);
 
   var profileId = reuseCloneId;
   Map<String, dynamic>? created;
   if (profileId == null) {
     try {
-      created = await CropApi.createGrowthProfile(buildCloneProfilePayload(selection));
+      created = await CropApi.createGrowthProfile(
+        buildCloneProfilePayload(selection),
+      );
     } catch (e) {
-      return ZoneProfilePrepareResult(error: 'Không tạo được hồ sơ riêng: ${_msg(e)}');
+      return ZoneProfilePrepareResult(
+        error: 'Không tạo được hồ sơ riêng: ${_msg(e)}',
+      );
     }
     profileId = '${created['profileId'] ?? ''}';
     if (profileId.isEmpty) {
       return const ZoneProfilePrepareResult(
-        error: 'Máy chủ không trả mã hồ sơ vừa tạo. Hãy kiểm tra danh sách hồ sơ rồi thử lại.',
+        error:
+            'Máy chủ không trả mã hồ sơ vừa tạo. Hãy kiểm tra danh sách hồ sơ rồi thử lại.',
       );
     }
   }
@@ -58,26 +71,35 @@ Future<ZoneProfilePrepareResult> prepareZoneProfile({
   }
   final cloneStages = <int, String>{
     for (final st in cloneStagesRaw)
-      if (st is Map) (st['stageOrder'] as num?)?.toInt() ?? -1: '${st['stageId']}',
+      if (st is Map)
+        (st['stageOrder'] as num?)?.toInt() ?? -1: '${st['stageId']}',
   };
   for (var i = 0; i < selection.stages.length; i++) {
     final edited = selection.stages[i];
-    final original = i < selection.originalStages.length ? selection.originalStages[i] : null;
+    final original = i < selection.originalStages.length
+        ? selection.originalStages[i]
+        : null;
     final cloneStageId = cloneStages[edited.order];
     if (original == null || cloneStageId == null) continue;
     try {
       if (edited.durationDays != original.durationDays) {
         await CropApi.updateStageDuration(cloneStageId, edited.durationDays);
       }
-      final changed = changedRequirements(original.requirements, edited.requirements);
+      final changed = changedRequirements(
+        original.requirements,
+        edited.requirements,
+      );
       if (changed.isNotEmpty) {
-        await CropApi.updateStageRequirements(cloneStageId, [for (final r in changed) r.toJson()]);
+        await CropApi.updateStageRequirements(cloneStageId, [
+          for (final r in changed) r.toJson(),
+        ]);
       }
     } catch (e) {
       return ZoneProfilePrepareResult(
         profileId: profileId,
         cloned: true,
-        error: 'Đã tạo hồ sơ riêng nhưng chưa chỉnh được giai đoạn "${edited.name}": ${_msg(e)}',
+        error:
+            'Đã tạo hồ sơ riêng nhưng chưa chỉnh được giai đoạn "${edited.name}": ${_msg(e)}',
       );
     }
   }
@@ -92,7 +114,12 @@ Future<String?> attachProfileToZone({
   String? notes,
 }) async {
   try {
-    await FarmApi.updateZone(zoneId, name: zoneName, notes: notes, growthProfileId: profileId);
+    await FarmApi.updateZone(
+      zoneId,
+      name: zoneName,
+      notes: notes,
+      growthProfileId: profileId,
+    );
     return null;
   } catch (e) {
     return _msg(e);
@@ -118,8 +145,13 @@ Future<String?> applyOwnProfileEdits({
   final done = <String>[];
   try {
     final desc = (description ?? '').trim();
-    if (name.trim() != originalName || desc != (originalDescription ?? '').trim()) {
-      await CropApi.updateGrowthProfile(profileId, name: name.trim(), description: desc.isEmpty ? null : desc);
+    if (name.trim() != originalName ||
+        desc != (originalDescription ?? '').trim()) {
+      await CropApi.updateGrowthProfile(
+        profileId,
+        name: name.trim(),
+        description: desc.isEmpty ? null : desc,
+      );
       done.add('tên/mô tả');
     }
     for (final st in edited) {
@@ -131,7 +163,9 @@ Future<String?> applyOwnProfileEdits({
       }
       final changed = changedRequirements(o.requirements, st.requirements);
       if (changed.isNotEmpty) {
-        await CropApi.updateStageRequirements(st.stageId, [for (final r in changed) r.toJson()]);
+        await CropApi.updateStageRequirements(st.stageId, [
+          for (final r in changed) r.toJson(),
+        ]);
         done.add('ngưỡng "${st.name}"');
       }
     }

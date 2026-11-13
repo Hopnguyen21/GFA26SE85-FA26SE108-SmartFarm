@@ -53,7 +53,10 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
   }
 
   Future<void> _pickAndUpload() async {
-    final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: const ['pdf', 'docx', 'txt']);
+    final picked = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'docx', 'txt'],
+    );
     if (picked == null || !mounted) return;
 
     final length = await picked.length();
@@ -70,7 +73,10 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
     if (mounted) setState(() => _uploading = true);
     try {
       final bytes = await picked.readAsBytes();
-      final doc = await DocumentApi.uploadAgricultureDocument(fileName: picked.name, bytes: bytes);
+      final doc = await DocumentApi.uploadAgricultureDocument(
+        fileName: picked.name,
+        bytes: bytes,
+      );
       if (!mounted) return;
       await _load();
       _message(
@@ -89,7 +95,8 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
     await Navigator.push<AgricultureDocumentModel>(
       context,
       MaterialPageRoute(
-        builder: (_) => VietGapDocumentReviewScreen(document: doc, canManage: _canManage),
+        builder: (_) =>
+            VietGapDocumentReviewScreen(document: doc, canManage: _canManage),
       ),
     );
     if (mounted) await _load();
@@ -97,21 +104,32 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final approved = _documents.where((d) => d.reviewStatus == 'Approved').length;
+    final approved = _documents
+        .where((d) => d.reviewStatus == 'Approved')
+        .length;
     final pending = _documents.length - approved;
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F6),
       appBar: AppBar(
         backgroundColor: _ink,
         foregroundColor: Colors.white,
-        title: const Text('Tài liệu VietGAP', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Tài liệu VietGAP',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(onPressed: _load, tooltip: 'Đồng bộ', icon: const Icon(Icons.sync)),
+          IconButton(
+            onPressed: _load,
+            tooltip: 'Đồng bộ',
+            icon: const Icon(Icons.sync),
+          ),
           if (_canManage)
             IconButton(
               onPressed: _uploading ? null : _pickAndUpload,
@@ -133,16 +151,36 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _countCard('Tổng tài liệu', '${_documents.length}', Icons.description_outlined, _ink),
+                        child: _countCard(
+                          'Tổng tài liệu',
+                          '${_documents.length}',
+                          Icons.description_outlined,
+                          _ink,
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      Expanded(child: _countCard('Đã duyệt', '$approved', Icons.verified_outlined, _green)),
+                      Expanded(
+                        child: _countCard(
+                          'Đã duyệt',
+                          '$approved',
+                          Icons.verified_outlined,
+                          _green,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: _countCard('Chờ rà soát', '$pending', Icons.fact_check_outlined, Colors.orange)),
+                      Expanded(
+                        child: _countCard(
+                          'Chờ rà soát',
+                          '$pending',
+                          Icons.fact_check_outlined,
+                          Colors.orange,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                if (_uploading) const LinearProgressIndicator(minHeight: 3, color: _green),
+                if (_uploading)
+                  const LinearProgressIndicator(minHeight: 3, color: _green),
                 Expanded(
                   child: _documents.isEmpty
                       ? _emptyState()
@@ -151,8 +189,10 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                           child: ListView.separated(
                             padding: const EdgeInsets.all(16),
                             itemCount: _documents.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
-                            itemBuilder: (context, index) => _documentCard(_documents[index]),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) =>
+                                _documentCard(_documents[index]),
                           ),
                         ),
                 ),
@@ -170,25 +210,33 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
     );
   }
 
-  Widget _countCard(String label, String count, IconData icon, Color color) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-    child: Column(
-      children: [
-        Icon(icon, color: color, size: 19),
-        const SizedBox(height: 4),
-        Text(
-          count,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+  Widget _countCard(String label, String count, IconData icon, Color color) =>
+      Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
         ),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, color: Colors.black54),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 19),
+            const SizedBox(height: 4),
+            Text(
+              count,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   Widget _documentCard(AgricultureDocumentModel doc) {
     final isApproved = doc.reviewStatus == 'Approved';
@@ -218,8 +266,14 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                   Container(
                     width: 40,
                     height: 42,
-                    decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.description_outlined, color: Color(0xFFBE123C)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.description_outlined,
+                      color: Color(0xFFBE123C),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -228,14 +282,21 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                       children: [
                         Text(
                           doc.title,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _ink),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: _ink,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           '${doc.cropScope.isEmpty ? 'Chưa ghi cây trồng' : doc.cropScope} · ${doc.fileType.toUpperCase()}${doc.version == null ? '' : ' · ${doc.version}'}',
-                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -250,7 +311,11 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  _pill(doc.statusLabel, color, isApproved ? Icons.verified : Icons.pending_actions),
+                  _pill(
+                    doc.statusLabel,
+                    color,
+                    isApproved ? Icons.verified : Icons.pending_actions,
+                  ),
                   _pill(
                     doc.hasOriginalFile ? 'Có file gốc' : 'Không có file gốc',
                     doc.hasOriginalFile ? _ink : Colors.orange,
@@ -263,7 +328,11 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                   padding: EdgeInsets.only(top: 9),
                   child: Text(
                     'Cần rà soát và duyệt trước khi dùng tạo profile/RAG.',
-                    style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
             ],
@@ -275,7 +344,10 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
 
   Widget _pill(String label, Color color, IconData icon) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(20),
+    ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -283,7 +355,11 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     ),
@@ -323,9 +399,16 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
         children: [
           const Icon(Icons.cloud_off, size: 44, color: Colors.orange),
           const SizedBox(height: 12),
-          Text('Không tải được kho tài liệu: $_error', textAlign: TextAlign.center),
+          Text(
+            'Không tải được kho tài liệu: $_error',
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
-          FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Thử lại')),
+          FilledButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Thử lại'),
+          ),
         ],
       ),
     ),

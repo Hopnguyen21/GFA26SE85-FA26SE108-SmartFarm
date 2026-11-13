@@ -75,6 +75,7 @@ export interface Zone {
   zoneId: string;
   fieldId: string;
   farmId: string;
+  farmName?: string;
   name: string;
   description?: string;
   zoneType?: string;
@@ -83,8 +84,17 @@ export interface Zone {
   boundaryGeoJson?: any;
   areaM2: number;
   status: 'ACTIVE' | 'INACTIVE';
-  currentCrop?: string;
-  currentStage?: string;
+  currentCrop?: string | null;
+  currentStage?: string | null;
+  cropId?: string | null;
+  varietyId?: string | null;
+  cropName?: string | null;
+  varietyName?: string | null;
+  /** None | InProgress | Mismatch | PlannedOnly */
+  seasonStatus?: 'None' | 'InProgress' | 'Mismatch' | 'PlannedOnly';
+  seasonName?: string | null;
+  seasonCropName?: string | null;
+  plannedCrop?: string | null;
   createdAt: string;
 }
 
@@ -101,6 +111,57 @@ export interface Employee {
   joinedAt: string;
   assignedFarms: string[]; // farmIds
   assignedZones: string[]; // zoneIds
+  /** Quyền Zone của nhân công: xem/được giao việc và (riêng biệt) được điều khiển thiết bị. */
+  zoneAccess?: { zoneId: string; canControl: boolean }[];
+}
+
+export type FarmInvitationStatus = 'Pending' | 'Accepted' | 'Declined' | 'Cancelled' | 'Expired';
+
+export interface FarmInvitation {
+  id: string;
+  farmId: string;
+  farmName: string;
+  email: string;
+  status: FarmInvitationStatus;
+  createdAtUtc: string;
+  expiresAtUtc: string;
+  respondedAtUtc?: string | null;
+  sendCount: number;
+  lastSentAtUtc?: string | null;
+}
+
+export type TaskAssignmentStatus =
+  | 'Pending' | 'Accepted' | 'InProgress' | 'CompletedPendingReview' | 'Approved' | 'Failed' | 'Overdue' | 'Cancelled' | 'Declined';
+
+export interface FarmTaskAssignment {
+  id: string;
+  farmerId: string;
+  farmerName: string;
+  status: TaskAssignmentStatus;
+  progressPercent: number;
+  progressNote?: string | null;
+  result?: string | null;
+  failureReason?: string | null;
+  assignmentVersion: number;
+  assignedAtUtc: string;
+  acceptedAtUtc?: string | null;
+  startedAtUtc?: string | null;
+  submittedAtUtc?: string | null;
+  approvedAtUtc?: string | null;
+}
+
+export interface FarmTaskDetail {
+  id: string;
+  farmId: string;
+  zoneId: string;
+  title: string;
+  description?: string | null;
+  requirements?: string | null;
+  dueAtUtc: string;
+  status: TaskAssignmentStatus;
+  createdAtUtc: string;
+  assignments: FarmTaskAssignment[];
+  history: { id: string; eventType: string; fromStatus?: string | null; toStatus: string; actorUserId: string; subjectFarmerId?: string | null; notes?: string | null; createdAtUtc: string }[];
 }
 
 export interface IrrigationSession {
@@ -147,10 +208,10 @@ export interface Crop {
   optimalTemperatureMax?: number; // °C
   optimalSoilMoistureMin?: number;// %
   optimalSoilMoistureMax?: number;// %
-  optimalpHMin?: number;          // pH
-  optimalpHMax?: number;          // pH
-  optimalECMin?: number;           // mS/cm
-  optimalECMax?: number;           // mS/cm
+  optimalPhMin?: number;          // pH
+  optimalPhMax?: number;          // pH
+  optimalEcMin?: number;           // mS/cm
+  optimalEcMax?: number;           // mS/cm
   optimalLux?: number;             // Lux
 
   // Lịch tưới theo định dạng cuốn lịch (Sáng - Trưa - Chiều)
@@ -167,6 +228,9 @@ export interface CropVariety {
   description?: string;
   isSystemDefined: boolean;
 }
+
+export type PlantVariety = CropVariety;
+
 
 export interface GrowthStage {
   growthStageId: string;
@@ -199,15 +263,32 @@ export interface GrowthProfile {
   requirements: Record<string, EnvironmentalRequirement[]>; // keyed by stageId
 }
 
+export interface FarmingSeason {
+  id: string;
+  code: string;
+  name: string;
+  year: number;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  status: 'Active' | 'Upcoming' | 'Completed' | string;
+  isActive: boolean;
+  linkedBatchesCount?: number;
+}
+
 export interface PlantingSeason {
   plantingSeasonId: string;
+  seasonId?: string;
   zoneId: string;
   zoneName?: string;
   farmId: string;
+  farmName?: string;
   cropId: string;
   cropName: string;
   varietyId?: string;
   varietyName?: string;
+  farmingSeasonId?: string;
+  farmingSeasonName?: string;
   growthProfileId: string;
   name: string;
   startDate: string;
@@ -215,11 +296,13 @@ export interface PlantingSeason {
   actualEndDate?: string;
   currentGrowthStageId: string;
   currentGrowthStageName?: string;
-  status: 'PLANNED' | 'ACTIVE' | 'HARVESTED' | 'CANCELLED';
-  progressPercent: number;
+  status: 'PLANNED' | 'ACTIVE' | 'HARVESTED' | 'CANCELLED' | string;
+  progressPercent?: number;
   schedulesCount?: number;
   assignedFarmerNames?: string[];
   irrigationPlanNote?: string;
+  actualYieldKg?: number;
+  closeNotes?: string;
 }
 
 export interface Gateway {
@@ -254,8 +337,8 @@ export interface SensorNode {
   longitude: number;
   status: 'ONLINE' | 'OFFLINE' | 'WARNING' | 'CRITICAL';
   firmwareVersion: string;
-  batteryLevel: number; // 0-100%
-  rssi: number;
+  batteryLevel?: number; // 0-100%; thiết bị không báo thì để trống
+  rssi?: number;
   lastSeenAt: string;
   sensorsCount: number;
   actuatorsCount: number;
@@ -277,7 +360,7 @@ export interface Sensor {
 export interface Actuator {
   actuatorId: string;
   nodeId?: string;
-  farmId: string;
+  farmId?: string;
   zoneId?: string;
   zoneName?: string;
   name: string;
@@ -285,6 +368,8 @@ export interface Actuator {
   actuatorType: 'PUMP' | 'VALVE' | 'FAN' | 'GROW_LIGHT';
   status: 'OFF' | 'ON' | 'ERROR' | 'MAINTENANCE';
   lastStateChangeAt?: string;
+  relayChannel?: number;
+  ratedPowerWatt?: number;
 }
 
 export interface TelemetryReading {
@@ -369,7 +454,7 @@ export interface WeatherData {
   humidity: number;
   rainfallMm: number;
   windSpeedKmH: number;
-  condition: 'Sunny' | 'Cloudy' | 'Rainy' | 'Thunderstorm';
+  condition: 'Sunny' | 'Cloudy' | 'Rainy' | 'Thunderstorm' | string;
   rainProbability: number;
   recordedAt: string;
   forecast: {
@@ -391,18 +476,23 @@ export interface AIMessage {
 
 export interface AIRecommendation {
   recommendationId: string;
-  farmId: string;
-  zoneId: string;
-  zoneName: string;
-  cropName: string;
-  recommendationType: 'IRRIGATION' | 'ENVIRONMENTAL' | 'PEST' | 'FERTILIZATION';
+  farmId?: string;
+  zoneId?: string;
+  zoneName?: string;
+  cropName?: string;
+  recommendationType?: 'IRRIGATION' | 'ENVIRONMENTAL' | 'PEST' | 'FERTILIZATION' | string;
   title: string;
   recommendationText: string;
   reasoning: string;
-  expectedImpact: string;
+  expectedImpact?: string;
   confidenceScore: number; // 0-100%
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
-  createdAt: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'READY' | string;
+  createdAt?: string;
+  proposedAction?: string;
+  proposedDurationSeconds?: number;
+  validUntilUtc?: string;
+  sources?: string[];
+  commandStatus?: string;
 }
 
 export interface TaskItem {
@@ -471,6 +561,8 @@ export interface ContractDetails {
   paid30At?: string;
   payment30Method?: 'CASH' | 'BANK_TRANSFER'; // Tiền mặt hoặc Chuyển khoản
   payment30Ref?: string;
+  notes?: string;
+  contractTerms?: string;
 }
 
 export interface AcceptanceDetails {
@@ -510,21 +602,132 @@ export interface ServiceRequest {
   createdAt: string;
   resolution?: string;
 
+  // Trạng thái ký HĐ & thanh toán
+  isContractSigned?: boolean;
+  isDepositPaid?: boolean;
+  isFullyPaid?: boolean;
+
   // Thông tin Hợp đồng & Nghiệm thu
   contractDetails?: ContractDetails;
   acceptanceDetails?: AcceptanceDetails;
 }
 
+export type ZoneContractStatusType = 'Active' | 'ExpiringSoon' | 'Expired' | 'Terminated' | 'Renewed';
+
+export interface ZoneContractRenewal {
+  id: string;
+  contractId: string;
+  createdByOwnerId?: string;
+  newEndDate: string;
+  newMonthlyRentVnd?: number;
+  renewalValueVnd: number;
+  extendedMonths?: number;
+  renewalDate?: string;
+  discountPercent?: number;
+  newContractValueVnd?: number;
+  notes?: string;
+  createdAtUtc: string;
+}
+
+export interface ZoneContract {
+  id: string;
+  tenantId: string;
+  farmId: string;
+  farmName?: string;
+  zoneId: string;
+  zoneName?: string;
+  createdByOwnerId?: string;
+  parentContractId?: string;
+  parentContractNumber?: string;
+  contractNumber: string;
+  title?: string;
+  cropType?: string;
+  monthlyRentVnd: number;
+  depositVnd: number;
+  totalContractValueVnd: number;
+  subtotalVnd?: number;
+  discountPercent?: number;
+  discountVnd?: number;
+  vatRatePercent?: number;
+  vatPercent?: number;
+  equipment?: { code: string; name: string; category: string; unit: string; quantity: number; unitPrice: number }[];
+  vatAmountVnd?: number;
+  durationMonths?: number;
+  hardwareIncluded?: string;
+  startDate: string;
+  endDate: string;
+  status: ZoneContractStatusType | number;
+  statusText?: string;
+  daysRemaining: number;
+  lesseeName: string;
+  lesseePhone?: string;
+  lesseeIdentityNumber?: string;
+  lesseeAddress?: string;
+  specialTerms?: string;
+  notes?: string;
+  signedAtUtc?: string;
+  renewals?: ZoneContractRenewal[];
+  createdAtUtc?: string;
+}
+
+export interface DeviceDepreciation {
+  id: string;
+  zoneId: string;
+  zoneName?: string;
+  deviceId: string;
+  deviceName?: string;
+  deviceCode?: string;
+  serialNumber?: string;
+  hardwareAddress?: string;
+  deviceType?: string;
+  originalCostVnd: number;
+  monthlyDepreciationVnd: number;
+  accumulatedDepreciationVnd: number;
+  currentBookValueVnd: number;
+  depreciationLifetimeMonths: number;
+  monthsElapsed: number;
+  remainingMonths: number;
+  remainingLifespanMonths?: number;
+  warrantyMonths?: number;
+  installationDate?: string;
+  method: string;
+  startDate: string;
+  depreciationStatus: 'Active' | 'ExpiringSoon' | 'FullyDepreciated';
+  status?: 'Active' | 'ExpiringSoon' | 'FullyDepreciated';
+  isNearContractRenewal?: boolean;
+  notes?: string;
+  createdAtUtc?: string;
+}
+
+export interface ExpiringContractAlert {
+  contractId: string;
+  contractNumber: string;
+  farmId: string;
+  farmName: string;
+  zoneId: string;
+  zoneName: string;
+  cropType?: string;
+  endDate: string;
+  daysRemaining: number;
+  status: ZoneContractStatusType;
+  totalContractValueVnd: number;
+}
+
 export interface AuditLog {
-  auditLogId: string;
-  userId: string;
-  userName: string;
-  userRole: UserRole;
+  auditLogId?: string;
+  id?: string;
+  userId?: string;
+  actorUserId?: string;
+  userName?: string;
+  actorName?: string;
+  userRole?: UserRole | string;
+  actorRole?: string;
   action: string;
-  entityName: string;
-  entityId: string;
-  ipAddress: string;
-  createdAt: string;
+  entityName?: string;
+  entityId?: string;
+  ipAddress?: string;
+  createdAt?: string;
+  createdAtUtc?: string;
   details?: string;
 }
 
@@ -585,4 +788,122 @@ export interface SafetyCheckResult {
   failsafeTimerMinutes: number;
   warnings: string[];
 }
+
+export interface AgricultureDocumentSummary {
+  id: string;
+  title: string;
+  fileName?: string;
+  fileType: 'pdf' | 'docx' | 'txt' | 'seed' | string;
+  authorOrganization?: string;
+  category: 'irrigation' | 'pest' | 'nutrition' | 'climate' | 'record' | 'general' | string;
+  cropScope: string;
+  version?: string;
+  isPublic: boolean;
+  tenantId?: string;
+  chunkCount: number;
+  createdAtUtc: string;
+  reviewStatus: 'PendingReview' | 'Approved' | 'NeedsCorrection' | 'Superseded' | string;
+  topics?: string;
+  detectedTopics?: string;
+  reviewNotes?: string;
+  reviewedAtUtc?: string;
+  hasOriginalFile: boolean;
+  documentType: 'OfficialStandard' | 'TechnicalGuide' | 'Thematic' | string;
+}
+
+export interface AgricultureChunk {
+  id: string;
+  chunkIndex: number;
+  content: string;
+  cropTags: string;
+  keywords: string;
+  hasEmbedding: boolean;
+}
+
+/** Trường VietGAP do AI trích; value chỉ có khi evidence là câu trích nguyên văn có trong toàn văn. */
+export interface VietGapExtractedField {
+  key: string;
+  label: string;
+  value: string | null;
+  evidence: string | null;
+  page: number | null;
+}
+
+export interface VietGapExtractedStage {
+  stageOrder: number;
+  name: string;
+  durationDays: number | null;
+  temperatureRange: string | null;
+  moistureRange: string | null;
+  ph: string | null;
+  ec: string | null;
+  fertilizerAction: string | null;
+  ipmAction: string | null;
+  evidence: string;
+  page: number | null;
+}
+
+export interface VietGapStructuredExtraction {
+  fields: VietGapExtractedField[];
+  stages: VietGapExtractedStage[];
+  extractedBy: string;
+  extractedAtUtc: string;
+  /** Phiên bản quy tắc kiểm chứng; thấp hơn EXTRACTION_RULES_VERSION là kết quả cũ. */
+  rulesVersion?: number;
+  /** Trường AI đề xuất nhưng bị loại vì không khớp nguyên văn tài liệu. */
+  rejectedFields?: string[];
+  proposedCount?: number;
+}
+
+export interface AgricultureDocumentDetail extends AgricultureDocumentSummary {
+  contentText: string;
+  chunks: AgricultureChunk[];
+  /** null = chưa trích hoặc toàn văn đã sửa sau lần trích gần nhất. */
+  extraction?: VietGapStructuredExtraction | null;
+}
+
+export interface KnowledgePassage {
+  chunkId: string;
+  documentId: string;
+  documentTitle: string;
+  authorOrganization?: string;
+  category: string;
+  content: string;
+  similarityScore: number;
+}
+
+export interface AiSource {
+  documentId: string;
+  title: string;
+  organization?: string;
+  authorOrganization?: string;
+  category: string;
+  similarity?: number;
+  similarityScore?: number;
+  pageNumber?: number;
+  sectionTitle?: string;
+  contentSnippet?: string;
+  content?: string;
+}
+
+export interface AiRecommendationView {
+  recommendationId: string;
+  consultationRequestId: string;
+  zoneId: string;
+  question: string;
+  summary: string;
+  details: string;
+  limitations: string[];
+  confidence: number;
+  status: string;
+  isActionable: boolean;
+  validUntilUtc: string;
+  proposedActuatorId?: string;
+  proposedAction?: 'TurnOn' | 'TurnOff' | string;
+  proposedDurationSeconds?: number;
+  createdAtUtc: string;
+  sources?: AiSource[];
+  contextSnapshotJson?: string;
+}
+
 

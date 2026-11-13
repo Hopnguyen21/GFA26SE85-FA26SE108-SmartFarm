@@ -33,7 +33,8 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted)
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -52,13 +53,16 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            accept ? 'Đã tham gia trang trại. Chủ trang trại sẽ cấp quyền Zone cho bạn.' : 'Đã từ chối lời mời.',
+            accept
+                ? 'Đã tham gia trang trại. Chủ trang trại sẽ cấp quyền Zone cho bạn.'
+                : 'Đã từ chối lời mời.',
           ),
         ),
       );
       await _load();
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted)
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -73,15 +77,25 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12)),
+            if (_error != null)
+              Text(
+                _error!,
+                style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+              ),
             if (_loading)
               const Center(
-                child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
               ),
             if (!_loading && _items.isEmpty && _error == null)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Bạn chưa có lời mời nào.', textAlign: TextAlign.center),
+                child: Text(
+                  'Bạn chưa có lời mời nào.',
+                  textAlign: TextAlign.center,
+                ),
               ),
             for (final inv in _items)
               Card(
@@ -92,26 +106,36 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
                     children: [
                       Text(
                         inv['farmName']?.toString() ?? 'Trang trại',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Hết hạn: ${_date(inv['expiresAtUtc'])}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: _busy ? null : () => _respond(inv['id'].toString(), false),
+                              onPressed: _busy
+                                  ? null
+                                  : () => _respond(inv['id'].toString(), false),
                               child: const Text('Từ chối'),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: _busy ? null : () => _respond(inv['id'].toString(), true),
+                              onPressed: _busy
+                                  ? null
+                                  : () => _respond(inv['id'].toString(), true),
                               child: const Text('Chấp nhận'),
                             ),
                           ),
@@ -129,6 +153,8 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
 
   String _date(dynamic iso) {
     final d = DateTime.tryParse(iso?.toString() ?? '')?.toLocal();
-    return d == null ? '—' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    return d == null
+        ? '—'
+        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 }

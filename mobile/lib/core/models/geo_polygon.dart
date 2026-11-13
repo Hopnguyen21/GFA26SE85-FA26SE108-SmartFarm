@@ -19,17 +19,26 @@ GeoParseResult parseGeoJsonPolygon(dynamic raw) {
   try {
     var value = raw;
     if (value is String) {
-      if (value.trim().isEmpty || value.trim() == 'null') return const GeoParseResult();
+      if (value.trim().isEmpty || value.trim() == 'null')
+        return const GeoParseResult();
       value = jsonDecode(value);
     }
-    if (value is! Map) return const GeoParseResult(problem: 'Ranh giới không phải đối tượng GeoJSON.');
-    if (value['type'] == 'Feature' && value['geometry'] != null) return parseGeoJsonPolygon(value['geometry']);
+    if (value is! Map)
+      return const GeoParseResult(
+        problem: 'Ranh giới không phải đối tượng GeoJSON.',
+      );
+    if (value['type'] == 'Feature' && value['geometry'] != null)
+      return parseGeoJsonPolygon(value['geometry']);
     final type = value['type'];
     if (type != null && type != 'Polygon') {
-      return GeoParseResult(problem: 'Loại hình học "$type" chưa được hỗ trợ (cần Polygon).');
+      return GeoParseResult(
+        problem: 'Loại hình học "$type" chưa được hỗ trợ (cần Polygon).',
+      );
     }
     final coordinates = value['coordinates'];
-    if (coordinates is! List || coordinates.isEmpty || coordinates[0] is! List) {
+    if (coordinates is! List ||
+        coordinates.isEmpty ||
+        coordinates[0] is! List) {
       return const GeoParseResult(problem: 'Thiếu mảng toạ độ của Polygon.');
     }
     final ring = coordinates[0] as List;
@@ -48,15 +57,22 @@ GeoParseResult parseGeoJsonPolygon(dynamic raw) {
         }
       }
       if (lng == null || lat == null) {
-        return const GeoParseResult(problem: 'Có đỉnh không hợp lệ trong toạ độ [kinh độ, vĩ độ].');
+        return const GeoParseResult(
+          problem: 'Có đỉnh không hợp lệ trong toạ độ [kinh độ, vĩ độ].',
+        );
       }
       if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-        return GeoParseResult(problem: 'Toạ độ ngoài phạm vi hợp lệ (vĩ độ $lat, kinh độ $lng).');
+        return GeoParseResult(
+          problem: 'Toạ độ ngoài phạm vi hợp lệ (vĩ độ $lat, kinh độ $lng).',
+        );
       }
       pts.add(LatLng(lat, lng));
     }
     final distinct = {for (final p in pts) '${p.latitude},${p.longitude}'};
-    if (distinct.length < 3) return const GeoParseResult(problem: 'Ranh giới cần ít nhất 3 đỉnh khác nhau.');
+    if (distinct.length < 3)
+      return const GeoParseResult(
+        problem: 'Ranh giới cần ít nhất 3 đỉnh khác nhau.',
+      );
     return GeoParseResult(points: pts);
   } catch (e) {
     return GeoParseResult(problem: 'Không đọc được GeoJSON: $e');

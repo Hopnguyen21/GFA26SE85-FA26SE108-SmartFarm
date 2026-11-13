@@ -3,7 +3,8 @@ part of '../irrigation_calendar_screen.dart';
 /// Lịch tưới của màn này lấy TỪ BACKEND (GET /growth-profiles/{id}/irrigation-schedule), theo GIAI ĐOẠN: mọi ngày trong một giai đoạn
 /// dùng chung các ca của giai đoạn đó. Không còn lịch mặc định tự sinh hay lưu cục bộ trong SharedPreferences.
 /// Chỉ hồ sơ riêng của trang trại mới sửa được (lưu qua PUT); hồ sơ hệ thống chỉ xem.
-extension _IrrigationCalendarScreenStateLogic on _IrrigationCalendarScreenState {
+extension _IrrigationCalendarScreenStateLogic
+    on _IrrigationCalendarScreenState {
   Future<void> _loadSchedule() async {
     _rebuild(() {
       _isLoaded = false;
@@ -14,7 +15,10 @@ extension _IrrigationCalendarScreenStateLogic on _IrrigationCalendarScreenState 
       if (!mounted) return;
       _rebuild(() => _schedule = ProfileSchedule.fromJson(json));
     } catch (e) {
-      if (mounted) _rebuild(() => _loadError = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted)
+        _rebuild(
+          () => _loadError = e.toString().replaceFirst('Exception: ', ''),
+        );
     }
     if (mounted) _rebuild(() => _isLoaded = true);
   }
@@ -43,7 +47,9 @@ extension _IrrigationCalendarScreenStateLogic on _IrrigationCalendarScreenState 
           session: 'S$i',
           title: stage.sessions[i].title,
           startTime: stage.sessions[i].startTime,
-          durationMinutes: (stage.sessions[i].durationSeconds / 60).round().clamp(1, 30),
+          durationMinutes: (stage.sessions[i].durationSeconds / 60)
+              .round()
+              .clamp(1, 30),
           enabled: stage.sessions[i].enabled,
           method: stage.sessions[i].method ?? '',
           volumeMl: stage.sessions[i].waterPerPlantMl ?? 0,
@@ -52,7 +58,8 @@ extension _IrrigationCalendarScreenStateLogic on _IrrigationCalendarScreenState 
   }
 
   /// Ngày này thuộc giai đoạn đã có ca LƯU TRONG HỒ SƠ (không phải lịch mẫu của cây).
-  bool _isStageSavedInProfile(int day) => _backendStageForDay(day)?.fromProfile == true;
+  bool _isStageSavedInProfile(int day) =>
+      _backendStageForDay(day)?.fromProfile == true;
 
   int _getStageIndexForDay(DefaultCropProfile profile, int day) {
     if (profile.growthStages.isEmpty) return 0;
@@ -106,16 +113,25 @@ extension _IrrigationCalendarScreenStateLogic on _IrrigationCalendarScreenState 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
-        backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF10B981),
+        backgroundColor: error
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   /// Lưu ca của giai đoạn chứa [day] (hoặc của MỌI giai đoạn khi [allStages]) lên backend rồi tải lại. Báo kết quả thật.
-  Future<void> _saveSessions(int day, List<DayIrrigationSession> sessions, {bool allStages = false}) async {
+  Future<void> _saveSessions(
+    int day,
+    List<DayIrrigationSession> sessions, {
+    bool allStages = false,
+  }) async {
     if (!_canEditSchedule) {
-      _toast('Hồ sơ hệ thống chỉ để xem. Tạo bản sao riêng của trang trại để chỉnh lịch tưới.', error: true);
+      _toast(
+        'Hồ sơ hệ thống chỉ để xem. Tạo bản sao riêng của trang trại để chỉnh lịch tưới.',
+        error: true,
+      );
       return;
     }
     final stage = _backendStageForDay(day);
@@ -145,22 +161,32 @@ extension _IrrigationCalendarScreenStateLogic on _IrrigationCalendarScreenState 
       await CropApi.updateProfileIrrigation(widget.profile.profileId, [
         for (final t in targets) stageIrrigationPayload(t.stageId, mapped),
       ]);
-      final fresh = await CropApi.getProfileIrrigation(widget.profile.profileId);
+      final fresh = await CropApi.getProfileIrrigation(
+        widget.profile.profileId,
+      );
       if (!mounted) return;
       _rebuild(() => _schedule = ProfileSchedule.fromJson(fresh));
       _toast(
-        allStages ? 'Đã lưu lịch tưới cho mọi giai đoạn của hồ sơ.' : 'Đã lưu lịch tưới của giai đoạn "${stage.name}".',
+        allStages
+            ? 'Đã lưu lịch tưới cho mọi giai đoạn của hồ sơ.'
+            : 'Đã lưu lịch tưới của giai đoạn "${stage.name}".',
       );
     } catch (e) {
-      if (mounted) _toast('Không lưu được lịch tưới: ${e.toString().replaceFirst('Exception: ', '')}', error: true);
+      if (mounted)
+        _toast(
+          'Không lưu được lịch tưới: ${e.toString().replaceFirst('Exception: ', '')}',
+          error: true,
+        );
     } finally {
       if (mounted) _rebuild(() => _saving = false);
     }
   }
 
-  void _updateDaySessions(int day, List<DayIrrigationSession> sessions) => _saveSessions(day, sessions);
+  void _updateDaySessions(int day, List<DayIrrigationSession> sessions) =>
+      _saveSessions(day, sessions);
 
-  void _applyToCurrentStage(int day) => _saveSessions(day, _getSessionsForDay(day));
+  void _applyToCurrentStage(int day) =>
+      _saveSessions(day, _getSessionsForDay(day));
 
   void _applyToAllDaysWith(int day, List<DayIrrigationSession> sessions) =>
       _saveSessions(day, sessions, allStages: true);

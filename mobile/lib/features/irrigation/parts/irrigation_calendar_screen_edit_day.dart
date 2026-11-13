@@ -1,7 +1,12 @@
 part of '../irrigation_calendar_screen.dart';
 
-extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenState {
-  void _showEditDayBottomSheet(BuildContext context, int day, GrowthStageProfile stage) {
+extension _IrrigationCalendarScreenStateEditDay
+    on _IrrigationCalendarScreenState {
+  void _showEditDayBottomSheet(
+    BuildContext context,
+    int day,
+    GrowthStageProfile stage,
+  ) {
     if (!_canEditSchedule) {
       _toast(
         'Hồ sơ hệ thống chỉ để xem. Tạo bản sao riêng của trang trại (Đổi hồ sơ → Tùy chỉnh bản sao) để chỉnh lịch tưới.',
@@ -97,7 +102,13 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(s.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                Text(
+                                  s.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
                                 Switch(
                                   value: s.enabled,
                                   activeThumbColor: const Color(0xFF10B981),
@@ -115,32 +126,58 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                                     child: InkWell(
                                       onTap: () async {
                                         final parts = s.startTime.split(':');
-                                        final initialHour = int.tryParse(parts[0]) ?? 7;
-                                        final initialMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+                                        final initialHour =
+                                            int.tryParse(parts[0]) ?? 7;
+                                        final initialMinute = parts.length > 1
+                                            ? (int.tryParse(parts[1]) ?? 0)
+                                            : 0;
                                         final picked = await showTimePicker(
                                           context: modalCtx,
-                                          initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
+                                          initialTime: TimeOfDay(
+                                            hour: initialHour,
+                                            minute: initialMinute,
+                                          ),
                                         );
                                         if (picked != null) {
-                                          final h = picked.hour.toString().padLeft(2, '0');
-                                          final m = picked.minute.toString().padLeft(2, '0');
-                                          setModalState(() => s.startTime = '$h:$m');
+                                          final h = picked.hour
+                                              .toString()
+                                              .padLeft(2, '0');
+                                          final m = picked.minute
+                                              .toString()
+                                              .padLeft(2, '0');
+                                          setModalState(
+                                            () => s.startTime = '$h:$m',
+                                          );
                                         }
                                       },
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFCBD5E1),
+                                          ),
                                         ),
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.access_time, size: 16, color: Color(0xFF0284C7)),
+                                            const Icon(
+                                              Icons.access_time,
+                                              size: 16,
+                                              color: Color(0xFF0284C7),
+                                            ),
                                             const SizedBox(width: 6),
                                             Text(
                                               'Giờ: ${s.startTime}',
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -150,19 +187,31 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                                        border: Border.all(
+                                          color: const Color(0xFFCBD5E1),
+                                        ),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.timer_outlined, size: 16, color: Color(0xFF059669)),
+                                          const Icon(
+                                            Icons.timer_outlined,
+                                            size: 16,
+                                            color: Color(0xFF059669),
+                                          ),
                                           const SizedBox(width: 6),
                                           Text(
                                             '${s.durationMinutes} phút',
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -173,10 +222,19 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  const Text('Thời lượng: ', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                  const Text(
+                                    'Thời lượng: ',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
                                   Expanded(
                                     child: Slider(
-                                      value: s.durationMinutes.toDouble().clamp(5, 30),
+                                      value: s.durationMinutes.toDouble().clamp(
+                                        5,
+                                        30,
+                                      ),
                                       min: 5,
                                       max: 30,
                                       divisions: 25,
@@ -207,7 +265,9 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                               backgroundColor: const Color(0xFF10B981),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             onPressed: () {
                               // Lịch lưu theo GIAI ĐOẠN (mọi ngày của giai đoạn dùng chung); kết quả báo sau khi backend xác nhận.
@@ -216,7 +276,10 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                             },
                             child: const Text(
                               'Lưu Giai Đoạn',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
@@ -227,7 +290,9 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                               foregroundColor: const Color(0xFF064E3B),
                               side: const BorderSide(color: Color(0xFF10B981)),
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             onPressed: () {
                               _applyToAllDaysWith(day, sessions);
@@ -235,7 +300,10 @@ extension _IrrigationCalendarScreenStateEditDay on _IrrigationCalendarScreenStat
                             },
                             child: const Text(
                               'Lưu Mọi Giai Đoạn',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),

@@ -1,7 +1,9 @@
 /// Backend chỉ chạy lịch tưới lặp HẰNG NGÀY vào một giờ cố định, cron 5 trường dạng "phút giờ * * *".
 /// Chuỗi cron khác dạng này (ví dụ theo thứ) không đọc được thành giờ và được báo là không hỗ trợ, không đoán.
 ({int hour, int minute})? parseDailyCron(String cron) {
-  final m = RegExp(r'^\s*(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\*\s*$').firstMatch(cron);
+  final m = RegExp(
+    r'^\s*(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\*\s*$',
+  ).firstMatch(cron);
   if (m == null) return null;
   final minute = int.parse(m.group(1)!);
   final hour = int.parse(m.group(2)!);

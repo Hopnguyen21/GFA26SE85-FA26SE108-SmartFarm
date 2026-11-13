@@ -2,11 +2,19 @@ part of '../farmer_dashboard_screen.dart';
 
 extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
   // ─── TAB 2A: PUMP CONTROL (CAN_CONTROL_PUMP) ───────────────────────────────
-  Widget _buildControlTab(BuildContext context, FarmProvider provider, List<ZoneModel> zones) {
+  Widget _buildControlTab(
+    BuildContext context,
+    FarmProvider provider,
+    List<ZoneModel> zones,
+  ) {
     final actuators = provider.actuators;
     // Lọc actuator theo zones được phân công
     final assignedActuators = actuators
-        .where((a) => zones.any((z) => z.zoneId.toLowerCase() == a.zoneId.toLowerCase()))
+        .where(
+          (a) => zones.any(
+            (z) => z.zoneId.toLowerCase() == a.zoneId.toLowerCase(),
+          ),
+        )
         .toList();
 
     return SingleChildScrollView(
@@ -40,28 +48,49 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
 
           const Text(
             'ĐIỀU KHIỂN MÁY BƠM & THIẾT BỊ',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.8),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF065F46),
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 10),
 
-          if (assignedActuators.isNotEmpty) ...[const EmergencyStopButton(), const SizedBox(height: 12)],
+          if (assignedActuators.isNotEmpty) ...[
+            const EmergencyStopButton(),
+            const SizedBox(height: 12),
+          ],
 
           if (assignedActuators.isEmpty)
-            _buildEmptyState('Không có thiết bị nào trong khu vực của bạn', Icons.device_unknown)
+            _buildEmptyState(
+              'Không có thiết bị nào trong khu vực của bạn',
+              Icons.device_unknown,
+            )
           else
             ...assignedActuators.map((actuator) {
               final zone = zones.firstWhere(
                 (z) => z.zoneId.toLowerCase() == actuator.zoneId.toLowerCase(),
                 orElse: () => zones.first,
               );
-              return _buildActuatorControlCard(context, actuator, zone, provider);
+              return _buildActuatorControlCard(
+                context,
+                actuator,
+                zone,
+                provider,
+              );
             }),
 
           const SizedBox(height: 20),
           // Quick Actions
           const Text(
             'TƯỚI NHANH',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.8),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF065F46),
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -86,7 +115,9 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
   ) {
     final isRunning = actuator.isRunning;
     final color = isRunning ? const Color(0xFF059669) : const Color(0xFF64748B);
-    final bgColor = isRunning ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC);
+    final bgColor = isRunning
+        ? const Color(0xFFF0FDF4)
+        : const Color(0xFFF8FAFC);
 
     String typeIcon = '💧';
     if (actuator.actuatorType == 'FAN') typeIcon = '🌬️';
@@ -99,10 +130,14 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isRunning ? const Color(0xFF6EE7B7) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isRunning ? const Color(0xFF6EE7B7) : const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
-            color: isRunning ? const Color(0xFF059669).withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.04),
+            color: isRunning
+                ? const Color(0xFF059669).withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -113,8 +148,13 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-            child: Center(child: Text(typeIcon, style: const TextStyle(fontSize: 20))),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(typeIcon, style: const TextStyle(fontSize: 20)),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -123,15 +163,29 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
               children: [
                 Text(
                   actuator.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF0F172A),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(zone.name.split(' - ').first, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                Text(
+                  zone.name.split(' - ').first,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
                 if (isRunning)
                   Text(
                     '⏱ Còn ${actuator.remainingMinutes} phút',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF059669),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
               ],
             ),
@@ -139,7 +193,11 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
           Switch(
             value: isRunning,
             activeThumbColor: const Color(0xFF10B981),
-            onChanged: (_) => toggleActuatorWithFeedback(context, provider, actuator.actuatorId),
+            onChanged: (_) => toggleActuatorWithFeedback(
+              context,
+              provider,
+              actuator.actuatorId,
+            ),
           ),
         ],
       ),
@@ -164,10 +222,18 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
           for (final zone in zones) {
             if (!provider.canControlZone(zone.zoneId)) continue;
             final pumps = provider.actuators
-                .where((a) => a.zoneId == zone.zoneId && a.actuatorType == 'PUMP' && !a.isRunning)
+                .where(
+                  (a) =>
+                      a.zoneId == zone.zoneId &&
+                      a.actuatorType == 'PUMP' &&
+                      !a.isRunning,
+                )
                 .toList();
             for (final a in pumps) {
-              final error = await provider.toggleActuator(a.actuatorId, durationMinutes: minutes);
+              final error = await provider.toggleActuator(
+                a.actuatorId,
+                durationMinutes: minutes,
+              );
               if (error == null) {
                 ok++;
               } else {
@@ -178,7 +244,8 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
           }
           final String message;
           if (ok == 0 && failed == 0) {
-            message = 'Không có bơm nào cần bật hoặc bạn chưa có quyền điều khiển.';
+            message =
+                'Không có bơm nào cần bật hoặc bạn chưa có quyền điều khiển.';
           } else if (failed == 0) {
             message = '✅ Đã bật tưới $label cho $ok bơm';
           } else {
@@ -187,21 +254,30 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
           messenger.showSnackBar(
             SnackBar(
               content: Text(message),
-              backgroundColor: failed == 0 && ok > 0 ? const Color(0xFF059669) : const Color(0xFFDC2626),
+              backgroundColor: failed == 0 && ok > 0
+                  ? const Color(0xFF059669)
+                  : const Color(0xFFDC2626),
               behavior: SnackBarBehavior.floating,
             ),
           );
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(color: const Color(0xFF065F46), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: const Color(0xFF065F46),
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Column(
             children: [
               const Text('💧', style: TextStyle(fontSize: 20)),
               const SizedBox(height: 2),
               Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -242,7 +318,12 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
           ),
           const Text(
             'LỊCH TƯỚI HÔM NAY',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.8),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF065F46),
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 10),
           ...schedules.map((s) => _scheduleReadOnlyCard(s)),
@@ -264,7 +345,10 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: const Color(0xFFDBEAFE), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDBEAFE),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: const Text('🕐', style: TextStyle(fontSize: 18)),
           ),
           const SizedBox(width: 12),
@@ -274,20 +358,35 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
               children: [
                 Text(
                   schedule.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
                 Text(
                   '${schedule.zoneName} • ${schedule.startTime} • ${schedule.durationMinutes} phút',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
-                Text(schedule.daysOfWeek.join(', '), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                Text(
+                  schedule.daysOfWeek.join(', '),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: schedule.isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+              color: schedule.isActive
+                  ? const Color(0xFFDCFCE7)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -295,7 +394,9 @@ extension _FarmerDashboardScreenStateControl on _FarmerDashboardScreenState {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: schedule.isActive ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                color: schedule.isActive
+                    ? const Color(0xFF059669)
+                    : const Color(0xFF94A3B8),
               ),
             ),
           ),

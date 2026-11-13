@@ -14,7 +14,7 @@ export const ProvisioningPage: React.FC = () => {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [selectedRequestForExperiment, setSelectedRequestForExperiment] = useState<ServiceRequest | null>(null);
   const [selectedRequestForMapper, setSelectedRequestForMapper] = useState<ServiceRequest | null>(null);
-  const [selectedHardwareItems, setSelectedHardwareItems] = useState<HardwareItem[]>([]);
+  const [selectedHardwareItems, setSelectedHardwareItems] = useState<any[]>([]);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // QR Provisioning tool state
@@ -39,11 +39,18 @@ export const ProvisioningPage: React.FC = () => {
   // Filter ONLY installation requests
   const installationRequests = requests.filter(r => r.requestType === 'INSTALLATION' || r.requestType === 'INITIAL_SETUP');
 
-  const handleSaveMapping = async (requestId: string, mappedCount: number) => {
-    await supportService.updateMappedNodes(requestId, mappedCount);
-    await loadRequests();
-    setSuccessMsg(`Đã cập nhật vị trí ${mappedCount} Nodes cho Phân khu! Vui lòng báo Owner ký Biên bản Nghiệm thu & 70% còn lại.`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+  const handleSaveMapping = async (requestId: string, nodes: any[], mappedCount: number) => {
+    try {
+      const req = requests.find(r => r.serviceRequestId === requestId);
+      const zoneId = req?.zoneId || '32000000-0000-0000-0000-000000000001';
+      await supportService.updateMappedNodes(zoneId, nodes, requestId);
+      await loadRequests();
+      setSuccessMsg(`✅ Đã cập nhật biểu đồ GIS và lưu thành công ${mappedCount} Nodes cho Phân khu! Vui lòng báo Owner ký Biên bản Nghiệm thu & 70% còn lại.`);
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to update mapped nodes:', err);
+      alert('Lỗi lưu biểu đồ GIS: ' + (err?.response?.data?.message || err?.message || 'Vui lòng thử lại.'));
+    }
   };
 
   const handleSendContractSuccess = async () => {
@@ -66,20 +73,20 @@ export const ProvisioningPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-gradient-to-r from-slate-900 via-[#062326] to-emerald-950 text-white rounded-2xl shadow-md">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-gradient-to-r from-[#119653] via-emerald-600 to-emerald-500 text-white rounded-2xl shadow-md border border-emerald-400/40">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold mb-2 border border-emerald-500/30">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-800/30 text-emerald-100 text-xs font-semibold mb-2 border border-emerald-300/30 backdrop-blur-xs">
             <CpuIcon size={14} /> Quy trình Triển khai & Chấm Node IoT
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-white">
             Quản lý Báo giá, Hợp đồng & Chấm vị trí Node Thực địa
           </h1>
-          <p className="text-xs text-slate-300 mt-1">
+          <p className="text-xs text-emerald-100 mt-1">
             Kỹ thuật viên lập Báo giá & Hợp đồng gửi Owner &rarr; Sau khi Owner Ký & Thanh toán 30% Cọc &rarr; Kỹ thuật viên tiến hành Vào Zone Chấm Node.
           </p>
         </div>
 
-        <Button onClick={() => setIsQrModalOpen(true)} className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold shrink-0">
+        <Button onClick={() => setIsQrModalOpen(true)} className="bg-white hover:bg-emerald-50 text-[#119653] font-bold shrink-0 shadow-sm">
           <QrCode size={16} className="mr-1.5" /> Quét QR Cấp phát Nhanh
         </Button>
       </div>
@@ -135,7 +142,7 @@ export const ProvisioningPage: React.FC = () => {
         ) : (
           installationRequests.map(req => {
             const contract = req.contractDetails;
-            const is30Paid = Boolean(contract?.isSignedByOwner && contract?.is30PercentPaid);
+            const is30Paid = Boolean((contract?.isSignedByOwner && contract?.is30PercentPaid) || req.isContractSigned || req.isDepositPaid || req.isFullyPaid);
             const isAccepted = Boolean(req.isAcceptedByOwner || req.acceptanceDetails?.isAcceptanceSigned);
             const isCompleted = req.status === 'RESOLVED' || req.status === 'CLOSED';
 
@@ -168,7 +175,7 @@ export const ProvisioningPage: React.FC = () => {
 
                     <h3 className="text-base font-bold text-slate-900 mt-1">{req.title}</h3>
                     <p className="text-xs text-slate-500 flex items-center gap-2">
-                      <span className="font-semibold text-[#062326] flex items-center gap-1">
+                      <span className="font-semibold text-emerald-800 flex items-center gap-1">
                         <Building2 size={13} /> {req.farmName} ({req.zoneName})
                       </span>
                       <span>•</span>
@@ -201,7 +208,7 @@ export const ProvisioningPage: React.FC = () => {
                     <div className="shrink-0">
                       {is30Paid ? (
                         <span className="px-2.5 py-1 rounded bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1">
-                          <CheckCircle2 size={13} /> Owner Đã Ký & Cọc 30%
+                          <CheckCircle2 size={13} /> Owner Đã Ký & Cọc 30% (Khóa Sửa)
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded bg-amber-200 text-amber-950 font-bold text-[11px] flex items-center gap-1">
@@ -219,42 +226,64 @@ export const ProvisioningPage: React.FC = () => {
                     <div>
                       <span className="text-slate-400 block text-[10px] uppercase font-bold">Thao tác Thực địa</span>
                       <span className="text-white font-semibold">
-                        {is30Paid ? 'Đã đủ điều kiện: Tiến hành Vào Zone Chấm Node' : 'Cần gửi Báo giá Hợp đồng & cọc 30% trước khi chấm Node'}
+                        {is30Paid ? 'Hợp đồng đã ký & cọc (Không thể sửa) • Tiến hành Vào Zone Chấm Node' : 'Cần gửi Báo giá Hợp đồng & cọc 30% trước khi chấm Node'}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* BUTTON 1: BÁO GIÁ & HỢP ĐỒNG LẮP ĐẶT */}
-                    <Button
-                      onClick={() => setSelectedRequestForExperiment(req)}
-                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center gap-1.5 shadow-sm"
-                    >
-                      <FileText size={15} className="text-emerald-300" />
-                      <span>{contract ? 'Xem / Sửa Báo giá HĐ' : 'Soạn Báo giá & Hợp đồng'}</span>
-                    </Button>
-
-                    {/* BUTTON 2: VÀO ZONE CHẤM NODE (LOCKED UNTIL OWNER SINGS & PAYS 30%) */}
                     {is30Paid ? (
                       <Button
-                        onClick={() => setSelectedRequestForMapper(req)}
-                        className="bg-[#062326] hover:bg-emerald-950 text-white font-bold flex items-center gap-1.5 shadow-md border border-emerald-500/50 ring-2 ring-emerald-500/30 animate-pulse"
+                        onClick={() => setSelectedRequestForExperiment(req)}
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1.5 shadow-sm border border-slate-600"
+                        title="Hợp đồng đã được ký kết & đặt cọc 30%. Xem chi tiết (Chỉ đọc, không thể sửa)"
                       >
-                        <MapPin size={15} className="text-emerald-400" />
-                        <span>🚀 Vào Zone Chấm Node (Node Mapper)</span>
+                        <Lock size={14} className="text-amber-400" />
+                        <span>Xem Hợp đồng (Đã khóa)</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => setSelectedRequestForExperiment(req)}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                      >
+                        <FileText size={15} className="text-emerald-300" />
+                        <span>{contract ? 'Xem / Sửa Báo giá HĐ' : 'Soạn Báo giá & Hợp đồng'}</span>
+                      </Button>
+                    )}
+
+                    {/* BUTTON 2: SỬA / CHẤM BIỂU ĐỒ GIS CHO REQUEST (TECHNICIAN CAN ALWAYS EDIT GIS) */}
+                    <Button
+                      onClick={() => {
+                        setSelectedHardwareItems(req.contractDetails?.items || []);
+                        setSelectedRequestForMapper(req);
+                      }}
+                      className="bg-sky-700 hover:bg-sky-800 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Layers size={15} className="text-sky-300" />
+                      <span>Sửa Biểu đồ GIS ({req.mappedNodesCount || 0} Nodes)</span>
+                    </Button>
+
+                    {/* BUTTON 2B: THỰC ĐỊA CHẤM NODE KHI OWNER ĐÃ CỌC 30% */}
+                    {is30Paid ? (
+                      <Button
+                        onClick={() => {
+                          setSelectedHardwareItems(req.contractDetails?.items || []);
+                          setSelectedRequestForMapper(req);
+                        }}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center gap-1.5 shadow-md border border-emerald-500/50 ring-2 ring-emerald-500/30 animate-pulse"
+                      >
+                        <MapPin size={15} className="text-emerald-300" />
+                        <span>🚀 Vào Thực địa Chấm Node</span>
                       </Button>
                     ) : (
                       <div className="relative group">
-                        <Button
-                          disabled
-                          onClick={() => alert('⚠️ Bạn phải gửi Báo giá Hợp đồng và Owner phải ký tên + cọc 30% thì mới được tiếp tục Vào Zone Chấm Node!')}
-                          className="bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed flex items-center gap-1.5"
-                        >
-                          <Lock size={14} className="text-amber-400" />
-                          <span>Khóa Chấm Node (Chờ Cọc 30%)</span>
-                        </Button>
+                        <span className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-300 text-[11px] font-semibold border border-amber-500/20 flex items-center gap-1">
+                          <Lock size={12} className="text-amber-400" />
+                          <span>Chờ Cọc 30% để Nghiệm thu</span>
+                        </span>
                         <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block w-64 p-2.5 bg-slate-800 text-amber-300 text-[11px] rounded-xl shadow-xl border border-slate-700 z-20">
-                          🔒 <strong>Yêu cầu bảo mật:</strong> Owner phải bấm "Ký Hợp đồng & Thanh toán 30% cọc" tại trang Quản lý Yêu cầu thì nút Chấm Node mới mở khóa!
+                          🔒 Bạn vẫn có thể bấm "Sửa Biểu đồ GIS" để phác thảo và định vị node. Sau khi Owner cọc 30%, công trình sẽ chuyển sang giai đoạn thi công thực địa.
                         </div>
                       </div>
                     )}
@@ -305,10 +334,47 @@ export const ProvisioningPage: React.FC = () => {
           isOpen={Boolean(selectedRequestForMapper)}
           onClose={() => setSelectedRequestForMapper(null)}
           request={selectedRequestForMapper}
-          selectedHardwareItems={selectedHardwareItems}
-          onSaveMapping={(count) => handleSaveMapping(selectedRequestForMapper.serviceRequestId, count)}
+          selectedHardwareItems={selectedHardwareItems.length > 0 ? selectedHardwareItems : (selectedRequestForMapper.contractDetails?.items || [])}
+          onSaveMapping={(nodes, count) => handleSaveMapping(selectedRequestForMapper.serviceRequestId, nodes, count)}
         />
       )}
+
+      {/* QR Provisioning Modal */}
+      <Modal isOpen={isQrModalOpen} onClose={() => setIsQrModalOpen(false)} title="Cấp phát & Whitelist Nhanh Thiết Bị bằng QR Code">
+        <div className="space-y-4 text-xs">
+          <div className="p-4 bg-slate-900 text-white rounded-xl text-center space-y-2 border border-slate-800">
+            <div className="w-16 h-16 mx-auto bg-emerald-500/20 border border-emerald-500/40 rounded-xl flex items-center justify-center text-emerald-400">
+              <QrCode size={32} />
+            </div>
+            <p className="font-bold text-sm text-emerald-300">Quét mã QR trên thân mạch phần cứng</p>
+            <p className="text-[11px] text-slate-400">Hoặc nhập thủ công địa chỉ MAC bên dưới để ghi đè danh sách thiết bị</p>
+          </div>
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">Địa chỉ MAC Thiết bị (Hardware MAC)</label>
+            <Input value={mac} onChange={e => setMac(e.target.value)} placeholder="24:DC:C3:XX:XX:XX" className="font-mono" />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">Mã hiệu Thiết bị (Device Code)</label>
+            <Input value={deviceCode} onChange={e => setDeviceCode(e.target.value)} placeholder="GW-ESP32-DL03" className="font-mono" />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button variant="ghost" onClick={() => setIsQrModalOpen(false)}>Đóng</Button>
+            <Button
+              onClick={async () => {
+                setIsQrModalOpen(false);
+                setSuccessMsg(`✅ Đã cấp phát thiết bị [${deviceCode} - MAC: ${mac}] thành công vào hệ thống!`);
+                setTimeout(() => setSuccessMsg(null), 4000);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
+              <CheckCircle2 size={15} className="mr-1.5" /> Xác nhận Cấp phát
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

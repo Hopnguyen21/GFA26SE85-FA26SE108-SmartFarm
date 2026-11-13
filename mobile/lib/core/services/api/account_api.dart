@@ -2,9 +2,14 @@ part of '../api_service.dart';
 
 /// Hồ sơ cá nhân, mật khẩu, lời mời vào trang trại và quyền Zone của nhân công.
 abstract final class AccountApi {
-  static Future<List<Map<String, dynamic>>> getMyInvitations() async => ApiService._asMapList(
-    ApiService._decodeOrThrow(await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/farm-invitations/mine')),
-  );
+  static Future<List<Map<String, dynamic>>> getMyInvitations() async =>
+      ApiService._asMapList(
+        ApiService._decodeOrThrow(
+          await ApiService._getWithAuth(
+            '${ApiService.baseUrl}/api/v1/farm-invitations/mine',
+          ),
+        ),
+      );
 
   static Future<void> respondInvitation(String id, bool accept) async {
     ApiService._decodeOrThrow(
@@ -15,26 +20,44 @@ abstract final class AccountApi {
     );
   }
 
-  static Future<List<Map<String, dynamic>>> getFarmInvitations(String farmId) async => ApiService._asMapList(
-    ApiService._decodeOrThrow(await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/farms/$farmId/invitations')),
+  static Future<List<Map<String, dynamic>>> getFarmInvitations(
+    String farmId,
+  ) async => ApiService._asMapList(
+    ApiService._decodeOrThrow(
+      await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/farms/$farmId/invitations',
+      ),
+    ),
   );
 
   static Future<void> inviteFarmer(String farmId, String email) async {
     ApiService._decodeOrThrow(
-      await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/farms/$farmId/invitations', {'email': email}),
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/farms/$farmId/invitations',
+        {'email': email},
+      ),
     );
   }
 
   /// action: resend hoặc cancel.
   static Future<void> invitationAction(String id, String action) async {
     ApiService._decodeOrThrow(
-      await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/farm-invitations/$id/$action', {}),
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/farm-invitations/$id/$action',
+        {},
+      ),
     );
   }
 
-  static Future<void> updateFarmerZoneAccess(String farmerId, List<Map<String, dynamic>> access) async {
+  static Future<void> updateFarmerZoneAccess(
+    String farmerId,
+    List<Map<String, dynamic>> access,
+  ) async {
     ApiService._decodeOrThrow(
-      await ApiService._putWithAuth('${ApiService.baseUrl}/api/v1/users/$farmerId/zone-access', {'access': access}),
+      await ApiService._putWithAuth(
+        '${ApiService.baseUrl}/api/v1/users/$farmerId/zone-access',
+        {'access': access},
+      ),
     );
   }
 
@@ -42,7 +65,9 @@ abstract final class AccountApi {
   /// (vd. kỹ thuật viên nền tảng) hoặc backend từ chối — khi đó UI ẩn thông tin tổ chức, không bịa tên.
   static Future<Map<String, dynamic>?> getMyTenant() async {
     try {
-      final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/tenants/me');
+      final resp = await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/tenants/me',
+      );
       if (resp == null || resp.statusCode != 200) return null;
       final decoded = jsonDecode(utf8.decode(resp.bodyBytes));
       if (decoded is Map<String, dynamic>) return decoded;
@@ -52,7 +77,9 @@ abstract final class AccountApi {
 
   static Future<Map<String, dynamic>?> getMe() async {
     try {
-      final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/users/me');
+      final resp = await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/users/me',
+      );
       if (resp == null || resp.statusCode != 200) return null;
       final decoded = jsonDecode(resp.body);
       if (decoded is Map<String, dynamic>) return decoded;
@@ -61,11 +88,14 @@ abstract final class AccountApi {
   }
 
   /// Cập nhật họ tên và số điện thoại của tài khoản đang đăng nhập (PUT /users/me).
-  static Future<Map<String, dynamic>?> updateProfile(String fullName, String? phone) async {
-    final resp = await ApiService._putWithAuth('${ApiService.baseUrl}/api/v1/users/me', {
-      'fullName': fullName,
-      'phone': phone,
-    });
+  static Future<Map<String, dynamic>?> updateProfile(
+    String fullName,
+    String? phone,
+  ) async {
+    final resp = await ApiService._putWithAuth(
+      '${ApiService.baseUrl}/api/v1/users/me',
+      {'fullName': fullName, 'phone': phone},
+    );
     if (resp == null || resp.statusCode != 200) return null;
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -84,29 +114,49 @@ abstract final class AccountApi {
     final uri = Uri.parse('${ApiService.baseUrl}/api/v1/auth/forgot-password');
     ApiService._assertSecureRequest(uri);
     final resp = await ApiService._client
-        .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email}))
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email}),
+        )
         .timeout(const Duration(seconds: 15));
-    if (resp.statusCode != 200 && resp.statusCode != 202 && resp.statusCode != 204) _throwPasswordError(resp);
+    if (resp.statusCode != 200 &&
+        resp.statusCode != 202 &&
+        resp.statusCode != 204)
+      _throwPasswordError(resp);
   }
 
-  static Future<void> resetPassword({required String email, required String token, required String newPassword}) async {
+  static Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
     final uri = Uri.parse('${ApiService.baseUrl}/api/v1/auth/reset-password');
     ApiService._assertSecureRequest(uri);
     final resp = await ApiService._client
         .post(
           uri,
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'token': token, 'newPassword': newPassword}),
+          body: jsonEncode({
+            'email': email,
+            'token': token,
+            'newPassword': newPassword,
+          }),
         )
         .timeout(const Duration(seconds: 15));
-    if (resp.statusCode != 200 && resp.statusCode != 204) _throwPasswordError(resp);
+    if (resp.statusCode != 200 && resp.statusCode != 204)
+      _throwPasswordError(resp);
   }
 
-  static Future<void> changePassword({required String currentPassword, required String newPassword}) async {
-    final resp = await ApiService._putWithAuth('${ApiService.baseUrl}/api/v1/users/me/password', {
-      'currentPassword': currentPassword,
-      'newPassword': newPassword,
-    });
-    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 204)) _throwPasswordError(resp);
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final resp = await ApiService._putWithAuth(
+      '${ApiService.baseUrl}/api/v1/users/me/password',
+      {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+    if (resp == null || (resp.statusCode != 200 && resp.statusCode != 204))
+      _throwPasswordError(resp);
   }
 }

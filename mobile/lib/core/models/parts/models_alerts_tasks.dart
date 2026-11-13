@@ -5,7 +5,8 @@ class AlertModel {
   final String title;
   final String message;
   final String severity; // CRITICAL, WARNING, INFO
-  final String category; // THRESHOLD_VIOLATION, BOUNDARY_VIOLATION, HARDWARE_FAULT, OFFLINE
+  final String
+  category; // THRESHOLD_VIOLATION, BOUNDARY_VIOLATION, HARDWARE_FAULT, OFFLINE
   final String time;
   bool isAcknowledged;
 
@@ -19,7 +20,8 @@ class AlertModel {
     this.isAcknowledged = false,
   });
 
-  bool get isBoundaryViolation => category == 'BOUNDARY_VIOLATION' || title.contains('RANH GIỚI');
+  bool get isBoundaryViolation =>
+      category == 'BOUNDARY_VIOLATION' || title.contains('RANH GIỚI');
 
   factory AlertModel.fromJson(Map<String, dynamic> json) {
     final severityRaw = json['severity']?.toString().toUpperCase() ?? 'WARNING';
@@ -40,11 +42,16 @@ class AlertModel {
     final obs = json['observedValue']?.toString() ?? '';
     final unit = json['unit']?.toString() ?? '';
     final category =
-        json['alertCategory']?.toString() ?? (param == 'BOUNDARY' ? 'BOUNDARY_VIOLATION' : 'THRESHOLD_VIOLATION');
+        json['alertCategory']?.toString() ??
+        (param == 'BOUNDARY' ? 'BOUNDARY_VIOLATION' : 'THRESHOLD_VIOLATION');
     final title =
         json['title']?.toString() ??
-        (category == 'BOUNDARY_VIOLATION' ? 'Cảnh báo ranh giới thiết bị' : 'Cảnh báo vi khí hậu $param');
-    final message = json['message']?.toString() ?? 'Giá trị đo được: $obs $unit (ngoài ngưỡng tối ưu)';
+        (category == 'BOUNDARY_VIOLATION'
+            ? 'Cảnh báo ranh giới thiết bị'
+            : 'Cảnh báo vi khí hậu $param');
+    final message =
+        json['message']?.toString() ??
+        'Giá trị đo được: $obs $unit (ngoài ngưỡng tối ưu)';
 
     return AlertModel(
       alertId: json['alertId']?.toString() ?? '',
@@ -53,7 +60,9 @@ class AlertModel {
       severity: sev,
       category: category,
       time: formattedTime,
-      isAcknowledged: json['acknowledgedAtUtc'] != null || json['status']?.toString() == 'Acknowledged',
+      isAcknowledged:
+          json['acknowledgedAtUtc'] != null ||
+          json['status']?.toString() == 'Acknowledged',
     );
   }
 }
@@ -73,13 +82,14 @@ class TaskAssignmentModel {
     this.result,
   });
 
-  factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) => TaskAssignmentModel(
-    farmerId: json['farmerId']?.toString() ?? '',
-    farmerName: json['farmerName']?.toString() ?? 'Nhân công',
-    status: json['status']?.toString() ?? '',
-    progressPercent: (json['progressPercent'] as num?)?.toInt() ?? 0,
-    result: json['result']?.toString(),
-  );
+  factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) =>
+      TaskAssignmentModel(
+        farmerId: json['farmerId']?.toString() ?? '',
+        farmerName: json['farmerName']?.toString() ?? 'Nhân công',
+        status: json['status']?.toString() ?? '',
+        progressPercent: (json['progressPercent'] as num?)?.toInt() ?? 0,
+        result: json['result']?.toString(),
+      );
 }
 
 class TaskModel {
@@ -111,7 +121,10 @@ class TaskModel {
     this.assignments = const [],
   });
 
-  factory TaskModel.fromJson(Map<String, dynamic> json, {String defaultZoneName = 'Khu vực canh tác'}) {
+  factory TaskModel.fromJson(
+    Map<String, dynamic> json, {
+    String defaultZoneName = 'Khu vực canh tác',
+  }) {
     final status = json['status']?.toString() ?? '';
     final assignments = [
       for (final a in (json['assignments'] as List<dynamic>? ?? const []))
@@ -123,7 +136,8 @@ class TaskModel {
     final dueAt = due == null ? null : DateTime.tryParse(due)?.toLocal();
     if (dueAt != null) {
       String two(int v) => v.toString().padLeft(2, '0');
-      dueStr = '${two(dueAt.day)}/${two(dueAt.month)}/${dueAt.year} ${two(dueAt.hour)}:${two(dueAt.minute)}';
+      dueStr =
+          '${two(dueAt.day)}/${two(dueAt.month)}/${dueAt.year} ${two(dueAt.hour)}:${two(dueAt.minute)}';
     }
 
     return TaskModel(
@@ -135,7 +149,9 @@ class TaskModel {
       assignedFarmerName: assignments.isNotEmpty
           ? assignments.map((a) => a.farmerName).join(', ')
           : json['assignedFarmerName']?.toString(),
-      assignedFarmerId: assignments.isNotEmpty ? assignments.first.farmerId : json['assignedFarmerId']?.toString(),
+      assignedFarmerId: assignments.isNotEmpty
+          ? assignments.first.farmerId
+          : json['assignedFarmerId']?.toString(),
       status: status,
       zoneId: json['zoneId']?.toString(),
       assignments: assignments,

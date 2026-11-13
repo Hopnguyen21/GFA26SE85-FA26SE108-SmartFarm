@@ -7,11 +7,34 @@ abstract final class SupportApi {
     final resp = await ApiService._getWithAuth(
       '${ApiService.baseUrl}/api/v1/service-requests/$serviceRequestId/quotation',
     );
-    if (resp != null && resp.statusCode == 200 && resp.body.isNotEmpty && resp.body != 'null') {
+    if (resp != null &&
+        resp.statusCode == 200 &&
+        resp.body.isNotEmpty &&
+        resp.body != 'null') {
       return Quotation.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
     }
-    if (resp != null && (resp.statusCode == 204 || resp.statusCode == 404)) return null;
+    if (resp != null && (resp.statusCode == 204 || resp.statusCode == 404))
+      return null;
     throw Exception(ApiService._apiErrorMessage(resp));
+  }
+
+  /// Bản nháp báo giá dựng từ dự toán thiết bị Owner đã lưu kèm yêu cầu triển khai liên kết (chỉ kỹ thuật viên được giao).
+  /// Trả danh sách rỗng nếu Owner chưa lưu dự toán. Kỹ thuật viên chỉnh sửa rồi gửi bằng [createQuotation].
+  static Future<List<QuotationItem>> getQuotationEstimateDraft(
+    String serviceRequestId,
+  ) async {
+    final data = ApiService._decodeOrThrow(
+      await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/service-requests/$serviceRequestId/quotation/estimate-draft',
+      ),
+    );
+    final items = data is Map ? data['items'] : null;
+    if (items is! List)
+      throw Exception('Máy chủ trả về bản nháp báo giá sai cấu trúc.');
+    return [
+      for (final e in items)
+        if (e is Map) QuotationItem.fromJson(Map<String, dynamic>.from(e)),
+    ];
   }
 
   static Future<Quotation> createQuotation(
@@ -21,11 +44,15 @@ abstract final class SupportApi {
     String? contractTerms,
   }) async => Quotation.fromJson(
     ApiService._decodeOrThrow(
-          await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/service-requests/$serviceRequestId/quotation', {
-            'items': items,
-            if (notes != null && notes.isNotEmpty) 'notes': notes,
-            if (contractTerms != null && contractTerms.isNotEmpty) 'contractTerms': contractTerms,
-          }),
+          await ApiService._postWithAuth(
+            '${ApiService.baseUrl}/api/v1/service-requests/$serviceRequestId/quotation',
+            {
+              'items': items,
+              if (notes != null && notes.isNotEmpty) 'notes': notes,
+              if (contractTerms != null && contractTerms.isNotEmpty)
+                'contractTerms': contractTerms,
+            },
+          ),
         )
         as Map<String, dynamic>,
   );
@@ -72,7 +99,9 @@ abstract final class SupportApi {
 
   // ─── Service requests (Hỗ trợ kỹ thuật) ─────────────────────────────
   static Future<List<Map<String, dynamic>>> getServiceRequests() async {
-    final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/service-requests');
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/service-requests',
+    );
     if (resp == null || resp.statusCode != 200) {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
@@ -87,13 +116,16 @@ abstract final class SupportApi {
     String? deploymentRequestId,
     String? deviceId,
   }) async {
-    final resp = await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/farms/$farmId/service-requests', {
-      'zoneId': zoneId,
-      'deviceId': ?deviceId,
-      'failureCode': failureCode,
-      'description': description,
-      'deploymentRequestId': ?deploymentRequestId,
-    });
+    final resp = await ApiService._postWithAuth(
+      '${ApiService.baseUrl}/api/v1/farms/$farmId/service-requests',
+      {
+        'zoneId': zoneId,
+        'deviceId': ?deviceId,
+        'failureCode': failureCode,
+        'description': description,
+        'deploymentRequestId': ?deploymentRequestId,
+      },
+    );
     if (resp == null || (resp.statusCode != 201 && resp.statusCode != 200)) {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
@@ -111,8 +143,11 @@ abstract final class SupportApi {
   };
 
   static Future<Map<String, dynamic>> getServiceRequest(String id) async {
-    final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/service-requests/$id');
-    if (resp == null || resp.statusCode != 200) throw Exception(ApiService._apiErrorMessage(resp));
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/service-requests/$id',
+    );
+    if (resp == null || resp.statusCode != 200)
+      throw Exception(ApiService._apiErrorMessage(resp));
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 
@@ -122,18 +157,28 @@ abstract final class SupportApi {
     String action, [
     Map<String, dynamic> body = const {},
   ]) async {
-    if (!_serviceActions.contains(action)) throw ArgumentError('Thao tác không hợp lệ: $action');
-    final resp = await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/service-requests/$id/$action', body);
+    if (!_serviceActions.contains(action))
+      throw ArgumentError('Thao tác không hợp lệ: $action');
+    final resp = await ApiService._postWithAuth(
+      '${ApiService.baseUrl}/api/v1/service-requests/$id/$action',
+      body,
+    );
     if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 
-  static Future<List<Map<String, dynamic>>> listZoneDevices(String zoneId) async {
-    final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/zones/$zoneId/devices');
-    if (resp == null || resp.statusCode != 200) throw Exception(ApiService._apiErrorMessage(resp));
-    return (jsonDecode(utf8.decode(resp.bodyBytes)) as List).cast<Map<String, dynamic>>();
+  static Future<List<Map<String, dynamic>>> listZoneDevices(
+    String zoneId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/zones/$zoneId/devices',
+    );
+    if (resp == null || resp.statusCode != 200)
+      throw Exception(ApiService._apiErrorMessage(resp));
+    return (jsonDecode(utf8.decode(resp.bodyBytes)) as List)
+        .cast<Map<String, dynamic>>();
   }
 
   /// Thay nóng thiết bị: POST /zones/{zoneId}/devices/{oldDeviceId}/hot-swap
@@ -146,7 +191,11 @@ abstract final class SupportApi {
   }) async {
     final resp = await ApiService._postWithAuth(
       '${ApiService.baseUrl}/api/v1/zones/$zoneId/devices/$oldDeviceId/hot-swap',
-      {'serviceRequestId': serviceRequestId, 'newDeviceId': newDeviceId, 'notes': ?notes},
+      {
+        'serviceRequestId': serviceRequestId,
+        'newDeviceId': newDeviceId,
+        'notes': ?notes,
+      },
     );
     if (resp == null || (resp.statusCode != 200 && resp.statusCode != 201)) {
       throw Exception(ApiService._apiErrorMessage(resp));
@@ -155,9 +204,14 @@ abstract final class SupportApi {
   }
 
   /// Trạng thái MQTT thật của gateway: { gatewayId, mqttConnected }
-  static Future<Map<String, dynamic>> getGatewayMqttStatus(String gatewayId) async {
-    final resp = await ApiService._getWithAuth('${ApiService.baseUrl}/api/v1/gateways/$gatewayId/mqtt-status');
-    if (resp == null || resp.statusCode != 200) throw Exception(ApiService._apiErrorMessage(resp));
+  static Future<Map<String, dynamic>> getGatewayMqttStatus(
+    String gatewayId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/gateways/$gatewayId/mqtt-status',
+    );
+    if (resp == null || resp.statusCode != 200)
+      throw Exception(ApiService._apiErrorMessage(resp));
     return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
   }
 }

@@ -8,8 +8,10 @@ import 'zone_crop_plan_logic.dart';
 class ZoneCropPlanController extends ChangeNotifier {
   /// Tách hàm gọi API để test được mà không cần mạng.
   final Future<List<Map<String, dynamic>>> Function() fetchCrops;
-  final Future<List<Map<String, dynamic>>> Function(String cropId) fetchVarieties;
-  final Future<List<Map<String, dynamic>>> Function(String cropId) fetchProfiles;
+  final Future<List<Map<String, dynamic>>> Function(String cropId)
+  fetchVarieties;
+  final Future<List<Map<String, dynamic>>> Function(String cropId)
+  fetchProfiles;
   final Future<Map<String, dynamic>> Function(String profileId) fetchIrrigation;
 
   ZoneCropPlanController({
@@ -18,7 +20,8 @@ class ZoneCropPlanController extends ChangeNotifier {
     Future<List<Map<String, dynamic>>> Function(String cropId)? fetchProfiles,
     Future<Map<String, dynamic>> Function(String profileId)? fetchIrrigation,
   }) : fetchCrops = fetchCrops ?? CropApi.getCropsForProfiles,
-       fetchVarieties = fetchVarieties ?? ((id) => CropApi.getVarieties(cropId: id)),
+       fetchVarieties =
+           fetchVarieties ?? ((id) => CropApi.getVarieties(cropId: id)),
        fetchProfiles = fetchProfiles ?? CropApi.getCropGrowthProfiles,
        fetchIrrigation = fetchIrrigation ?? CropApi.getProfileIrrigation;
 
@@ -61,7 +64,8 @@ class ZoneCropPlanController extends ChangeNotifier {
     }
   }
 
-  Map<String, dynamic>? get currentCrop => crops.where((c) => '${c['cropId']}' == selection.cropId).firstOrNull;
+  Map<String, dynamic>? get currentCrop =>
+      crops.where((c) => '${c['cropId']}' == selection.cropId).firstOrNull;
 
   /// Hồ sơ dùng được cho cây + giống đang chọn, theo đúng quy tắc backend:
   ///  - hồ sơ CHUNG (varietyId == null) dùng được cho mọi giống của cây (và khi chưa chọn giống);
@@ -70,16 +74,20 @@ class ZoneCropPlanController extends ChangeNotifier {
     final v = selection.varietyId;
     return [
       for (final p in allProfiles)
-        if (p['varietyId'] == null || (v != null && '${p['varietyId']}' == v)) p,
+        if (p['varietyId'] == null || (v != null && '${p['varietyId']}' == v))
+          p,
     ];
   }
 
   /// Hồ sơ đang chọn là hồ sơ chung trong khi người dùng đã chọn một giống cụ thể: Zone sẽ không gắn giống đó.
   bool get genericProfileDropsVariety =>
-      selection.varietyId != null && currentProfile != null && currentProfile!['varietyId'] == null;
+      selection.varietyId != null &&
+      currentProfile != null &&
+      currentProfile!['varietyId'] == null;
 
-  Map<String, dynamic>? get currentProfile =>
-      profiles.where((p) => '${p['profileId']}' == selection.profileId).firstOrNull;
+  Map<String, dynamic>? get currentProfile => profiles
+      .where((p) => '${p['profileId']}' == selection.profileId)
+      .firstOrNull;
 
   bool get currentProfileIsSystem => currentProfile?['isSystemDefined'] == true;
 
@@ -114,7 +122,9 @@ class ZoneCropPlanController extends ChangeNotifier {
   Future<void> chooseCrop(String? cropId) async {
     selection = ZoneCropSelection(
       cropId: cropId,
-      mode: selection.mode == ZoneProfileMode.none ? ZoneProfileMode.system : selection.mode,
+      mode: selection.mode == ZoneProfileMode.none
+          ? ZoneProfileMode.system
+          : selection.mode,
     );
     varieties = [];
     allProfiles = [];
@@ -126,7 +136,10 @@ class ZoneCropPlanController extends ChangeNotifier {
     loadingDetail = true;
     notifyListeners();
     try {
-      final results = await Future.wait([fetchVarieties(cropId), fetchProfiles(cropId)]);
+      final results = await Future.wait([
+        fetchVarieties(cropId),
+        fetchProfiles(cropId),
+      ]);
       if (selection.cropId != cropId) return; // người dùng đã đổi sang cây khác
       varieties = results[0];
       allProfiles = results[1];
@@ -147,7 +160,9 @@ class ZoneCropPlanController extends ChangeNotifier {
       clearProfile: true,
       stages: const [],
       originalStages: const [],
-      mode: selection.mode == ZoneProfileMode.custom ? ZoneProfileMode.system : null,
+      mode: selection.mode == ZoneProfileMode.custom
+          ? ZoneProfileMode.system
+          : null,
     );
     irrigation = null;
     irrigationError = null;
@@ -160,7 +175,8 @@ class ZoneCropPlanController extends ChangeNotifier {
     notifyListeners();
     try {
       final fresh = await fetchProfiles(cropId);
-      if (selection.cropId != cropId || selection.varietyId != varietyId) return; // người dùng đã đổi lựa chọn
+      if (selection.cropId != cropId || selection.varietyId != varietyId)
+        return; // người dùng đã đổi lựa chọn
       allProfiles = fresh;
       _autoPickProfile();
     } catch (e) {
@@ -173,23 +189,32 @@ class ZoneCropPlanController extends ChangeNotifier {
 
   /// KHÔNG tự chọn hồ sơ nào: người dùng phải xem chi tiết rồi bấm "Áp dụng" ([chooseProfile]) mới có hồ sơ được chọn.
   void _autoPickProfile() {
-    selection = selection.copyWith(clearProfile: true, stages: const [], originalStages: const []);
+    selection = selection.copyWith(
+      clearProfile: true,
+      stages: const [],
+      originalStages: const [],
+    );
   }
 
   /// Giống đang chọn (null nếu không chọn giống).
-  Map<String, dynamic>? get currentVariety =>
-      varieties.where((v) => '${v['varietyId']}' == selection.varietyId).firstOrNull;
+  Map<String, dynamic>? get currentVariety => varieties
+      .where((v) => '${v['varietyId']}' == selection.varietyId)
+      .firstOrNull;
 
   /// Tên giống của một hồ sơ (null nếu hồ sơ dùng chung).
   String? varietyNameOf(Map<String, dynamic> p) {
     final id = p['varietyId'];
     if (id == null) return null;
     final v = varieties.where((x) => '${x['varietyId']}' == '$id').firstOrNull;
-    return '${v?['name'] ?? p['varietyName'] ?? ''}'.trim().isEmpty ? null : '${v?['name'] ?? p['varietyName']}';
+    return '${v?['name'] ?? p['varietyName'] ?? ''}'.trim().isEmpty
+        ? null
+        : '${v?['name'] ?? p['varietyName']}';
   }
 
   void chooseProfile(String? profileId, {bool notify = true}) {
-    final p = profiles.where((x) => '${x['profileId']}' == profileId).firstOrNull;
+    final p = profiles
+        .where((x) => '${x['profileId']}' == profileId)
+        .firstOrNull;
     final stages = [
       for (final s in (p?['stages'] as List? ?? const []))
         if (s is Map) StageDraft.fromJson(Map<String, dynamic>.from(s)),
@@ -200,7 +225,11 @@ class ZoneCropPlanController extends ChangeNotifier {
       stages: stages,
       originalStages: stages,
       // Hồ sơ riêng của trang trại không sao chép tiếp được (backend chỉ cho sao chép hồ sơ hệ thống).
-      mode: (selection.mode == ZoneProfileMode.custom && p?['isSystemDefined'] != true) ? ZoneProfileMode.system : null,
+      mode:
+          (selection.mode == ZoneProfileMode.custom &&
+              p?['isSystemDefined'] != true)
+          ? ZoneProfileMode.system
+          : null,
     );
     if (notify) notifyListeners();
     unawaited(_loadIrrigation(profileId));
@@ -239,11 +268,20 @@ class ZoneCropPlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setRequirement(int stageIndex, String code, {double? min, double? max, double? target}) {
+  void setRequirement(
+    int stageIndex,
+    String code, {
+    double? min,
+    double? max,
+    double? target,
+  }) {
     final list = [...selection.stages];
     final reqs = [
       for (final r in list[stageIndex].requirements)
-        if (r.code == code) r.copyWith(min: min, max: max, target: target) else r,
+        if (r.code == code)
+          r.copyWith(min: min, max: max, target: target)
+        else
+          r,
     ];
     list[stageIndex] = list[stageIndex].copyWith(requirements: reqs);
     selection = selection.copyWith(stages: list);

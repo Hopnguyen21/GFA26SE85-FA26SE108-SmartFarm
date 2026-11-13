@@ -26,8 +26,13 @@ extension FarmProviderChatSchedules on FarmProvider {
       final targetFarm = farmId ?? _selectedFarmId;
       final zoneIds = zoneId != null
           ? [zoneId]
-          : _zones.where((z) => z.farmId == targetFarm).map((z) => z.zoneId).toList();
-      final lists = await Future.wait(zoneIds.map((id) => AutomationApi.getSchedules(zoneId: id)));
+          : _zones
+                .where((z) => z.farmId == targetFarm)
+                .map((z) => z.zoneId)
+                .toList();
+      final lists = await Future.wait(
+        zoneIds.map((id) => AutomationApi.getSchedules(zoneId: id)),
+      );
       final list = lists.expand((x) => x).toList();
       _schedules = list; // gán cả khi rỗng để phản ánh việc đã xóa hết lịch
     } catch (_) {
@@ -40,14 +45,18 @@ extension FarmProviderChatSchedules on FarmProvider {
   Future<bool> toggleScheduleEnabled(String scheduleId, bool enable) async {
     final idx = _schedules.indexWhere((s) => s.scheduleId == scheduleId);
     final sch = idx != -1 ? _schedules[idx] : null;
-    final targetZoneId = sch?.zoneId.isNotEmpty == true ? sch!.zoneId : currentZone.zoneId;
+    final targetZoneId = sch?.zoneId.isNotEmpty == true
+        ? sch!.zoneId
+        : currentZone.zoneId;
     final ok = await AutomationApi.toggleSchedule(
       scheduleId,
       enable,
       zoneId: targetZoneId,
       name: sch?.name,
       cronExpression: sch?.cronExpression,
-      durationSeconds: sch != null && sch.durationSeconds > 0 ? sch.durationSeconds : 900,
+      durationSeconds: sch != null && sch.durationSeconds > 0
+          ? sch.durationSeconds
+          : 900,
       enableRainDelay: sch?.enableRainDelay ?? true,
       rainThresholdPercent: sch?.rainThresholdPercent ?? 70.0,
     );

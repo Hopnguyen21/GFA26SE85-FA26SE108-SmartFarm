@@ -17,7 +17,12 @@ class ProfileIrrigationView extends StatelessWidget {
   final ProfileSchedule schedule;
   final bool busy;
   final void Function(StageSchedule stage)? onEdit;
-  const ProfileIrrigationView({super.key, required this.schedule, this.busy = false, this.onEdit});
+  const ProfileIrrigationView({
+    super.key,
+    required this.schedule,
+    this.busy = false,
+    this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +56,10 @@ class ProfileIrrigationView extends StatelessWidget {
                       Expanded(
                         child: Text(
                           '${st.order}. ${st.name} · ${st.durationDays} ngày',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       Text(
@@ -60,14 +68,22 @@ class ProfileIrrigationView extends StatelessWidget {
                             : st.fromCrop
                             ? 'Lịch mẫu của cây'
                             : 'Chưa có',
-                        style: TextStyle(fontSize: 10.5, color: st.fromProfile ? const Color(0xFF059669) : _muted),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: st.fromProfile
+                              ? const Color(0xFF059669)
+                              : _muted,
+                        ),
                       ),
                     ],
                   ),
                   if (st.sessions.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 4),
-                      child: Text('Chưa có ca tưới.', style: TextStyle(fontSize: 11.5, color: _muted)),
+                      child: Text(
+                        'Chưa có ca tưới.',
+                        style: TextStyle(fontSize: 11.5, color: _muted),
+                      ),
                     )
                   else
                     for (final x in st.sessions)
@@ -75,7 +91,10 @@ class ProfileIrrigationView extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 3),
                         child: Text(
                           '${x.enabled ? '•' : '◦'} ${describeProfileSession(x)}',
-                          style: TextStyle(fontSize: 11.5, color: x.enabled ? const Color(0xFF0F172A) : _muted),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: x.enabled ? const Color(0xFF0F172A) : _muted,
+                          ),
                         ),
                       ),
                   if (st.fromCrop)
@@ -92,7 +111,9 @@ class ProfileIrrigationView extends StatelessWidget {
                       child: TextButton.icon(
                         onPressed: busy ? null : () => onEdit!(st),
                         icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: Text(st.fromProfile ? 'Sửa ca tưới' : 'Lưu ca tưới riêng'),
+                        label: Text(
+                          st.fromProfile ? 'Sửa ca tưới' : 'Lưu ca tưới riêng',
+                        ),
                       ),
                     ),
                 ],
@@ -129,7 +150,10 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) => AlertDialog(
-        title: Text(title ?? 'Ca tưới · ${stage.name}', style: const TextStyle(fontSize: 15)),
+        title: Text(
+          title ?? 'Ca tưới · ${stage.name}',
+          style: const TextStyle(fontSize: 15),
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -138,7 +162,8 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hint ?? 'Lặp hằng ngày trong giai đoạn. Giờ HH:mm theo múi giờ trang trại. Mỗi ca tối đa 30 phút.',
+                  hint ??
+                      'Lặp hằng ngày trong giai đoạn. Giờ HH:mm theo múi giờ trang trại. Mỗi ca tối đa 30 phút.',
                   style: const TextStyle(fontSize: 11, color: _muted),
                 ),
                 for (var i = 0; i < rows.length; i++)
@@ -177,7 +202,10 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                             Expanded(
                               child: TextField(
                                 controller: rows[i].minutes,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 decoration: const InputDecoration(
                                   labelText: 'Phút',
                                   isDense: true,
@@ -216,13 +244,18 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                         ),
                         Row(
                           children: [
-                            Switch(value: rows[i].enabled, onChanged: (v) => setLocal(() => rows[i].enabled = v)),
+                            Switch(
+                              value: rows[i].enabled,
+                              onChanged: (v) =>
+                                  setLocal(() => rows[i].enabled = v),
+                            ),
                             const Text('Bật', style: TextStyle(fontSize: 12)),
                             const Spacer(),
                             IconButton(
                               tooltip: 'Xóa ca',
                               icon: const Icon(Icons.delete_outline, size: 20),
-                              onPressed: () => setLocal(() => rows.removeAt(i).dispose()),
+                              onPressed: () =>
+                                  setLocal(() => rows.removeAt(i).dispose()),
                             ),
                           ],
                         ),
@@ -245,20 +278,32 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
-                if (error != null) Text(error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+                if (error != null)
+                  Text(
+                    error!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB91C1C),
+                    ),
+                  ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: () {
               final parsed = <ProfileSession>[];
               for (final r in rows) {
                 final p = r.toSession();
                 if (p == null) {
-                  setLocal(() => error = 'Thời lượng (phút) và ml/gốc phải là số.');
+                  setLocal(
+                    () => error = 'Thời lượng (phút) và ml/gốc phải là số.',
+                  );
                   return;
                 }
                 parsed.add(p);
@@ -326,7 +371,9 @@ class _Row {
   /// null nếu số không đọc được.
   ProfileSession? toSession() {
     final min = double.tryParse(minutes.text.trim().replaceAll(',', '.'));
-    final w = water.text.trim().isEmpty ? null : int.tryParse(water.text.trim());
+    final w = water.text.trim().isEmpty
+        ? null
+        : int.tryParse(water.text.trim());
     if (min == null || (water.text.trim().isNotEmpty && w == null)) return null;
     return ProfileSession(
       title: title.text,

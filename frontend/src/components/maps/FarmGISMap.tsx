@@ -126,19 +126,19 @@ export const FarmGISMap: React.FC<{
         <div className="bg-white/95 backdrop-blur-md p-1 rounded-lg border border-slate-200 text-xs flex items-center gap-1 shadow-md">
           <button
             onClick={() => setMapType('osm')}
-            className={`px-2 py-1 rounded transition-colors ${mapType === 'osm' ? 'bg-[#062326] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+            className={`px-2 py-1 rounded transition-colors ${mapType === 'osm' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
           >
             OSM
           </button>
           <button
             onClick={() => setMapType('street')}
-            className={`px-2 py-1 rounded transition-colors ${mapType === 'street' ? 'bg-[#062326] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+            className={`px-2 py-1 rounded transition-colors ${mapType === 'street' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
           >
             Đường phố
           </button>
           <button
             onClick={() => setMapType('satellite')}
-            className={`px-2 py-1 rounded transition-colors ${mapType === 'satellite' ? 'bg-[#062326] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+            className={`px-2 py-1 rounded transition-colors ${mapType === 'satellite' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
           >
             Vệ tinh
           </button>
@@ -171,7 +171,7 @@ export const FarmGISMap: React.FC<{
         {/* Farm Boundary Polygon */}
         <Polygon
           positions={polygonCoords}
-          pathOptions={{ color: '#062326', fillColor: '#062326', fillOpacity: 0.12, weight: 2, dashArray: '4, 4' }}
+          pathOptions={{ color: '#119653', fillColor: '#119653', fillOpacity: 0.12, weight: 2, dashArray: '4, 4' }}
         />
 
         {/* Gateway Markers (Draggable) */}
@@ -190,7 +190,7 @@ export const FarmGISMap: React.FC<{
           >
             <Popup>
               <div className="p-1 space-y-1 text-slate-800">
-                <div className="flex items-center gap-2 font-bold text-[#062326]">
+                <div className="flex items-center gap-2 font-bold text-[#119653]">
                   <Radio size={14} /> {gw.name}
                 </div>
                 <div className="text-xs text-slate-500 font-mono">MAC: {gw.macAddress}</div>
@@ -228,7 +228,7 @@ export const FarmGISMap: React.FC<{
               <Popup>
                 <div className="p-1 space-y-1 text-slate-800 min-w-[200px]">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-1">
-                    <span className="font-bold text-[#062326] text-xs flex items-center gap-1">
+                    <span className="font-bold text-[#119653] text-xs flex items-center gap-1">
                       <Cpu size={12} /> {node.nodeCode}
                     </span>
                     <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono border border-slate-200">

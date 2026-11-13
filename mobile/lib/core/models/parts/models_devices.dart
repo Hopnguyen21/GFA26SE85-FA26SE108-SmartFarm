@@ -17,8 +17,13 @@ class ActuatorModel {
     this.remainingMinutes = 0,
   });
 
-  factory ActuatorModel.fromJson(Map<String, dynamic> json, {String defaultZoneId = ''}) {
-    final rawType = (json['actuatorType'] ?? json['type'])?.toString().toUpperCase() ?? 'PUMP';
+  factory ActuatorModel.fromJson(
+    Map<String, dynamic> json, {
+    String defaultZoneId = '',
+  }) {
+    final rawType =
+        (json['actuatorType'] ?? json['type'])?.toString().toUpperCase() ??
+        'PUMP';
     final type = switch (rawType) {
       'IRRIGATIONPUMP' || 'PUMP' => 'PUMP',
       'VENTILATIONFAN' || 'FAN' => 'FAN',
@@ -26,14 +31,21 @@ class ActuatorModel {
       'GROWLIGHT' || 'GROW_LIGHT' => 'GROW_LIGHT',
       _ => rawType,
     };
-    final state = (json['status'] ?? json['currentState'] ?? '')?.toString().toUpperCase() ?? '';
+    final state =
+        (json['status'] ?? json['currentState'] ?? '')
+            ?.toString()
+            .toUpperCase() ??
+        '';
     final isRunning = state == 'ON' || state == 'ACTIVE' || state == 'RUNNING';
     final remainingSec = (json['remainingSeconds'] as num?)?.toInt() ?? 0;
 
     return ActuatorModel(
-      actuatorId: json['actuatorId']?.toString() ?? json['id']?.toString() ?? '',
+      actuatorId:
+          json['actuatorId']?.toString() ?? json['id']?.toString() ?? '',
       zoneId: json['zoneId']?.toString() ?? defaultZoneId,
-      name: json['name']?.toString() ?? (type == 'PUMP' ? 'Máy bơm tưới nhỏ giọt' : 'Thiết bị chấp hành'),
+      name:
+          json['name']?.toString() ??
+          (type == 'PUMP' ? 'Máy bơm tưới nhỏ giọt' : 'Thiết bị chấp hành'),
       actuatorType: type,
       isRunning: isRunning,
       remainingMinutes: (remainingSec / 60).ceil(),
@@ -88,7 +100,11 @@ class EmergencyStopResult {
   final int stoppedCount;
   final String message;
 
-  const EmergencyStopResult({required this.success, required this.stoppedCount, required this.message});
+  const EmergencyStopResult({
+    required this.success,
+    required this.stoppedCount,
+    required this.message,
+  });
 
   factory EmergencyStopResult.fromJson(Map<String, dynamic> json) {
     final count = (json['stoppedCount'] as num?)?.toInt() ?? 0;
@@ -96,7 +112,9 @@ class EmergencyStopResult {
     return EmergencyStopResult(
       success: json['success'] == true,
       stoppedCount: count,
-      message: (msg == null || msg.isEmpty) ? 'Đã phát lệnh dừng khẩn cấp $count rơ-le.' : msg,
+      message: (msg == null || msg.isEmpty)
+          ? 'Đã phát lệnh dừng khẩn cấp $count rơ-le.'
+          : msg,
     );
   }
 }
@@ -186,7 +204,10 @@ class HoneycombTopologySimulation {
       note = '',
       varieties = const [];
 
-  factory HoneycombTopologySimulation.calculate({required double areaM2, required String cropName}) {
+  factory HoneycombTopologySimulation.calculate({
+    required double areaM2,
+    required String cropName,
+  }) {
     final validArea = areaM2 <= 0 ? 500.0 : areaM2;
     final lower = cropName.toLowerCase();
 
@@ -196,7 +217,12 @@ class HoneycombTopologySimulation {
     double gatewayPer3000m2 = 1.0;
     String icon = '🍅';
     String color = 'emerald';
-    List<String> varieties = ['Beefsteak Đà Lạt F1', 'Cherry Vàng F1', 'Bi đỏ VN888', 'Pink Lady F1'];
+    List<String> varieties = [
+      'Beefsteak Đà Lạt F1',
+      'Cherry Vàng F1',
+      'Bi đỏ VN888',
+      'Pink Lady F1',
+    ];
     String note = 'Cà chua cần theo dõi độ ẩm đất & nhiệt độ chặt chẽ';
     String growthStage = 'Mầm ➔ Sinh trưởng ➔ Ra hoa ➔ Tạo quả';
     String nutrition = 'N-P-K (5-10-5 mầm, 5-10-10 hoa)';
@@ -205,13 +231,20 @@ class HoneycombTopologySimulation {
     String humidity = '60-70%';
     String duration = '90-120 ngày';
 
-    if (lower.contains('ớt') || lower.contains('pepper') || lower.contains('capsicum')) {
+    if (lower.contains('ớt') ||
+        lower.contains('pepper') ||
+        lower.contains('capsicum')) {
       icon = '🫑';
       color = 'red';
       sensorsPer500m2 = 0.8;
       actuatorsPer500m2 = 1.0;
       gatewayPer3000m2 = 1.0;
-      varieties = ['Ớt Đà Lạt F1', 'California Wonder', 'Chuông Đỏ Hà Lan', 'Sweet Baby'];
+      varieties = [
+        'Ớt Đà Lạt F1',
+        'California Wonder',
+        'Chuông Đỏ Hà Lan',
+        'Sweet Baby',
+      ];
       note = 'Ớt cần cảm biến ánh sáng và kiểm soát tưới chính xác';
       growthStage = 'Mầm ➔ Phát triển cành ➔ Ra hoa ➔ Kết trái';
       nutrition = 'N-P-K (Tăng Kali khi kết trái)';
@@ -219,13 +252,20 @@ class HoneycombTopologySimulation {
       temp = 'Ngày: 25-28°C, Đêm: 18-20°C';
       humidity = '55-65%';
       duration = '100-150 ngày';
-    } else if (lower.contains('dưa') || lower.contains('cucumber') || lower.contains('cucumis')) {
+    } else if (lower.contains('dưa') ||
+        lower.contains('cucumber') ||
+        lower.contains('cucumis')) {
       icon = '🥒';
       color = 'green';
       sensorsPer500m2 = 0.8;
       actuatorsPer500m2 = 0.8;
       gatewayPer3000m2 = 1.0;
-      varieties = ['Dưa Nhật TN-088', 'Dưa baby VN', 'Cucumber F1 Hà Lan', 'Mini Cuke'];
+      varieties = [
+        'Dưa Nhật TN-088',
+        'Dưa baby VN',
+        'Cucumber F1 Hà Lan',
+        'Mini Cuke',
+      ];
       note = 'Dưa leo phát triển nhanh, cần theo dõi độ ẩm không khí';
       growthStage = 'Mầm ➔ Leo giàn ➔ Ra hoa cái ➔ Trái non';
       nutrition = 'Tăng Đạm giai đoạn đầu, Lân giai đoạn hoa';
@@ -242,7 +282,12 @@ class HoneycombTopologySimulation {
       sensorsPer500m2 = 1.2;
       actuatorsPer500m2 = 1.5;
       gatewayPer3000m2 = 1.0;
-      varieties = ['Butterhead F1', 'Romaine Viet', 'Oakleaf xanh', 'Lollo Rossa'];
+      varieties = [
+        'Butterhead F1',
+        'Romaine Viet',
+        'Oakleaf xanh',
+        'Lollo Rossa',
+      ];
       note = 'Thủy canh cần giám sát EC/pH + van bơm dinh dưỡng liên tục';
       growthStage = 'Ươm hạt ➔ Lên giàn ➔ Phát triển lá ➔ Thu hoạch';
       nutrition = 'EC: 1.2 - 1.8 mS/cm, pH: 5.8 - 6.2';
@@ -250,14 +295,22 @@ class HoneycombTopologySimulation {
       temp = 'Ngày: 18-24°C, Đêm: 15-18°C';
       humidity = '50-70%';
       duration = '40-50 ngày';
-    } else if (lower.contains('dâu') || lower.contains('strawberry') || lower.contains('fragaria')) {
+    } else if (lower.contains('dâu') ||
+        lower.contains('strawberry') ||
+        lower.contains('fragaria')) {
       icon = '🍓';
       color = 'red';
       sensorsPer500m2 = 1.2;
       actuatorsPer500m2 = 1.2;
       gatewayPer3000m2 = 1.0;
-      varieties = ['Dâu New Zealand', 'Dâu Nhật Hana', 'Dâu Mỹ Albion', 'Dâu Bạch Tuyết'];
-      note = 'Rất nhạy cảm với độ ẩm giá thể & nấm rễ, cần tưới nhỏ giọt chính xác';
+      varieties = [
+        'Dâu New Zealand',
+        'Dâu Nhật Hana',
+        'Dâu Mỹ Albion',
+        'Dâu Bạch Tuyết',
+      ];
+      note =
+          'Rất nhạy cảm với độ ẩm giá thể & nấm rễ, cần tưới nhỏ giọt chính xác';
       growthStage = 'Cây giống ➔ Phân hóa chồi hoa ➔ Đậu quả ➔ Thu hoạch';
       nutrition = 'Dinh dưỡng hữu cơ vi lượng chelate';
       light = '12-14 giờ/ngày';
@@ -271,13 +324,22 @@ class HoneycombTopologySimulation {
     const actuatorUnitPrice = 650000.0;
     const installationFee = 500000.0;
 
-    final gateways = math.max(1, (validArea / 3000.0 * gatewayPer3000m2).ceil());
+    final gateways = math.max(
+      1,
+      (validArea / 3000.0 * gatewayPer3000m2).ceil(),
+    );
     final sensors = math.max(2, (validArea / 500.0 * sensorsPer500m2).ceil());
-    final actuators = math.max(1, (validArea / 500.0 * actuatorsPer500m2).ceil());
+    final actuators = math.max(
+      1,
+      (validArea / 500.0 * actuatorsPer500m2).ceil(),
+    );
     final hexagonCells = math.max(1, (validArea / 500.0).ceil());
 
     final totalCost =
-        (gateways * gatewayUnitPrice) + (sensors * sensorUnitPrice) + (actuators * actuatorUnitPrice) + installationFee;
+        (gateways * gatewayUnitPrice) +
+        (sensors * sensorUnitPrice) +
+        (actuators * actuatorUnitPrice) +
+        installationFee;
     final minCost = (totalCost * 0.85).roundToDouble();
     final maxCost = (totalCost * 1.25).roundToDouble();
 

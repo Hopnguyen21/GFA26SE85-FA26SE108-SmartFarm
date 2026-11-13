@@ -15,7 +15,12 @@ Future<bool?> showOwnProfileEditor(
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (ctx) => _OwnProfileEditor(profileId: profileId, name: name, description: description, stages: stages),
+    builder: (ctx) => _OwnProfileEditor(
+      profileId: profileId,
+      name: name,
+      description: description,
+      stages: stages,
+    ),
   );
 }
 
@@ -36,8 +41,12 @@ class _OwnProfileEditor extends StatefulWidget {
 }
 
 class _OwnProfileEditorState extends State<_OwnProfileEditor> {
-  late final TextEditingController _name = TextEditingController(text: widget.name);
-  late final TextEditingController _desc = TextEditingController(text: widget.description ?? '');
+  late final TextEditingController _name = TextEditingController(
+    text: widget.name,
+  );
+  late final TextEditingController _desc = TextEditingController(
+    text: widget.description ?? '',
+  );
   late final List<StageDraft> _stages = [...widget.stages];
   bool _busy = false;
   String? _error;
@@ -78,15 +87,25 @@ class _OwnProfileEditorState extends State<_OwnProfileEditor> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Sửa hồ sơ riêng của trang trại', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text(
+                'Sửa hồ sơ riêng của trang trại',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
               const Text(
                 'Chỉ sửa bản riêng của trang trại bạn; hồ sơ hệ thống không bị thay đổi. '
@@ -107,18 +126,27 @@ class _OwnProfileEditorState extends State<_OwnProfileEditor> {
                 controller: _desc,
                 maxLines: 2,
                 maxLength: 4000,
-                decoration: const InputDecoration(labelText: 'Mô tả', border: OutlineInputBorder(), isDense: true),
+                decoration: const InputDecoration(
+                  labelText: 'Mô tả',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
               ),
               for (var i = 0; i < _stages.length; i++)
                 StageDraftTile(
                   stage: _stages[i],
                   editable: true,
-                  onDuration: (n) => setState(() => _stages[i] = _stages[i].copyWith(durationDays: n)),
+                  onDuration: (n) => setState(
+                    () => _stages[i] = _stages[i].copyWith(durationDays: n),
+                  ),
                   onRequirement: (code, {min, max, target}) => setState(() {
                     _stages[i] = _stages[i].copyWith(
                       requirements: [
                         for (final r in _stages[i].requirements)
-                          if (r.code == code) r.copyWith(min: min, max: max, target: target) else r,
+                          if (r.code == code)
+                            r.copyWith(min: min, max: max, target: target)
+                          else
+                            r,
                       ],
                     );
                   }),
@@ -126,14 +154,22 @@ class _OwnProfileEditorState extends State<_OwnProfileEditor> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB91C1C),
+                    ),
+                  ),
                 ),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _busy ? null : () => Navigator.pop(context, false),
+                      onPressed: _busy
+                          ? null
+                          : () => Navigator.pop(context, false),
                       child: const Text('Hủy'),
                     ),
                   ),

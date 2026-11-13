@@ -21,10 +21,18 @@ class ZoneProfilePage extends StatelessWidget {
             .firstOrNull ??
         zone;
     return Scaffold(
-      appBar: AppBar(title: Text('Hồ sơ canh tác · ${live.name}', style: const TextStyle(fontSize: 15))),
+      appBar: AppBar(
+        title: Text(
+          'Hồ sơ canh tác · ${live.name}',
+          style: const TextStyle(fontSize: 15),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: ZoneCropPlanEditPanel(key: ValueKey('profile_${live.zoneId}'), zone: live),
+        child: ZoneCropPlanEditPanel(
+          key: ValueKey('profile_${live.zoneId}'),
+          zone: live,
+        ),
       ),
     );
   }

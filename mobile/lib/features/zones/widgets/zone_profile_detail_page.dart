@@ -61,7 +61,8 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
       if (!mounted) return;
       setState(() => _schedule = ProfileSchedule.fromJson(json));
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted)
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -80,7 +81,12 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
     final desc = '${p['description'] ?? ''}'.trim();
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(title: const Text('Chi tiết hồ sơ canh tác', style: TextStyle(fontSize: 16))),
+      appBar: AppBar(
+        title: const Text(
+          'Chi tiết hồ sơ canh tác',
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -93,14 +99,21 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               FilledButton.icon(
-                onPressed: stages.isEmpty ? null : () => Navigator.pop(context, ProfileDetailResult.apply),
+                onPressed: stages.isEmpty
+                    ? null
+                    : () => Navigator.pop(context, ProfileDetailResult.apply),
                 icon: const Icon(Icons.check, size: 18),
                 label: const Text('Áp dụng profile này cho Zone'),
               ),
               if (_isSystem) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: stages.isEmpty ? null : () => Navigator.pop(context, ProfileDetailResult.customize),
+                  onPressed: stages.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                          context,
+                          ProfileDetailResult.customize,
+                        ),
                   icon: const Icon(Icons.copy_outlined, size: 18),
                   label: const Text('Tạo bản sao riêng để chỉnh'),
                 ),
@@ -112,7 +125,10 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
                   ),
                 ),
               ],
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Quay lại danh sách')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Quay lại danh sách'),
+              ),
             ],
           ),
         ),
@@ -122,16 +138,26 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
         children: [
           Text(
             '${p['name']}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _ink),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 6),
           _row('Cây trồng', widget.cropName),
           _row('Giống', widget.varietyName ?? 'Dùng chung cho mọi giống'),
-          _row('Nguồn', _isSystem ? 'Hồ sơ hệ thống (chỉ xem)' : 'Bản riêng của trang trại'),
+          _row(
+            'Nguồn',
+            _isSystem ? 'Hồ sơ hệ thống (chỉ xem)' : 'Bản riêng của trang trại',
+          ),
           _row('Giai đoạn', '${stages.length} giai đoạn · tổng $total ngày'),
           if (desc.isNotEmpty) _row('Mô tả', desc),
           const SizedBox(height: 14),
-          const Text('Giai đoạn và ngưỡng môi trường', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          const Text(
+            'Giai đoạn và ngưỡng môi trường',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
           if (stages.isEmpty)
             const Text(
@@ -148,7 +174,11 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
                   children: [
                     Text(
                       '${st.order}. ${st.name} · ${st.durationDays} ngày',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _ink),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
                     ),
                     if (thresholdNotice(st) case final notice?)
                       Padding(
@@ -157,14 +187,19 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
                           notice,
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: st.requirements.isEmpty ? const Color(0xFFB45309) : _muted,
+                            color: st.requirements.isEmpty
+                                ? const Color(0xFFB45309)
+                                : _muted,
                           ),
                         ),
                       ),
                     for (final r in st.requirements)
                       Padding(
                         padding: const EdgeInsets.only(top: 3),
-                        child: Text(describeRequirementDraft(r), style: const TextStyle(fontSize: 11.5, color: _ink)),
+                        child: Text(
+                          describeRequirementDraft(r),
+                          style: const TextStyle(fontSize: 11.5, color: _ink),
+                        ),
                       ),
                   ],
                 ),
@@ -173,9 +208,16 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
           const SizedBox(height: 10),
           const Row(
             children: [
-              Icon(Icons.water_drop_outlined, size: 18, color: Color(0xFF0284C7)),
+              Icon(
+                Icons.water_drop_outlined,
+                size: 18,
+                color: Color(0xFF0284C7),
+              ),
               SizedBox(width: 6),
-              Text('Lịch tưới theo giai đoạn', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              Text(
+                'Lịch tưới theo giai đoạn',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -185,10 +227,16 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
             style: TextStyle(fontSize: 11, color: _muted, height: 1.35),
           ),
           if (_loading)
-            const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(minHeight: 2))
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
           else if (_error != null) ...[
             const SizedBox(height: 6),
-            Text('Không tải được lịch tưới: $_error', style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+            Text(
+              'Không tải được lịch tưới: $_error',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+            ),
             TextButton(onPressed: _load, child: const Text('Thử lại')),
           ] else if (_schedule != null)
             ProfileIrrigationView(schedule: _schedule!),
@@ -248,8 +296,14 @@ Future<bool> confirmApplyProfile(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xác nhận gắn')),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Xác nhận gắn'),
+        ),
       ],
     ),
   );

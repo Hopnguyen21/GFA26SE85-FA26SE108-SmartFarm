@@ -7,10 +7,12 @@ class TechnicianDeploymentsScreen extends StatefulWidget {
   const TechnicianDeploymentsScreen({super.key});
 
   @override
-  State<TechnicianDeploymentsScreen> createState() => _TechnicianDeploymentsScreenState();
+  State<TechnicianDeploymentsScreen> createState() =>
+      _TechnicianDeploymentsScreenState();
 }
 
-class _TechnicianDeploymentsScreenState extends State<TechnicianDeploymentsScreen> {
+class _TechnicianDeploymentsScreenState
+    extends State<TechnicianDeploymentsScreen> {
   List<DeploymentRequest> _items = [];
   bool _loading = true;
   String? _error;
@@ -48,7 +50,10 @@ class _TechnicianDeploymentsScreenState extends State<TechnicianDeploymentsScree
             : _error != null
             ? ListView(
                 children: [
-                  Padding(padding: const EdgeInsets.all(24), child: Text('Không tải được danh sách: $_error')),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Không tải được danh sách: $_error'),
+                  ),
                   TextButton(onPressed: _load, child: const Text('Thử lại')),
                 ],
               )
@@ -57,7 +62,9 @@ class _TechnicianDeploymentsScreenState extends State<TechnicianDeploymentsScree
                 children: const [
                   Padding(
                     padding: EdgeInsets.all(24),
-                    child: Text('Chưa có yêu cầu nào chờ tiếp nhận hoặc được giao cho bạn.'),
+                    child: Text(
+                      'Chưa có yêu cầu nào chờ tiếp nhận hoặc được giao cho bạn.',
+                    ),
                   ),
                 ],
               )
@@ -70,10 +77,14 @@ class _TechnicianDeploymentsScreenState extends State<TechnicianDeploymentsScree
                   return Card(
                     child: ListTile(
                       title: Text(
-                        'Yêu cầu ${r.requestId.substring(0, 8)} · cần đo ${r.requiredParameters.length} thông số',
+                        r.context == null
+                            ? 'Yêu cầu ${r.requestId.substring(0, 8)} · cần đo ${r.requiredParameters.length} thông số'
+                            : '${r.context!.zoneName} · ${r.context!.farmName}',
                       ),
                       subtitle: Text(
-                        r.planItems.map((p) => '${p.quantity}× ${p.modelName}').join(', '),
+                        r.planItems
+                            .map((p) => '${p.quantity}× ${p.modelName}')
+                            .join(', '),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -82,7 +93,10 @@ class _TechnicianDeploymentsScreenState extends State<TechnicianDeploymentsScree
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => DeploymentRequestDetailScreen(requestId: r.requestId, technician: true),
+                            builder: (_) => DeploymentRequestDetailScreen(
+                              requestId: r.requestId,
+                              technician: true,
+                            ),
                           ),
                         );
                         _load();

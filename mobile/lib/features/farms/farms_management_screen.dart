@@ -35,7 +35,11 @@ class FarmsManagementScreen extends StatelessWidget {
           children: [
             Text(
               'Quản Lý Nông Trại & Khu Vực',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             Text(
               'Multi-Farm & Hierarchical Zoning (Issue 5)',
@@ -48,13 +52,20 @@ class FarmsManagementScreen extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.assignment_outlined, color: Colors.white),
               tooltip: 'Hợp đồng Zone & Khấu hao',
-              onPressed: () =>
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ContractsDepreciationScreen())),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ContractsDepreciationScreen(),
+                ),
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.people_alt_outlined, color: Colors.white),
               tooltip: 'Quản lý Nông dân & Nhân sự',
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WorkforceScreen())),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WorkforceScreen()),
+              ),
             ),
           ],
         ],
@@ -72,12 +83,18 @@ class FarmsManagementScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: const Color(0xFF062326).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF062326).withValues(alpha: 0.15)),
+                  border: Border.all(
+                    color: const Color(0xFF062326).withValues(alpha: 0.15),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.corporate_fare, color: Color(0xFF062326), size: 22),
+                    const Icon(
+                      Icons.corporate_fare,
+                      color: Color(0xFF062326),
+                      size: 22,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -85,12 +102,20 @@ class FarmsManagementScreen extends StatelessWidget {
                         children: [
                           Text(
                             'Tổ chức: ${provider.tenantName}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF062326)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Color(0xFF062326),
+                            ),
                           ),
                           const SizedBox(height: 2),
                           const Text(
                             'Dữ liệu phân cấp: Tổ chức ➔ Nông trại ➔ Thửa đất (Field) ➔ Khu vực (Zone).',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF475569), height: 1.3),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF475569),
+                              height: 1.3,
+                            ),
                           ),
                         ],
                       ),
@@ -102,16 +127,28 @@ class FarmsManagementScreen extends StatelessWidget {
               const SizedBox(height: 12),
               // Banner Quản lý nhân sự & tài khoản Farmer
               InkWell(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WorkforceScreen())),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WorkforceScreen()),
+                ),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF0D9488).withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: const Color(0xFF0D9488).withValues(alpha: 0.3),
+                    ),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
                   child: Row(
@@ -122,7 +159,11 @@ class FarmsManagementScreen extends StatelessWidget {
                           color: const Color(0xFF0D9488).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.badge_outlined, color: Color(0xFF0D9488), size: 20),
+                        child: const Icon(
+                          Icons.badge_outlined,
+                          color: Color(0xFF0D9488),
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -131,17 +172,28 @@ class FarmsManagementScreen extends StatelessWidget {
                           children: [
                             const Text(
                               'Quản lý Tài Khoản & Nông Dân (Farmers)',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '${provider.farmersForCurrentFarm.length} nhân sự thuộc ${provider.currentFarm.name}',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ],
                   ),
                 ),
@@ -149,17 +201,30 @@ class FarmsManagementScreen extends StatelessWidget {
               const SizedBox(height: 8),
               // Banner Quản lý Hợp Đồng & Khấu Hao Thiết Bị
               InkWell(
-                onTap: () =>
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ContractsDepreciationScreen())),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ContractsDepreciationScreen(),
+                  ),
+                ),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: const Color(0xFF059669).withValues(alpha: 0.3),
+                    ),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
                   child: Row(
@@ -170,7 +235,11 @@ class FarmsManagementScreen extends StatelessWidget {
                           color: const Color(0xFF059669).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.assignment_turned_in_outlined, color: Color(0xFF059669), size: 20),
+                        child: const Icon(
+                          Icons.assignment_turned_in_outlined,
+                          color: Color(0xFF059669),
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
@@ -178,18 +247,29 @@ class FarmsManagementScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hợp Đồng Thuê Vùng Trồng & Khấu Hao',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              'Hợp Đồng Zone & Khấu Hao',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                             SizedBox(height: 2),
                             Text(
-                              'Quản lý hợp đồng Zone, điều khoản bên thuê và khấu hao tài sản',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              'Xem hợp đồng cũ và hiện tại của từng Zone, điều khoản và khấu hao thiết bị',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ],
                   ),
                 ),
@@ -214,26 +294,47 @@ class FarmsManagementScreen extends StatelessWidget {
                 if (provider.currentRole == 'OWNER')
                   IconButton(
                     tooltip: 'Thiết lập nhanh: Farm → Lô → Zone → Vụ → IoT',
-                    onPressed: () =>
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const FarmSetupWizardScreen())),
-                    icon: const Icon(Icons.auto_fix_high, size: 18, color: Color(0xFF10B981)),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FarmSetupWizardScreen(),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.auto_fix_high,
+                      size: 18,
+                      color: Color(0xFF10B981),
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                 if (provider.canManageFarmStructure)
                   TextButton.icon(
                     onPressed: () => _showAddFarmDialog(context, provider),
-                    icon: const Icon(Icons.add_business, size: 16, color: Color(0xFF10B981)),
+                    icon: const Icon(
+                      Icons.add_business,
+                      size: 16,
+                      color: Color(0xFF10B981),
+                    ),
                     label: const Text(
                       'Thêm Farm',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
               ],
             ),
             const SizedBox(height: 4),
 
-            ...provider.farms.map((farm) => _buildFarmCard(context, farm, provider)),
+            ...provider.farms.map(
+              (farm) => _buildFarmCard(context, farm, provider),
+            ),
 
             const SizedBox(height: 16),
             Row(
@@ -251,12 +352,23 @@ class FarmsManagementScreen extends StatelessWidget {
                 if (provider.canManageFarmStructure)
                   TextButton.icon(
                     onPressed: () => _showAddFieldDialog(context, provider),
-                    icon: const Icon(Icons.add_chart, size: 16, color: Color(0xFF0284C7)),
+                    icon: const Icon(
+                      Icons.add_chart,
+                      size: 16,
+                      color: Color(0xFF0284C7),
+                    ),
                     label: const Text(
                       'Thêm Thửa (Field)',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0284C7),
+                      ),
                     ),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
               ],
             ),
@@ -274,19 +386,26 @@ class FarmsManagementScreen extends StatelessWidget {
                   ...provider.fieldsForCurrentFarm.asMap().entries.map((entry) {
                     final i = entry.key;
                     final f = entry.value;
-                    final isFieldSelected = provider.selectedFieldId == f.fieldId;
-                    final fieldZoneCount = provider.allZones.where((z) => z.fieldId == f.fieldId).length;
+                    final isFieldSelected =
+                        provider.selectedFieldId == f.fieldId;
+                    final fieldZoneCount = provider.allZones
+                        .where((z) => z.fieldId == f.fieldId)
+                        .length;
 
                     return Column(
                       children: [
                         if (i > 0) const Divider(height: 16),
                         InkWell(
                           onTap: () {
-                            provider.selectField(isFieldSelected ? null : f.fieldId);
+                            provider.selectField(
+                              isFieldSelected ? null : f.fieldId,
+                            );
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  isFieldSelected ? 'Đã bỏ lọc thửa đất (hiển thị tất cả)' : 'Đang lọc xem: ${f.name}',
+                                  isFieldSelected
+                                      ? 'Đã bỏ lọc thửa đất (hiển thị tất cả)'
+                                      : 'Đang lọc xem: ${f.name}',
                                 ),
                                 duration: const Duration(seconds: 1),
                               ),
@@ -322,13 +441,25 @@ class FarmsManagementScreen extends StatelessWidget {
                 ),
                 if (provider.canManageFarmStructure)
                   TextButton.icon(
-                    onPressed: () => CropProfilesScreen.showCreateZone(context, provider),
-                    icon: const Icon(Icons.add_home_work_outlined, size: 16, color: Color(0xFF10B981)),
+                    onPressed: () =>
+                        CropProfilesScreen.showCreateZone(context, provider),
+                    icon: const Icon(
+                      Icons.add_home_work_outlined,
+                      size: 16,
+                      color: Color(0xFF10B981),
+                    ),
                     label: const Text(
                       '+ Thêm Zone',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
                     ),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
               ],
             ),
@@ -338,18 +469,28 @@ class FarmsManagementScreen extends StatelessWidget {
               final idx = entry.key;
               final zone = entry.value;
               final isSelected = provider.selectedZoneIndex == idx;
-              return _buildZoneCard(context, zone, isSelected, idx, () => provider.selectZone(idx));
+              return _buildZoneCard(
+                context,
+                zone,
+                isSelected,
+                idx,
+                () => provider.selectZone(idx),
+              );
             }),
           ],
         ),
       ),
       floatingActionButton: provider.currentRole == 'OWNER'
           ? FloatingActionButton.extended(
-              onPressed: () => CropProfilesScreen.showCreateZone(context, provider),
+              onPressed: () =>
+                  CropProfilesScreen.showCreateZone(context, provider),
               backgroundColor: const Color(0xFF062326),
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_home_work_outlined, size: 20),
-              label: const Text('Tạo Zone', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              label: const Text(
+                'Tạo Zone',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             )
           : null,
     );

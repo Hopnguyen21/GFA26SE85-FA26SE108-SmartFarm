@@ -6,6 +6,8 @@ using SmartFarm.Application.Common.Interfaces;
 using SmartFarm.Application.Features.Ai;
 using SmartFarm.Infrastructure.Persistence;
 
+using Microsoft.Extensions.Caching.Memory;
+
 namespace SmartFarm.Infrastructure.Ai;
 
 public sealed class OpenMeteoOptions
@@ -19,7 +21,8 @@ public sealed class OpenMeteoOptions
 public sealed class OpenMeteoWeatherProvider(
     SmartFarmDbContext db,
     HttpClient httpClient,
-    IOptions<OpenMeteoOptions> options) : IAiWeatherProvider
+    IOptions<OpenMeteoOptions> options,
+    IMemoryCache? cache = null) : IAiWeatherProvider
 {
     private readonly OpenMeteoOptions settings = options.Value;
 
@@ -27,6 +30,13 @@ public sealed class OpenMeteoWeatherProvider(
     {
         if (!settings.Enabled)
             return new(false, null, null, null, null, "Open-Meteo is disabled.");
+
+        var cacheKey = $"weather_farm_{farmId}";
+        if (cache != null && cache.TryGetValue(cacheKey, out AiWeatherResult? cached) && cached is not null)
+        {
+            return cached;
+        }
+
         var farm = await db.Farms.AsNoTracking().Where(x => x.Id == farmId)
             .Select(x => new { x.Latitude, x.Longitude }).SingleOrDefaultAsync(cancellationToken);
         if (farm?.Latitude is null || farm.Longitude is null)
@@ -52,20 +62,24 @@ public sealed class OpenMeteoWeatherProvider(
             var values = probabilities.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Number).Select(x => x.GetDecimal()).ToList();
             if (values.Count > 0) rain = values.Max();
         }
-        return new(true, Describe(code), rain, temperature.GetDecimal(), observedAt, null);
+        var result = new AiWeatherResult(true, Describe(code), rain, temperature.GetDecimal(), observedAt, null);
+        cache?.Set(cacheKey, result, TimeSpan.FromMinutes(10));
+        return result;
     }
 
     private static string Describe(int code) => code switch
     {
-        0 => "Clear sky",
-        1 or 2 or 3 => "Partly cloudy or overcast",
-        45 or 48 => "Fog",
-        51 or 53 or 55 or 56 or 57 => "Drizzle",
-        61 or 63 or 65 or 66 or 67 => "Rain",
-        71 or 73 or 75 or 77 => "Snow",
-        80 or 81 or 82 => "Rain showers",
-        85 or 86 => "Snow showers",
-        95 or 96 or 99 => "Thunderstorm",
-        _ => "Weather observation available"
+        0 => "Trời quang",
+        1 => "Ít mây",
+        2 => "Có mây",
+        3 => "Âm u",
+        45 or 48 => "Sương mù",
+        51 or 53 or 55 or 56 or 57 => "Mưa phùn",
+        61 or 63 or 65 or 66 or 67 => "Mưa",
+        71 or 73 or 75 or 77 => "Tuyết",
+        80 or 81 or 82 => "Mưa rào",
+        85 or 86 => "Mưa tuyết rào",
+        95 or 96 or 99 => "Dông",
+        _ => "Có dữ liệu thời tiết quan trắc"
     };
 }

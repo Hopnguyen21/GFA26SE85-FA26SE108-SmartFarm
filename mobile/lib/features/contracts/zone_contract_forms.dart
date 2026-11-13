@@ -18,15 +18,25 @@ part 'parts/zone_contract_forms_detail.dart';
 /// - Tiền cọc: để trống thì backend lấy 30% tổng sau chiết khấu.
 /// App chỉ hiển thị ước tính; số chính thức là số backend trả về.
 
-final _vnd = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+final _vnd = NumberFormat.currency(
+  locale: 'vi_VN',
+  symbol: '₫',
+  decimalDigits: 0,
+);
 final _ymd = DateFormat('yyyy-MM-dd');
 final _dmy = DateFormat('dd/MM/yyyy');
 
 String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
 
-void _snack(BuildContext context, String m, {bool error = false}) => ScaffoldMessenger.of(
-  context,
-).showSnackBar(SnackBar(content: Text(m), backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF059669)));
+void _snack(BuildContext context, String m, {bool error = false}) =>
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(m),
+        backgroundColor: error
+            ? const Color(0xFFDC2626)
+            : const Color(0xFF059669),
+      ),
+    );
 
 double? _money(TextEditingController c) {
   final t = c.text.trim().replaceAll(RegExp(r'[.,\s₫]'), '');
@@ -44,11 +54,12 @@ DateTime _addMonths(DateTime d, int m) {
   return DateTime(y, mo, d.day > lastDay ? lastDay : d.day);
 }
 
-InputDecoration _dec(String label, {String? hint, String? helper}) => InputDecoration(
-  labelText: label,
-  hintText: hint,
-  helperText: helper,
-  helperMaxLines: 2,
-  border: const OutlineInputBorder(),
-  isDense: true,
-);
+InputDecoration _dec(String label, {String? hint, String? helper}) =>
+    InputDecoration(
+      labelText: label,
+      hintText: hint,
+      helperText: helper,
+      helperMaxLines: 2,
+      border: const OutlineInputBorder(),
+      isDense: true,
+    );

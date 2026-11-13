@@ -2,7 +2,12 @@ part of '../farmer_dashboard_screen.dart';
 
 extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
   // ─── TAB 3A: DIARY (CAN_LOG_DIARY) ─────────────────────────────────────────
-  Widget _buildDiaryTab(BuildContext context, FarmProvider provider, List<ZoneModel> zones, FarmerModel? farmer) {
+  Widget _buildDiaryTab(
+    BuildContext context,
+    FarmProvider provider,
+    List<ZoneModel> zones,
+    FarmerModel? farmer,
+  ) {
     if (_selectedZoneForDiary.isEmpty && zones.isNotEmpty) {
       _selectedZoneForDiary = zones.first.name;
     }
@@ -21,7 +26,9 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                 padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF065F46), Color(0xFF059669)]),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF065F46), Color(0xFF059669)],
+                  ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
@@ -34,11 +41,19 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                    Icon(
+                      Icons.add_circle_outline,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Ghi Nhật Ký Canh Tác Hôm Nay',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -49,7 +64,12 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
 
           const Text(
             'NHẬT KÝ CANH TÁC GẦN ĐÂY',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.8),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF065F46),
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 10),
 
@@ -61,7 +81,10 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
             ),
           ),
           if (_diaryEntries.isEmpty)
-            _buildEmptyState('Chưa có nhật ký nào. Hãy ghi lại hoạt động hôm nay!', Icons.book_outlined)
+            _buildEmptyState(
+              'Chưa có nhật ký nào. Hãy ghi lại hoạt động hôm nay!',
+              Icons.book_outlined,
+            )
           else
             ..._diaryEntries.map((entry) => _buildDiaryCard(entry)),
         ],
@@ -70,7 +93,15 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
   }
 
   Widget _buildAddDiaryForm(BuildContext context, List<ZoneModel> zones) {
-    final activities = ['Tưới nước', 'Bón phân', 'Phun thuốc', 'Kiểm tra sâu bệnh', 'Thu hoạch', 'Làm đất', 'Khác'];
+    final activities = [
+      'Tưới nước',
+      'Bón phân',
+      'Phun thuốc',
+      'Kiểm tra sâu bệnh',
+      'Thu hoạch',
+      'Làm đất',
+      'Khác',
+    ];
 
     return StatefulBuilder(
       builder: (context, setFormState) {
@@ -81,7 +112,12 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFF6EE7B7), width: 2),
-            boxShadow: [BoxShadow(color: const Color(0xFF059669).withValues(alpha: 0.1), blurRadius: 12)],
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF059669).withValues(alpha: 0.1),
+                blurRadius: 12,
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +128,11 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                   SizedBox(width: 8),
                   Text(
                     'Ghi Nhật Ký Mới',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF065F46)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF065F46),
+                    ),
                   ),
                 ],
               ),
@@ -102,17 +142,26 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
               if (zones.isNotEmpty) ...[
                 const Text(
                   'Khu vực:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF374151),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  initialValue: _selectedZoneForDiary.isEmpty ? zones.first.name : _selectedZoneForDiary,
+                  initialValue: _selectedZoneForDiary.isEmpty
+                      ? zones.first.name
+                      : _selectedZoneForDiary,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: Color(0xFFD1FAE5)),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF0FDF4),
                   ),
@@ -120,11 +169,15 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                       .map(
                         (z) => DropdownMenuItem(
                           value: z.name,
-                          child: Text(z.name.split(' - ').first, style: const TextStyle(fontSize: 12)),
+                          child: Text(
+                            z.name.split(' - ').first,
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
                       )
                       .toList(),
-                  onChanged: (v) => _rebuild(() => _selectedZoneForDiary = v ?? ''),
+                  onChanged: (v) =>
+                      _rebuild(() => _selectedZoneForDiary = v ?? ''),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -132,7 +185,11 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
               // Activity selector
               const Text(
                 'Hoạt động:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF374151),
+                ),
               ),
               const SizedBox(height: 6),
               Wrap(
@@ -143,18 +200,29 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                   return GestureDetector(
                     onTap: () => _rebuild(() => _selectedActivity = a),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
-                        color: selected ? const Color(0xFF065F46) : const Color(0xFFF0FDF4),
+                        color: selected
+                            ? const Color(0xFF065F46)
+                            : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: selected ? const Color(0xFF065F46) : const Color(0xFFD1FAE5)),
+                        border: Border.all(
+                          color: selected
+                              ? const Color(0xFF065F46)
+                              : const Color(0xFFD1FAE5),
+                        ),
                       ),
                       child: Text(
                         a,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: selected ? Colors.white : const Color(0xFF065F46),
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF065F46),
                         ),
                       ),
                     ),
@@ -166,7 +234,11 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
               // Note
               const Text(
                 'Ghi chú:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF374151),
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -174,7 +246,10 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                 maxLines: 3,
                 decoration: InputDecoration(
                   hintText: 'Mô tả hoạt động, tình trạng cây trồng...',
-                  hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                  hintStyle: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9CA3AF),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: Color(0xFFD1FAE5)),
@@ -196,9 +271,14 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                       }),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF065F46)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      child: const Text('Hủy', style: TextStyle(color: Color(0xFF065F46))),
+                      child: const Text(
+                        'Hủy',
+                        style: TextStyle(color: Color(0xFF065F46)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -235,11 +315,16 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF065F46),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: const Text(
                         'Lưu Nhật Ký',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -267,7 +352,13 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +367,10 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Text(entry.icon, style: const TextStyle(fontSize: 18)),
               ),
               const SizedBox(width: 10),
@@ -286,17 +380,27 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                   children: [
                     Text(
                       entry.activity,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF065F46),
+                      ),
                     ),
                     Text(
                       entry.zone.split(' - ').first,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(4),
@@ -304,7 +408,11 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                       ),
                       child: const Text(
                         'Lưu tạm phiên (chưa đồng bộ server)',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF92400E),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -315,12 +423,19 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
                 children: [
                   Text(
                     timeAgo,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${entry.date.day}/${entry.date.month}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
                 ],
               ),
@@ -331,8 +446,14 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8)),
-              child: Text(entry.note, style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                entry.note,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF374151)),
+              ),
             ),
           ],
         ],
@@ -341,9 +462,15 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
   }
 
   // ─── TAB 3B: REPORTS VIEW (khi không có CAN_LOG_DIARY) ─────────────────────
-  Widget _buildReportsViewTab(BuildContext context, FarmProvider provider, bool canViewReports) {
+  Widget _buildReportsViewTab(
+    BuildContext context,
+    FarmProvider provider,
+    bool canViewReports,
+  ) {
     if (!canViewReports) {
-      return _buildAccessDenied('Bạn không có quyền xem báo cáo. Liên hệ Owner để được cấp quyền.');
+      return _buildAccessDenied(
+        'Bạn không có quyền xem báo cáo. Liên hệ Owner để được cấp quyền.',
+      );
     }
 
     return SingleChildScrollView(
@@ -353,7 +480,12 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
         children: [
           const Text(
             'BÁO CÁO TÓM TẮT',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.8),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF065F46),
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 10),
           _summaryReportCard(),
@@ -378,19 +510,35 @@ extension _FarmerDashboardScreenStateDiary on _FarmerDashboardScreenState {
         children: [
           const Text(
             'Tổng quan công việc',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+            ),
           ),
           const SizedBox(height: 12),
-          ...[('✅ Tác vụ đã hoàn thành', '$doneTasks/${tasks.length} tác vụ')].map(
+          ...[
+            ('✅ Tác vụ đã hoàn thành', '$doneTasks/${tasks.length} tác vụ'),
+          ].map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  Text(item.$1, style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
+                  Text(
+                    item.$1,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF374151),
+                    ),
+                  ),
                   const Spacer(),
                   Text(
                     item.$2,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF065F46),
+                    ),
                   ),
                 ],
               ),

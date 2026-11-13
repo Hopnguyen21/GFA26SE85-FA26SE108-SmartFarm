@@ -9,7 +9,12 @@ class HoneycombTopologyCard extends StatefulWidget {
   final bool initialExpanded;
   final VoidCallback? onAdjustTapped;
 
-  const HoneycombTopologyCard({super.key, required this.simulation, this.initialExpanded = true, this.onAdjustTapped});
+  const HoneycombTopologyCard({
+    super.key,
+    required this.simulation,
+    this.initialExpanded = true,
+    this.onAdjustTapped,
+  });
 
   @override
   State<HoneycombTopologyCard> createState() => _HoneycombTopologyCardState();
@@ -42,7 +47,11 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF0F172A).withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3)),
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -60,7 +69,11 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF0F766E), Color(0xFF10B981), Color(0xFF059669)],
+                  colors: [
+                    Color(0xFF0F766E),
+                    Color(0xFF10B981),
+                    Color(0xFF059669),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -73,9 +86,15 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
                     ),
-                    child: const Icon(Icons.hub_outlined, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.hub_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -87,17 +106,26 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                             const Flexible(
                               child: Text(
                                 'Ước tính Thiết bị IoT & Chi phí',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                ),
                               ),
                               child: Text(
                                 '${sim.cropIcon} ${sim.cropName.split(' ')[0]}',
@@ -113,13 +141,18 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                         const SizedBox(height: 2),
                         Text(
                           'Bố trí theo mô hình mạng tổ ong (Lục giác) trên diện tích ${sim.areaM2.toInt()} m²',
-                          style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 10.5),
+                          style: const TextStyle(
+                            color: Color(0xFFD1FAE5),
+                            fontSize: 10.5,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                    _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: Colors.white,
                     size: 20,
                   ),
@@ -140,7 +173,10 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                       // LoRa Gateway
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF0F9FF),
                             borderRadius: BorderRadius.circular(12),
@@ -154,9 +190,15 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFE0F2FE),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFBAE6FD)),
+                                  border: Border.all(
+                                    color: const Color(0xFFBAE6FD),
+                                  ),
                                 ),
-                                child: const Icon(Icons.wifi, color: Color(0xFF0369A1), size: 18),
+                                child: const Icon(
+                                  Icons.wifi,
+                                  color: Color(0xFF0369A1),
+                                  size: 18,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -169,11 +211,17 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                               ),
                               const Text(
                                 'LoRa Gateway',
-                                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF64748B),
+                                ),
                                 maxLines: 1,
                               ),
                               const SizedBox(height: 4),
-                              const Divider(height: 1, color: Color(0xFFE0F2FE)),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xFFE0F2FE),
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 _formatVND(sim.gateways * sim.gatewayUnitPrice),
@@ -192,7 +240,10 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                       // Sensor Node
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(12),
@@ -206,9 +257,15 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFD1FAE5),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFA7F3D0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFA7F3D0),
+                                  ),
                                 ),
-                                child: const Icon(Icons.radio, color: Color(0xFF047857), size: 18),
+                                child: const Icon(
+                                  Icons.radio,
+                                  color: Color(0xFF047857),
+                                  size: 18,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -221,11 +278,17 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                               ),
                               const Text(
                                 'Sensor Node',
-                                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF64748B),
+                                ),
                                 maxLines: 1,
                               ),
                               const SizedBox(height: 4),
-                              const Divider(height: 1, color: Color(0xFFD1FAE5)),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xFFD1FAE5),
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 _formatVND(sim.sensors * sim.sensorUnitPrice),
@@ -244,7 +307,10 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                       // Actuators
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFBEB),
                             borderRadius: BorderRadius.circular(12),
@@ -258,9 +324,15 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFEF3C7),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFFDE68A)),
+                                  border: Border.all(
+                                    color: const Color(0xFFFDE68A),
+                                  ),
                                 ),
-                                child: const Icon(Icons.bolt, color: Color(0xFFB45309), size: 18),
+                                child: const Icon(
+                                  Icons.bolt,
+                                  color: Color(0xFFB45309),
+                                  size: 18,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -273,14 +345,22 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                               ),
                               const Text(
                                 'Van / Bơm',
-                                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF64748B),
+                                ),
                                 maxLines: 1,
                               ),
                               const SizedBox(height: 4),
-                              const Divider(height: 1, color: Color(0xFFFEF3C7)),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xFFFEF3C7),
+                              ),
                               const SizedBox(height: 4),
                               Text(
-                                _formatVND(sim.actuators * sim.actuatorUnitPrice),
+                                _formatVND(
+                                  sim.actuators * sim.actuatorUnitPrice,
+                                ),
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -305,7 +385,10 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(10),
@@ -314,18 +397,29 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                       child: Row(
                         children: [
                           Icon(
-                            _showMeshVisualizer ? Icons.layers_clear_outlined : Icons.layers_outlined,
+                            _showMeshVisualizer
+                                ? Icons.layers_clear_outlined
+                                : Icons.layers_outlined,
                             size: 16,
                             color: const Color(0xFF0F766E),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _showMeshVisualizer ? 'Thu gọn sơ đồ mạng tổ ong' : 'Xem sơ đồ mạng tổ ong (Lục giác)',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                            _showMeshVisualizer
+                                ? 'Thu gọn sơ đồ mạng tổ ong'
+                                : 'Xem sơ đồ mạng tổ ong (Lục giác)',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F766E),
+                            ),
                           ),
                           const Spacer(),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE0F2FE),
                               borderRadius: BorderRadius.circular(6),
@@ -352,10 +446,14 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF062326),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF062326).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFF062326,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -378,7 +476,10 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                             top: 8,
                             left: 10,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.6),
                                 borderRadius: BorderRadius.circular(6),
@@ -387,7 +488,11 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.wifi_tethering, size: 12, color: Color(0xFF34D399)),
+                                  const Icon(
+                                    Icons.wifi_tethering,
+                                    size: 12,
+                                    color: Color(0xFF34D399),
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     'LoRa Topology • 2.5km • ${sim.areaM2.toInt()}m²',
@@ -407,19 +512,37 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                             left: 8,
                             right: 8,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF04181B).withValues(alpha: 0.85),
+                                color: const Color(
+                                  0xFF04181B,
+                                ).withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: Colors.white12),
                               ),
                               child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
                                 children: [
-                                  _LegendItem(color: Color(0xFF38BDF8), label: 'LoRa GW'),
-                                  _LegendItem(color: Color(0xFF34D399), label: 'Sensor Node'),
-                                  _LegendItem(color: Color(0xFFFBBF24), label: 'Actuator'),
-                                  _LegendItem(color: Color(0xFF64748B), label: 'Ô 500m²'),
+                                  _LegendItem(
+                                    color: Color(0xFF38BDF8),
+                                    label: 'LoRa GW',
+                                  ),
+                                  _LegendItem(
+                                    color: Color(0xFF34D399),
+                                    label: 'Sensor Node',
+                                  ),
+                                  _LegendItem(
+                                    color: Color(0xFFFBBF24),
+                                    label: 'Actuator',
+                                  ),
+                                  _LegendItem(
+                                    color: Color(0xFF64748B),
+                                    label: 'Ô 500m²',
+                                  ),
                                 ],
                               ),
                             ),
@@ -443,15 +566,26 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           color: const Color(0xFFF1F5F9),
                           child: const Row(
                             children: [
-                              Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFF475569)),
+                              Icon(
+                                Icons.inventory_2_outlined,
+                                size: 14,
+                                color: Color(0xFF475569),
+                              ),
                               SizedBox(width: 6),
                               Text(
                                 'Chi tiết Báo giá Phần cứng (Tham khảo)',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF334155),
+                                ),
                               ),
                             ],
                           ),
@@ -485,17 +619,26 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                         ),
                         // Total Row (Emerald highlight)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: const BoxDecoration(
                             color: Color(0xFFECFDF5),
-                            border: Border(top: BorderSide(color: Color(0xFFA7F3D0))),
+                            border: Border(
+                              top: BorderSide(color: Color(0xFFA7F3D0)),
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.trending_up, size: 16, color: Color(0xFF065F46)),
+                                  Icon(
+                                    Icons.trending_up,
+                                    size: 16,
+                                    color: Color(0xFF065F46),
+                                  ),
                                   SizedBox(width: 6),
                                   Text(
                                     'Tổng ước tính:',
@@ -520,7 +663,10 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                                   ),
                                   Text(
                                     'Dao động: ${_formatVND(sim.minCostVND)} – ${_formatVND(sim.maxCostVND)}',
-                                    style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                                    style: const TextStyle(
+                                      fontSize: 9.5,
+                                      color: Color(0xFF64748B),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -546,7 +692,11 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.eco, size: 14, color: Color(0xFF10B981)),
+                              const Icon(
+                                Icons.eco,
+                                size: 14,
+                                color: Color(0xFF10B981),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 'Chu kỳ sinh trưởng & Điều kiện (${sim.cropName.split(' ')[0]})',
@@ -563,14 +713,34 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                           _buildTemplateRow('Dinh dưỡng:', sim.nutritionInfo),
                           Row(
                             children: [
-                              Expanded(child: _buildTemplateRow('Nhiệt độ:', sim.tempRange)),
-                              Expanded(child: _buildTemplateRow('Độ ẩm:', sim.humidityRange)),
+                              Expanded(
+                                child: _buildTemplateRow(
+                                  'Nhiệt độ:',
+                                  sim.tempRange,
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildTemplateRow(
+                                  'Độ ẩm:',
+                                  sim.humidityRange,
+                                ),
+                              ),
                             ],
                           ),
                           Row(
                             children: [
-                              Expanded(child: _buildTemplateRow('Ánh sáng:', sim.lightRequirement)),
-                              Expanded(child: _buildTemplateRow('Thời vụ:', sim.seasonDuration)),
+                              Expanded(
+                                child: _buildTemplateRow(
+                                  'Ánh sáng:',
+                                  sim.lightRequirement,
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildTemplateRow(
+                                  'Thời vụ:',
+                                  sim.seasonDuration,
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -591,7 +761,11 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFD97706)),
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 16,
+                          color: Color(0xFFD97706),
+                        ),
                         SizedBox(width: 8),
                         Expanded(
                           child: Column(
@@ -599,12 +773,20 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                             children: [
                               Text(
                                 '⚠️ Lưu ý: Ước tính giá có thể lệch với đơn giá của Kỹ thuật viên',
-                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF92400E),
+                                ),
                               ),
                               SizedBox(height: 2),
                               Text(
                                 'Chi phí trên chỉ mang tính tham khảo dựa trên mô hình tổ ong tiêu chuẩn. Đơn giá thực tế sẽ do Kỹ thuật viên Platform khảo sát thực địa và chốt trong Hợp đồng điện tử.',
-                                style: TextStyle(fontSize: 10, color: Color(0xFFB45309), height: 1.3),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFFB45309),
+                                  height: 1.3,
+                                ),
                               ),
                             ],
                           ),
@@ -636,12 +818,19 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
             children: [
               Icon(icon, size: 13, color: iconColor),
               const SizedBox(width: 6),
-              Text(title, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+              ),
             ],
           ),
           Text(
             _formatVND(amount),
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1E293B),
+            ),
           ),
         ],
       ),
@@ -658,13 +847,21 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
             width: 72,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF1E293B),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -690,7 +887,10 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 9)),
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 9),
+        ),
       ],
     );
   }
@@ -702,7 +902,11 @@ class HoneycombMeshPainter extends CustomPainter {
   final int gatewayCount;
   final int sensorCount;
 
-  HoneycombMeshPainter({required this.cellCount, required this.gatewayCount, required this.sensorCount});
+  HoneycombMeshPainter({
+    required this.cellCount,
+    required this.gatewayCount,
+    required this.sensorCount,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {

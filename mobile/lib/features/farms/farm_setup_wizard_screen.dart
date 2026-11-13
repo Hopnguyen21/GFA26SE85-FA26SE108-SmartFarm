@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mini_gis_map_picker.dart';
 import '../../core/widgets/state_views.dart';
 import '../crops/widgets/create_season_sheet.dart';
+import '../devices/deployment_request_send_screen.dart';
 import '../devices/deployment_screens.dart';
 import '../zones/honeycomb_estimate.dart';
 import '../zones/widgets/zone_honeycomb_estimate_card.dart';
@@ -27,8 +28,17 @@ class FarmSetupWizardScreen extends StatefulWidget {
 
 class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
   static const _lastStep = 4;
-  static const _stepTitles = ['Trang trại', 'Lô đất', 'Zone', 'Cây trồng & Vụ mùa', 'Xem lại & gửi'];
-  static const _vietnamCenter = LatLng(14.0583, 108.2772); // chỉ để mở bản đồ toàn quốc, không phải vị trí trang trại
+  static const _stepTitles = [
+    'Trang trại',
+    'Lô đất',
+    'Zone',
+    'Cây trồng & Vụ mùa',
+    'Xem lại & gửi',
+  ];
+  static const _vietnamCenter = LatLng(
+    14.0583,
+    108.2772,
+  ); // chỉ để mở bản đồ toàn quốc, không phải vị trí trang trại
 
   int _step = 0;
   bool _busy = false;
@@ -82,8 +92,17 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
   Future<Map<String, String?>>? _statusFuture;
   final _iotNotes = TextEditingController();
 
-  static const _soils = {'Loam': 'Đất thịt', 'Clay': 'Đất sét', 'Sandy': 'Đất cát', 'Silt': 'Đất phù sa'};
-  static const _zoneTypes = {'Greenhouse': 'Nhà màng', 'OpenField': 'Ngoài trời', 'NetHouse': 'Nhà lưới'};
+  static const _soils = {
+    'Loam': 'Đất thịt',
+    'Clay': 'Đất sét',
+    'Sandy': 'Đất cát',
+    'Silt': 'Đất phù sa',
+  };
+  static const _zoneTypes = {
+    'Greenhouse': 'Nhà màng',
+    'OpenField': 'Ngoài trời',
+    'NetHouse': 'Nhà lưới',
+  };
   static const _paramLabels = {
     'SoilMoisture': 'Độ ẩm đất',
     'Temperature': 'Nhiệt độ',
@@ -135,10 +154,13 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     }
   }
 
-  double? _num(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
+  double? _num(TextEditingController c) =>
+      double.tryParse(c.text.trim().replaceAll(',', '.'));
 
   int? get _selectedProfileStages {
-    final p = _profiles.where((p) => '${p['profileId']}' == _profileId).firstOrNull;
+    final p = _profiles
+        .where((p) => '${p['profileId']}' == _profileId)
+        .firstOrNull;
     if (p == null) return null;
     final st = p['stages'];
     return st is List ? st.length : 0;
@@ -147,32 +169,48 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
   /// Hồ sơ dùng được: có giai đoạn và khớp ĐÚNG giống đã chọn (hồ sơ chung chỉ khi không chọn giống).
   List<Map<String, dynamic>> get _usableProfiles => [
     for (final p in _profiles)
-      if ((p['stages'] is List) && (p['stages'] as List).isNotEmpty && p['varietyId']?.toString() == _varietyId) p,
+      if ((p['stages'] is List) &&
+          (p['stages'] as List).isNotEmpty &&
+          p['varietyId']?.toString() == _varietyId)
+        p,
   ];
 
   void _pickDefaultProfile() {
     final usable = _usableProfiles;
-    final def = usable.where((p) => p['isDefault'] == true).firstOrNull ?? usable.firstOrNull;
+    final def =
+        usable.where((p) => p['isDefault'] == true).firstOrNull ??
+        usable.firstOrNull;
     _profileId = def == null ? null : '${def['profileId']}';
   }
 
-  Map<String, dynamic>? get _selectedProfile => _profiles.where((p) => '${p['profileId']}' == _profileId).firstOrNull;
+  Map<String, dynamic>? get _selectedProfile =>
+      _profiles.where((p) => '${p['profileId']}' == _profileId).firstOrNull;
 
   String get _cropName =>
-      _crops.where((c) => '${c['cropId'] ?? c['id']}' == _cropId).map((c) => '${c['name']}').firstOrNull ?? '';
+      _crops
+          .where((c) => '${c['cropId'] ?? c['id']}' == _cropId)
+          .map((c) => '${c['name']}')
+          .firstOrNull ??
+      '';
 
   String get _varietyName =>
-      _varieties.where((v) => '${v['varietyId']}' == _varietyId).map((v) => '${v['name']}').firstOrNull ?? '';
+      _varieties
+          .where((v) => '${v['varietyId']}' == _varietyId)
+          .map((v) => '${v['name']}')
+          .firstOrNull ??
+      '';
 
   /// Đồng bộ ngày thu hoạch, thông số cần đo và tên vụ theo hồ sơ/cây/ngày bắt đầu hiện tại.
   void _onSeasonInputsChanged() {
     final p = _selectedProfile;
     final days = profileTotalDays(p);
-    if (!_endEdited) _end = days == null ? null : expectedEndFromProfile(_start, days);
+    if (!_endEdited)
+      _end = days == null ? null : expectedEndFromProfile(_start, days);
     _params
       ..clear()
       ..addAll(profileRequiredParameters(p));
-    if (!_nameEdited && _cropId != null) _seasonName.text = suggestedSeasonName(_cropName, _start);
+    if (!_nameEdited && _cropId != null)
+      _seasonName.text = suggestedSeasonName(_cropName, _start);
   }
 
   Future<void> _selectCrop(String? id) async {
@@ -189,7 +227,10 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     });
     if (id == null) return;
     try {
-      final r = await Future.wait([CropApi.getVarieties(cropId: id), CropApi.getCropGrowthProfiles(id)]);
+      final r = await Future.wait([
+        CropApi.getVarieties(cropId: id),
+        CropApi.getCropGrowthProfiles(id),
+      ]);
       if (!mounted || _cropId != id) return;
       setState(() {
         _varieties = r[0];
@@ -241,16 +282,25 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
               start: _start,
               expectedEnd: _end,
             ) ??
-            validateIotStep(seasonEnabled: _withSeason, iotEnabled: _withIot, parameters: _params);
+            validateIotStep(
+              seasonEnabled: _withSeason,
+              iotEnabled: _withIot,
+              parameters: _params,
+            );
     }
     return null;
   }
 
   Future<void> _submit() async {
-    if (_busy || _submitted) return; // chống bấm nhiều lần / gửi lại sau khi đã tạo
+    if (_busy || _submitted)
+      return; // chống bấm nhiều lần / gửi lại sau khi đã tạo
     final provider = context.read<FarmProvider>();
     if (!provider.canManageFarmStructure) {
-      showAppSnack(context, 'Chỉ chủ trang trại mới được tạo trang trại.', error: true);
+      showAppSnack(
+        context,
+        'Chỉ chủ trang trại mới được tạo trang trại.',
+        error: true,
+      );
       return;
     }
     for (var s = 0; s <= 3; s++) {
@@ -270,10 +320,15 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     });
     final farmIdsBefore = {for (final f in provider.farms) f.farmId};
     final est = _estimate;
+    final estimateDraft = _withIot
+        ? buildWizardEstimateItems(est)
+        : const WizardEstimateDraft([], null);
     final payload = {
       'farm': {
         'name': _farmName.text.trim(),
-        'locationText': _address.text.trim().isEmpty ? null : _address.text.trim(),
+        'locationText': _address.text.trim().isEmpty
+            ? null
+            : _address.text.trim(),
         'latitude': _farmCenter!.latitude,
         'longitude': _farmCenter!.longitude,
         'totalAreaM2': _num(_farmArea),
@@ -283,13 +338,17 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
         'name': _fieldName.text.trim(),
         'areaM2': _num(_fieldArea),
         'soilType': _soil,
-        'boundaryGeoJson': _drawField ? boundaryGeoJsonString(_fieldBoundary) : null,
+        'boundaryGeoJson': _drawField
+            ? boundaryGeoJsonString(_fieldBoundary)
+            : null,
       },
       'zone': {
         'name': _zoneName.text.trim(),
         'areaM2': _num(_zoneArea),
         'zoneType': _zoneType,
-        'boundaryGeoJson': _drawZone ? boundaryGeoJsonString(_zoneBoundary) : null,
+        'boundaryGeoJson': _drawZone
+            ? boundaryGeoJsonString(_zoneBoundary)
+            : null,
       },
       'season': _withSeason
           ? {
@@ -297,14 +356,23 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
               'cropId': _cropId,
               'varietyId': _varietyId,
               'growthProfileId': _profileId,
-              'startDate': DateTime.utc(_start.year, _start.month, _start.day).toIso8601String(),
+              'startDate': DateTime.utc(
+                _start.year,
+                _start.month,
+                _start.day,
+              ).toIso8601String(),
               // Luôn gửi ngày tính từ hồ sơ/người dùng chỉnh: nếu bỏ trống, backend tự cộng 90 ngày.
-              'expectedEndDate': DateTime.utc(_end!.year, _end!.month, _end!.day).toIso8601String(),
+              'expectedEndDate': DateTime.utc(
+                _end!.year,
+                _end!.month,
+                _end!.day,
+              ).toIso8601String(),
             }
           : null,
       'initialDeploymentRequest': _withSeason && _withIot
           ? {
               'requiredParameters': _params.toList(),
+              if (estimateDraft.hasItems) 'estimateItems': estimateDraft.items,
               'ownerNotes': () {
                 final n = buildWizardIotNotes(
                   userNotes: _iotNotes.text,
@@ -330,7 +398,8 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
       // Tải lại từ máy chủ rồi chuyển sang trang trại vừa tạo.
       await provider.fetchFromApi();
       final newFarmId = outcome.idOf('farmId');
-      if (newFarmId != null && provider.farms.any((f) => f.farmId == newFarmId)) provider.selectFarm(newFarmId);
+      if (newFarmId != null && provider.farms.any((f) => f.farmId == newFarmId))
+        provider.selectFarm(newFarmId);
       if (mounted) {
         setState(() {
           _submitted = true;
@@ -348,7 +417,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
         } catch (_) {}
         final name = _farmName.text.trim().toLowerCase();
         final created = provider.farms
-            .where((f) => !farmIdsBefore.contains(f.farmId) && f.name.trim().toLowerCase() == name)
+            .where(
+              (f) =>
+                  !farmIdsBefore.contains(f.farmId) &&
+                  f.name.trim().toLowerCase() == name,
+            )
             .firstOrNull;
         if (mounted) {
           setState(() {
@@ -364,7 +437,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                   'dữ liệu bạn nhập vẫn được giữ, hãy kiểm tra mạng rồi bấm gửi lại.';
             }
           });
-          showAppSnack(context, 'Mất kết nối khi gửi. Xem hướng dẫn ở bước cuối.', error: true);
+          showAppSnack(
+            context,
+            'Mất kết nối khi gửi. Xem hướng dẫn ở bước cuối.',
+            error: true,
+          );
         }
       } else if (mounted) {
         // Máy chủ đã phản hồi từ chối (dữ liệu sai, không có quyền, xung đột...) nên CHƯA tạo gì: sửa rồi gửi lại được.
@@ -377,35 +454,57 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
   }
 
   // ───────────────────────── UI helpers ─────────────────────────
-  Widget _field(TextEditingController c, String label, {bool number = false, int? maxLength, bool readOnly = false}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          controller: c,
-          maxLength: maxLength,
-          readOnly: readOnly,
-          keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : null,
-          decoration: InputDecoration(labelText: label),
-        ),
-      );
+  Widget _field(
+    TextEditingController c,
+    String label, {
+    bool number = false,
+    int? maxLength,
+    bool readOnly = false,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextField(
+      controller: c,
+      maxLength: maxLength,
+      readOnly: readOnly,
+      keyboardType: number
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : null,
+      decoration: InputDecoration(labelText: label),
+    ),
+  );
 
-  Widget _dropdown(String label, String? value, Map<String, String> items, ValueChanged<String?> onChanged) =>
-      DropdownButtonFormField<String>(
-        initialValue: value,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label),
-        items: [for (final e in items.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-        onChanged: onChanged,
-      );
+  Widget _dropdown(
+    String label,
+    String? value,
+    Map<String, String> items,
+    ValueChanged<String?> onChanged,
+  ) => DropdownButtonFormField<String>(
+    initialValue: value,
+    isExpanded: true,
+    decoration: InputDecoration(labelText: label),
+    items: [
+      for (final e in items.entries)
+        DropdownMenuItem(value: e.key, child: Text(e.value)),
+    ],
+    onChanged: onChanged,
+  );
 
-  String _d(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  String _d(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
-  Future<DateTime?> _pick(DateTime initial) =>
-      showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2020), lastDate: DateTime(2100));
+  Future<DateTime?> _pick(DateTime initial) => showDatePicker(
+    context: context,
+    initialDate: initial,
+    firstDate: DateTime(2020),
+    lastDate: DateTime(2100),
+  );
 
   Widget _hint(String text, {Color color = AppColors.textMuted}) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(text, style: TextStyle(fontSize: 12, color: color, height: 1.4)),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 12, color: color, height: 1.4),
+    ),
   );
 
   Widget _boundaryState(List<LatLng>? pts) => Padding(
@@ -414,7 +513,12 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
       pts == null || pts.length < 3
           ? 'Chưa có ranh giới GIS — đối tượng sẽ được tạo mà không có ranh giới.'
           : 'Ranh giới GIS: ${pts.length} đỉnh. Kéo các đỉnh trên bản đồ để chỉnh.',
-      style: TextStyle(fontSize: 12, color: pts == null || pts.length < 3 ? AppColors.warning : AppColors.primaryDark),
+      style: TextStyle(
+        fontSize: 12,
+        color: pts == null || pts.length < 3
+            ? AppColors.warning
+            : AppColors.primaryDark,
+      ),
     ),
   );
 
@@ -429,7 +533,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _field(_farmName, 'Tên trang trại', maxLength: 200),
-              _hint('Di chuyển bản đồ để đặt ghim tại vị trí trang trại (hoặc bấm 🔍 để tìm địa chỉ).'),
+              _hint(
+                'Di chuyển bản đồ để đặt ghim tại vị trí trang trại (hoặc bấm 🔍 để tìm địa chỉ).',
+              ),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: MiniGISMapPicker(
@@ -439,18 +545,25 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                   height: 260,
                   onCenterChanged: (c) {
                     _farmCenter = c;
-                    _farmCenterLabel.value = '${c.latitude.toStringAsFixed(6)}, ${c.longitude.toStringAsFixed(6)}';
+                    _farmCenterLabel.value =
+                        '${c.latitude.toStringAsFixed(6)}, ${c.longitude.toStringAsFixed(6)}';
                   },
                   onAddressResolved: (a) {
-                    if (_address.text.trim().isEmpty && !a.startsWith('Đang')) _address.text = a;
+                    if (_address.text.trim().isEmpty && !a.startsWith('Đang'))
+                      _address.text = a;
                   },
                 ),
               ),
               const SizedBox(height: 8),
               ValueListenableBuilder<String>(
                 valueListenable: _farmCenterLabel,
-                builder: (_, v, _) =>
-                    Text('Toạ độ: $v', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                builder: (_, v, _) => Text(
+                  'Toạ độ: $v',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               _field(_address, 'Địa chỉ (không bắt buộc)'),
@@ -468,10 +581,18 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _field(_fieldName, 'Tên lô đất'),
-              _dropdown('Loại đất', _soil, _soils, (v) => setState(() => _soil = v ?? _soil)),
+              _dropdown(
+                'Loại đất',
+                _soil,
+                _soils,
+                (v) => setState(() => _soil = v ?? _soil),
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Vẽ ranh giới lô đất trên bản đồ', style: TextStyle(fontSize: 13)),
+                title: const Text(
+                  'Vẽ ranh giới lô đất trên bản đồ',
+                  style: TextStyle(fontSize: 13),
+                ),
                 value: _drawField,
                 onChanged: (v) => setState(() {
                   _drawField = v;
@@ -488,9 +609,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     level: 'FIELD',
                     height: 280,
                     emitInitialPolygon: true,
-                    onPolygonChanged: (pts) => setState(() => _fieldBoundary = pts),
+                    onPolygonChanged: (pts) =>
+                        setState(() => _fieldBoundary = pts),
                     onAreaCalculated: (a) {
-                      if (a > 0 && _fieldArea.text != a.toStringAsFixed(0)) _fieldArea.text = a.toStringAsFixed(0);
+                      if (a > 0 && _fieldArea.text != a.toStringAsFixed(0))
+                        _fieldArea.text = a.toStringAsFixed(0);
                     },
                   ),
                 ),
@@ -511,15 +634,28 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _field(_zoneName, 'Tên Zone'),
-              _dropdown('Loại Zone', _zoneType, _zoneTypes, (v) => setState(() => _zoneType = v ?? _zoneType)),
+              _dropdown(
+                'Loại Zone',
+                _zoneType,
+                _zoneTypes,
+                (v) => setState(() => _zoneType = v ?? _zoneType),
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Vẽ ranh giới Zone trên bản đồ', style: TextStyle(fontSize: 13)),
+                title: const Text(
+                  'Vẽ ranh giới Zone trên bản đồ',
+                  style: TextStyle(fontSize: 13),
+                ),
                 subtitle: !_drawField
-                    ? const Text('Cần vẽ ranh giới lô đất trước.', style: TextStyle(fontSize: 11))
+                    ? const Text(
+                        'Cần vẽ ranh giới lô đất trước.',
+                        style: TextStyle(fontSize: 11),
+                      )
                     : null,
                 value: _drawZone && _drawField,
-                onChanged: _drawField ? (v) => setState(() => _drawZone = v) : null,
+                onChanged: _drawField
+                    ? (v) => setState(() => _drawZone = v)
+                    : null,
               ),
               if (_drawZone && _drawField)
                 ClipRRect(
@@ -532,9 +668,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     level: 'ZONE',
                     height: 280,
                     emitInitialPolygon: true,
-                    onPolygonChanged: (pts) => setState(() => _zoneBoundary = pts),
+                    onPolygonChanged: (pts) =>
+                        setState(() => _zoneBoundary = pts),
                     onAreaCalculated: (a) {
-                      if (a > 0 && _zoneArea.text != a.toStringAsFixed(0)) _zoneArea.text = a.toStringAsFixed(0);
+                      if (a > 0 && _zoneArea.text != a.toStringAsFixed(0))
+                        _zoneArea.text = a.toStringAsFixed(0);
                     },
                   ),
                 ),
@@ -560,7 +698,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textMuted,
+          ),
         ),
         const SizedBox(height: 6),
         ...rows,
@@ -575,10 +717,16 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
       children: [
         SizedBox(
           width: 108,
-          child: Text(k, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          child: Text(
+            k,
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          ),
         ),
         Expanded(
-          child: Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          child: Text(
+            v,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     ),
@@ -588,7 +736,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     padding: const EdgeInsets.only(top: 6, bottom: 8),
     child: Text(
       t,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        color: AppColors.primaryDark,
+      ),
     ),
   );
 
@@ -600,11 +752,21 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     final params = profileRequiredParameters(p);
     return _infoCard('HỒ SƠ SINH TRƯỞNG (dữ liệu từ máy chủ)', [
       _kv('Hồ sơ', '${p['name']}'),
-      _kv('Nguồn', p['isSystemDefined'] == true ? 'Hồ sơ hệ thống' : 'Của trang trại'),
-      _kv('Tổng thời gian', days == null ? 'Hồ sơ không khai báo số ngày' : '$days ngày · ${stages.length} giai đoạn'),
+      _kv(
+        'Nguồn',
+        p['isSystemDefined'] == true ? 'Hồ sơ hệ thống' : 'Của trang trại',
+      ),
+      _kv(
+        'Tổng thời gian',
+        days == null
+            ? 'Hồ sơ không khai báo số ngày'
+            : '$days ngày · ${stages.length} giai đoạn',
+      ),
       _kv(
         'Thông số cần đo',
-        params.isEmpty ? 'Hồ sơ không khai báo' : params.map((e) => _paramLabels[e] ?? e).join(', '),
+        params.isEmpty
+            ? 'Hồ sơ không khai báo'
+            : params.map((e) => _paramLabels[e] ?? e).join(', '),
       ),
       const SizedBox(height: 6),
       for (var i = 0; i < stages.length; i++)
@@ -632,7 +794,10 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
               children: [
                 _infoCard('ĐỐI TƯỢNG SẼ ĐƯỢC TẠO', [
                   _kv('Trang trại', _farmName.text.trim()),
-                  _kv('Lô đất', '${_fieldName.text.trim()} · ${_fieldArea.text} m²'),
+                  _kv(
+                    'Lô đất',
+                    '${_fieldName.text.trim()} · ${_fieldArea.text} m²',
+                  ),
                   _kv(
                     'Zone',
                     '${_zoneName.text.trim()} · ${_zoneArea.text} m² · ${_zoneTypes[_zoneType] ?? _zoneType}',
@@ -640,7 +805,10 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                 ]),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Tạo vụ trồng đầu tiên cho Zone', style: TextStyle(fontSize: 13)),
+                  title: const Text(
+                    'Tạo vụ trồng đầu tiên cho Zone',
+                    style: TextStyle(fontSize: 13),
+                  ),
                   subtitle: const Text(
                     'Vụ được tạo ở trạng thái Kế hoạch (Planned) cho đúng Zone này.',
                     style: TextStyle(fontSize: 11),
@@ -653,12 +821,21 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                 ),
                 if (_withSeason) ...[
                   _sectionTitle('Cây trồng & hồ sơ'),
-                  if (_loadingCrops) const LinearProgressIndicator(minHeight: 2),
+                  if (_loadingCrops)
+                    const LinearProgressIndicator(minHeight: 2),
                   if (_cropsError != null)
                     Row(
                       children: [
-                        Expanded(child: _hint('Không tải được danh sách cây: $_cropsError', color: AppColors.danger)),
-                        TextButton(onPressed: _loadCrops, child: const Text('Thử lại')),
+                        Expanded(
+                          child: _hint(
+                            'Không tải được danh sách cây: $_cropsError',
+                            color: AppColors.danger,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _loadCrops,
+                          child: const Text('Thử lại'),
+                        ),
                       ],
                     )
                   else if (!_loadingCrops && _crops.isEmpty)
@@ -671,7 +848,10 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                             color: AppColors.warning,
                           ),
                         ),
-                        TextButton(onPressed: _loadCrops, child: const Text('Tải lại')),
+                        TextButton(
+                          onPressed: _loadCrops,
+                          child: const Text('Tải lại'),
+                        ),
                       ],
                     ),
                   DropdownButtonFormField<String>(
@@ -683,26 +863,42 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                       for (final c in _crops)
                         DropdownMenuItem(
                           value: '${c['cropId'] ?? c['id']}',
-                          child: Text('${c['name']}', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            '${c['name']}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                     ],
                     onChanged: _crops.isEmpty ? null : _selectCrop,
                   ),
                   const SizedBox(height: 10),
-                  if (_loadingProfiles) const LinearProgressIndicator(minHeight: 2),
-                  if (_cropId != null && !_loadingProfiles && _varieties.isEmpty)
-                    _hint('Cây này chưa có giống trong danh mục: tiếp tục không chọn giống.'),
+                  if (_loadingProfiles)
+                    const LinearProgressIndicator(minHeight: 2),
+                  if (_cropId != null &&
+                      !_loadingProfiles &&
+                      _varieties.isEmpty)
+                    _hint(
+                      'Cây này chưa có giống trong danh mục: tiếp tục không chọn giống.',
+                    ),
                   DropdownButtonFormField<String?>(
                     key: ValueKey('v-$_cropId-${_varieties.length}'),
                     initialValue: _varietyId,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Giống (thuộc cây đã chọn)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Giống (thuộc cây đã chọn)',
+                    ),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('— Không chọn giống —')),
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('— Không chọn giống —'),
+                      ),
                       for (final v in _varieties)
                         DropdownMenuItem<String?>(
                           value: '${v['varietyId']}',
-                          child: Text('${v['name']}', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            '${v['name']}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                     ],
                     onChanged: _cropId == null
@@ -715,7 +911,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                           }),
                   ),
                   const SizedBox(height: 10),
-                  if (_cropId != null && !_loadingProfiles && usableProfiles.isEmpty)
+                  if (_cropId != null &&
+                      !_loadingProfiles &&
+                      usableProfiles.isEmpty)
                     _hint(
                       _varietyId == null
                           ? 'Cây này chưa có hồ sơ sinh trưởng chung nào có giai đoạn. Hãy chọn một giống có hồ sơ, '
@@ -724,11 +922,15 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                       color: AppColors.danger,
                     ),
                   DropdownButtonFormField<String?>(
-                    key: ValueKey('p-$_cropId-$_varietyId-${usableProfiles.length}'),
+                    key: ValueKey(
+                      'p-$_cropId-$_varietyId-${usableProfiles.length}',
+                    ),
                     initialValue: _profileId,
                     isExpanded: true,
                     hint: const Text('Chưa có hồ sơ phù hợp'),
-                    decoration: const InputDecoration(labelText: 'Hồ sơ sinh trưởng *'),
+                    decoration: const InputDecoration(
+                      labelText: 'Hồ sơ sinh trưởng *',
+                    ),
                     items: [
                       for (final p in usableProfiles)
                         DropdownMenuItem<String?>(
@@ -754,7 +956,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     controller: _seasonName,
                     maxLength: 200,
                     onChanged: (_) => _nameEdited = true,
-                    decoration: const InputDecoration(labelText: 'Tên vụ mùa *'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tên vụ mùa *',
+                    ),
                   ),
                   const SizedBox(height: 4),
                   SizedBox(
@@ -779,7 +983,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.event_available, size: 18),
                       onPressed: () async {
-                        final d = await _pick(_end ?? _start.add(const Duration(days: 90)));
+                        final d = await _pick(
+                          _end ?? _start.add(const Duration(days: 90)),
+                        );
                         if (d != null) {
                           setState(() {
                             _end = d;
@@ -787,7 +993,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                           });
                         }
                       },
-                      label: Text(_end == null ? 'Chọn ngày thu hoạch dự kiến' : 'Dự kiến thu hoạch: ${_d(_end!)}'),
+                      label: Text(
+                        _end == null
+                            ? 'Chọn ngày thu hoạch dự kiến'
+                            : 'Dự kiến thu hoạch: ${_d(_end!)}',
+                      ),
                     ),
                   ),
                   Builder(
@@ -831,7 +1041,10 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     onChanged: (v) => setState(() => _withIot = v),
                   ),
                   if (_withIot) ...[
-                    const Text('Thông số cần đo (theo hồ sơ đã chọn)', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      'Thông số cần đo (theo hồ sơ đã chọn)',
+                      style: TextStyle(fontSize: 12),
+                    ),
                     const SizedBox(height: 6),
                     if (_params.isEmpty && _selectedProfile != null)
                       _hint(
@@ -844,33 +1057,53 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                       children: [
                         for (final e in _paramLabels.entries)
                           FilterChip(
-                            label: Text(e.value, style: const TextStyle(fontSize: 12)),
+                            label: Text(
+                              e.value,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                             selected: _params.contains(e.key),
-                            onSelected: (v) => setState(() => v ? _params.add(e.key) : _params.remove(e.key)),
+                            onSelected: (v) => setState(
+                              () => v
+                                  ? _params.add(e.key)
+                                  : _params.remove(e.key),
+                            ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    _field(_iotNotes, 'Ghi chú cho kỹ thuật viên', maxLength: 800),
+                    _field(
+                      _iotNotes,
+                      'Ghi chú cho kỹ thuật viên',
+                      maxLength: 800,
+                    ),
                     const SizedBox(height: 4),
                     if (zoneArea != null && zoneArea > 0 && _cropId != null)
                       ZoneHoneycombEstimateCard(
                         measurementParameters: _params.toList(),
-                        measurementSource: 'Theo profile đã chọn và nhu cầu sẽ gửi kỹ thuật viên',
+                        measurementSource:
+                            'Theo profile đã chọn và nhu cầu sẽ gửi kỹ thuật viên',
                         areaM2: zoneArea,
                         cropName: _cropName,
+                        // Chu vi thật của ranh giới Zone vừa vẽ (nếu có) để tính số node chính xác hơn.
+                        perimeterM: _drawZone && _zoneBoundary != null
+                            ? convexHullPerimeterM([
+                                for (final p in _zoneBoundary!)
+                                  (lat: p.latitude, lng: p.longitude),
+                              ])
+                            : null,
                         onEstimate: (e) {
                           if (mounted) setState(() => _estimate = e);
                         },
                       )
                     else
-                      _hint('Chọn cây trồng và nhập diện tích Zone để xem danh sách thiết bị dự kiến và dự toán.'),
+                      _hint(
+                        'Chọn cây trồng và nhập diện tích Zone để xem danh sách thiết bị dự kiến và dự toán.',
+                      ),
                     _hint(
-                      'Lưu ý: máy chủ hiện chỉ nhận thông số cần đo và ghi chú khi tạo yêu cầu từ wizard, '
-                      'CHƯA lưu danh sách thiết bị/số lượng. Dự toán ở trên chỉ để tham khảo; số lượng ước tính '
-                      'được ghi vào ghi chú gửi kỹ thuật viên (có gắn nhãn ước tính). Kỹ thuật viên sẽ lập kế hoạch '
-                      'thiết bị chính thức sau khảo sát.',
-                      color: AppColors.warning,
+                      'Danh sách thiết bị và dự toán ở trên sẽ được LƯU kèm yêu cầu (mã, tên, số lượng, đơn giá tại thời '
+                      'điểm gửi). Đây chưa phải báo giá hay hợp đồng: kỹ thuật viên khảo sát, chỉnh sửa danh sách rồi lập '
+                      'báo giá/hợp đồng để bạn xem và xác nhận.',
+                      color: AppColors.textMuted,
                     ),
                   ],
                 ],
@@ -887,7 +1120,12 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
         children: [
           Icon(icon, size: 16, color: color ?? AppColors.primaryDark),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 13, height: 1.3))),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 13, height: 1.3),
+            ),
+          ),
         ],
       ),
     );
@@ -904,18 +1142,29 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                line(Icons.agriculture, 'Trang trại "${_farmName.text.trim()}"'),
+                line(
+                  Icons.agriculture,
+                  'Trang trại "${_farmName.text.trim()}"\n'
+                  '${_address.text.trim().isEmpty ? 'Chưa nhập địa chỉ' : _address.text.trim()}'
+                  '${_num(_farmArea) == null ? '' : ' · ${_farmArea.text.trim()} m²'}'
+                  '${_farmCenter == null ? '' : '\nToạ độ: ${_farmCenter!.latitude.toStringAsFixed(5)}, ${_farmCenter!.longitude.toStringAsFixed(5)}'}',
+                ),
                 line(
                   Icons.layers_outlined,
-                  'Lô đất "${_fieldName.text.trim()}" · ${_fieldArea.text} m² · '
+                  'Lô đất "${_fieldName.text.trim()}" · ${_soils[_soil] ?? _soil} · ${_fieldArea.text} m² · '
                   '${fieldPts != null && fieldPts.length >= 3 ? 'có ranh giới GIS' : 'chưa có ranh giới GIS'}',
-                  color: fieldPts != null && fieldPts.length >= 3 ? null : AppColors.warning,
+                  color: fieldPts != null && fieldPts.length >= 3
+                      ? null
+                      : AppColors.warning,
                 ),
                 line(
                   Icons.home_work_outlined,
-                  'Zone "${_zoneName.text.trim()}" · ${_zoneArea.text} m² · '
-                  '${zonePts != null && zonePts.length >= 3 ? 'có ranh giới GIS' : 'chưa có ranh giới GIS'}',
-                  color: zonePts != null && zonePts.length >= 3 ? null : AppColors.warning,
+                  'Zone "${_zoneName.text.trim()}" · ${_zoneTypes[_zoneType] ?? _zoneType} · ${_zoneArea.text} m² · '
+                  '${zonePts != null && zonePts.length >= 3 ? 'có ranh giới GIS' : 'chưa có ranh giới GIS'}\n'
+                  'Thuộc lô đất "${_fieldName.text.trim()}" của trang trại "${_farmName.text.trim()}"',
+                  color: zonePts != null && zonePts.length >= 3
+                      ? null
+                      : AppColors.warning,
                 ),
                 if (_withSeason) ...[
                   line(
@@ -926,7 +1175,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     '${_d(_start)} → ${_end == null ? '—' : _d(_end!)}',
                   ),
                 ] else
-                  line(Icons.eco_outlined, 'Không tạo vụ trồng (có thể tạo sau)', color: AppColors.textMuted),
+                  line(
+                    Icons.eco_outlined,
+                    'Không tạo vụ trồng (có thể tạo sau)',
+                    color: AppColors.textMuted,
+                  ),
                 if (_withSeason && _withIot) ...[
                   line(
                     Icons.settings_input_antenna,
@@ -935,10 +1188,13 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                   if (est != null)
                     line(
                       Icons.calculate_outlined,
-                      'Dự toán tham khảo (CHƯA lưu thành kế hoạch thiết bị): ${est.gateways} gateway, '
-                      '${est.sensors} node cảm biến, ${est.actuators} node van/bơm'
-                      '${est.total == null ? '' : ' · ~${formatVnd(est.total!)}'}',
-                      color: AppColors.warning,
+                      buildWizardEstimateItems(est).hasItems
+                          ? 'Dự toán sẽ được lưu kèm yêu cầu: ${buildWizardEstimateItems(est).items.length} hạng mục'
+                                '${est.total == null ? '' : ' · ~${formatVnd(est.total!)}'}'
+                          : 'Dự toán KHÔNG được lưu: ${buildWizardEstimateItems(est).skippedReason ?? 'Zone không cần bổ sung thiết bị.'}',
+                      color: buildWizardEstimateItems(est).hasItems
+                          ? null
+                          : AppColors.warning,
                     )
                   else
                     line(
@@ -952,7 +1208,8 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                     'Không gửi yêu cầu IoT (có thể gửi sau)',
                     color: AppColors.textMuted,
                   ),
-                if (_submitError != null) _hint(_submitError!, color: AppColors.danger),
+                if (_submitError != null)
+                  _hint(_submitError!, color: AppColors.danger),
               ],
             ),
     );
@@ -973,7 +1230,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                   margin: EdgeInsets.only(right: i == _lastStep ? 0 : 4),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(3),
-                    color: i <= _step ? AppColors.primaryDark : const Color(0xFFE2E8F0),
+                    color: i <= _step
+                        ? AppColors.primaryDark
+                        : const Color(0xFFE2E8F0),
                   ),
                 ),
               ),
@@ -993,16 +1252,28 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     final provider = context.watch<FarmProvider>();
     if (!provider.canManageFarmStructure) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Thiết lập trang trại', style: TextStyle(fontSize: 15))),
+        appBar: AppBar(
+          title: const Text(
+            'Thiết lập trang trại',
+            style: TextStyle(fontSize: 15),
+          ),
+        ),
         body: const AppEmptyState(
           icon: Icons.lock_outline,
-          message: 'Chỉ chủ trang trại (FarmOwner) mới được tạo trang trại, lô đất và Zone.',
+          message:
+              'Chỉ chủ trang trại (FarmOwner) mới được tạo trang trại, lô đất và Zone.',
         ),
       );
     }
     if (_outcome != null) return _resultView(provider);
 
-    final steps = [_farmStep(), _fieldStep(), _zoneStep(), _seasonStep(), _reviewStep()];
+    final steps = [
+      _farmStep(),
+      _fieldStep(),
+      _zoneStep(),
+      _seasonStep(),
+      _reviewStep(),
+    ];
     final isLast = _step == _lastStep;
     void next() {
       final err = _validate(_step);
@@ -1021,7 +1292,12 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Thiết lập trang trại', style: TextStyle(fontSize: 15))),
+      appBar: AppBar(
+        title: const Text(
+          'Thiết lập trang trại',
+          style: TextStyle(fontSize: 15),
+        ),
+      ),
       body: Column(
         children: [
           _progress(),
@@ -1044,19 +1320,27 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
           child: Row(
             children: [
               if (_step > 0) ...[
-                OutlinedButton(onPressed: _busy ? null : () => setState(() => _step--), child: const Text('Quay lại')),
+                OutlinedButton(
+                  onPressed: _busy ? null : () => setState(() => _step--),
+                  child: const Text('Quay lại'),
+                ),
                 const SizedBox(width: 10),
               ],
               Expanded(
                 child: FilledButton(
                   onPressed: _busy || (isLast && _submitted)
                       ? null
-                      : (isLast && _possiblyCreatedFarmId != null ? null : next),
+                      : (isLast && _possiblyCreatedFarmId != null
+                            ? null
+                            : next),
                   child: _busy && isLast
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : Text(isLast ? 'Gửi yêu cầu cấu hình' : 'Tiếp tục'),
                 ),
@@ -1078,12 +1362,18 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     if (seasonId != null && zoneId != null) {
       try {
         final list = await CropApi.getPlantingSeasons(zoneId: zoneId);
-        season = list.where((x) => '${x['seasonId']}' == seasonId).firstOrNull?['status']?.toString();
+        season = list
+            .where((x) => '${x['seasonId']}' == seasonId)
+            .firstOrNull?['status']
+            ?.toString();
       } catch (_) {}
     }
     if (reqId != null) {
       try {
-        request = (await DeploymentApi.getDeploymentRequest(reqId, technician: false)).status;
+        request = (await DeploymentApi.getDeploymentRequest(
+          reqId,
+          technician: false,
+        )).status;
       } catch (_) {}
     }
     return {'season': season, 'request': request};
@@ -1111,9 +1401,13 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Icon(
-            outcome.isComplete ? Icons.check_circle : Icons.warning_amber_rounded,
+            outcome.isComplete
+                ? Icons.check_circle
+                : Icons.warning_amber_rounded,
             size: 56,
-            color: outcome.isComplete ? AppColors.primaryDark : AppColors.warning,
+            color: outcome.isComplete
+                ? AppColors.primaryDark
+                : AppColors.warning,
           ),
           const SizedBox(height: 8),
           Text(
@@ -1150,18 +1444,29 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                         String? status;
                         if (item.key == 'seasonId') {
                           final raw = st?['season'];
-                          status = raw == null ? null : (_seasonStatusLabels[raw] ?? raw);
+                          status = raw == null
+                              ? null
+                              : (_seasonStatusLabels[raw] ?? raw);
                         } else if (item.key == 'deploymentRequestId') {
                           final raw = st?['request'];
-                          status = raw == null ? null : (deploymentStatusLabels[raw] ?? raw);
+                          status = raw == null
+                              ? null
+                              : (deploymentStatusLabels[raw] ?? raw);
                         }
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(status == null ? 'Đã tạo' : 'Đã tạo · Trạng thái: $status'),
+                            Text(
+                              status == null
+                                  ? 'Đã tạo'
+                                  : 'Đã tạo · Trạng thái: $status',
+                            ),
                             SelectableText(
                               'ID: ${item.id}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
                         );
@@ -1180,7 +1485,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                 icon: const Icon(Icons.eco_outlined),
                 label: const Text('Tạo vụ trồng cho Zone'),
                 onPressed: () async {
-                  final zone = provider.allZones.where((z) => z.zoneId == zoneId).firstOrNull;
+                  final zone = provider.allZones
+                      .where((z) => z.zoneId == zoneId)
+                      .firstOrNull;
                   if (zone == null) {
                     showAppSnack(
                       context,
@@ -1193,7 +1500,10 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                 },
               ),
             ),
-          if (zoneId != null && missing.any((m) => m.key == 'deploymentRequestId' || m.key == 'seasonId'))
+          if (zoneId != null &&
+              missing.any(
+                (m) => m.key == 'deploymentRequestId' || m.key == 'seasonId',
+              ))
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: OutlinedButton.icon(
@@ -1201,7 +1511,9 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                 label: const Text('Gửi yêu cầu triển khai IoT'),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => DeploymentPlanningScreen(initialZoneId: zoneId)),
+                  MaterialPageRoute(
+                    builder: (_) => DeploymentRequestSendScreen(zoneId: zoneId),
+                  ),
                 ),
               ),
             ),
@@ -1227,11 +1539,18 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
             child: OutlinedButton.icon(
               icon: const Icon(Icons.list_alt),
               label: const Text('Danh sách yêu cầu kỹ thuật'),
-              onPressed: () =>
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DeploymentPlanningScreen())),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const OwnerDeploymentRequestsScreen(),
+                ),
+              ),
             ),
           ),
-          OutlinedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xong')),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xong'),
+          ),
         ],
       ),
     );

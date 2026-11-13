@@ -22,7 +22,10 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
+                  border: Border.all(
+                    color: const Color(0xFFFDE68A),
+                    width: 1.2,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -32,10 +35,16 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                            color: const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.assignment_late_outlined, color: Color(0xFFD97706), size: 18),
+                          child: const Icon(
+                            Icons.assignment_late_outlined,
+                            color: Color(0xFFD97706),
+                            size: 18,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         const Expanded(
@@ -53,8 +62,12 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Hệ thống tự động theo dõi các hợp đồng thuê nhà màng sắp đến kỳ gia hạn (< 30 ngày) và thiết bị IoT chuẩn bị hết hạn trích khấu hao để lập kế hoạch thay thế.',
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.4),
+                      'Hệ thống tự động theo dõi các hợp đồng của Zone sắp đến kỳ gia hạn (< 30 ngày) và thiết bị IoT chuẩn bị hết hạn trích khấu hao để lập kế hoạch thay thế.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF78350F),
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -65,19 +78,31 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                               backgroundColor: const Color(0xFF062326),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               elevation: 0,
                             ),
-                            icon: const Icon(Icons.open_in_new, size: 14, color: Color(0xFF10B981)),
+                            icon: const Icon(
+                              Icons.open_in_new,
+                              size: 14,
+                              color: Color(0xFF10B981),
+                            ),
                             label: const Text(
                               'Xem Cảnh Báo Hợp Đồng & Khấu Hao',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const ContractsDepreciationScreen(initialTabIndex: 2),
+                                  builder: (_) =>
+                                      const ContractsDepreciationScreen(
+                                        initialTabIndex: 2,
+                                      ),
                                 ),
                               );
                             },
@@ -97,9 +122,18 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isCritical ? const Color(0xFFFCA5A5) : const Color(0xFFFDE68A), width: 1.5),
+                  border: Border.all(
+                    color: isCritical
+                        ? const Color(0xFFFCA5A5)
+                        : const Color(0xFFFDE68A),
+                    width: 1.5,
+                  ),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
                   ],
                 ),
                 child: Column(
@@ -111,12 +145,19 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: isCritical ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB),
+                                color: isCritical
+                                    ? const Color(0xFFFEF2F2)
+                                    : const Color(0xFFFFFBEB),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: isCritical ? const Color(0xFFF87171) : const Color(0xFFFBBF24),
+                                  color: isCritical
+                                      ? const Color(0xFFF87171)
+                                      : const Color(0xFFFBBF24),
                                 ),
                               ),
                               child: Text(
@@ -124,23 +165,34 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: isCritical ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                                  color: isCritical
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFFD97706),
                                 ),
                               ),
                             ),
                             if (alt.isBoundaryViolation) ...[
                               const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEFF6FF),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFF60A5FA)),
+                                  border: Border.all(
+                                    color: const Color(0xFF60A5FA),
+                                  ),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.location_off, size: 10, color: Color(0xFF2563EB)),
+                                    Icon(
+                                      Icons.location_off,
+                                      size: 10,
+                                      color: Color(0xFF2563EB),
+                                    ),
                                     SizedBox(width: 3),
                                     Text(
                                       'RANH GIỚI GIS',
@@ -156,16 +208,33 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                             ],
                           ],
                         ),
-                        Text(alt.time, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                        Text(
+                          alt.time,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
                       alt.title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text(alt.message, style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4)),
+                    Text(
+                      alt.message,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        height: 1.4,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -173,30 +242,44 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                         if (alt.isAcknowledged)
                           const Text(
                             '✓ Đã xác nhận xử lý',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF10B981),
+                              fontWeight: FontWeight.bold,
+                            ),
                           )
                         else
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF062326),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               minimumSize: Size.zero,
                             ),
                             onPressed: () async {
                               final messenger = ScaffoldMessenger.of(context);
-                              final ok = await farmProvider.acknowledgeAlert(alt.alertId);
+                              final ok = await farmProvider.acknowledgeAlert(
+                                alt.alertId,
+                              );
                               if (!ok) {
                                 messenger.showSnackBar(
                                   const SnackBar(
-                                    content: Text('Không xác nhận được cảnh báo. Kiểm tra kết nối và thử lại.'),
+                                    content: Text(
+                                      'Không xác nhận được cảnh báo. Kiểm tra kết nối và thử lại.',
+                                    ),
                                     backgroundColor: Color(0xFFDC2626),
                                   ),
                                 );
                               }
                             },
                             icon: const Icon(Icons.check, size: 14),
-                            label: const Text('Xác nhận đã xem', style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              'Xác nhận đã xem',
+                              style: TextStyle(fontSize: 11),
+                            ),
                           ),
                       ],
                     ),

@@ -56,12 +56,17 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
       _error = null;
     });
     try {
-      final seasons = await CropApi.getPlantingSeasons(zoneId: widget.zone.zoneId);
-      Map<String, dynamic>? pick(String status) => seasons.where((s) => '${s['status']}' == status).firstOrNull;
+      final seasons = await CropApi.getPlantingSeasons(
+        zoneId: widget.zone.zoneId,
+      );
+      Map<String, dynamic>? pick(String status) =>
+          seasons.where((s) => '${s['status']}' == status).firstOrNull;
       Map<String, dynamic>? profile;
       if (_profileId != null) {
         final all = await CropApi.getGrowthProfiles();
-        profile = all.where((p) => '${p['profileId']}' == _profileId).firstOrNull;
+        profile = all
+            .where((p) => '${p['profileId']}' == _profileId)
+            .firstOrNull;
       }
       if (!mounted) return;
       setState(() {
@@ -105,7 +110,9 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
     final problem = _plan.validate();
     final sel = _plan.selection;
     if (problem != null || !sel.active) {
-      setState(() => _message = problem ?? 'Chọn cây và hồ sơ trước khi áp dụng.');
+      setState(
+        () => _message = problem ?? 'Chọn cây và hồ sơ trước khi áp dụng.',
+      );
       return;
     }
     final newName = sel.mode == ZoneProfileMode.custom
@@ -119,7 +126,10 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
     });
     final provider = context.read<FarmProvider>();
     final key = _selectionKey(sel);
-    final prep = await prepareZoneProfile(selection: sel, reuseCloneId: _preparedKey == key ? _preparedCloneId : null);
+    final prep = await prepareZoneProfile(
+      selection: sel,
+      reuseCloneId: _preparedKey == key ? _preparedCloneId : null,
+    );
     if (prep.cloned && prep.profileId != null) {
       _preparedCloneId = prep.profileId;
       _preparedKey = key;
@@ -128,7 +138,8 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _message = '${prep.error} Dữ liệu bạn nhập được giữ nguyên, bấm lại để tiếp tục.';
+          _message =
+              '${prep.error} Dữ liệu bạn nhập được giữ nguyên, bấm lại để tiếp tục.';
         });
       }
       return;
@@ -156,21 +167,34 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
       _busy = false;
     });
     await _load();
-    if (mounted) setState(() => _message = 'Đã gắn hồ sơ "$newName" cho Zone. Không có vụ trồng nào được tạo.');
+    if (mounted)
+      setState(
+        () => _message =
+            'Đã gắn hồ sơ "$newName" cho Zone. Không có vụ trồng nào được tạo.',
+      );
   }
 
   Future<void> _clear() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Gỡ hồ sơ khỏi Zone?', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          'Gỡ hồ sơ khỏi Zone?',
+          style: TextStyle(fontSize: 15),
+        ),
         content: const Text(
           'Zone sẽ không còn hồ sơ canh tác (cây của Zone giữ nguyên). Vụ trồng và lịch điều khiển đã có không bị xóa.',
           style: TextStyle(fontSize: 13),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Gỡ hồ sơ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Gỡ hồ sơ'),
+          ),
         ],
       ),
     );
@@ -220,7 +244,10 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: LinearProgressIndicator(minHeight: 2));
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
     }
     if (_error != null) {
       return Column(
@@ -254,10 +281,15 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.spa_outlined, size: 18),
-            label: Text(hasProfile ? 'Đổi hồ sơ của Zone' : 'Gắn hồ sơ cho Zone'),
+            label: Text(
+              hasProfile ? 'Đổi hồ sơ của Zone' : 'Gắn hồ sơ cho Zone',
+            ),
           ),
           if (hasProfile)
             TextButton(
@@ -268,7 +300,10 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
         if (_message != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text(_message!, style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
+            child: Text(
+              _message!,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+            ),
           ),
       ],
     );
@@ -276,13 +311,16 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
 
   Widget _currentProfile() {
     final profile = _profile;
-    final isSystem = (profile?['isSystemDefined'] ?? widget.zone.growthProfileIsSystem) == true;
+    final isSystem =
+        (profile?['isSystemDefined'] ?? widget.zone.growthProfileIsSystem) ==
+        true;
     final stages = [
       for (final s in (profile?['stages'] as List? ?? const []))
         if (s is Map) StageDraft.fromJson(Map<String, dynamic>.from(s)),
     ]..sort((a, b) => a.order.compareTo(b.order));
     final seasonProfile = _season?['growthProfileName'];
-    final profileName = profile?['name'] ?? widget.zone.growthProfileName ?? '—';
+    final profileName =
+        profile?['name'] ?? widget.zone.growthProfileName ?? '—';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -292,7 +330,11 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
         ),
         Text(
           'Hồ sơ: $profileName (${isSystem ? 'hệ thống, chỉ xem/sao chép' : 'riêng của trang trại'})',
-          style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.4),
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: Color(0xFF475569),
+            height: 1.4,
+          ),
         ),
         if (_season != null)
           Text(
@@ -320,7 +362,9 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
                 label: const Text('Sửa hồ sơ riêng'),
               ),
             OutlinedButton.icon(
-              onPressed: _busy ? null : () => setState(() => _changing = !_changing),
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _changing = !_changing),
               icon: const Icon(Icons.swap_horiz, size: 18),
               label: const Text('Đổi hồ sơ'),
             ),
@@ -337,7 +381,11 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
             child: Text(
               'Hồ sơ hệ thống không sửa trực tiếp. Muốn chỉnh giai đoạn, ngưỡng hoặc lịch tưới: bấm "Đổi hồ sơ" rồi chọn '
               '"Tùy chỉnh bản sao".',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35),
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                height: 1.35,
+              ),
             ),
           ),
       ],

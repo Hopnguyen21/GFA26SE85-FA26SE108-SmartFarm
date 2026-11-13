@@ -10,6 +10,9 @@ using System.Text.Json.Serialization;
 using SmartFarm.Api.HostedServices;
 using Microsoft.EntityFrameworkCore;
 using SmartFarm.Infrastructure.Persistence;
+using SmartFarm.Infrastructure.Ai.Knowledge;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +32,22 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddSmartFarmAuthentication(builder.Configuration);
+builder.Services.AddSmartFarmAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Mỗi địa chỉ IP có hạn mức riêng để một client không thể chặn đăng nhập của mọi người khác.
+    options.AddPolicy("LoginPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+});
 builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -56,6 +74,8 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddHostedService<ControlAutomationWorker>();
+builder.Services.AddHostedService<SimulatedIotTelemetryWorker>();
+builder.Services.AddHostedService<KnowledgeEmbeddingWorker>();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
@@ -77,9 +97,11 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Auto-migration: apply pending EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
+// Auto-migration: apply pending EF Core migrations on startup & seed default knowledge base (skipped in Testing)
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<SmartFarmDbContext>();
@@ -87,8 +109,27 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "Auto-migration failed on startup");
+    }
+
+    try
+    {
+        var docService = scope.ServiceProvider.GetRequiredService<AgricultureDocumentService>();
+        await docService.SeedVietGapKnowledgeAsync();
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Knowledge base seeding encountered an issue during startup");
+    }
+
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<SmartFarmDbContext>();
+        await SmartFarm.Infrastructure.Persistence.DataIntegrityHealer.HealAsync(db, logger, app.Configuration, app.Environment.IsDevelopment());
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Data integrity auto-healing encountered an issue during startup");
     }
 }
 
@@ -106,6 +147,7 @@ else
     app.UseHttpsRedirection();
 }
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -22,8 +22,8 @@ public sealed class PlatformFeaturesController(
     [HttpGet("api/v1/audit-logs")]
     [Authorize(Roles = "PlatformAdmin")]
     public async Task<ActionResult<AuditLogPagedResult>> GetAuditLogs(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1,
+        [FromQuery, Range(1, 100)] int pageSize = 50,
         [FromQuery] string? search = null,
         [FromQuery] string? action = null,
         [FromQuery] string? entity = null,
@@ -96,7 +96,7 @@ public sealed class PlatformFeaturesController(
     }
 
     // ─── 5. Global Growth Profiles ────────────────────────────────────────────
-    [HttpGet("api/v1/growth-profiles")]
+    [HttpGet("api/v1/platform/growth-profiles")]
     [Authorize(Roles = "PlatformAdmin,FarmOwner")]
     public async Task<ActionResult<IReadOnlyList<AllGrowthProfileView>>> GetAllGrowthProfiles(
         [FromQuery] bool? isSystemDefined = null,
@@ -120,7 +120,7 @@ public sealed class PlatformFeaturesController(
 
     [HttpGet("api/v1/service-requests/{id:guid}/quotation")]
     [Authorize(Roles = "PlatformTechnician,FarmOwner,PlatformAdmin")]
-    public async Task<ActionResult<QuotationView>> GetQuotation(Guid id, CancellationToken ct)
+    public async Task<ActionResult<QuotationView?>> GetQuotation(Guid id, CancellationToken ct)
     {
         return Ok(await quotationService.GetAsync(User.GetUserId(), id, ct));
     }
@@ -147,7 +147,7 @@ public sealed class PlatformFeaturesController(
 
     // ─── 7. GIS Node Placement & Mapping ──────────────────────────────────────
     [HttpPut("api/v1/zones/{zoneId:guid}/devices/bulk-locations")]
-    [Authorize(Roles = "PlatformTechnician")]
+    [Authorize(Roles = "PlatformTechnician,FarmOwner,PlatformAdmin")]
     public async Task<IActionResult> BulkUpdateNodeLocations(
         Guid zoneId,
         [FromBody] BulkUpdateNodeLocationsCommand command,
@@ -158,6 +158,7 @@ public sealed class PlatformFeaturesController(
     }
 
     [HttpGet("api/v1/zones/{zoneId:guid}/devices/map-locations")]
+    [Authorize(Roles = "PlatformTechnician,FarmOwner,PlatformAdmin,Farmer")]
     public async Task<ActionResult<IReadOnlyList<DeviceMapLocationView>>> GetMapLocations(Guid zoneId, CancellationToken ct)
     {
         return Ok(await gisService.GetMapLocationsAsync(User.GetUserId(), zoneId, ct));
@@ -165,7 +166,7 @@ public sealed class PlatformFeaturesController(
 
     // ─── 8. Technician Spare Parts ────────────────────────────────────────────
     [HttpGet("api/v1/platform/technicians/me/spare-parts")]
-    [Authorize(Roles = "PlatformTechnician")]
+    [Authorize(Roles = "PlatformTechnician,FarmOwner,PlatformAdmin")]
     public async Task<ActionResult<IReadOnlyList<PlatformHardwareItemView>>> GetMySpareParts(CancellationToken ct)
     {
         return Ok(await farmerService.GetMySparePartsAsync(User.GetUserId(), ct));
@@ -184,21 +185,22 @@ public sealed class PlatformFeaturesController(
 
     // ─── 10. Farm Weather Forecast ────────────────────────────────────────────
     [HttpGet("api/v1/farms/{farmId:guid}/weather")]
+    [Authorize(Roles = "Farmer,FarmOwner,PlatformAdmin")]
     public async Task<ActionResult<FarmWeatherView>> GetFarmWeather(Guid farmId, CancellationToken ct)
     {
-        return Ok(await weatherService.GetFarmWeatherAsync(User.GetUserId(), User.GetTenantId(), farmId, ct));
+        return Ok(await weatherService.GetFarmWeatherAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, farmId, ct));
     }
 
     // ─── 11. Farmer Tasks & Assigned Zones ────────────────────────────────────
     [HttpGet("api/v1/farmer/my-tasks")]
-    [Authorize(Roles = "Farmer")]
+    [Authorize(Roles = "Farmer,FarmOwner,PlatformAdmin")]
     public async Task<ActionResult<IReadOnlyList<object>>> GetFarmerTasks(CancellationToken ct)
     {
         return Ok(await farmerService.GetMyTasksAsync(User.GetUserId(), ct));
     }
 
     [HttpPut("api/v1/farmer/tasks/{taskId:guid}/complete")]
-    [Authorize(Roles = "Farmer")]
+    [Authorize(Roles = "Farmer,FarmOwner")]
     public async Task<IActionResult> CompleteFarmerTask(
         Guid taskId,
         [FromBody] FarmerCompleteTaskCommand command,
@@ -209,7 +211,7 @@ public sealed class PlatformFeaturesController(
     }
 
     [HttpGet("api/v1/farmer/my-zones")]
-    [Authorize(Roles = "Farmer")]
+    [Authorize(Roles = "Farmer,FarmOwner,PlatformAdmin")]
     public async Task<ActionResult<IReadOnlyList<FarmerZoneView>>> GetFarmerZones(CancellationToken ct)
     {
         return Ok(await farmerService.GetMyZonesAsync(User.GetUserId(), ct));
@@ -217,13 +219,13 @@ public sealed class PlatformFeaturesController(
 
     // ─── 12. Schedule Sync from Crop Profile ──────────────────────────────────
     [HttpPost("api/v1/zones/{zoneId:guid}/schedules/sync-from-crop")]
-    [Authorize(Roles = "FarmOwner")]
+    [Authorize(Roles = "FarmOwner,Farmer,PlatformAdmin")]
     public async Task<ActionResult<IReadOnlyList<object>>> SyncCropSchedule(
         Guid zoneId,
         [FromBody] SyncCropScheduleRequest request,
         CancellationToken ct)
     {
-        var result = await scheduleSyncService.SyncFromCropAsync(User.GetUserId(), User.GetTenantId(), zoneId, request.CropId, request.ActuatorId, ct);
+        var result = await scheduleSyncService.SyncFromCropAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, zoneId, request.CropId, request.ActuatorId, ct);
         return Ok(result);
     }
 
@@ -245,16 +247,16 @@ public sealed class PlatformFeaturesController(
         [FromQuery] Guid? zoneId = null,
         CancellationToken ct = default)
     {
-        return Ok(await controlAutomationService.GetEnvironmentalConfigsAsync(User.GetUserId(), User.GetTenantId(), zoneId, ct));
+        return Ok(await controlAutomationService.GetEnvironmentalConfigsAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, zoneId, ct));
     }
 
     [HttpPut("api/v1/control/environmental-configs")]
-    [Authorize(Roles = "FarmOwner")]
+    [Authorize(Roles = "FarmOwner,PlatformAdmin")]
     public async Task<ActionResult<EnvironmentalTargetConfigView>> UpdateEnvironmentalConfig(
         [FromBody] UpdateEnvironmentalTargetConfigCommand command,
         CancellationToken ct)
     {
-        return Ok(await controlAutomationService.UpdateEnvironmentalConfigAsync(User.GetUserId(), User.GetTenantId(), command, ct));
+        return Ok(await controlAutomationService.UpdateEnvironmentalConfigAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, command, ct));
     }
 }
 

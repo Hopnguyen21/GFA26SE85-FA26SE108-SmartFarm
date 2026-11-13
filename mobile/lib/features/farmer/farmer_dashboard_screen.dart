@@ -21,7 +21,8 @@ class FarmerDashboardScreen extends StatefulWidget {
   State<FarmerDashboardScreen> createState() => _FarmerDashboardScreenState();
 }
 
-class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with TickerProviderStateMixin {
+class _FarmerDashboardScreenState extends State<FarmerDashboardScreen>
+    with TickerProviderStateMixin {
   /// Cho phép code trong các file part (extension) cập nhật state.
   void _rebuild(VoidCallback fn) => setState(fn);
 
@@ -55,9 +56,13 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
     // Lấy zones được phân công cho farmer này từ GET /users/me (zoneAccess)
     final assignedZones = provider.assignedZonesForCurrentFarmer;
     // Quyền điều khiển là quyền THEO TỪNG ZONE (zoneAccess.canControl), không phải cờ chung của Farmer.
-    final canControlPump = assignedZones.any((z) => provider.canControlZone(z.zoneId));
-    final canLogDiary = currentFarmer?.permissions.contains('CAN_LOG_DIARY') ?? false;
-    final canViewReports = currentFarmer?.permissions.contains('CAN_VIEW_REPORTS') ?? false;
+    final canControlPump = assignedZones.any(
+      (z) => provider.canControlZone(z.zoneId),
+    );
+    final canLogDiary =
+        currentFarmer?.permissions.contains('CAN_LOG_DIARY') ?? false;
+    final canViewReports =
+        currentFarmer?.permissions.contains('CAN_VIEW_REPORTS') ?? false;
     final unreadAlerts = provider.alerts.where((a) => !a.isAcknowledged).length;
     final unreadTotal = unreadAlerts + provider.unreadNotificationCount;
 
@@ -77,7 +82,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
                 color: const Color(0xFF10B981).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Center(child: Icon(Icons.person, color: Color(0xFF10B981), size: 20)),
+              child: const Center(
+                child: Icon(Icons.person, color: Color(0xFF10B981), size: 20),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -85,13 +92,22 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    currentFarmer?.name ?? provider.me?['fullName']?.toString() ?? 'Nông Dân',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    currentFarmer?.name ??
+                        provider.me?['fullName']?.toString() ??
+                        'Nông Dân',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     currentFarmer?.role ?? 'Nông dân Thực địa (CF2)',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -105,9 +121,17 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
-                : Icon(Icons.sync, color: provider.isApiConnected ? const Color(0xFF10B981) : Colors.white70),
+                : Icon(
+                    Icons.sync,
+                    color: provider.isApiConnected
+                        ? const Color(0xFF10B981)
+                        : Colors.white70,
+                  ),
             tooltip: provider.isApiConnected
                 ? 'API Đã kết nối (Chạm để đồng bộ)'
                 : 'API Ngoại tuyến (Chạm để kết nối lại)',
@@ -122,7 +146,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
                           : '⚠️ Không kết nối được API backend, đang dùng dữ liệu lưu tạm',
                     ),
                     duration: const Duration(seconds: 2),
-                    backgroundColor: provider.isApiConnected ? const Color(0xFF062326) : Colors.orange[800],
+                    backgroundColor: provider.isApiConnected
+                        ? const Color(0xFF062326)
+                        : Colors.orange[800],
                   ),
                 );
               }
@@ -136,7 +162,10 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
               child: const Icon(Icons.notifications_none, color: Colors.white),
             ),
             tooltip: 'Thông báo & Cảnh báo',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AlertsTasksScreen())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AlertsTasksScreen()),
+            ),
           ),
           const SizedBox(width: 4),
         ],
@@ -146,14 +175,23 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> with Tick
           indicatorWeight: 3,
           labelColor: const Color(0xFF10B981),
           unselectedLabelColor: const Color(0xFF94A3B8),
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          labelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
           tabs: [
-            const Tab(icon: Icon(Icons.home_work_outlined, size: 18), text: 'Khu Vực'),
+            const Tab(
+              icon: Icon(Icons.home_work_outlined, size: 18),
+              text: 'Khu Vực',
+            ),
             Tab(
               icon: const Icon(Icons.water_drop_outlined, size: 18),
               text: canControlPump ? 'Điều Khiển' : 'Lịch Tưới',
             ),
-            Tab(icon: const Icon(Icons.book_outlined, size: 18), text: canLogDiary ? 'Nhật Ký' : 'Báo Cáo'),
+            Tab(
+              icon: const Icon(Icons.book_outlined, size: 18),
+              text: canLogDiary ? 'Nhật Ký' : 'Báo Cáo',
+            ),
           ],
         ),
       ),
@@ -221,7 +259,12 @@ class _LiveClock extends StatefulWidget {
   final TextStyle style;
   final int? maxLines;
   final TextOverflow? overflow;
-  const _LiveClock({required this.weekdayLabel, required this.style, this.maxLines, this.overflow});
+  const _LiveClock({
+    required this.weekdayLabel,
+    required this.style,
+    this.maxLines,
+    this.overflow,
+  });
 
   @override
   State<_LiveClock> createState() => _LiveClockState();

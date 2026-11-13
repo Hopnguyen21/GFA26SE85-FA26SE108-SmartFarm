@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../core/models/iot_deployment.dart';
-import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
-part 'parts/deployment_screens_planning.dart';
+import '../../core/widgets/section_card.dart';
+import '../zones/honeycomb_estimate.dart';
+import '../zones/widgets/zone_honeycomb_estimate_card.dart'
+    show measurementLabel;
+part 'parts/deployment_screens_owner_list.dart';
 part 'parts/deployment_screens_technician_list.dart';
 part 'parts/deployment_screens_detail.dart';
 part 'parts/deployment_screens_detail_actions.dart';
@@ -19,8 +21,9 @@ Color _statusColor(String s) => switch (s) {
   _ => const Color(0xFF0284C7),
 };
 
-void _toast(BuildContext context, String message) =>
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+void _toast(BuildContext context, String message) => ScaffoldMessenger.of(
+  context,
+).showSnackBar(SnackBar(content: Text(message)));
 
 Future<bool> _confirm(BuildContext context, String title, String body) async =>
     await showDialog<bool>(
@@ -29,8 +32,14 @@ Future<bool> _confirm(BuildContext context, String title, String body) async =>
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Xác nhận')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Xác nhận'),
+          ),
         ],
       ),
     ) ??
@@ -44,13 +53,20 @@ Widget _statusChip(String status) => Container(
   ),
   child: Text(
     deploymentStatusLabels[status] ?? status,
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status)),
+    style: TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.bold,
+      color: _statusColor(status),
+    ),
   ),
 );
 
 PreferredSizeWidget _appBar(String title, {List<Widget>? actions}) => AppBar(
   backgroundColor: const Color(0xFF062326),
   foregroundColor: Colors.white,
-  title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+  title: Text(
+    title,
+    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  ),
   actions: actions,
 );

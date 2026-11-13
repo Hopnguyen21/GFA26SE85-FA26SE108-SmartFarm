@@ -8,7 +8,9 @@ extension _HomeScreenWeatherCards on HomeScreen {
     final isLoading = farmProvider.isLoadingWeather;
 
     final locationName = farm.province.isNotEmpty
-        ? (farm.district.isNotEmpty ? '${farm.district}, ${farm.province}' : farm.province)
+        ? (farm.district.isNotEmpty
+              ? '${farm.district}, ${farm.province}'
+              : farm.province)
         : (farm.name.isNotEmpty ? farm.name : 'Vị trí trang trại');
 
     final hasWeatherData = weather != null && weather['temperature'] != null;
@@ -18,9 +20,12 @@ extension _HomeScreenWeatherCards on HomeScreen {
 
     final weatherCondition = hasWeatherData
         ? (weather['weatherDescription']?.toString() ?? 'Khí hậu địa phương')
-        : (isLoading ? 'Đang cập nhật thời tiết...' : 'Thời tiết không khả dụng');
+        : (isLoading
+              ? 'Đang cập nhật thời tiết...'
+              : 'Thời tiết không khả dụng');
 
-    final rainProb = hasWeatherData && weather['precipitationProbability'] != null
+    final rainProb =
+        hasWeatherData && weather['precipitationProbability'] != null
         ? '${(weather['precipitationProbability'] as num).toInt()}%'
         : '--';
 
@@ -46,7 +51,11 @@ extension _HomeScreenWeatherCards on HomeScreen {
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF0F766E).withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: const Color(0xFF0F766E).withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -61,7 +70,11 @@ extension _HomeScreenWeatherCards on HomeScreen {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.wb_cloudy_rounded, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.wb_cloudy_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -85,11 +98,21 @@ extension _HomeScreenWeatherCards on HomeScreen {
                         ),
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           child: const Text(
                             'Live',
-                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -97,7 +120,11 @@ extension _HomeScreenWeatherCards on HomeScreen {
                     const SizedBox(height: 1),
                     Text(
                       locationName,
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -111,7 +138,12 @@ extension _HomeScreenWeatherCards on HomeScreen {
                   children: [
                     Text(
                       outdoorTemp,
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, height: 1),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        height: 1,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -119,7 +151,11 @@ extension _HomeScreenWeatherCards on HomeScreen {
                       maxLines: 2,
                       textAlign: TextAlign.end,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xFFCCFBF1), fontSize: 11, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        color: Color(0xFFCCFBF1),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -136,15 +172,39 @@ extension _HomeScreenWeatherCards on HomeScreen {
             ),
             child: Row(
               children: [
-                Expanded(child: Center(child: _buildWeatherMiniItem(Icons.water_drop_outlined, 'Mưa', rainProb))),
-                Container(height: 16, width: 1, color: Colors.white24),
-                Expanded(child: Center(child: _buildWeatherMiniItem(Icons.opacity, 'Độ ẩm', outdoorHumidity))),
-                Container(height: 16, width: 1, color: Colors.white24),
-                Expanded(child: Center(child: _buildWeatherMiniItem(Icons.air, 'Gió', windSpeed))),
+                Expanded(
+                  child: Center(
+                    child: _buildWeatherMiniItem(
+                      Icons.water_drop_outlined,
+                      'Mưa',
+                      rainProb,
+                    ),
+                  ),
+                ),
                 Container(height: 16, width: 1, color: Colors.white24),
                 Expanded(
                   child: Center(
-                    child: _buildWeatherMiniItem(Icons.wb_sunny_outlined, 'Trạm', hasWeatherData ? 'OpenMeteo' : '--'),
+                    child: _buildWeatherMiniItem(
+                      Icons.opacity,
+                      'Độ ẩm',
+                      outdoorHumidity,
+                    ),
+                  ),
+                ),
+                Container(height: 16, width: 1, color: Colors.white24),
+                Expanded(
+                  child: Center(
+                    child: _buildWeatherMiniItem(Icons.air, 'Gió', windSpeed),
+                  ),
+                ),
+                Container(height: 16, width: 1, color: Colors.white24),
+                Expanded(
+                  child: Center(
+                    child: _buildWeatherMiniItem(
+                      Icons.wb_sunny_outlined,
+                      'Trạm',
+                      hasWeatherData ? 'OpenMeteo' : '--',
+                    ),
                   ),
                 ),
               ],
@@ -153,12 +213,19 @@ extension _HomeScreenWeatherCards on HomeScreen {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.info_outline, size: 11, color: Color(0xFF99F6E4)),
+              const Icon(
+                Icons.info_outline,
+                size: 11,
+                color: Color(0xFF99F6E4),
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   uvIndex,
-                  style: const TextStyle(color: Color(0xFF99F6E4), fontSize: 11),
+                  style: const TextStyle(
+                    color: Color(0xFF99F6E4),
+                    fontSize: 11,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -191,7 +258,11 @@ extension _HomeScreenWeatherCards on HomeScreen {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   value,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -230,7 +301,8 @@ extension _HomeScreenWeatherCards on HomeScreen {
     final isTooHot = currentT > maxSafe;
 
     // Calculate clamped fraction for marker on scale [10, 40]
-    final double markerPercent = ((currentT - scaleMin) / (scaleMax - scaleMin)).clamp(0.05, 0.95);
+    final double markerPercent = ((currentT - scaleMin) / (scaleMax - scaleMin))
+        .clamp(0.05, 0.95);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -241,7 +313,13 @@ extension _HomeScreenWeatherCards on HomeScreen {
           color: isOptimal ? const Color(0xFFE2E8F0) : const Color(0xFFFCA5A5),
           width: isOptimal ? 1 : 1.5,
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,7 +336,9 @@ extension _HomeScreenWeatherCards on HomeScreen {
                       decoration: BoxDecoration(
                         color: isOptimal
                             ? const Color(0xFFECFDF5)
-                            : (isTooHot ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF)),
+                            : (isTooHot
+                                  ? const Color(0xFFFEF2F2)
+                                  : const Color(0xFFEFF6FF)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
@@ -266,14 +346,20 @@ extension _HomeScreenWeatherCards on HomeScreen {
                         size: 14,
                         color: isOptimal
                             ? const Color(0xFF059669)
-                            : (isTooHot ? const Color(0xFFDC2626) : const Color(0xFF2563EB)),
+                            : (isTooHot
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFF2563EB)),
                       ),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
                         'DẢI NHIỆT ĐỘ AN TOÀN VIETGAP',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -286,16 +372,23 @@ extension _HomeScreenWeatherCards on HomeScreen {
                 onTap: () => _showThresholdSettingsModal(context, zone),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: isOptimal
                         ? const Color(0xFFECFDF5)
-                        : (isTooHot ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF)),
+                        : (isTooHot
+                              ? const Color(0xFFFEF2F2)
+                              : const Color(0xFFEFF6FF)),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isOptimal
                           ? const Color(0xFF10B981)
-                          : (isTooHot ? const Color(0xFFEF4444) : const Color(0xFF3B82F6)),
+                          : (isTooHot
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF3B82F6)),
                       width: 0.8,
                     ),
                   ),
@@ -303,20 +396,26 @@ extension _HomeScreenWeatherCards on HomeScreen {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        isOptimal ? '✓ Chuẩn' : (isTooHot ? '⚠️ > 28°C' : '⚠️ < 18°C'),
+                        isOptimal
+                            ? '✓ Chuẩn'
+                            : (isTooHot ? '⚠️ > 28°C' : '⚠️ < 18°C'),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: isOptimal
                               ? const Color(0xFF059669)
-                              : (isTooHot ? const Color(0xFFDC2626) : const Color(0xFF2563EB)),
+                              : (isTooHot
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF2563EB)),
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(
                         Icons.edit_note,
                         size: 13,
-                        color: isOptimal ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                        color: isOptimal
+                            ? const Color(0xFF059669)
+                            : const Color(0xFFDC2626),
                       ),
                     ],
                   ),
@@ -358,7 +457,9 @@ extension _HomeScreenWeatherCards on HomeScreen {
                         child: Container(
                           decoration: const BoxDecoration(
                             color: Color(0xFFBFDBFE),
-                            borderRadius: BorderRadius.horizontal(left: Radius.circular(6)),
+                            borderRadius: BorderRadius.horizontal(
+                              left: Radius.circular(6),
+                            ),
                           ),
                         ),
                       ),
@@ -369,7 +470,9 @@ extension _HomeScreenWeatherCards on HomeScreen {
                         bottom: 0,
                         width: width * (rightPercent - leftPercent),
                         child: Container(
-                          decoration: const BoxDecoration(color: Color(0xFF86EFAC)),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF86EFAC),
+                          ),
                           child: const Center(
                             child: Text(
                               'DẢI TỐI ƯU',
@@ -392,7 +495,9 @@ extension _HomeScreenWeatherCards on HomeScreen {
                         child: Container(
                           decoration: const BoxDecoration(
                             color: Color(0xFFFECACA),
-                            borderRadius: BorderRadius.horizontal(right: Radius.circular(6)),
+                            borderRadius: BorderRadius.horizontal(
+                              right: Radius.circular(6),
+                            ),
                           ),
                         ),
                       ),
@@ -407,7 +512,12 @@ extension _HomeScreenWeatherCards on HomeScreen {
                             color: const Color(0xFF0F172A),
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(color: Colors.white, width: 2),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -421,26 +531,42 @@ extension _HomeScreenWeatherCards on HomeScreen {
                       const Flexible(
                         child: Text(
                           '10°C (Lạnh)',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
                           maxLines: 1,
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFECFDF5),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFF10B981), width: 0.5),
+                          border: Border.all(
+                            color: const Color(0xFF10B981),
+                            width: 0.5,
+                          ),
                         ),
                         child: const Text(
                           'Chuẩn: 18°C - 28°C',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF059669),
+                          ),
                         ),
                       ),
                       const Flexible(
                         child: Text(
                           '40°C (Nóng)',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
                           maxLines: 1,
                           textAlign: TextAlign.right,
                         ),
@@ -471,11 +597,19 @@ extension _HomeScreenWeatherCards on HomeScreen {
                   Expanded(
                     child: Text(
                       'Hiện tại: $currentT°C • Quạt bật khi > 28°C • Bấm để chỉnh ngưỡng',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF0284C7),
+                        fontWeight: FontWeight.w600,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 14, color: Color(0xFF0284C7)),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 14,
+                    color: Color(0xFF0284C7),
+                  ),
                 ],
               ),
             ),

@@ -8,7 +8,11 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
         Center(
           child: IgnorePointer(
             child: Transform.translate(
-              offset: const Offset(0, -(_MiniGISMapPickerState._pinSize / 2) + _MiniGISMapPickerState._pinTipInset),
+              offset: const Offset(
+                0,
+                -(_MiniGISMapPickerState._pinSize / 2) +
+                    _MiniGISMapPickerState._pinTipInset,
+              ),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -28,7 +32,13 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                     size: _MiniGISMapPickerState._pinSize,
                     color: Color(0xFFEA4335),
                   ),
-                  const Positioned(top: 10.75, child: CircleAvatar(radius: 5, backgroundColor: Colors.white)),
+                  const Positioned(
+                    top: 10.75,
+                    child: CircleAvatar(
+                      radius: 5,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -73,8 +83,14 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  widget.level == 'FIELD' ? 'Trùng tọa độ Farm: $_displayPlaceName' : _displayPlaceName,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  widget.level == 'FIELD'
+                      ? 'Trùng tọa độ Farm: $_displayPlaceName'
+                      : _displayPlaceName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -93,7 +109,12 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(6),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 4,
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -101,9 +122,14 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
               GestureDetector(
                 onTap: () => _rebuild(() => _mapType = 'satellite'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: _mapType == 'satellite' ? const Color(0xFF1E293B) : Colors.transparent,
+                    color: _mapType == 'satellite'
+                        ? const Color(0xFF1E293B)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -111,15 +137,21 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                       Icon(
                         Icons.satellite_alt_rounded,
                         size: 11,
-                        color: _mapType == 'satellite' ? Colors.white : Colors.black87,
+                        color: _mapType == 'satellite'
+                            ? Colors.white
+                            : Colors.black87,
                       ),
                       const SizedBox(width: 3),
                       Text(
                         'Vệ tinh',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: _mapType == 'satellite' ? FontWeight.bold : FontWeight.normal,
-                          color: _mapType == 'satellite' ? Colors.white : Colors.black87,
+                          fontWeight: _mapType == 'satellite'
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: _mapType == 'satellite'
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                       ),
                     ],
@@ -129,21 +161,36 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
               GestureDetector(
                 onTap: () => _rebuild(() => _mapType = 'street'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: _mapType == 'street' ? const Color(0xFF1E293B) : Colors.transparent,
+                    color: _mapType == 'street'
+                        ? const Color(0xFF1E293B)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.map_outlined, size: 11, color: _mapType == 'street' ? Colors.white : Colors.black87),
+                      Icon(
+                        Icons.map_outlined,
+                        size: 11,
+                        color: _mapType == 'street'
+                            ? Colors.white
+                            : Colors.black87,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         'Bản đồ',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: _mapType == 'street' ? FontWeight.bold : FontWeight.normal,
-                          color: _mapType == 'street' ? Colors.white : Colors.black87,
+                          fontWeight: _mapType == 'street'
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: _mapType == 'street'
+                              ? Colors.white
+                              : Colors.black87,
                         ),
                       ),
                     ],
@@ -157,7 +204,10 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
     ];
   }
 
-  List<Widget> _bottomOverlaysSection(BuildContext context, double currentHeight) {
+  List<Widget> _bottomOverlaysSection(
+    BuildContext context,
+    double currentHeight,
+  ) {
     return [
       Positioned(
         bottom: 30,
@@ -176,7 +226,11 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                   child: const SizedBox(
                     width: 32,
                     height: 32,
-                    child: Icon(Icons.search, size: 20, color: Color(0xFF0F172A)),
+                    child: Icon(
+                      Icons.search,
+                      size: 20,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                 ),
               ),
@@ -198,7 +252,9 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                   width: 32,
                   height: 32,
                   child: Icon(
-                    _isExpanded ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                    _isExpanded
+                        ? Icons.fullscreen_exit_rounded
+                        : Icons.fullscreen_rounded,
                     size: 20,
                     color: const Color(0xFF0F172A),
                   ),
@@ -213,11 +269,16 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
               elevation: 3,
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => _moveTo(widget.initialCenter, zoom: widget.initialZoom),
+                onTap: () =>
+                    _moveTo(widget.initialCenter, zoom: widget.initialZoom),
                 child: const SizedBox(
                   width: 32,
                   height: 32,
-                  child: Icon(Icons.gps_fixed_rounded, size: 18, color: Color(0xFF1A73E8)),
+                  child: Icon(
+                    Icons.gps_fixed_rounded,
+                    size: 18,
+                    color: Color(0xFF1A73E8),
+                  ),
                 ),
               ),
             ),
@@ -231,11 +292,17 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   InkWell(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(8),
+                    ),
                     onTap: () {
                       try {
-                        final nextZoom = (_mapController.camera.zoom + 1.0).clamp(9.0, 20.0);
-                        _mapController.move(_mapController.camera.center, nextZoom);
+                        final nextZoom = (_mapController.camera.zoom + 1.0)
+                            .clamp(9.0, 20.0);
+                        _mapController.move(
+                          _mapController.camera.center,
+                          nextZoom,
+                        );
                       } catch (_) {}
                     },
                     child: const SizedBox(
@@ -244,19 +311,33 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                       child: Icon(Icons.add, size: 18, color: Colors.black87),
                     ),
                   ),
-                  Container(width: 24, height: 1, color: const Color(0xFFE2E8F0)),
+                  Container(
+                    width: 24,
+                    height: 1,
+                    color: const Color(0xFFE2E8F0),
+                  ),
                   InkWell(
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(8),
+                    ),
                     onTap: () {
                       try {
-                        final nextZoom = (_mapController.camera.zoom - 1.0).clamp(9.0, 20.0);
-                        _mapController.move(_mapController.camera.center, nextZoom);
+                        final nextZoom = (_mapController.camera.zoom - 1.0)
+                            .clamp(9.0, 20.0);
+                        _mapController.move(
+                          _mapController.camera.center,
+                          nextZoom,
+                        );
                       } catch (_) {}
                     },
                     child: const SizedBox(
                       width: 32,
                       height: 30,
-                      child: Icon(Icons.remove, size: 18, color: Colors.black87),
+                      child: Icon(
+                        Icons.remove,
+                        size: 18,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ],
@@ -280,7 +361,13 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                 : Colors.black.withValues(alpha: 0.65),
             borderRadius: BorderRadius.circular(4),
             boxShadow: _isPolygonInvalid
-                ? [BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 6, offset: const Offset(0, 1))]
+                ? [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
                 : null,
           ),
           child: Row(
@@ -289,9 +376,13 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
               Icon(
                 widget.isReadOnly
                     ? Icons.lock_outline_rounded
-                    : (_isPolygonInvalid ? Icons.warning_amber_rounded : Icons.touch_app_rounded),
+                    : (_isPolygonInvalid
+                          ? Icons.warning_amber_rounded
+                          : Icons.touch_app_rounded),
                 size: 13,
-                color: widget.isReadOnly ? const Color(0xFF38BDF8) : Colors.white,
+                color: widget.isReadOnly
+                    ? const Color(0xFF38BDF8)
+                    : Colors.white,
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -302,7 +393,8 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                             ? 'CẢNH BÁO: Đang chồng đè lên "$_overlappedZoneName"! Vui lòng điều chỉnh lại.'
                             : (_hasPointOutsideParent
                                   ? 'CẢNH BÁO: Đỉnh đang nằm ngoài Thửa đất! Vui lòng kéo lại vào trong.'
-                                  : (widget.level == 'FIELD' || widget.level == 'ZONE'
+                                  : (widget.level == 'FIELD' ||
+                                            widget.level == 'ZONE'
                                         ? (_selectedVertexIndex != null
                                               ? 'Đang chọn đỉnh #${_selectedVertexIndex! + 1}: Chạm vị trí mới hoặc kéo để di chuyển'
                                               : 'Chạm đỉnh để chọn • Chạm ngoài để thêm đỉnh • Chạm trong ô để dời cả ô')
@@ -310,27 +402,45 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 11,
-                    fontWeight: (!widget.isReadOnly && _isPolygonInvalid) ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: (!widget.isReadOnly && _isPolygonInvalid)
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (!widget.isReadOnly && _selectedVertexIndex != null && _polygonPoints.length > 3) ...[
+              if (!widget.isReadOnly &&
+                  _selectedVertexIndex != null &&
+                  _polygonPoints.length > 3) ...[
                 const SizedBox(width: 4),
                 InkWell(
                   onTap: _deleteSelectedVertex,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.delete_outline, size: 10, color: Colors.white),
+                        Icon(
+                          Icons.delete_outline,
+                          size: 10,
+                          color: Colors.white,
+                        ),
                         SizedBox(width: 2),
                         Text(
                           'Xóa đỉnh',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -343,8 +453,15 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
                   onTap: () => _rebuild(() => _selectedVertexIndex = null),
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)),
-                    child: const Icon(Icons.close, size: 11, color: Colors.white),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      size: 11,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -364,20 +481,41 @@ extension _MiniGISMapPickerStateOverlays on _MiniGISMapPickerState {
               color: const Color(0xFF0F172A).withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF38BDF8), width: 0.8),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 6)],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Đỉnh #${_selectedVertexIndex! + 1}:',
-                  style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Color(0xFF38BDF8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(width: 4),
-                _nudgeBtn(Icons.arrow_upward, () => _nudgeSelectedVertex(1.5, 0.0)),
-                _nudgeBtn(Icons.arrow_downward, () => _nudgeSelectedVertex(-1.5, 0.0)),
-                _nudgeBtn(Icons.arrow_back, () => _nudgeSelectedVertex(0.0, -1.5)),
-                _nudgeBtn(Icons.arrow_forward, () => _nudgeSelectedVertex(0.0, 1.5)),
+                _nudgeBtn(
+                  Icons.arrow_upward,
+                  () => _nudgeSelectedVertex(1.5, 0.0),
+                ),
+                _nudgeBtn(
+                  Icons.arrow_downward,
+                  () => _nudgeSelectedVertex(-1.5, 0.0),
+                ),
+                _nudgeBtn(
+                  Icons.arrow_back,
+                  () => _nudgeSelectedVertex(0.0, -1.5),
+                ),
+                _nudgeBtn(
+                  Icons.arrow_forward,
+                  () => _nudgeSelectedVertex(0.0, 1.5),
+                ),
               ],
             ),
           ),

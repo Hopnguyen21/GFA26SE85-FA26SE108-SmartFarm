@@ -34,10 +34,14 @@ extension FarmProviderInventoryProfile on FarmProvider {
   );
 
   Future<String?> receiveStock(String itemId, double quantity) =>
-      _inventoryCall(() => TaskApi.receiveInventory(_selectedFarmId, itemId, quantity));
+      _inventoryCall(
+        () => TaskApi.receiveInventory(_selectedFarmId, itemId, quantity),
+      );
 
   Future<String?> issueStock(String itemId, double quantity, String zoneId) =>
-      _inventoryCall(() => TaskApi.issueInventory(_selectedFarmId, itemId, quantity, zoneId));
+      _inventoryCall(
+        () => TaskApi.issueInventory(_selectedFarmId, itemId, quantity, zoneId),
+      );
 
   /// Xóa toàn bộ dữ liệu phiên khi đăng xuất (Clean state on logout)
   void resetState() {

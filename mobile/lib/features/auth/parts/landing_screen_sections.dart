@@ -7,23 +7,36 @@ extension _LandingScreenStateSections on _LandingScreenState {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF065F46), Color(0xFF047857), Color(0xFF065F46)]),
+        gradient: LinearGradient(
+          colors: [Color(0xFF065F46), Color(0xFF047857), Color(0xFF065F46)],
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-            decoration: BoxDecoration(color: const Color(0xFFFBBF24), borderRadius: BorderRadius.circular(4)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBBF24),
+              borderRadius: BorderRadius.circular(4),
+            ),
             child: const Text(
               'MỚI 2026',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF062326)),
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF062326),
+              ),
             ),
           ),
           const SizedBox(width: 6),
           const Expanded(
             child: Text(
               'Chuẩn VietGAP & Trợ lý AI Gemini Nông học',
-              style: TextStyle(color: Color(0xFFD1FAE5), fontSize: 10.5, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Color(0xFFD1FAE5),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -31,7 +44,11 @@ extension _LandingScreenStateSections on _LandingScreenState {
           const SizedBox(width: 4),
           const Text(
             '📞 1900 6899',
-            style: TextStyle(color: Color(0xFFA7F3D0), fontSize: 10, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Color(0xFFA7F3D0),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -52,13 +69,21 @@ extension _LandingScreenStateSections on _LandingScreenState {
           ),
           child: const Text(
             'PHẦN CỨNG LORA CHUẨN CÔNG NGHIỆP',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF047857),
+            ),
           ),
         ),
         const SizedBox(height: 6),
         const Text(
           'Trạm Gateway & Cảm Biến Bền Bỉ',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF062326)),
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF062326),
+          ),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -71,21 +96,24 @@ extension _LandingScreenStateSections on _LandingScreenState {
         _buildHardwareCard(
           icon: Icons.cell_tower,
           title: 'Gateway ESP32-S3 LoRa Dual Antenna',
-          desc: 'Kết nối đến 128 sensor node trong bán kính 2.5km không cần kéo dây mạng.',
+          desc:
+              'Kết nối đến 128 sensor node trong bán kính 2.5km không cần kéo dây mạng.',
           color: const Color(0xFF059669),
         ),
         const SizedBox(height: 8),
         _buildHardwareCard(
           icon: Icons.grass,
           title: 'Đầu dò Đất RS485 Modbus 3-in-1',
-          desc: 'Đo độ ẩm đất, nhiệt độ đất và độ dẫn điện EC, chống ăn mòn phân bón.',
+          desc:
+              'Đo độ ẩm đất, nhiệt độ đất và độ dẫn điện EC, chống ăn mòn phân bón.',
           color: const Color(0xFF0284C7),
         ),
         const SizedBox(height: 8),
         _buildHardwareCard(
           icon: Icons.wb_sunny_outlined,
           title: 'Trạm Vi khí hậu SHT30 & Cảm biến Lux',
-          desc: 'Giám sát vi khí hậu nhà màng liên tục, tự động phát hiện sốc nhiệt.',
+          desc:
+              'Giám sát vi khí hậu nhà màng liên tục, tự động phát hiện sốc nhiệt.',
           color: const Color(0xFFD97706),
         ),
         const SizedBox(height: 12),
@@ -95,7 +123,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF064E3B), Color(0xFF065F46)]),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF064E3B), Color(0xFF065F46)],
+            ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -117,13 +147,20 @@ extension _LandingScreenStateSections on _LandingScreenState {
                         Container(
                           width: 7,
                           height: 7,
-                          decoration: const BoxDecoration(color: Color(0xFF34D399), shape: BoxShape.circle),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF34D399),
+                            shape: BoxShape.circle,
+                          ),
                         ),
                         const SizedBox(width: 6),
                         const Expanded(
                           child: Text(
                             'BẢNG TỔNG QUAN THỰC ĐỊA LORA',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -131,23 +168,42 @@ extension _LandingScreenStateSections on _LandingScreenState {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text('v2.6', style: TextStyle(color: Color(0xFFA7F3D0), fontSize: 9.5)),
+                  const Text(
+                    'v2.6',
+                    style: TextStyle(color: Color(0xFFA7F3D0), fontSize: 9.5),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(child: _buildLoRaMetric('Sóng LoRa', '-68 dBm', 'Cực mạnh')),
+                  Expanded(
+                    child: _buildLoRaMetric('Sóng LoRa', '-68 dBm', 'Cực mạnh'),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildLoRaMetric('Pin Năng Lượng', '94%', 'Solar ON')),
+                  Expanded(
+                    child: _buildLoRaMetric(
+                      'Pin Năng Lượng',
+                      '94%',
+                      'Solar ON',
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(child: _buildLoRaMetric('Chu kỳ gửi', '60s', 'TimescaleDB')),
+                  Expanded(
+                    child: _buildLoRaMetric('Chu kỳ gửi', '60s', 'TimescaleDB'),
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildLoRaMetric('Rơ-le tưới', '4 Cổng', 'Optocoupler')),
+                  Expanded(
+                    child: _buildLoRaMetric(
+                      'Rơ-le tưới',
+                      '4 Cổng',
+                      'Optocoupler',
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -169,14 +225,23 @@ extension _LandingScreenStateSections on _LandingScreenState {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 10),
@@ -186,10 +251,21 @@ extension _LandingScreenStateSections on _LandingScreenState {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35)),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    height: 1.35,
+                  ),
+                ),
               ],
             ),
           ),
@@ -209,13 +285,23 @@ extension _LandingScreenStateSections on _LandingScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 9.5)),
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 9.5),
+          ),
           const SizedBox(height: 1),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          Text(sub, style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 9)),
+          Text(
+            sub,
+            style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 9),
+          ),
         ],
       ),
     );
@@ -235,13 +321,21 @@ extension _LandingScreenStateSections on _LandingScreenState {
           ),
           child: const Text(
             'QUY TRÌNH VẬN HÀNH CHUẨN MỰC',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF047857),
+            ),
           ),
         ),
         const SizedBox(height: 6),
         const Text(
           'Từ Khảo Sát Đến Nghiệm Thu',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF062326)),
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF062326),
+          ),
         ),
         const SizedBox(height: 4),
         const Text(
@@ -253,28 +347,32 @@ extension _LandingScreenStateSections on _LandingScreenState {
         _buildStepItem(
           step: '01',
           title: 'Khảo Sát & Chấm GIS Thực Địa',
-          desc: 'Kỹ thuật viên đo đạc ranh giới polygon và chấm tọa độ Gateway & Node trên bản đồ số.',
+          desc:
+              'Kỹ thuật viên đo đạc ranh giới polygon và chấm tọa độ Gateway & Node trên bản đồ số.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
         _buildStepItem(
           step: '02',
           title: 'Ký Số & Tạm Ứng 30%',
-          desc: 'Xuất báo giá chi tiết, Chủ trang trại ký hợp đồng điện tử và tạm ứng 30% triển khai.',
+          desc:
+              'Xuất báo giá chi tiết, Chủ trang trại ký hợp đồng điện tử và tạm ứng 30% triển khai.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
         _buildStepItem(
           step: '03',
           title: 'Lắp Đặt & Provisioning Thiết Bị',
-          desc: 'Cấu hình trạm ESP32, kiểm thử kết nối telemetry và hiệu chuẩn cảm biến với đất.',
+          desc:
+              'Cấu hình trạm ESP32, kiểm thử kết nối telemetry và hiệu chuẩn cảm biến với đất.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
         _buildStepItem(
           step: '04',
           title: 'Nghiệm Thu & Vận Hành 70%',
-          desc: 'Kiểm tra hệ thống tưới tự động ổn định, ký nghiệm thu số và thanh toán 70% còn lại.',
+          desc:
+              'Kiểm tra hệ thống tưới tự động ổn định, ký nghiệm thu số và thanh toán 70% còn lại.',
           isHighlight: true,
         ),
       ],
@@ -293,10 +391,18 @@ extension _LandingScreenStateSections on _LandingScreenState {
         color: isHighlight ? const Color(0xFFECFDF5) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isHighlight ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+          color: isHighlight
+              ? const Color(0xFF10B981)
+              : const Color(0xFFE2E8F0),
           width: isHighlight ? 1.5 : 1,
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,7 +411,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: isHighlight ? const Color(0xFF059669) : const Color(0xFFF1F5F9),
+              color: isHighlight
+                  ? const Color(0xFF059669)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
@@ -328,11 +436,20 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
-                    color: isHighlight ? const Color(0xFF065F46) : const Color(0xFF0F172A),
+                    color: isHighlight
+                        ? const Color(0xFF065F46)
+                        : const Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35)),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    height: 1.35,
+                  ),
+                ),
               ],
             ),
           ),
@@ -355,13 +472,21 @@ extension _LandingScreenStateSections on _LandingScreenState {
           ),
           child: const Text(
             'NIỀM TIN TỪ KHÁCH HÀNG & HTX',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFB45309),
+            ),
           ),
         ),
         const SizedBox(height: 6),
         const Text(
           'Đồng Hành Cùng Nông Nghiệp Xanh',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF062326)),
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF062326),
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -389,14 +514,24 @@ extension _LandingScreenStateSections on _LandingScreenState {
     );
   }
 
-  Widget _buildTestimonialCard({required String quote, required String author, required String role}) {
+  Widget _buildTestimonialCard({
+    required String quote,
+    required String author,
+    required String role,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 1))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +548,12 @@ extension _LandingScreenStateSections on _LandingScreenState {
           const SizedBox(height: 6),
           Text(
             '"$quote"',
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), height: 1.4, fontStyle: FontStyle.italic),
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: Color(0xFF334155),
+              height: 1.4,
+              fontStyle: FontStyle.italic,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -423,7 +563,11 @@ extension _LandingScreenStateSections on _LandingScreenState {
                 backgroundColor: const Color(0xFF059669),
                 child: Text(
                   author.split(' ').last.substring(0, 1),
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -433,11 +577,18 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   children: [
                     Text(
                       author,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       role,
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF64748B),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -460,7 +611,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF064E3B), Color(0xFF047857)]),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF064E3B), Color(0xFF047857)],
+            ),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
@@ -474,18 +627,30 @@ extension _LandingScreenStateSections on _LandingScreenState {
             children: [
               const Text(
                 'Sẵn sàng bắt đầu mùa vụ mới?',
-                style: TextStyle(color: Color(0xFFFDE68A), fontSize: 11, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Color(0xFFFDE68A),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Nâng Tầm Nông Trang Số',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
               const Text(
                 'Đăng ký tài khoản miễn phí để trải nghiệm trạm điều khiển IoT và nhận tư vấn khảo sát thực địa.',
-                style: TextStyle(color: Color(0xFFD1FAE5), fontSize: 11, height: 1.35),
+                style: TextStyle(
+                  color: Color(0xFFD1FAE5),
+                  fontSize: 11,
+                  height: 1.35,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
@@ -510,9 +675,14 @@ extension _LandingScreenStateSections on _LandingScreenState {
                         backgroundColor: const Color(0xFFFBBF24),
                         foregroundColor: const Color(0xFF062326),
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         elevation: 2,
-                        textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
                       ),
                       child: const Text('Đăng Ký Ngay'),
                     ),
@@ -525,8 +695,13 @@ extension _LandingScreenStateSections on _LandingScreenState {
                         foregroundColor: Colors.white,
                         side: const BorderSide(color: Colors.white60),
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                       child: const Text('Đăng Nhập'),
                     ),
@@ -557,7 +732,11 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   Expanded(
                     child: Text(
                       'SmartFarm IoT Platform',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        color: Color(0xFF0F172A),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -571,7 +750,10 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   Expanded(
                     child: Text(
                       'Hotline: 1900 6899 (8:00 - 20:00)',
-                      style: TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF475569),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -580,12 +762,19 @@ extension _LandingScreenStateSections on _LandingScreenState {
               SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.email_outlined, size: 12, color: Color(0xFF059669)),
+                  Icon(
+                    Icons.email_outlined,
+                    size: 12,
+                    color: Color(0xFF059669),
+                  ),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       'Email: hotro@smartfarm.vn',
-                      style: TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF475569),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -594,12 +783,19 @@ extension _LandingScreenStateSections on _LandingScreenState {
               SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF059669)),
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 12,
+                    color: Color(0xFF059669),
+                  ),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       'Đà Lạt, Lâm Đồng & TP. Hồ Chí Minh',
-                      style: TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF475569),
+                      ),
                     ),
                   ),
                 ],

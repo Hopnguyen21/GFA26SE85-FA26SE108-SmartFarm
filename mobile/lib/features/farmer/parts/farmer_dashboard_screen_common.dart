@@ -29,13 +29,24 @@ extension _FarmerDashboardScreenStateCommon on _FarmerDashboardScreenState {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFFFEF2F2), shape: BoxShape.circle),
-              child: const Icon(Icons.lock_outline, size: 40, color: Color(0xFFEF4444)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_outline,
+                size: 40,
+                color: Color(0xFFEF4444),
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
               'Không có quyền truy cập',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -50,7 +61,15 @@ extension _FarmerDashboardScreenStateCommon on _FarmerDashboardScreenState {
   }
 
   String _weekdayVi(int weekday) {
-    const days = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+    const days = [
+      'Thứ Hai',
+      'Thứ Ba',
+      'Thứ Tư',
+      'Thứ Năm',
+      'Thứ Sáu',
+      'Thứ Bảy',
+      'Chủ Nhật',
+    ];
     return days[(weekday - 1).clamp(0, 6)];
   }
 

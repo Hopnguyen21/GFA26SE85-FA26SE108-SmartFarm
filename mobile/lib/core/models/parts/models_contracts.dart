@@ -114,7 +114,11 @@ class ZoneContractModel {
     var rawRenewals = json['renewals'];
     List<ZoneContractRenewalModel> parsedRenewals = [];
     if (rawRenewals is List) {
-      parsedRenewals = rawRenewals.map((r) => ZoneContractRenewalModel.fromJson(r as Map<String, dynamic>)).toList();
+      parsedRenewals = rawRenewals
+          .map(
+            (r) => ZoneContractRenewalModel.fromJson(r as Map<String, dynamic>),
+          )
+          .toList();
     }
 
     final rawStatus = json['status']?.toString() ?? 'Active';
@@ -142,11 +146,14 @@ class ZoneContractModel {
       cropType: json['cropType']?.toString(),
       monthlyRentVnd: (json['monthlyRentVnd'] as num?)?.toDouble() ?? 0.0,
       depositVnd: (json['depositVnd'] as num?)?.toDouble() ?? 0.0,
-      totalContractValueVnd: (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
+      totalContractValueVnd:
+          (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
       startDate: json['startDate']?.toString() ?? '',
       endDate: json['endDate']?.toString() ?? '',
       status: displayStatus,
-      statusText: json['statusText']?.toString() ?? (displayStatus == 'Active' ? 'Đang hiệu lực' : displayStatus),
+      statusText:
+          json['statusText']?.toString() ??
+          (displayStatus == 'Active' ? 'Đang hiệu lực' : displayStatus),
       daysRemaining: (json['daysRemaining'] as num?)?.toInt() ?? 0,
       lesseeName: json['lesseeName']?.toString() ?? '',
       lesseePhone: json['lesseePhone']?.toString(),
@@ -164,7 +171,9 @@ class ZoneContractModel {
       vatAmountVnd: (json['vatAmountVnd'] as num?)?.toDouble() ?? 0,
       equipment: [
         for (final e in (json['equipment'] as List? ?? const []))
-          ZoneContractEquipmentModel.fromJson(Map<String, dynamic>.from(e as Map)),
+          ZoneContractEquipmentModel.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
       ],
     );
   }
@@ -190,14 +199,15 @@ class ZoneContractEquipmentModel {
 
   double get lineTotal => quantity * unitPrice;
 
-  factory ZoneContractEquipmentModel.fromJson(Map<String, dynamic> j) => ZoneContractEquipmentModel(
-    code: j['code']?.toString() ?? '',
-    name: j['name']?.toString() ?? '',
-    category: j['category']?.toString() ?? '',
-    unit: j['unit']?.toString() ?? '',
-    quantity: (j['quantity'] as num?)?.toInt() ?? 0,
-    unitPrice: (j['unitPrice'] as num?)?.toDouble() ?? 0,
-  );
+  factory ZoneContractEquipmentModel.fromJson(Map<String, dynamic> j) =>
+      ZoneContractEquipmentModel(
+        code: j['code']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+        category: j['category']?.toString() ?? '',
+        unit: j['unit']?.toString() ?? '',
+        quantity: (j['quantity'] as num?)?.toInt() ?? 0,
+        unitPrice: (j['unitPrice'] as num?)?.toDouble() ?? 0,
+      );
 }
 
 class DeviceDepreciationModel {
@@ -217,7 +227,8 @@ class DeviceDepreciationModel {
   final int remainingMonths;
   final String method;
   final String startDate;
-  final String depreciationStatus; // 'Active', 'ExpiringSoon', 'FullyDepreciated'
+  final String
+  depreciationStatus; // 'Active', 'ExpiringSoon', 'FullyDepreciated'
   final bool isNearContractRenewal;
   final String? notes;
   final String createdAt;
@@ -261,10 +272,14 @@ class DeviceDepreciationModel {
       hardwareAddress: json['hardwareAddress']?.toString() ?? '',
       deviceType: json['deviceType']?.toString() ?? 'Node',
       originalCostVnd: (json['originalCostVnd'] as num?)?.toDouble() ?? 0.0,
-      monthlyDepreciationVnd: (json['monthlyDepreciationVnd'] as num?)?.toDouble() ?? 0.0,
-      accumulatedDepreciationVnd: (json['accumulatedDepreciationVnd'] as num?)?.toDouble() ?? 0.0,
-      currentBookValueVnd: (json['currentBookValueVnd'] as num?)?.toDouble() ?? 0.0,
-      depreciationLifetimeMonths: (json['depreciationLifetimeMonths'] as num?)?.toInt() ?? 24,
+      monthlyDepreciationVnd:
+          (json['monthlyDepreciationVnd'] as num?)?.toDouble() ?? 0.0,
+      accumulatedDepreciationVnd:
+          (json['accumulatedDepreciationVnd'] as num?)?.toDouble() ?? 0.0,
+      currentBookValueVnd:
+          (json['currentBookValueVnd'] as num?)?.toDouble() ?? 0.0,
+      depreciationLifetimeMonths:
+          (json['depreciationLifetimeMonths'] as num?)?.toInt() ?? 24,
       monthsElapsed: (json['monthsElapsed'] as num?)?.toInt() ?? 0,
       remainingMonths: (json['remainingMonths'] as num?)?.toInt() ?? 0,
       method: json['method']?.toString() ?? 'STRAIGHT_LINE',
@@ -316,7 +331,8 @@ class ExpiringContractAlertModel {
       endDate: json['endDate']?.toString() ?? '',
       daysRemaining: (json['daysRemaining'] as num?)?.toInt() ?? 0,
       status: json['status']?.toString() ?? 'Active',
-      totalContractValueVnd: (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
+      totalContractValueVnd:
+          (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

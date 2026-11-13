@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../app/providers/AuthContext';
+import { useAuth } from '@/app/providers/AuthContext';
 import { UserRole, Alert } from '../../types';
-import { alertService, supportService } from '../../services';
+import { alertService, supportService, notificationService, NotificationItem, isAuthenticated, zoneContractService } from '../../services';
+import { openMeteoService } from '../../services/openMeteoService';
 import { mockWeather } from '../../mocks/mockData';
 import {
-  Sprout, Search, Bell, Sun, CloudRain, UserCheck, LogOut,
-  ChevronDown, ShieldAlert, CheckCircle2, Layers
+  Sprout, Bell, Sun, CloudRain, UserCheck, LogOut,
+  ChevronDown, ShieldAlert, CheckCircle2, Layers, Check, ExternalLink, Clock
 } from 'lucide-react';
 
 export const Topbar: React.FC = () => {
@@ -15,32 +16,135 @@ export const Topbar: React.FC = () => {
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const roleMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotificationMenu(false);
+      }
+      if (roleMenuRef.current && !roleMenuRef.current.contains(event.target as Node)) {
+        setShowRoleMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowNotificationMenu(false);
+        setShowRoleMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const fetchNotifications = async () => {
+    if (!isAuthenticated()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+    try {
+      const [list, count, expContracts] = await Promise.all([
+        notificationService.getNotifications(undefined, 1, 15).catch(() => []),
+        notificationService.getUnreadCount().catch(() => 0),
+        zoneContractService.getExpiringContracts(undefined, 30).catch(() => []),
+      ]);
+
+      // Deduplicate contracts by contractNumber and only show actively expiring ones (0 to 30 days)
+      const validContracts = Array.from(
+        new Map(
+          (expContracts || [])
+            .filter((c: any) => c.daysRemaining >= 0 && c.daysRemaining <= 30)
+            .map((c: any) => [c.contractNumber || c.contractId, c])
+        ).values()
+      );
+
+      const contractNotifs: NotificationItem[] = validContracts.map((c: any) => ({
+        notificationId: `contract-${c.contractId}`,
+        userId: user?.userId || '',
+        title: `⚠️ Hợp đồng [${c.contractNumber}] sắp hết hạn`,
+        message: `Phân khu: ${c.zoneName} (${c.farmName}). Hạn kết thúc: ${c.endDate} (còn ${c.daysRemaining} ngày). Nhấn để gia hạn ngay.`,
+        type: 'Alert' as const,
+        severity: c.daysRemaining <= 7 ? 'Critical' : 'Warning',
+        isRead: false,
+        createdAtUtc: new Date().toISOString(),
+        targetUrl: '/owner/farms',
+      }));
+
+      const combined = [...contractNotifs, ...(list || [])];
+      setNotifications(combined);
+      setUnreadCount(count + contractNotifs.length);
+    } catch {
+      // Fallback
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    const handleRefresh = () => fetchNotifications();
+    window.addEventListener('notification-refresh', handleRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notification-refresh', handleRefresh);
+    };
+  }, [user]);
 
   useEffect(() => {
     alertService.getAlerts().then(res => {
       if (res) setAlerts(res);
     }).catch(() => {});
 
-    if (selectedFarmId) {
-      supportService.getWeather(selectedFarmId).then((wData: any) => {
-        if (wData && wData.temperature !== undefined) {
-          const rainProb = wData.precipitationProbability ?? 
-                           wData.dailyForecast?.[0]?.precipitationProbability ?? 
-                           prevRainProb(wData);
-          setWeather(prev => ({
-            ...prev,
-            temperature: Number(wData.temperature),
-            humidity: wData.humidity ? Number(wData.humidity) : prev.humidity,
-            condition: wData.weatherDescription ?? prev.condition,
-            rainProbability: rainProb !== null && rainProb !== undefined ? Number(rainProb) : prev.rainProbability,
-          }));
-        }
-      }).catch(() => {});
-    }
-  }, [selectedFarmId]);
+    const activeFarm = farms.find(f => f.farmId === selectedFarmId);
+    const lat = activeFarm?.latitude || 11.9404;
+    const lng = activeFarm?.longitude || 108.4583;
+    const farmName = activeFarm?.name || 'Đà Lạt';
+
+    openMeteoService.fetchLandWeather(lat, lng, farmName).then(omData => {
+      if (omData && omData.current) {
+        setWeather(prev => ({
+          ...prev,
+          temperature: Math.round(omData.current.temperature),
+          humidity: omData.current.humidity,
+          condition: `${omData.current.weatherText} (${farmName})`,
+          rainProbability: omData.daily[0]?.rainProbabilityMaxPercent ?? (omData.current.precipitationMm > 0 ? 80 : 10),
+          windSpeedKmH: Math.round(omData.current.windSpeedKmH),
+          rainfallMm: omData.current.precipitationMm,
+        }));
+      }
+    }).catch(() => {
+      if (selectedFarmId) {
+        supportService.getWeather(selectedFarmId).then((wData: any) => {
+          if (wData && wData.temperature !== undefined) {
+            const rainProb = wData.precipitationProbability ?? 
+                             wData.dailyForecast?.[0]?.precipitationProbability ?? 
+                             prevRainProb(wData);
+            setWeather(prev => ({
+              ...prev,
+              temperature: Number(wData.temperature),
+              humidity: wData.humidity ? Number(wData.humidity) : prev.humidity,
+              condition: wData.weatherDescription ?? prev.condition,
+              rainProbability: rainProb !== null && rainProb !== undefined ? Number(rainProb) : prev.rainProbability,
+            }));
+          }
+        }).catch(() => {});
+      }
+    });
+  }, [selectedFarmId, farms]);
 
   const prevRainProb = (w: any) => {
-    if (w.weatherDescription?.toLowerCase().includes('mưa')) return 100;
+    if (String(w?.weatherDescription || '').toLowerCase().includes('mưa')) return 100;
     return 0;
   };
 
@@ -126,25 +230,16 @@ export const Topbar: React.FC = () => {
         )}
       </div>
 
-      {/* Center: Search Bar */}
-      <div className="hidden lg:flex items-center flex-1 max-w-md mx-8">
-        <div className="relative w-full">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-100/80" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm khu vực, thiết bị, loại cây, cảnh báo..."
-            className="w-full pl-9 pr-4 py-1.5 bg-[#0e8046] border border-[#14a85e] rounded-lg text-xs text-white placeholder-emerald-100/70 focus:outline-none focus:border-white transition-colors"
-          />
-        </div>
-      </div>
-
       {/* Right section: Weather, Notifications, Dev Role Switcher, Profile */}
       <div className="flex items-center gap-3">
         {/* Live Weather Widget */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-[#0e8046] border border-[#14a85e] rounded-lg text-xs">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-[#0e8046] border border-[#14a85e] rounded-lg text-xs" title="Thời tiết tham khảo (Demo / Giả lập)">
           <Sun size={15} className="text-amber-300" />
           <div className="flex flex-col">
-            <span className="font-semibold text-white">{weather.temperature}°C Đà Lạt</span>
+            <span className="font-semibold text-white flex items-center gap-1.5">
+              {weather.temperature}°C Đà Lạt
+              <span className="text-[9px] bg-amber-400/30 text-amber-100 px-1 py-0.2 rounded font-normal">Demo</span>
+            </span>
             <span className="text-[10px] text-emerald-100/90 flex items-center gap-1">
               <CloudRain size={10} className="text-sky-200" /> Mưa: {weather.rainProbability}%
             </span>
@@ -152,46 +247,136 @@ export const Topbar: React.FC = () => {
         </div>
 
         {/* Notifications Bell */}
-        <div className="relative">
+        <div className="relative" ref={notificationRef}>
           <button
             onClick={() => setShowNotificationMenu(!showNotificationMenu)}
             className="relative p-2 rounded-lg bg-[#0e8046] border border-[#14a85e] text-white hover:bg-[#0c733f] transition-colors"
+            title="Thông báo"
           >
             <Bell size={17} />
-            {activeAlerts.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
-                {activeAlerts.length}
+            {(unreadCount > 0 || activeAlerts.length > 0) && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
+                {unreadCount > 0 ? unreadCount : activeAlerts.length}
               </span>
             )}
           </button>
 
           {/* Notifications Dropdown */}
           {showNotificationMenu && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl p-3 z-50 text-slate-800 animate-in fade-in zoom-in-95">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <ShieldAlert size={14} className="text-rose-500" /> Cảnh báo Hệ thống ({activeAlerts.length})
-                </span>
-                <span className="text-[10px] text-[#119653] font-semibold hover:underline cursor-pointer">Đánh dấu đã đọc</span>
-              </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {alerts.map(a => (
-                  <div key={a.alertId} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs">
-                    <div className="flex items-center justify-between font-semibold text-rose-600">
-                      <span>{a.title}</span>
-                      <span className="text-[9px] bg-rose-100 text-rose-700 px-1 py-0.2 rounded font-medium">{a.severity}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 mt-1 leading-snug">{a.message}</p>
-                    <span className="text-[9px] text-slate-400 block mt-1">{a.triggeredAt}</span>
+            <div className="absolute right-0 mt-2 w-[420px] sm:w-[460px] max-w-[92vw] bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-4 z-50 text-slate-800 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <span className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-emerald-50 text-[#119653]">
+                    <Bell size={16} />
                   </div>
-                ))}
+                  Thông báo & Cảnh báo
+                  {unreadCount > 0 && (
+                    <span className="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded-full font-bold ml-1">
+                      {unreadCount} mới
+                    </span>
+                  )}
+                </span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={async () => {
+                      await notificationService.markAllAsRead();
+                      fetchNotifications();
+                    }}
+                    className="text-xs text-[#119653] font-semibold hover:underline flex items-center gap-1 hover:text-[#0c733f] transition-colors"
+                  >
+                    <Check size={13} /> Đã đọc tất cả
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                {/* Real Notifications from Backend */}
+                {notifications.length > 0 ? (
+                  notifications.map((n) => (
+                    <div
+                      key={n.notificationId}
+                      onClick={async () => {
+                        if (!n.isRead && !n.notificationId.startsWith('contract-')) {
+                          await notificationService.markAsRead(n.notificationId).catch(() => null);
+                        }
+                        setShowNotificationMenu(false);
+                        if (n.targetUrl) navigate(n.targetUrl);
+                      }}
+                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all hover:shadow-sm ${
+                        n.isRead
+                          ? 'bg-slate-50/70 border-slate-200/60 opacity-80'
+                          : 'bg-emerald-50/40 border-emerald-200/90 font-medium'
+                      } hover:bg-emerald-50/80`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-semibold text-slate-900 text-[13px] leading-snug">{n.title}</span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 uppercase tracking-wider ${
+                            n.severity === 'Critical'
+                              ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                              : n.severity === 'Warning'
+                              ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          {n.type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{n.message}</p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-1 border-t border-slate-100/80">
+                        <span className="flex items-center gap-1.5">
+                          <Clock size={12} className="text-slate-400" />
+                          {new Date(n.createdAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
+                          {new Date(n.createdAtUtc).toLocaleDateString()}
+                        </span>
+                        {n.targetUrl ? (
+                          <span className="text-[#119653] font-bold text-[10px] flex items-center gap-1 hover:underline">
+                            Mở đối tượng <ExternalLink size={10} />
+                          </span>
+                        ) : !n.isRead ? (
+                          <span className="text-[#119653] font-bold text-[10px] flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#119653]"></span>Mới</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  /* Fallback to system alerts if notifications table has no items yet */
+                  alerts.length > 0 ? (
+                    alerts.map((a) => (
+                      <div key={a.alertId} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs">
+                        <div className="flex items-center justify-between font-semibold text-rose-600">
+                          <span>{a.title}</span>
+                          <span className="text-[9px] bg-rose-100 text-rose-700 px-1 py-0.2 rounded font-medium">{a.severity}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 mt-1 leading-snug">{a.message}</p>
+                        <span className="text-[9px] text-slate-400 block mt-1">{a.triggeredAt}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-6 text-slate-400 text-xs">Không có thông báo nào</div>
+                  )
+                )}
+              </div>
+
+              {/* Footer: View All Alerts */}
+              <div className="pt-2.5 mt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Hiển thị {notifications.length} cảnh báo gần nhất</span>
+                <button
+                  onClick={() => {
+                    setShowNotificationMenu(false);
+                    navigate(role === 'FARMER' ? '/farmer/alerts' : '/owner/alerts');
+                  }}
+                  className="text-xs font-semibold text-[#119653] hover:underline flex items-center gap-1 hover:text-[#0c733f] transition-colors"
+                >
+                  Xem tất cả cảnh báo <ExternalLink size={11} />
+                </button>
               </div>
             </div>
           )}
         </div>
 
         {/* Dev Quick Role Switcher */}
-        <div className="relative">
+        <div className="relative" ref={roleMenuRef}>
           <button
             onClick={() => setShowRoleMenu(!showRoleMenu)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold shadow-sm transition-all ${roleLabels[role].color}`}

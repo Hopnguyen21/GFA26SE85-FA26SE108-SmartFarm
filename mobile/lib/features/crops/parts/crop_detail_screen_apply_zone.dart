@@ -6,20 +6,27 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
   void _showApplyToZoneModal(BuildContext context, DefaultCropProfile profile) {
     final provider = Provider.of<FarmProvider>(context, listen: false);
     if (provider.zones.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Chưa có khu vực (Zone) nào. Vui lòng tạo Zone trước!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa có khu vực (Zone) nào. Vui lòng tạo Zone trước!'),
+        ),
+      );
       return;
     }
     // Chỉ Owner được gắn hồ sơ (backend: PUT /zones/{id} chỉ cho FarmOwner).
     if (!provider.canManageFarmStructure) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Chỉ chủ trang trại mới gắn được hồ sơ canh tác cho Zone.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chỉ chủ trang trại mới gắn được hồ sơ canh tác cho Zone.',
+          ),
+        ),
+      );
       return;
     }
 
-    var selectedZoneId = provider.zones.any((z) => z.zoneId == provider.currentZone.zoneId)
+    var selectedZoneId =
+        provider.zones.any((z) => z.zoneId == provider.currentZone.zoneId)
         ? provider.currentZone.zoneId
         : provider.zones.first.zoneId;
     var saving = false;
@@ -27,13 +34,22 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
-            final zone = provider.zones.firstWhere((z) => z.zoneId == selectedZoneId);
+            final zone = provider.zones.firstWhere(
+              (z) => z.zoneId == selectedZoneId,
+            );
             return Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(modalCtx).viewInsets.bottom + 20),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -52,7 +68,11 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                     const SizedBox(height: 14),
                     Text(
                       'Gắn hồ sơ "${profile.name}" cho Zone',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
@@ -63,7 +83,10 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                     DropdownButtonFormField<String>(
                       initialValue: selectedZoneId,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Zone', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Zone',
+                        border: OutlineInputBorder(),
+                      ),
                       items: [
                         for (final z in provider.zones)
                           DropdownMenuItem(
@@ -78,20 +101,27 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                       onChanged: saving
                           ? null
                           : (v) {
-                              if (v != null) setModalState(() => selectedZoneId = v);
+                              if (v != null)
+                                setModalState(() => selectedZoneId = v);
                             },
                     ),
                     const SizedBox(height: 12),
                     Text(
                       '${profile.emoji} ${profile.name} · giống ${profile.variety} · ${profile.growthStages.length} giai đoạn',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF334155),
+                      ),
                     ),
                     if (zone.growthProfileName != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           'Zone đang dùng hồ sơ "${zone.growthProfileName}"; hồ sơ này sẽ được thay thế.',
-                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309)),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFFB45309),
+                          ),
                         ),
                       ),
                     const SizedBox(height: 16),
@@ -116,10 +146,16 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : const Icon(Icons.check, size: 18),
-                            label: const Text('Gắn hồ sơ', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: const Text(
+                              'Gắn hồ sơ',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             onPressed: saving
                                 ? null
                                 : () async {
@@ -128,11 +164,14 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                                       zoneName: zone.name,
                                       profileName: profile.name,
                                       cropName: profile.name,
-                                      varietyName: profile.variety.isEmpty ? null : profile.variety,
+                                      varietyName: profile.variety.isEmpty
+                                          ? null
+                                          : profile.variety,
                                       isSystem: false,
                                       willClone: false,
                                       stageCount: profile.growthStages.length,
-                                      currentProfileName: zone.growthProfileName,
+                                      currentProfileName:
+                                          zone.growthProfileName,
                                     );
                                     if (!ok || !ctx.mounted) return;
                                     setModalState(() => saving = true);
@@ -141,10 +180,18 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                                       targetZoneId: selectedZoneId,
                                     );
                                     if (err != null) {
-                                      if (ctx.mounted) setModalState(() => saving = false);
+                                      if (ctx.mounted)
+                                        setModalState(() => saving = false);
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text(err), backgroundColor: const Color(0xFFEF4444)),
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(err),
+                                            backgroundColor: const Color(
+                                              0xFFEF4444,
+                                            ),
+                                          ),
                                         );
                                       }
                                       return;
@@ -156,7 +203,9 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                                         content: Text(
                                           'Đã gắn hồ sơ "${profile.name}" cho ${zone.name}. Chưa tạo vụ trồng.',
                                         ),
-                                        backgroundColor: const Color(0xFF059669),
+                                        backgroundColor: const Color(
+                                          0xFF059669,
+                                        ),
                                       ),
                                     );
                                   },
