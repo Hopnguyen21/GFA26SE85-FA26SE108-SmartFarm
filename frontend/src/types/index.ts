@@ -516,15 +516,20 @@ export interface ServiceRequest {
 }
 
 export interface AuditLog {
-  auditLogId: string;
-  userId: string;
-  userName: string;
-  userRole: UserRole;
+  auditLogId?: string;
+  id?: string;
+  userId?: string;
+  actorUserId?: string;
+  userName?: string;
+  actorName?: string;
+  userRole?: UserRole | string;
+  actorRole?: string;
   action: string;
-  entityName: string;
-  entityId: string;
-  ipAddress: string;
-  createdAt: string;
+  entityName?: string;
+  entityId?: string;
+  ipAddress?: string;
+  createdAt?: string;
+  createdAtUtc?: string;
   details?: string;
 }
 
