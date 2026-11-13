@@ -47,7 +47,10 @@ extension FarmProviderStructure on FarmProvider {
     try {
       final curZ = zoneId == null
           ? currentZone
-          : _zones.firstWhere((z) => z.zoneId.toLowerCase() == zoneId.toLowerCase(), orElse: () => currentZone);
+          : _zones.firstWhere(
+              (z) => z.zoneId.toLowerCase() == zoneId.toLowerCase(),
+              orElse: () => currentZone,
+            );
       final zIdLower = curZ.zoneId.toLowerCase();
       try {
         final zoneActs = await FarmApi.fetchZoneActuators(curZ.zoneId);
@@ -56,7 +59,10 @@ extension FarmProviderStructure on FarmProvider {
         _actuatorErrors.remove(zIdLower);
       } catch (e) {
         // Giữ danh sách cũ và ghi nhận lỗi để giao diện báo "không tải được" thay vì "chưa có thiết bị".
-        _actuatorErrors[zIdLower] = e.toString().replaceFirst('Exception: ', '');
+        _actuatorErrors[zIdLower] = e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        );
       }
       _notify();
     } catch (_) {}
@@ -90,9 +96,15 @@ extension FarmProviderStructure on FarmProvider {
     double? latitude,
     double? longitude,
   }) async {
-    if (_creatingFarm) return const FarmCreateResult(error: 'Đang tạo trang trại, vui lòng chờ.');
+    if (_creatingFarm)
+      return const FarmCreateResult(
+        error: 'Đang tạo trang trại, vui lòng chờ.',
+      );
     final addr = address.trim();
-    if (addr.isEmpty) return const FarmCreateResult(error: 'Cần có địa chỉ thực địa của trang trại.');
+    if (addr.isEmpty)
+      return const FarmCreateResult(
+        error: 'Cần có địa chỉ thực địa của trang trại.',
+      );
     _creatingFarm = true;
     try {
       Map<String, dynamic> created;
@@ -105,7 +117,9 @@ extension FarmProviderStructure on FarmProvider {
           totalAreaM2: totalAreaM2,
         );
       } catch (e) {
-        return FarmCreateResult(error: e.toString().replaceFirst('Exception: ', ''));
+        return FarmCreateResult(
+          error: e.toString().replaceFirst('Exception: ', ''),
+        );
       }
       final id = parseCreatedFarmId(created);
       if (id == null) {
@@ -119,11 +133,14 @@ extension FarmProviderStructure on FarmProvider {
       _selectedZoneIndex = 0;
       await fetchFromApi(); // fetchFromApi không ném lỗi: kết quả nằm ở syncError
       String? refreshError = _syncError;
-      if (refreshError == null && !_farms.any((f) => f.farmId.toLowerCase() == id.toLowerCase())) {
+      if (refreshError == null &&
+          !_farms.any((f) => f.farmId.toLowerCase() == id.toLowerCase())) {
         refreshError = 'Trang trại vừa tạo chưa xuất hiện trong danh sách.';
       }
       if (refreshError == null)
-        _selectedFarmId = _farms.firstWhere((f) => f.farmId.toLowerCase() == id.toLowerCase()).farmId;
+        _selectedFarmId = _farms
+            .firstWhere((f) => f.farmId.toLowerCase() == id.toLowerCase())
+            .farmId;
       return FarmCreateResult(farmId: id, refreshError: refreshError);
     } finally {
       _creatingFarm = false;
@@ -138,11 +155,15 @@ extension FarmProviderStructure on FarmProvider {
     required double areaM2,
     List<LatLng>? polygon,
   }) async {
-    if (polygon == null || polygon.length < 3) return 'Cần vẽ ranh giới thửa đất trên bản đồ (tối thiểu 3 điểm).';
+    if (polygon == null || polygon.length < 3)
+      return 'Cần vẽ ranh giới thửa đất trên bản đồ (tối thiểu 3 điểm).';
     try {
       final targetFarm =
-          _farms.where((f) => f.farmId == farmId).firstOrNull ?? (farmId == currentFarm.farmId ? currentFarm : null);
-      final currentAllocated = _fields.where((f) => f.farmId == farmId).fold<double>(0.0, (sum, f) => sum + f.areaM2);
+          _farms.where((f) => f.farmId == farmId).firstOrNull ??
+          (farmId == currentFarm.farmId ? currentFarm : null);
+      final currentAllocated = _fields
+          .where((f) => f.farmId == farmId)
+          .fold<double>(0.0, (sum, f) => sum + f.areaM2);
       final requiredTotal = currentAllocated + areaM2;
 
       // Tự động mở rộng diện tích nông trại nếu tổng diện tích thửa đất vượt quá
@@ -152,7 +173,9 @@ extension FarmProviderStructure on FarmProvider {
           await FarmApi.updateFarm(
             farmId,
             name: targetFarm.name,
-            locationText: targetFarm.address.isEmpty ? null : targetFarm.address,
+            locationText: targetFarm.address.isEmpty
+                ? null
+                : targetFarm.address,
             latitude: targetFarm.latitude != 0 ? targetFarm.latitude : null,
             longitude: targetFarm.longitude != 0 ? targetFarm.longitude : null,
             totalAreaM2: newFarmArea,
@@ -171,12 +194,18 @@ extension FarmProviderStructure on FarmProvider {
           ]),
         );
       } catch (e) {
-        if (e.toString().contains('exceeds the Farm area') && targetFarm != null) {
-          final fallbackArea = (requiredTotal + 50000.0).clamp(50000.0, 1000000.0);
+        if (e.toString().contains('exceeds the Farm area') &&
+            targetFarm != null) {
+          final fallbackArea = (requiredTotal + 50000.0).clamp(
+            50000.0,
+            1000000.0,
+          );
           await FarmApi.updateFarm(
             farmId,
             name: targetFarm.name,
-            locationText: targetFarm.address.isEmpty ? null : targetFarm.address,
+            locationText: targetFarm.address.isEmpty
+                ? null
+                : targetFarm.address,
             latitude: targetFarm.latitude != 0 ? targetFarm.latitude : null,
             longitude: targetFarm.longitude != 0 ? targetFarm.longitude : null,
             totalAreaM2: fallbackArea,
@@ -215,12 +244,23 @@ extension FarmProviderStructure on FarmProvider {
     List<LatLng>? polygon,
     String? growthProfileId,
   }) async {
-    final fieldId = customFieldId ?? _selectedFieldId ?? fieldsForCurrentFarm.firstOrNull?.fieldId;
+    final fieldId =
+        customFieldId ??
+        _selectedFieldId ??
+        fieldsForCurrentFarm.firstOrNull?.fieldId;
     if (fieldId == null || fieldId.isEmpty) {
-      return (error: 'Chưa có thửa đất để tạo Zone.', warning: null, zoneId: null);
+      return (
+        error: 'Chưa có thửa đất để tạo Zone.',
+        warning: null,
+        zoneId: null,
+      );
     }
     if (polygon == null || polygon.length < 3) {
-      return (error: 'Cần vẽ ranh giới Zone trên bản đồ (tối thiểu 3 điểm).', warning: null, zoneId: null);
+      return (
+        error: 'Cần vẽ ranh giới Zone trên bản đồ (tối thiểu 3 điểm).',
+        warning: null,
+        zoneId: null,
+      );
     }
     final String? zoneId;
     try {
@@ -235,12 +275,18 @@ extension FarmProviderStructure on FarmProvider {
       );
       zoneId = created['zoneId']?.toString();
     } catch (e) {
-      return (error: e.toString().replaceFirst('Exception: ', ''), warning: null, zoneId: null);
+      return (
+        error: e.toString().replaceFirst('Exception: ', ''),
+        warning: null,
+        zoneId: null,
+      );
     }
 
     String? warning;
     if (assignFarmerId != null && zoneId != null) {
-      final farmer = _farmers.where((f) => f.farmerId == assignFarmerId).firstOrNull;
+      final farmer = _farmers
+          .where((f) => f.farmerId == assignFarmerId)
+          .firstOrNull;
       try {
         await AccountApi.updateFarmerZoneAccess(assignFarmerId, [
           for (final z in farmer?.zoneAccess ?? const <ZoneAccessItem>[])
@@ -248,7 +294,8 @@ extension FarmProviderStructure on FarmProvider {
           {'zoneId': zoneId, 'canControl': false},
         ]);
       } catch (e) {
-        warning = 'Chưa gán được nhân công: ${e.toString().replaceFirst('Exception: ', '')}';
+        warning =
+            'Chưa gán được nhân công: ${e.toString().replaceFirst('Exception: ', '')}';
       }
     }
     await fetchFromApi();
@@ -269,7 +316,14 @@ class FarmCreateResult {
 
 /// Lấy mã Farm từ phản hồi tạo Farm; null nếu thiếu, rỗng hoặc là GUID rỗng.
 String? parseCreatedFarmId(Map<String, dynamic> created) {
-  final raw = (created['farmId'] ?? created['FarmId'] ?? created['id'] ?? created['Id'])?.toString().trim();
-  if (raw == null || raw.isEmpty || raw == 'null' || raw == '00000000-0000-0000-0000-000000000000') return null;
+  final raw =
+      (created['farmId'] ?? created['FarmId'] ?? created['id'] ?? created['Id'])
+          ?.toString()
+          .trim();
+  if (raw == null ||
+      raw.isEmpty ||
+      raw == 'null' ||
+      raw == '00000000-0000-0000-0000-000000000000')
+    return null;
   return raw;
 }

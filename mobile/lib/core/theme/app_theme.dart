@@ -47,7 +47,9 @@ ThemeData buildAppTheme() {
     surface: Colors.white,
     error: AppColors.danger,
   );
-  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radius));
+  final shape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(AppSpacing.radius),
+  );
   final inputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(AppSpacing.radius),
     borderSide: const BorderSide(color: AppColors.borderStrong),
@@ -89,9 +91,15 @@ ThemeData buildAppTheme() {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: inputBorder,
       enabledBorder: inputBorder,
-      focusedBorder: inputBorder.copyWith(borderSide: const BorderSide(color: AppColors.primaryDark, width: 1.8)),
-      errorBorder: inputBorder.copyWith(borderSide: const BorderSide(color: AppColors.danger)),
-      focusedErrorBorder: inputBorder.copyWith(borderSide: const BorderSide(color: AppColors.danger, width: 1.8)),
+      focusedBorder: inputBorder.copyWith(
+        borderSide: const BorderSide(color: AppColors.primaryDark, width: 1.8),
+      ),
+      errorBorder: inputBorder.copyWith(
+        borderSide: const BorderSide(color: AppColors.danger),
+      ),
+      focusedErrorBorder: inputBorder.copyWith(
+        borderSide: const BorderSide(color: AppColors.danger, width: 1.8),
+      ),
       labelStyle: const TextStyle(color: AppColors.textMuted),
       hintStyle: const TextStyle(color: AppColors.textFaint),
       helperMaxLines: 3,
@@ -122,13 +130,20 @@ ThemeData buildAppTheme() {
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(minimumSize: const Size(48, 44), shape: shape),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 44),
+        shape: shape,
+      ),
     ),
-    iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(minimumSize: const Size(44, 44))),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+    ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: AppColors.ink,
       foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      ),
     ),
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -139,13 +154,19 @@ ThemeData buildAppTheme() {
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titleTextStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.text),
+      titleTextStyle: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.bold,
+        color: AppColors.text,
+      ),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       showDragHandle: false,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -167,12 +188,18 @@ ThemeData buildAppTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: 12,
-          fontWeight: states.contains(WidgetState.selected) ? FontWeight.bold : FontWeight.w500,
-          color: states.contains(WidgetState.selected) ? AppColors.ink : AppColors.textMuted,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.bold
+              : FontWeight.w500,
+          color: states.contains(WidgetState.selected)
+              ? AppColors.ink
+              : AppColors.textMuted,
         ),
       ),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primary),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: AppColors.primary,
+    ),
     listTileTheme: const ListTileThemeData(minVerticalPadding: 8),
     dividerTheme: const DividerThemeData(color: AppColors.border, space: 1),
   );

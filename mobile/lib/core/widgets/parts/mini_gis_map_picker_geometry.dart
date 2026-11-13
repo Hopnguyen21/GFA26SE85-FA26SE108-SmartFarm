@@ -2,7 +2,9 @@ part of '../mini_gis_map_picker.dart';
 
 extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
   List<LatLng> _generateDefaultBox(LatLng center, {double scale = 1.0}) {
-    if (widget.level == 'ZONE' && widget.parentPolygon != null && widget.parentPolygon!.length >= 3) {
+    if (widget.level == 'ZONE' &&
+        widget.parentPolygon != null &&
+        widget.parentPolygon!.length >= 3) {
       // Tính độ rộng của Field mẹ để tạo ô Zone nằm gọn bên trong
       double minLat = double.infinity, maxLat = -double.infinity;
       double minLng = double.infinity, maxLng = -double.infinity;
@@ -12,8 +14,14 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
         if (p.longitude < minLng) minLng = p.longitude;
         if (p.longitude > maxLng) maxLng = p.longitude;
       }
-      final double latHalfSpan = ((maxLat - minLat) * 0.25).clamp(0.0003, 0.0008);
-      final double lngHalfSpan = ((maxLng - minLng) * 0.25).clamp(0.0004, 0.0010);
+      final double latHalfSpan = ((maxLat - minLat) * 0.25).clamp(
+        0.0003,
+        0.0008,
+      );
+      final double lngHalfSpan = ((maxLng - minLng) * 0.25).clamp(
+        0.0004,
+        0.0010,
+      );
       return [
         LatLng(center.latitude + latHalfSpan, center.longitude - lngHalfSpan),
         LatLng(center.latitude + latHalfSpan, center.longitude + lngHalfSpan),
@@ -37,10 +45,22 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
     final double lngDelta = baseLngDelta * scale;
 
     return [
-      LatLng(center.latitude + latDelta, center.longitude - lngDelta), // #1 Tây Bắc
-      LatLng(center.latitude + latDelta, center.longitude + lngDelta), // #2 Đông Bắc
-      LatLng(center.latitude - latDelta, center.longitude + lngDelta), // #3 Đông Nam
-      LatLng(center.latitude - latDelta, center.longitude - lngDelta), // #4 Tây Nam
+      LatLng(
+        center.latitude + latDelta,
+        center.longitude - lngDelta,
+      ), // #1 Tây Bắc
+      LatLng(
+        center.latitude + latDelta,
+        center.longitude + lngDelta,
+      ), // #2 Đông Bắc
+      LatLng(
+        center.latitude - latDelta,
+        center.longitude + lngDelta,
+      ), // #3 Đông Nam
+      LatLng(
+        center.latitude - latDelta,
+        center.longitude - lngDelta,
+      ), // #4 Tây Nam
     ];
   }
 
@@ -73,7 +93,10 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
       sumLat += p.latitude;
       sumLng += p.longitude;
     }
-    return LatLng(sumLat / _polygonPoints.length, sumLng / _polygonPoints.length);
+    return LatLng(
+      sumLat / _polygonPoints.length,
+      sumLng / _polygonPoints.length,
+    );
   }
 
   /// Chuyển đổi độ lệch cảm ứng màn hình (DragUpdateDetails.delta) sang độ lệch tọa độ LatLng
@@ -82,7 +105,8 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
       final zoom = _mapController.camera.zoom;
       final latRad = _currentCenter.latitude * math.pi / 180.0;
       // Số mét tương ứng 1 pixel theo chuẩn Web Mercator ở mức zoom hiện tại
-      final metersPerPixel = 156543.03392 * math.cos(latRad) / math.pow(2, zoom);
+      final metersPerPixel =
+          156543.03392 * math.cos(latRad) / math.pow(2, zoom);
       // 1 độ vĩ độ ~ 110540 mét; 1 độ kinh độ ~ 111320 mét * cos(lat)
       final dLat = -delta.dy * metersPerPixel / 110540.0;
       final dLng = delta.dx * metersPerPixel / (111320.0 * math.cos(latRad));
@@ -105,7 +129,9 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
       final double xj = polygon[j].longitude;
       final double yj = polygon[j].latitude;
 
-      final bool intersect = ((yi > py) != (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+      final bool intersect =
+          ((yi > py) != (yj > py)) &&
+          (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
       if (intersect) inside = !inside;
     }
     return inside;
@@ -130,7 +156,8 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
       for (int j = 0; j < polyB.length; j++) {
         final b1 = polyB[j];
         final b2 = polyB[(j + 1) % polyB.length];
-        if (_MiniGISMapPickerState._segmentsIntersect(a1, a2, b1, b2)) return true;
+        if (_MiniGISMapPickerState._segmentsIntersect(a1, a2, b1, b2))
+          return true;
       }
     }
     return false;
@@ -149,13 +176,15 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
 
   /// Kiểm tra đỉnh có bị nằm ngoài viền của Thửa đất (Field) mẹ hoặc đè lên Zone khác hay không
   bool _isVertexOutsideParent(LatLng vertex) {
-    if (widget.parentPolygon == null || widget.parentPolygon!.length < 3) return false;
+    if (widget.parentPolygon == null || widget.parentPolygon!.length < 3)
+      return false;
     return !_isPointInsidePolygon(vertex, widget.parentPolygon!);
   }
 
   /// Kiểm tra xem đỉnh có bị vi phạm (ngoài Field hoặc đè vùng khác)
   bool _isVertexInvalid(LatLng vertex) {
-    return _isVertexOutsideParent(vertex) || _isVertexInsideAnyOtherZone(vertex);
+    return _isVertexOutsideParent(vertex) ||
+        _isVertexInsideAnyOtherZone(vertex);
   }
 
   /// Khoảng cách bình phương xấp xỉ từ điểm P tới đoạn thẳng AB
@@ -174,6 +203,7 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
             .clamp(0.0, 1.0);
     final double projLat = a.latitude + t * (b.latitude - a.latitude);
     final double projLng = a.longitude + t * (b.longitude - a.longitude);
-    return (p.latitude - projLat) * (p.latitude - projLat) + (p.longitude - projLng) * (p.longitude - projLng);
+    return (p.latitude - projLat) * (p.latitude - projLat) +
+        (p.longitude - projLng) * (p.longitude - projLng);
   }
 }

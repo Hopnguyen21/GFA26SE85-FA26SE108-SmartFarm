@@ -47,7 +47,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     setState(() => _busy = true);
     try {
       await action();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success)));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(success)));
     } catch (e) {
       if (mounted) setState(() => _error = _message(e));
     } finally {
@@ -60,16 +63,28 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     final email = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mời Farmer vào trang trại', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          'Mời Farmer vào trang trại',
+          style: TextStyle(fontSize: 15),
+        ),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email tài khoản Farmer', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            labelText: 'Email tài khoản Farmer',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Gửi lời mời')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Gửi lời mời'),
+          ),
         ],
       ),
     );
@@ -84,7 +99,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
   Future<void> _editZones(FarmerModel farmer, List<ZoneModel> zones) async {
     final draft = <String, bool?>{
       for (final z in zones)
-        z.zoneId: farmer.zoneAccess.where((a) => a.zoneId == z.zoneId).map((a) => a.canControl).firstOrNull,
+        z.zoneId: farmer.zoneAccess
+            .where((a) => a.zoneId == z.zoneId)
+            .map((a) => a.canControl)
+            .firstOrNull,
     };
     final saved = await showModalBottomSheet<bool>(
       context: context,
@@ -99,7 +117,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
               children: [
                 Text(
                   'Quyền Zone của ${farmer.name}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 if (zones.isEmpty) const Text('Trang trại này chưa có Zone.'),
@@ -107,14 +128,22 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(z.name, style: const TextStyle(fontSize: 13)),
-                    subtitle: const Text('Xem & nhận việc', style: TextStyle(fontSize: 11)),
+                    subtitle: const Text(
+                      'Xem & nhận việc',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: draft[z.zoneId] != null,
-                    onChanged: (v) => setLocal(() => draft[z.zoneId] = v == true ? false : null),
+                    onChanged: (v) => setLocal(
+                      () => draft[z.zoneId] = v == true ? false : null,
+                    ),
                   ),
                   if (draft[z.zoneId] != null)
                     SwitchListTile(
                       contentPadding: const EdgeInsets.only(left: 24),
-                      title: const Text('Điều khiển thiết bị', style: TextStyle(fontSize: 12)),
+                      title: const Text(
+                        'Điều khiển thiết bị',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       value: draft[z.zoneId] == true,
                       onChanged: (v) => setLocal(() => draft[z.zoneId] = v),
                     ),
@@ -122,7 +151,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lưu quyền')),
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Lưu quyền'),
+                  ),
                 ),
               ],
             ),
@@ -136,7 +168,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
       await AccountApi.updateFarmerZoneAccess(
         farmer.farmerId,
         mergeZoneAccessPayload(
-          existing: [for (final a in farmer.zoneAccess) (zoneId: a.zoneId, canControl: a.canControl)],
+          existing: [
+            for (final a in farmer.zoneAccess)
+              (zoneId: a.zoneId, canControl: a.canControl),
+          ],
           editableZoneIds: {for (final z in zones) z.zoneId},
           draft: draft,
         ),
@@ -151,12 +186,16 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     if (provider.currentRole != 'OWNER') {
       return Scaffold(
         appBar: AppBar(title: const Text('Quản lý Nhân công')),
-        body: const Center(child: Text('Chỉ chủ trang trại được quản lý nhân công.')),
+        body: const Center(
+          child: Text('Chỉ chủ trang trại được quản lý nhân công.'),
+        ),
       );
     }
     final farmId = provider.selectedFarmId;
     final zones = provider.allZones.where((z) => z.farmId == farmId).toList();
-    final members = provider.allFarmers.where((f) => f.farmId == farmId).toList();
+    final members = provider.allFarmers
+        .where((f) => f.farmId == farmId)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Quản lý Nhân công')),
@@ -179,9 +218,14 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
               const Text('Chưa có trang trại nào.')
             else
               DropdownButtonFormField<String>(
-                initialValue: provider.farms.any((f) => f.farmId == farmId) ? farmId : null,
+                initialValue: provider.farms.any((f) => f.farmId == farmId)
+                    ? farmId
+                    : null,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Nông trại', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Nông trại',
+                  border: OutlineInputBorder(),
+                ),
                 items: [
                   for (final f in provider.farms)
                     DropdownMenuItem(
@@ -198,10 +242,16 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
               ),
             if (_error != null) ...[
               const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12)),
+              Text(
+                _error!,
+                style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+              ),
             ],
             const SizedBox(height: 16),
-            Text('Nhân công (${members.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Nhân công (${members.length})',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             if (members.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -213,8 +263,17 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
             for (final m in members)
               Card(
                 child: ListTile(
-                  title: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: Text('${m.email}\n${_accessSummary(m, zones)}', style: const TextStyle(fontSize: 12)),
+                  title: Text(
+                    m.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${m.email}\n${_accessSummary(m, zones)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   isThreeLine: true,
                   trailing: TextButton(
                     onPressed: _busy ? null : () => _editZones(m, zones),
@@ -230,8 +289,14 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
             for (final inv in _invitations)
               Card(
                 child: ListTile(
-                  title: Text(inv['email']?.toString() ?? '', style: const TextStyle(fontSize: 13)),
-                  subtitle: Text(inv['status']?.toString() ?? '', style: const TextStyle(fontSize: 11)),
+                  title: Text(
+                    inv['email']?.toString() ?? '',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  subtitle: Text(
+                    inv['status']?.toString() ?? '',
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   trailing: inv['status'] == 'Pending'
                       ? Wrap(
                           children: [
@@ -241,7 +306,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {
-                                      await AccountApi.invitationAction(inv['id'].toString(), 'resend');
+                                      await AccountApi.invitationAction(
+                                        inv['id'].toString(),
+                                        'resend',
+                                      );
                                       await _loadInvitations();
                                     }, 'Đã gửi lại lời mời.'),
                             ),
@@ -251,7 +319,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {
-                                      await AccountApi.invitationAction(inv['id'].toString(), 'cancel');
+                                      await AccountApi.invitationAction(
+                                        inv['id'].toString(),
+                                        'cancel',
+                                      );
                                       await _loadInvitations();
                                     }, 'Đã hủy lời mời.'),
                             ),
@@ -271,6 +342,8 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
       for (final a in m.zoneAccess)
         for (final z in zones.where((z) => z.zoneId == a.zoneId)) z.name,
     ];
-    return names.isEmpty ? 'Chưa có quyền Zone nào, chưa thể được giao việc.' : names.join(', ');
+    return names.isEmpty
+        ? 'Chưa có quyền Zone nào, chưa thể được giao việc.'
+        : names.join(', ');
   }
 }

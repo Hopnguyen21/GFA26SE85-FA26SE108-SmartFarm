@@ -8,8 +8,10 @@ List<Map<String, dynamic>> mergeZoneAccessPayload({
 }) {
   return [
     for (final a in existing)
-      if (!editableZoneIds.contains(a.zoneId)) {'zoneId': a.zoneId, 'canControl': a.canControl},
+      if (!editableZoneIds.contains(a.zoneId))
+        {'zoneId': a.zoneId, 'canControl': a.canControl},
     for (final e in draft.entries)
-      if (editableZoneIds.contains(e.key) && e.value != null) {'zoneId': e.key, 'canControl': e.value},
+      if (editableZoneIds.contains(e.key) && e.value != null)
+        {'zoneId': e.key, 'canControl': e.value},
   ];
 }

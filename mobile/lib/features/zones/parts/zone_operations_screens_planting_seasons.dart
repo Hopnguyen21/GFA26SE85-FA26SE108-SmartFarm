@@ -8,7 +8,8 @@ class ZonePlantingSeasonsScreen extends StatefulWidget {
   const ZonePlantingSeasonsScreen({super.key, required this.zone});
 
   @override
-  State<ZonePlantingSeasonsScreen> createState() => _ZonePlantingSeasonsScreenState();
+  State<ZonePlantingSeasonsScreen> createState() =>
+      _ZonePlantingSeasonsScreenState();
 }
 
 class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
@@ -34,10 +35,12 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
       await saveAndShareFile(
         safeFileName('SmartFarm_TongKetVu_${zone.name}.xlsx'),
         bytes,
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
     } catch (e) {
-      if (context.mounted) _toast(context, 'Xuất Excel thất bại: ${_err(e)}', error: true);
+      if (context.mounted)
+        _toast(context, 'Xuất Excel thất bại: ${_err(e)}', error: true);
     }
   }
 
@@ -63,7 +66,10 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
             )
           : null,
       appBar: AppBar(
-        title: Text('Vụ trồng · ${zone.name}', style: const TextStyle(fontSize: 15)),
+        title: Text(
+          'Vụ trồng · ${zone.name}',
+          style: const TextStyle(fontSize: 15),
+        ),
         actions: [
           IconButton(
             tooltip: 'Xuất Excel tổng kết vụ',
@@ -90,14 +96,17 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
               final s = seasons[i];
-              final status = _statusVi['${s['status']}'] ?? ('${s['status']}', _muted);
+              final status =
+                  _statusVi['${s['status']}'] ?? ('${s['status']}', _muted);
               final yieldKg = s['actualYieldKg'];
               final statusCode = '${s['status']}';
-              final open = statusCode == 'InProgress' || statusCode == 'Planned';
+              final open =
+                  statusCode == 'InProgress' || statusCode == 'Planned';
               final profileId = _validId(s['growthProfileId']);
               final seasonId = _validId(s['seasonId'] ?? s['plantingSeasonId']);
               // Sản lượng chỉ ghi cho vụ đang canh tác hoặc đã thu hoạch; vụ dự kiến/đã hủy chưa có sản lượng.
-              final canYield = statusCode == 'InProgress' || statusCode == 'Completed';
+              final canYield =
+                  statusCode == 'InProgress' || statusCode == 'Completed';
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -113,12 +122,20 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                         Expanded(
                           child: Text(
                             '${s['name']}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _ink),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: _ink,
+                            ),
                           ),
                         ),
                         Text(
                           status.$1,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: status.$2),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: status.$2,
+                          ),
                         ),
                       ],
                     ),
@@ -135,7 +152,11 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                     if (yieldKg != null)
                       Text(
                         'Sản lượng: $yieldKg kg',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _green),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _green,
+                        ),
                       ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -143,7 +164,11 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                       children: [
                         TextButton.icon(
                           icon: const Icon(Icons.timeline, size: 16),
-                          label: Text(profileId == null ? 'Giai đoạn (thiếu hồ sơ)' : 'Giai đoạn'),
+                          label: Text(
+                            profileId == null
+                                ? 'Giai đoạn (thiếu hồ sơ)'
+                                : 'Giai đoạn',
+                          ),
                           onPressed: profileId == null
                               ? null
                               : () => Navigator.push(
@@ -151,32 +176,51 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                                   MaterialPageRoute(
                                     builder: (_) => GrowthStagesScreen(
                                       profileId: profileId,
-                                      title: '${s['growthProfileName'] ?? s['cropName'] ?? 'Hồ sơ sinh trưởng'}',
-                                      currentStageId: _validId(s['currentGrowthStageId']),
+                                      title:
+                                          '${s['growthProfileName'] ?? s['cropName'] ?? 'Hồ sơ sinh trưởng'}',
+                                      currentStageId: _validId(
+                                        s['currentGrowthStageId'],
+                                      ),
                                     ),
                                   ),
                                 ),
                         ),
                         if (open && seasonId != null)
                           TextButton.icon(
-                            icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                            icon: const Icon(
+                              Icons.calendar_month_outlined,
+                              size: 16,
+                            ),
                             label: const Text('Lịch tưới theo ngày'),
                             onPressed: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => SeasonIrrigationCalendarScreen(zone: zone, seasonId: seasonId),
+                                builder: (_) => SeasonIrrigationCalendarScreen(
+                                  zone: zone,
+                                  seasonId: seasonId,
+                                ),
                               ),
                             ),
                           ),
                         if (canRecordYield && canYield && seasonId != null)
                           TextButton.icon(
                             icon: const Icon(Icons.scale_outlined, size: 16),
-                            label: Text(yieldKg == null ? 'Ghi sản lượng' : 'Sửa sản lượng'),
+                            label: Text(
+                              yieldKg == null
+                                  ? 'Ghi sản lượng'
+                                  : 'Sửa sản lượng',
+                            ),
                             onPressed: () async {
-                              final ok = await showRecordYieldDialog(context, zone.zoneId, s);
+                              final ok = await showRecordYieldDialog(
+                                context,
+                                zone.zoneId,
+                                s,
+                              );
                               if (ok == true && context.mounted) {
                                 // Cập nhật dữ liệu Zone (trạng thái vụ/giai đoạn) rồi danh sách vụ.
-                                await context.read<FarmProvider>().fetchFromApi();
+                                await context
+                                    .read<FarmProvider>()
+                                    .fetchFromApi();
                                 await reload();
                               }
                             },
@@ -195,8 +239,14 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
 }
 
 /// Hộp thoại ghi sản lượng; trả về true nếu đã lưu thành công.
-Future<bool?> showRecordYieldDialog(BuildContext context, String zoneId, Map<String, dynamic> season) {
-  final kgC = TextEditingController(text: season['actualYieldKg']?.toString() ?? '');
+Future<bool?> showRecordYieldDialog(
+  BuildContext context,
+  String zoneId,
+  Map<String, dynamic> season,
+) {
+  final kgC = TextEditingController(
+    text: season['actualYieldKg']?.toString() ?? '',
+  );
   final notesC = TextEditingController();
   var markCompleted = '${season['status']}' == 'InProgress';
   var saving = false;
@@ -204,37 +254,56 @@ Future<bool?> showRecordYieldDialog(BuildContext context, String zoneId, Map<Str
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) => AlertDialog(
-        title: Text('Sản lượng · ${season['name']}', style: const TextStyle(fontSize: 16)),
+        title: Text(
+          'Sản lượng · ${season['name']}',
+          style: const TextStyle(fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: kgC,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Sản lượng thực tế (kg)', border: OutlineInputBorder()),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Sản lượng thực tế (kg)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: notesC,
               maxLength: 1000,
-              decoration: const InputDecoration(labelText: 'Ghi chú (không bắt buộc)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Ghi chú (không bắt buộc)',
+                border: OutlineInputBorder(),
+              ),
             ),
             if ('${season['status']}' == 'InProgress')
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: markCompleted,
                 onChanged: (v) => setLocal(() => markCompleted = v ?? false),
-                title: const Text('Kết thúc vụ (đánh dấu đã thu hoạch)', style: TextStyle(fontSize: 13)),
+                title: const Text(
+                  'Kết thúc vụ (đánh dấu đã thu hoạch)',
+                  style: TextStyle(fontSize: 13),
+                ),
               ),
           ],
         ),
         actions: [
-          TextButton(onPressed: saving ? null : () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: saving ? null : () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
           FilledButton(
             onPressed: saving
                 ? null
                 : () async {
-                    final kg = double.tryParse(kgC.text.trim().replaceAll(',', '.'));
+                    final kg = double.tryParse(
+                      kgC.text.trim().replaceAll(',', '.'),
+                    );
                     if (kg == null || kg < 0) {
                       _toast(ctx, 'Nhập sản lượng là số ≥ 0.', error: true);
                       return;

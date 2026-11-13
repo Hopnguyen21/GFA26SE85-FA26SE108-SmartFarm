@@ -1,7 +1,10 @@
 part of '../alerts_tasks_screen.dart';
 
 extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
-  List<Widget> _notificationsTab(BuildContext context, FarmProvider farmProvider) {
+  List<Widget> _notificationsTab(
+    BuildContext context,
+    FarmProvider farmProvider,
+  ) {
     return [
       // Notifications Tab
       farmProvider.notifications.isEmpty
@@ -12,7 +15,10 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                 children: const [
                   SizedBox(
                     height: 360,
-                    child: AppEmptyState(icon: Icons.notifications_off_outlined, message: 'Không có thông báo nào'),
+                    child: AppEmptyState(
+                      icon: Icons.notifications_off_outlined,
+                      message: 'Không có thông báo nào',
+                    ),
                   ),
                 ],
               ),
@@ -22,7 +28,8 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
               child: ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: farmProvider.notifications.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final notif = farmProvider.notifications[index];
                   final isCritical = notif.severity == 'Critical';
@@ -48,11 +55,18 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Icon(Icons.delete_outline, color: Colors.white, size: 24),
+                          Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                           SizedBox(width: 6),
                           Text(
                             'Xóa',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -61,15 +75,21 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                       farmProvider.deleteNotification(notif.notificationId);
                     },
                     child: InkWell(
-                      onTap: () => farmProvider.markNotificationAsRead(notif.notificationId),
+                      onTap: () => farmProvider.markNotificationAsRead(
+                        notif.notificationId,
+                      ),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: notif.isRead ? Colors.white : const Color(0xFFF0FDF4),
+                          color: notif.isRead
+                              ? Colors.white
+                              : const Color(0xFFF0FDF4),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: notif.isRead ? const Color(0xFFE2E8F0) : const Color(0xFF86EFAC),
+                            color: notif.isRead
+                                ? const Color(0xFFE2E8F0)
+                                : const Color(0xFF86EFAC),
                             width: notif.isRead ? 1 : 1.5,
                           ),
                           boxShadow: [
@@ -92,7 +112,9 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                               child: Icon(
                                 isCritical
                                     ? Icons.error_outline
-                                    : (isWarning ? Icons.warning_amber_rounded : Icons.info_outline),
+                                    : (isWarning
+                                          ? Icons.warning_amber_rounded
+                                          : Icons.info_outline),
                                 color: badgeColor,
                                 size: 20,
                               ),
@@ -103,13 +125,16 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           notif.title,
                                           style: TextStyle(
-                                            fontWeight: notif.isRead ? FontWeight.bold : FontWeight.w900,
+                                            fontWeight: notif.isRead
+                                                ? FontWeight.bold
+                                                : FontWeight.w900,
                                             fontSize: 13,
                                             color: const Color(0xFF0F172A),
                                           ),
@@ -129,19 +154,31 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                                   const SizedBox(height: 4),
                                   Text(
                                     notif.message,
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.35),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF475569),
+                                      height: 1.35,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         notif.type,
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeColor),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: badgeColor,
+                                        ),
                                       ),
                                       Text(
                                         notif.createdAt,
-                                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF94A3B8),
+                                        ),
                                       ),
                                     ],
                                   ),

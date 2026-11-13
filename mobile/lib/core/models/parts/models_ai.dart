@@ -49,9 +49,12 @@ class AiRecommendationModel {
 
   factory AiRecommendationModel.fromJson(Map<String, dynamic> json) {
     // 1. Support Backend AiRecommendationView (summary, details, proposedAction, proposedDurationSeconds)
-    final summary = json['summary']?.toString() ?? json['rationale']?.toString() ?? '';
+    final summary =
+        json['summary']?.toString() ?? json['rationale']?.toString() ?? '';
     final details = json['details']?.toString();
-    final rationaleText = details != null && details.isNotEmpty ? details : summary;
+    final rationaleText = details != null && details.isNotEmpty
+        ? details
+        : summary;
 
     final proposedAction = json['proposedAction']?.toString();
     final isActionable = json['isActionable'] == true;
@@ -65,7 +68,9 @@ class AiRecommendationModel {
     if (isActionable && proposedAction != null) {
       if (proposedDur != null && proposedDur > 0) {
         final mins = (proposedDur / 60).round();
-        actionSummary = mins > 0 ? 'Bật tưới $mins phút' : 'Bật tưới $proposedDur giây';
+        actionSummary = mins > 0
+            ? 'Bật tưới $mins phút'
+            : 'Bật tưới $proposedDur giây';
       } else {
         actionSummary = 'Kích hoạt: $proposedAction';
       }
@@ -94,11 +99,14 @@ class AiRecommendationModel {
         .toList();
 
     return AiRecommendationModel(
-      recommendationId: json['recommendationId']?.toString() ?? json['id']?.toString() ?? '',
+      recommendationId:
+          json['recommendationId']?.toString() ?? json['id']?.toString() ?? '',
       rationale: rationaleText,
       riskWarning:
           json['riskWarning']?.toString() ??
-          (json['limitations'] is List ? (json['limitations'] as List).join('; ') : null),
+          (json['limitations'] is List
+              ? (json['limitations'] as List).join('; ')
+              : null),
       suggestedActionSummary: actionSummary,
       status: json['status']?.toString() ?? 'PROPOSED',
       actuatorId: actuatorId,

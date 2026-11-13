@@ -1,10 +1,13 @@
 part of '../schedules_automation_screen.dart';
 
-extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScreenState {
+extension _SchedulesAutomationScreenStateCreateRule
+    on _SchedulesAutomationScreenState {
   void _showAddDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         return Padding(
           padding: const EdgeInsets.all(20),
@@ -12,7 +15,10 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Tạo Cấu Hình Mới', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text(
+                'Tạo Cấu Hình Mới',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               ListTile(
                 leading: Container(
@@ -23,8 +29,13 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                   ),
                   child: const Icon(Icons.flash_on, color: Color(0xFF10B981)),
                 ),
-                title: const Text('Thêm AutoRule (IF-THEN)', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Tự động hóa theo ngưỡng cảm biến không cần xác nhận'),
+                title: const Text(
+                  'Thêm AutoRule (IF-THEN)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Tự động hóa theo ngưỡng cảm biến không cần xác nhận',
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showCreateRuleDialog(context);
@@ -39,8 +50,13 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                   ),
                   child: const Icon(Icons.schedule, color: Color(0xFF062326)),
                 ),
-                title: const Text('Thêm Lịch Tưới Định Kỳ (Cron)', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Lên lịch tưới tự động theo giờ cố định hàng ngày'),
+                title: const Text(
+                  'Thêm Lịch Tưới Định Kỳ (Cron)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Lên lịch tưới tự động theo giờ cố định hàng ngày',
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showCreateScheduleDialog(context);
@@ -61,17 +77,26 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
     String selectedActuator = 'Bơm Tưới Nhỏ Giọt';
     String selectedAction = 'BẬT (ON)';
     int duration = 15;
-    String selectedZone = provider.zones.isNotEmpty ? provider.zones.first.name : 'Nhà màng 01';
+    String selectedZone = provider.zones.isNotEmpty
+        ? provider.zones.first.name
+        : 'Nhà màng 01';
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
             return Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(modalCtx).viewInsets.bottom + 20),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -90,7 +115,11 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                     const SizedBox(height: 14),
                     const Text(
                       'Thiết Lập AutoRule Mới',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     const Text(
                       'Hệ thống tự động kích hoạt thiết bị khi cảm biến vi phạm ngưỡng',
@@ -99,20 +128,34 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                     const SizedBox(height: 16),
 
                     // Chọn Zone
-                    const Text('Khu vực áp dụng:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Khu vực áp dụng:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: selectedZone,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       items: provider.zones
                           .map(
                             (z) => DropdownMenuItem(
                               value: z.name,
-                              child: Text(z.name, style: const TextStyle(fontSize: 13)),
+                              child: Text(
+                                z.name,
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
                           )
                           .toList(),
@@ -134,7 +177,11 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                         children: [
                           const Text(
                             'ĐIỀU KIỆN (IF):',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF062326)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF062326),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -145,27 +192,44 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                   initialValue: selectedParam,
                                   isExpanded: true,
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                   ),
                                   items: const [
                                     DropdownMenuItem(
                                       value: 'Độ ẩm đất (SOIL_MOISTURE)',
-                                      child: Text('Độ ẩm đất', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Độ ẩm đất',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Nhiệt độ không khí (AIR_TEMP)',
-                                      child: Text('Nhiệt độ', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Nhiệt độ',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Độ ẩm không khí (AIR_HUMIDITY)',
-                                      child: Text('Độ ẩm khí', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Độ ẩm khí',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Cường độ sáng (LIGHT_LUX)',
-                                      child: Text('Ánh sáng', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Ánh sáng',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ],
                                   onChanged: (v) {
@@ -175,7 +239,9 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                         if (v.contains('AIR_TEMP')) {
                                           threshold = 30.0;
                                           selectedOp = '>';
-                                        } else if (v.contains('SOIL_MOISTURE')) {
+                                        } else if (v.contains(
+                                          'SOIL_MOISTURE',
+                                        )) {
                                           threshold = 60.0;
                                           selectedOp = '<';
                                         } else if (v.contains('LIGHT_LUX')) {
@@ -193,31 +259,61 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                 child: DropdownButtonFormField<String>(
                                   initialValue: selectedOp,
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                   ),
                                   items: const [
                                     DropdownMenuItem(
                                       value: '<',
-                                      child: Text('<', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        '<',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: '>',
-                                      child: Text('>', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        '>',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: '<=',
-                                      child: Text('<=', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        '<=',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: '>=',
-                                      child: Text('>=', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        '>=',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                   onChanged: (v) {
-                                    if (v != null) setModalState(() => selectedOp = v);
+                                    if (v != null)
+                                      setModalState(() => selectedOp = v);
                                   },
                                 ),
                               ),
@@ -228,8 +324,13 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                   initialValue: threshold.toInt().toString(),
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                     labelText: 'Ngưỡng',
@@ -260,7 +361,11 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                         children: [
                           const Text(
                             'HÀNH ĐỘNG THỰC THI (THEN):',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF065F46),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -271,31 +376,49 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                   initialValue: selectedActuator,
                                   isExpanded: true,
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                   ),
                                   items: const [
                                     DropdownMenuItem(
                                       value: 'Bơm Tưới Nhỏ Giọt',
-                                      child: Text('Bơm tưới', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Bơm tưới',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Quạt Thông Gió Đối Lưu',
-                                      child: Text('Quạt thông gió', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Quạt thông gió',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Đèn LED Quang Hợp',
-                                      child: Text('Đèn LED', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Đèn LED',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Van Xả Nước Tự Động',
-                                      child: Text('Van xả', style: TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        'Van xả',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ],
                                   onChanged: (v) {
-                                    if (v != null) setModalState(() => selectedActuator = v);
+                                    if (v != null)
+                                      setModalState(() => selectedActuator = v);
                                   },
                                 ),
                               ),
@@ -305,8 +428,13 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                 child: DropdownButtonFormField<String>(
                                   initialValue: selectedAction,
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                   ),
@@ -326,12 +454,17 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                       value: 'TẮT (OFF)',
                                       child: Text(
                                         'TẮT',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red,
+                                        ),
                                       ),
                                     ),
                                   ],
                                   onChanged: (v) {
-                                    if (v != null) setModalState(() => selectedAction = v);
+                                    if (v != null)
+                                      setModalState(() => selectedAction = v);
                                   },
                                 ),
                               ),
@@ -342,8 +475,13 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                   initialValue: duration.toString(),
                                   keyboardType: TextInputType.number,
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                     labelText: 'Phút',
@@ -365,7 +503,10 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Huỷ'),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -377,10 +518,15 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                             icon: const Icon(Icons.check, size: 18),
-                            label: const Text('Kích Hoạt AutoRule', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: const Text(
+                              'Kích Hoạt AutoRule',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             onPressed: () async {
                               final messenger = ScaffoldMessenger.of(context);
-                              final zone = provider.zones.where((z) => z.name == selectedZone).firstOrNull;
+                              final zone = provider.zones
+                                  .where((z) => z.name == selectedZone)
+                                  .firstOrNull;
                               final wanted = selectedActuator.contains('Quạt')
                                   ? 'FAN'
                                   : selectedActuator.contains('Đèn')
@@ -389,7 +535,11 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                   ? 'VALVE'
                                   : 'PUMP';
                               final actuator = provider.actuators
-                                  .where((a) => a.zoneId == zone?.zoneId && a.actuatorType == wanted)
+                                  .where(
+                                    (a) =>
+                                        a.zoneId == zone?.zoneId &&
+                                        a.actuatorType == wanted,
+                                  )
                                   .firstOrNull;
                               if (zone == null || actuator == null) {
                                 messenger.showSnackBar(
@@ -408,30 +558,44 @@ extension _SchedulesAutomationScreenStateCreateRule on _SchedulesAutomationScree
                                   : selectedParam.contains('HUMIDITY')
                                   ? 'AirHumidity'
                                   : 'LightIntensity';
-                              final error = await provider.addAutomationRule(zone.zoneId, {
-                                'name': '$selectedAction $selectedActuator khi $selectedParam $selectedOp $threshold',
-                                'parameterCode': parameter,
-                                'operator': switch (selectedOp) {
-                                  '<' => 'LessThan',
-                                  '<=' => 'LessThanOrEqual',
-                                  '>=' => 'GreaterThanOrEqual',
-                                  _ => 'GreaterThan',
+                              final error = await provider.addAutomationRule(
+                                zone.zoneId,
+                                {
+                                  'name':
+                                      '$selectedAction $selectedActuator khi $selectedParam $selectedOp $threshold',
+                                  'parameterCode': parameter,
+                                  'operator': switch (selectedOp) {
+                                    '<' => 'LessThan',
+                                    '<=' => 'LessThanOrEqual',
+                                    '>=' => 'GreaterThanOrEqual',
+                                    _ => 'GreaterThan',
+                                  },
+                                  'threshold': threshold,
+                                  'actuatorId': actuator.actuatorId,
+                                  'action': selectedAction.contains('OFF')
+                                      ? 'TurnOff'
+                                      : 'TurnOn',
+                                  'durationSeconds': (duration * 60).clamp(
+                                    1,
+                                    1800,
+                                  ),
                                 },
-                                'threshold': threshold,
-                                'actuatorId': actuator.actuatorId,
-                                'action': selectedAction.contains('OFF') ? 'TurnOff' : 'TurnOn',
-                                'durationSeconds': (duration * 60).clamp(1, 1800),
-                              });
+                              );
                               if (error != null) {
                                 messenger.showSnackBar(
-                                  SnackBar(content: Text(error), backgroundColor: const Color(0xFFDC2626)),
+                                  SnackBar(
+                                    content: Text(error),
+                                    backgroundColor: const Color(0xFFDC2626),
+                                  ),
                                 );
                                 return;
                               }
                               if (ctx.mounted) Navigator.pop(ctx);
                               messenger.showSnackBar(
                                 const SnackBar(
-                                  content: Text('✅ Đã tạo và kích hoạt AutoRule.'),
+                                  content: Text(
+                                    '✅ Đã tạo và kích hoạt AutoRule.',
+                                  ),
                                   backgroundColor: Color(0xFF059669),
                                 ),
                               );

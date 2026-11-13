@@ -6,7 +6,9 @@ part of '../zone_operations_screens.dart';
 /// Trả về 'updated', 'archived' hoặc null.
 Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
   final nameC = TextEditingController(text: zone.name);
-  final areaC = TextEditingController(text: zone.areaM2 > 0 ? zone.areaM2.toStringAsFixed(0) : '');
+  final areaC = TextEditingController(
+    text: zone.areaM2 > 0 ? zone.areaM2.toStringAsFixed(0) : '',
+  );
   final notesC = TextEditingController(text: zone.notes ?? '');
   var busy = false;
   return showModalBottomSheet<String>(
@@ -14,29 +16,48 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) => Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Sửa thông tin Zone', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text(
+                'Sửa thông tin Zone',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: nameC,
-                decoration: const InputDecoration(labelText: 'Tên Zone', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Tên Zone',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: areaC,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Diện tích (m²)', border: OutlineInputBorder()),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Diện tích (m²)',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: notesC,
                 maxLength: 1000,
-                decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 8),
               FilledButton(
@@ -46,13 +67,24 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                         final name = nameC.text.trim();
                         final area = areaC.text.trim().isEmpty
                             ? null
-                            : double.tryParse(areaC.text.trim().replaceAll(',', '.'));
+                            : double.tryParse(
+                                areaC.text.trim().replaceAll(',', '.'),
+                              );
                         if (name.length < 2) {
-                          _toast(ctx, 'Tên Zone cần ít nhất 2 ký tự.', error: true);
+                          _toast(
+                            ctx,
+                            'Tên Zone cần ít nhất 2 ký tự.',
+                            error: true,
+                          );
                           return;
                         }
-                        if (areaC.text.trim().isNotEmpty && (area == null || area <= 0)) {
-                          _toast(ctx, 'Diện tích phải là số dương.', error: true);
+                        if (areaC.text.trim().isNotEmpty &&
+                            (area == null || area <= 0)) {
+                          _toast(
+                            ctx,
+                            'Diện tích phải là số dương.',
+                            error: true,
+                          );
                           return;
                         }
                         setLocal(() => busy = true);
@@ -61,7 +93,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                             zone.zoneId,
                             name: name,
                             areaM2: area,
-                            notes: notesC.text.trim().isEmpty ? null : notesC.text.trim(),
+                            notes: notesC.text.trim().isEmpty
+                                ? null
+                                : notesC.text.trim(),
                           );
                           if (ctx.mounted) Navigator.pop(ctx, 'updated');
                         } catch (e) {
@@ -73,11 +107,17 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
               ),
               const SizedBox(height: 14),
               const Divider(),
-              const Text('Cây trồng & hồ sơ canh tác', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              const Text(
+                'Cây trồng & hồ sơ canh tác',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 6),
               ZoneCropPlanEditPanel(zone: zone),
               const Divider(),
-              const Text('Lịch tưới', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              const Text(
+                'Lịch tưới',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 6),
               ZoneIrrigationPanel(zone: zone),
               const Divider(),
@@ -98,9 +138,14 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                               'Hệ thống sẽ từ chối nếu Zone còn vụ đang canh tác hoặc thiết bị đang hoạt động.',
                             ),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Hủy')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(d, false),
+                                child: const Text('Hủy'),
+                              ),
                               FilledButton(
-                                style: FilledButton.styleFrom(backgroundColor: _red),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _red,
+                                ),
                                 onPressed: () => Navigator.pop(d, true),
                                 child: const Text('Lưu trữ'),
                               ),

@@ -41,7 +41,9 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final farmProvider = Provider.of<FarmProvider>(context);
     final zone = farmProvider.currentZone;
-    final unreadAlerts = farmProvider.alerts.where((a) => !a.isAcknowledged).length;
+    final unreadAlerts = farmProvider.alerts
+        .where((a) => !a.isAcknowledged)
+        .length;
     final unreadTotal = unreadAlerts + farmProvider.unreadNotificationCount;
 
     return Scaffold(
@@ -67,7 +69,11 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   const Text(
                     'SmartFarm Mobile',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
@@ -76,7 +82,10 @@ class HomeScreen extends StatelessWidget {
                         : farmProvider.currentRole == 'TECHNICIAN'
                         ? 'Kỹ Thuật Viên (Technician)'
                         : 'Nông Dân Thực Địa (Worker)',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -92,9 +101,18 @@ class HomeScreen extends StatelessWidget {
               tooltip: 'Đổi Vai trò',
               onSelected: (role) => farmProvider.switchRole(role),
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'OWNER', child: Text('👑 Chủ trại (Owner)')),
-                const PopupMenuItem(value: 'FARMER', child: Text('👤 Nông dân (Worker)')),
-                const PopupMenuItem(value: 'TECHNICIAN', child: Text('🔧 Kỹ thuật viên (Technician)')),
+                const PopupMenuItem(
+                  value: 'OWNER',
+                  child: Text('👑 Chủ trại (Owner)'),
+                ),
+                const PopupMenuItem(
+                  value: 'FARMER',
+                  child: Text('👤 Nông dân (Worker)'),
+                ),
+                const PopupMenuItem(
+                  value: 'TECHNICIAN',
+                  child: Text('🔧 Kỹ thuật viên (Technician)'),
+                ),
               ],
             ),
           IconButton(
@@ -102,9 +120,17 @@ class HomeScreen extends StatelessWidget {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
-                : Icon(Icons.sync, color: farmProvider.isApiConnected ? const Color(0xFF10B981) : Colors.white70),
+                : Icon(
+                    Icons.sync,
+                    color: farmProvider.isApiConnected
+                        ? const Color(0xFF10B981)
+                        : Colors.white70,
+                  ),
             tooltip: farmProvider.isApiConnected
                 ? 'API Đã kết nối (Chạm để đồng bộ)'
                 : 'API Ngoại tuyến (Chạm để kết nối lại)',
@@ -119,7 +145,9 @@ class HomeScreen extends StatelessWidget {
                           : '⚠️ Không kết nối được API backend, đang dùng dữ liệu offline',
                     ),
                     duration: const Duration(seconds: 2),
-                    backgroundColor: farmProvider.isApiConnected ? const Color(0xFF065F46) : Colors.orange[800],
+                    backgroundColor: farmProvider.isApiConnected
+                        ? const Color(0xFF065F46)
+                        : Colors.orange[800],
                   ),
                 );
               }
@@ -133,7 +161,10 @@ class HomeScreen extends StatelessWidget {
               child: const Icon(Icons.notifications_none, color: Colors.white),
             ),
             tooltip: 'Thông báo & Cảnh báo',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AlertsTasksScreen())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AlertsTasksScreen()),
+            ),
           ),
           const SizedBox(width: 4),
         ],

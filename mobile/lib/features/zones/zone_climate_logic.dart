@@ -23,7 +23,8 @@ class TelemetryMetric {
   final String unit;
   final DateTime? capturedAtUtc;
   final bool isFresh;
-  final String thresholdStatus; // do backend tính theo vụ đang chạy (có thể rỗng/Unknown)
+  final String
+  thresholdStatus; // do backend tính theo vụ đang chạy (có thể rỗng/Unknown)
 
   const TelemetryMetric({
     required this.code,
@@ -59,13 +60,17 @@ class ZoneTelemetrySnapshot {
         code: code,
         value: value,
         unit: '${jsonField(m, 'unit') ?? ''}',
-        capturedAtUtc: DateTime.tryParse('${jsonField(m, 'capturedAtUtc') ?? ''}')?.toUtc(),
+        capturedAtUtc: DateTime.tryParse(
+          '${jsonField(m, 'capturedAtUtc') ?? ''}',
+        )?.toUtc(),
         isFresh: jsonField(m, 'isFresh') == true,
         thresholdStatus: '${jsonField(m, 'thresholdStatus') ?? ''}',
       );
     }
     return ZoneTelemetrySnapshot(
-      latestReceivedAtUtc: DateTime.tryParse('${jsonField(j, 'latestReceivedAtUtc') ?? ''}')?.toUtc(),
+      latestReceivedAtUtc: DateTime.tryParse(
+        '${jsonField(j, 'latestReceivedAtUtc') ?? ''}',
+      )?.toUtc(),
       hasFreshTelemetry: jsonField(j, 'hasFreshTelemetry') == true,
       metrics: metrics,
     );
@@ -82,14 +87,19 @@ StageDraft? currentStageOfZone({
   if (seasonStatus != 'InProgress') return null;
   final name = currentStageName.trim().toLowerCase();
   if (name.isEmpty) return null;
-  return profileStages.where((s) => s.name.trim().toLowerCase() == name).firstOrNull;
+  return profileStages
+      .where((s) => s.name.trim().toLowerCase() == name)
+      .firstOrNull;
 }
 
 enum MetricVerdict { ok, below, above, noThreshold, stale, noData }
 
 /// Đánh giá một số đo theo ngưỡng của giai đoạn. Số đo cũ → [MetricVerdict.stale] (không đánh giá);
 /// không có ngưỡng cho tham số này → [MetricVerdict.noThreshold].
-MetricVerdict evaluateMetric(TelemetryMetric? metric, RequirementDraft? requirement) {
+MetricVerdict evaluateMetric(
+  TelemetryMetric? metric,
+  RequirementDraft? requirement,
+) {
   if (metric == null) return MetricVerdict.noData;
   if (!metric.isFresh) return MetricVerdict.stale;
   if (requirement == null) return MetricVerdict.noThreshold;

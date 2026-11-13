@@ -11,7 +11,11 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
     if (_polygonPoints.isEmpty) return;
     final dGeo = _screenOffsetToLatLngDelta(details.delta);
     _rebuild(() {
-      _polygonPoints = _shiftPolygon(_polygonPoints, dGeo.latitude, dGeo.longitude);
+      _polygonPoints = _shiftPolygon(
+        _polygonPoints,
+        dGeo.latitude,
+        dGeo.longitude,
+      );
       _selectedVertexIndex = null;
     });
     widget.onPolygonChanged?.call(_polygonPoints);
@@ -60,7 +64,10 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
     _rebuild(() {
       _selectedVertexIndex = index;
       final p = _polygonPoints[index];
-      _polygonPoints[index] = LatLng(p.latitude + dGeo.latitude, p.longitude + dGeo.longitude);
+      _polygonPoints[index] = LatLng(
+        p.latitude + dGeo.latitude,
+        p.longitude + dGeo.longitude,
+      );
     });
     widget.onPolygonChanged?.call(_polygonPoints);
     _notifyArea();
@@ -71,7 +78,10 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
     if (_isLockedCenter) {
       // Khi ở chế độ FIELD: Ghim và Polygon bị khóa cố định theo Farm, chỉ cho phép zoom hoặc ngắm nhìn
       try {
-        _mapController.move(widget.initialCenter, zoom ?? _mapController.camera.zoom);
+        _mapController.move(
+          widget.initialCenter,
+          zoom ?? _mapController.camera.zoom,
+        );
       } catch (_) {}
       return;
     }
@@ -120,7 +130,9 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
                 backgroundColor: const Color(0xFFEF4444),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             );
             return;
@@ -128,12 +140,18 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
 
           if (_isVertexInsideAnyOtherZone(point)) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            final typeName = widget.level == 'FIELD' ? 'Thửa đất khác' : 'Nhà màng khác';
+            final typeName = widget.level == 'FIELD'
+                ? 'Thửa đất khác'
+                : 'Nhà màng khác';
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -146,7 +164,9 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
                 backgroundColor: const Color(0xFFEF4444),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             );
             return;
@@ -185,7 +205,9 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
               backgroundColor: const Color(0xFFEF4444),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
           return;
@@ -194,12 +216,18 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
         // Kiểm tra xem vị trí chạm có đè lên Vùng khác đã có không
         if (_isVertexInsideAnyOtherZone(point)) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          final typeName = widget.level == 'FIELD' ? 'Thửa đất khác' : 'Nhà màng khác';
+          final typeName = widget.level == 'FIELD'
+              ? 'Thửa đất khác'
+              : 'Nhà màng khác';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -212,7 +240,9 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
               backgroundColor: const Color(0xFFEF4444),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
           return;

@@ -5,5 +5,6 @@ class InspectionRequestsScreen extends StatelessWidget {
   const InspectionRequestsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const LegacyFlowRedirectScreen(title: 'Yêu cầu khảo sát');
+  Widget build(BuildContext context) =>
+      const LegacyFlowRedirectScreen(title: 'Yêu cầu khảo sát');
 }

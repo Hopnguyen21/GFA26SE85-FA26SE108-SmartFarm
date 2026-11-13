@@ -8,6 +8,8 @@ using SmartFarm.Application.Features.Ai;
 using SmartFarm.Infrastructure.Ai.Location;
 using SmartFarm.Infrastructure.Persistence;
 
+using Microsoft.Extensions.Caching.Memory;
+
 namespace SmartFarm.Infrastructure.Ai;
 
 public sealed class OpenMeteoOptions

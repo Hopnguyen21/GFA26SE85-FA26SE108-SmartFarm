@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'widgets/zone_crop_plan_edit_panel.dart';
 import '../crops/widgets/create_season_sheet.dart';
 import '../irrigation/season_irrigation_calendar_screen.dart';
-import 'widgets/stage_draft_tile.dart' show describeRequirementDraft, thresholdNotice;
+import 'widgets/stage_draft_tile.dart'
+    show describeRequirementDraft, thresholdNotice;
 import 'zone_crop_plan_logic.dart' show StageDraft;
 import 'widgets/zone_irrigation_panel.dart';
 import '../../core/widgets/state_views.dart';
@@ -29,7 +30,9 @@ const _red = Color(0xFFDC2626);
 String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
 
 void _toast(BuildContext context, String msg, {bool error = false}) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: error ? _red : _green));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(msg), backgroundColor: error ? _red : _green),
+  );
 }
 
 String _fmtTime(dynamic raw) {
@@ -42,7 +45,12 @@ String _fmtTime(dynamic raw) {
 /// Khung chung: tải dữ liệu, hiện lỗi + nút thử lại, kéo để làm mới.
 class _AsyncList<T> extends StatefulWidget {
   final Future<T> Function() load;
-  final Widget Function(BuildContext context, T data, Future<void> Function() reload) builder;
+  final Widget Function(
+    BuildContext context,
+    T data,
+    Future<void> Function() reload,
+  )
+  builder;
   const _AsyncList({super.key, required this.load, required this.builder});
   @override
   State<_AsyncList<T>> createState() => _AsyncListState<T>();
@@ -60,9 +68,17 @@ class _AsyncListState<T> extends State<_AsyncList<T>> {
   Widget build(BuildContext context) => FutureBuilder<T>(
     future: _future,
     builder: (context, snap) {
-      if (snap.connectionState != ConnectionState.done) return const AppLoading();
-      if (snap.hasError) return AppErrorState(message: friendlyError(snap.error!), onRetry: _reload);
-      return RefreshIndicator(onRefresh: _reload, child: widget.builder(context, snap.data as T, _reload));
+      if (snap.connectionState != ConnectionState.done)
+        return const AppLoading();
+      if (snap.hasError)
+        return AppErrorState(
+          message: friendlyError(snap.error!),
+          onRetry: _reload,
+        );
+      return RefreshIndicator(
+        onRefresh: _reload,
+        child: widget.builder(context, snap.data as T, _reload),
+      );
     },
   );
 }

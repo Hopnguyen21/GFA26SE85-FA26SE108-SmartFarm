@@ -1,9 +1,15 @@
 part of '../inventory_screen.dart';
 
 extension _InventoryScreenStateDialogs on _InventoryScreenState {
-  void _showAdjustStockModal(BuildContext context, FarmProvider provider, MaterialInventoryModel item) {
+  void _showAdjustStockModal(
+    BuildContext context,
+    FarmProvider provider,
+    MaterialInventoryModel item,
+  ) {
     final qtyCtrl = TextEditingController(
-      text: item.quantity.toStringAsFixed(item.quantity.truncateToDouble() == item.quantity ? 0 : 1),
+      text: item.quantity.toStringAsFixed(
+        item.quantity.truncateToDouble() == item.quantity ? 0 : 1,
+      ),
     );
 
     showModalBottomSheet(
@@ -27,7 +33,11 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                 children: [
                   Text(
                     'Điều Chỉnh Số Lượng Tồn',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Đóng',
@@ -37,16 +47,23 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(item.materialName, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              Text(
+                item.materialName,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
               const SizedBox(height: 16),
               TextField(
                 controller: qtyCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Số lượng tồn mới (${item.unit})',
                   hintText: 'Nhập số lượng thực tế trong kho',
                   suffixText: item.unit,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -54,7 +71,8 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final newQty = double.tryParse(qtyCtrl.text.trim()) ?? item.quantity;
+                    final newQty =
+                        double.tryParse(qtyCtrl.text.trim()) ?? item.quantity;
                     final diff = newQty - item.quantity;
                     final messenger = ScaffoldMessenger.of(context);
                     if (diff == 0 || newQty < 0) {
@@ -63,34 +81,56 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                     }
                     String? error;
                     if (diff > 0) {
-                      error = await provider.receiveStock(item.inventoryId, diff);
+                      error = await provider.receiveStock(
+                        item.inventoryId,
+                        diff,
+                      );
                     } else {
                       // Xuất kho phải ghi rõ Zone sử dụng để giữ lịch sử.
                       final zoneId = await showDialog<String>(
                         context: ctx,
                         builder: (dCtx) => SimpleDialog(
-                          title: const Text('Xuất cho Zone nào?', style: TextStyle(fontSize: 15)),
+                          title: const Text(
+                            'Xuất cho Zone nào?',
+                            style: TextStyle(fontSize: 15),
+                          ),
                           children: [
                             for (final z in provider.allZones)
-                              SimpleDialogOption(onPressed: () => Navigator.pop(dCtx, z.zoneId), child: Text(z.name)),
+                              SimpleDialogOption(
+                                onPressed: () => Navigator.pop(dCtx, z.zoneId),
+                                child: Text(z.name),
+                              ),
                           ],
                         ),
                       );
                       if (zoneId == null) return;
-                      error = await provider.issueStock(item.inventoryId, -diff, zoneId);
+                      error = await provider.issueStock(
+                        item.inventoryId,
+                        -diff,
+                        zoneId,
+                      );
                     }
                     if (ctx.mounted) Navigator.pop(ctx);
                     messenger.showSnackBar(
-                      SnackBar(content: Text(error ?? 'Đã cập nhật tồn kho: $newQty ${item.unit}')),
+                      SnackBar(
+                        content: Text(
+                          error ?? 'Đã cập nhật tồn kho: $newQty ${item.unit}',
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.check, size: 18),
-                  label: const Text('XÁC NHẬN CẬP NHẬT TỒN KHO', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'XÁC NHẬN CẬP NHẬT TỒN KHO',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -114,7 +154,9 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -131,7 +173,11 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                     children: [
                       const Text(
                         'Nhập Thêm Vật Tư Mới Vào Kho',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       IconButton(
                         tooltip: 'Đóng',
@@ -145,8 +191,11 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                     controller: nameCtrl,
                     decoration: InputDecoration(
                       labelText: 'Tên vật tư nông nghiệp *',
-                      hintText: 'Ví dụ: Phân bón Kali Clorua, Hạt giống Ớt chuông...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      hintText:
+                          'Ví dụ: Phân bón Kali Clorua, Hạt giống Ớt chuông...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -157,27 +206,43 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                           initialValue: selectedCat,
                           decoration: InputDecoration(
                             labelText: 'Phân loại',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           items: const [
                             DropdownMenuItem(
                               value: 'FERTILIZER',
-                              child: Text('Phân Bón', style: TextStyle(fontSize: 12)),
+                              child: Text(
+                                'Phân Bón',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'SEED',
-                              child: Text('Hạt Giống', style: TextStyle(fontSize: 12)),
+                              child: Text(
+                                'Hạt Giống',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'PESTICIDE',
-                              child: Text('Thuốc Sinh Học', style: TextStyle(fontSize: 12)),
+                              child: Text(
+                                'Thuốc Sinh Học',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'EQUIPMENT',
-                              child: Text('Vật Tư & Tưới', style: TextStyle(fontSize: 12)),
+                              child: Text(
+                                'Vật Tư & Tưới',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                           ],
-                          onChanged: (val) => setModalState(() => selectedCat = val ?? 'FERTILIZER'),
+                          onChanged: (val) => setModalState(
+                            () => selectedCat = val ?? 'FERTILIZER',
+                          ),
                         ),
                       ),
                     ],
@@ -188,10 +253,14 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                       Expanded(
                         child: TextField(
                           controller: qtyCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Số lượng nhập',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -201,7 +270,9 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                           controller: unitCtrl,
                           decoration: InputDecoration(
                             labelText: 'Đơn vị tính (kg, lít, cuộn)',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -213,10 +284,14 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                       Expanded(
                         child: TextField(
                           controller: minStockCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Mức tồn tối thiểu',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -229,9 +304,11 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                       onPressed: () async {
                         final name = nameCtrl.text.trim();
                         if (name.isEmpty) {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập tên vật tư')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Vui lòng nhập tên vật tư'),
+                            ),
+                          );
                           return;
                         }
                         final messenger = ScaffoldMessenger.of(context);
@@ -240,22 +317,34 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                           category: selectedCat,
                           quantity: double.tryParse(qtyCtrl.text.trim()) ?? 0,
                           unit: unitCtrl.text.trim(),
-                          minimumStock: double.tryParse(minStockCtrl.text.trim()) ?? 0,
+                          minimumStock:
+                              double.tryParse(minStockCtrl.text.trim()) ?? 0,
                         );
                         if (error != null) {
-                          messenger.showSnackBar(SnackBar(content: Text(error)));
+                          messenger.showSnackBar(
+                            SnackBar(content: Text(error)),
+                          );
                           return;
                         }
                         if (ctx.mounted) Navigator.pop(ctx);
-                        messenger.showSnackBar(SnackBar(content: Text('Đã thêm "$name" vào kho vật tư')));
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Đã thêm "$name" vào kho vật tư'),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('LƯU VẬT TƯ VÀO KHO', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'LƯU VẬT TƯ VÀO KHO',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF10B981),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -265,6 +354,9 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
           ),
         ),
       ),
-    ).then((_) => disposeControllersLater([nameCtrl, qtyCtrl, unitCtrl, minStockCtrl]));
+    ).then(
+      (_) =>
+          disposeControllersLater([nameCtrl, qtyCtrl, unitCtrl, minStockCtrl]),
+    );
   }
 }

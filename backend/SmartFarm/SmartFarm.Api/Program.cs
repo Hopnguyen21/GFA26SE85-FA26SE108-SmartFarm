@@ -156,6 +156,26 @@ if (!app.Environment.IsEnvironment("Testing"))
     {
         logger.LogWarning(ex, "Data integrity auto-healing encountered an issue during startup");
     }
+
+    try
+    {
+        var docService = scope.ServiceProvider.GetRequiredService<AgricultureDocumentService>();
+        await docService.SeedVietGapKnowledgeAsync();
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Knowledge base seeding encountered an issue during startup");
+    }
+
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<SmartFarmDbContext>();
+        await SmartFarm.Infrastructure.Persistence.DataIntegrityHealer.HealAsync(db, logger, app.Configuration, app.Environment.IsDevelopment());
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Data integrity auto-healing encountered an issue during startup");
+    }
 }
 
 app.UseMiddleware<CorrelationIdMiddleware>();

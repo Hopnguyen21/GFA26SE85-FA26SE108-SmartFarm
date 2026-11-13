@@ -1,7 +1,11 @@
 part of '../home_screen.dart';
 
 extension _HomeScreenEcosystem on HomeScreen {
-  List<Widget> _ecosystemSection(BuildContext context, FarmProvider farmProvider, ZoneModel zone) {
+  List<Widget> _ecosystemSection(
+    BuildContext context,
+    FarmProvider farmProvider,
+    ZoneModel zone,
+  ) {
     return [
       // ─── FE-ALIGNED ECOSYSTEM SOLUTIONS CARDS (Solutions Ribbon) ───
       Padding(
@@ -28,7 +32,11 @@ extension _HomeScreenEcosystem on HomeScreen {
               ),
               child: const Text(
                 'VietGAP 4.0',
-                style: TextStyle(color: Color(0xFF065F46), fontSize: 11, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Color(0xFF065F46),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -99,7 +107,13 @@ extension _HomeScreenEcosystem on HomeScreen {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,13 +121,20 @@ extension _HomeScreenEcosystem on HomeScreen {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Icon(icon, color: iconColor, size: 16),
           ),
           const SizedBox(height: 6),
           Text(
             title,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

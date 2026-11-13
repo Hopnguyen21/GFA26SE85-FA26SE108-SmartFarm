@@ -4,13 +4,19 @@ class VietGapDocumentReviewScreen extends StatefulWidget {
   final AgricultureDocumentModel document;
   final bool canManage;
 
-  const VietGapDocumentReviewScreen({super.key, required this.document, required this.canManage});
+  const VietGapDocumentReviewScreen({
+    super.key,
+    required this.document,
+    required this.canManage,
+  });
 
   @override
-  State<VietGapDocumentReviewScreen> createState() => _VietGapDocumentReviewScreenState();
+  State<VietGapDocumentReviewScreen> createState() =>
+      _VietGapDocumentReviewScreenState();
 }
 
-class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScreen> {
+class _VietGapDocumentReviewScreenState
+    extends State<VietGapDocumentReviewScreen> {
   late final TextEditingController _content;
   final _notes = TextEditingController();
   AgricultureDocumentModel? _document;
@@ -39,7 +45,9 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
     _crop.text = d.cropScope;
     _author.text = d.authorOrganization ?? '';
     _version.text = d.version ?? '';
-    _type = _typeLabels.containsKey(d.documentType) ? d.documentType : 'Unspecified';
+    _type = _typeLabels.containsKey(d.documentType)
+        ? d.documentType
+        : 'Unspecified';
     _confirmGeneral = d.metadataDetection?['generalScopeConfirmed'] == true;
   }
 
@@ -86,22 +94,43 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
     final text = _content.text;
     return {
       'Nội dung đọc được (ít nhất 50 ký tự)': text.trim().length >= 50,
-      'Mã tiêu chuẩn hoặc từ khóa VietGAP': RegExp(r'TCVN\s*\d|Viet\s?GAP', caseSensitive: false).hasMatch(text),
+      'Mã tiêu chuẩn hoặc từ khóa VietGAP': RegExp(
+        r'TCVN\s*\d|Viet\s?GAP',
+        caseSensitive: false,
+      ).hasMatch(text),
       'Năm, phiên bản hoặc ngày hiệu lực':
-          RegExp(r'20\d{2}|\bV\.?\s?\d|ngày ban hành|hiệu lực', caseSensitive: false).hasMatch(text) ||
+          RegExp(
+            r'20\d{2}|\bV\.?\s?\d|ngày ban hành|hiệu lực',
+            caseSensitive: false,
+          ).hasMatch(text) ||
           (_doc.version?.isNotEmpty ?? false),
-      'Nội dung đất / giá thể': RegExp(r'đất|giá thể', caseSensitive: false).hasMatch(text),
-      'Nguồn nước / tưới': RegExp(r'nước tưới|nguồn nước|tưới', caseSensitive: false).hasMatch(text),
-      'Phân bón / dinh dưỡng': RegExp(r'phân bón|dinh dưỡng', caseSensitive: false).hasMatch(text),
+      'Nội dung đất / giá thể': RegExp(
+        r'đất|giá thể',
+        caseSensitive: false,
+      ).hasMatch(text),
+      'Nguồn nước / tưới': RegExp(
+        r'nước tưới|nguồn nước|tưới',
+        caseSensitive: false,
+      ).hasMatch(text),
+      'Phân bón / dinh dưỡng': RegExp(
+        r'phân bón|dinh dưỡng',
+        caseSensitive: false,
+      ).hasMatch(text),
       'IPM / thuốc bảo vệ thực vật': RegExp(
         r'IPM|BVTV|thuốc bảo vệ thực vật|sâu bệnh',
         caseSensitive: false,
       ).hasMatch(text),
-      'Thu hoạch / truy xuất': RegExp(r'thu hoạch|truy xuất', caseSensitive: false).hasMatch(text),
+      'Thu hoạch / truy xuất': RegExp(
+        r'thu hoạch|truy xuất',
+        caseSensitive: false,
+      ).hasMatch(text),
       'Nhiệt độ, ẩm đất, ẩm không khí, pH và EC':
           RegExp(r'nhiệt độ', caseSensitive: false).hasMatch(text) &&
           RegExp(r'độ ẩm|ẩm đất', caseSensitive: false).hasMatch(text) &&
-          RegExp(r'ẩm không khí|độ ẩm không khí', caseSensitive: false).hasMatch(text) &&
+          RegExp(
+            r'ẩm không khí|độ ẩm không khí',
+            caseSensitive: false,
+          ).hasMatch(text) &&
           RegExp(r'pH', caseSensitive: false).hasMatch(text) &&
           RegExp(r'\bEC\b', caseSensitive: false).hasMatch(text),
       'Giai đoạn và thời lượng sinh trưởng':
@@ -121,12 +150,19 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
       return;
     }
     if (approve && _type == 'Unspecified') {
-      _showMessage('Chưa xác định loại tài liệu: hãy chọn loại trước khi duyệt.');
+      _showMessage(
+        'Chưa xác định loại tài liệu: hãy chọn loại trước khi duyệt.',
+      );
       return;
     }
     final detection = _doc.metadataDetection;
-    final generalDetected = (detection?['generalScope'] as Map?)?['status'] == 'detected';
-    if (approve && detection != null && _crop.text.trim().isEmpty && !_confirmGeneral && !generalDetected) {
+    final generalDetected =
+        (detection?['generalScope'] as Map?)?['status'] == 'detected';
+    if (approve &&
+        detection != null &&
+        _crop.text.trim().isEmpty &&
+        !_confirmGeneral &&
+        !generalDetected) {
       _showMessage(
         'Chưa xác định cây áp dụng: hãy nhập cây, hoặc xác nhận tài liệu áp dụng chung sau khi đối chiếu file gốc.',
       );
@@ -135,7 +171,8 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
     setState(() => _saving = true);
     try {
       // Chỉ gửi trường người duyệt đã sửa; trường không đổi giữ giá trị hệ thống nhận diện.
-      String? changed(String now, String before) => now.trim() != before ? now.trim() : null;
+      String? changed(String now, String before) =>
+          now.trim() != before ? now.trim() : null;
       await DocumentApi.reviewAgricultureDocument(
         id: _doc.id,
         contentText: _content.text,
@@ -143,7 +180,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
         reviewNotes: _notes.text,
         title: changed(_title.text, _doc.title),
         cropScope: changed(_crop.text, _doc.cropScope),
-        authorOrganization: changed(_author.text, _doc.authorOrganization ?? ''),
+        authorOrganization: changed(
+          _author.text,
+          _doc.authorOrganization ?? '',
+        ),
         version: changed(_version.text, _doc.version ?? ''),
         documentType: _type != _doc.documentType ? _type : null,
         confirmGeneralScope: _confirmGeneral,
@@ -179,7 +219,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
     try {
       final bytes = await DocumentApi.downloadAgricultureOriginalFile(_doc.id);
       final directory = await getTemporaryDirectory();
-      final safeName = (_doc.fileName ?? 'vietgap_document').replaceAll(RegExp(r'[^\w.\-]'), '_');
+      final safeName = (_doc.fileName ?? 'vietgap_document').replaceAll(
+        RegExp(r'[^\w.\-]'),
+        '_',
+      );
       final file = File('${directory.path}/$safeName');
       await file.writeAsBytes(bytes, flush: true);
       final result = await OpenFilex.open(file.path);
@@ -195,7 +238,9 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -221,7 +266,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                 ],
                 _verificationCard(),
                 const SizedBox(height: 12),
-                if (widget.canManage) ...[_metadataForm(), const SizedBox(height: 12)],
+                if (widget.canManage) ...[
+                  _metadataForm(),
+                  const SizedBox(height: 12),
+                ],
                 Card(
                   elevation: 0,
                   child: Padding(
@@ -236,7 +284,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                         const SizedBox(height: 4),
                         Text(
                           'Cây trồng: ${_doc.cropScope.isEmpty ? 'Chưa xác định' : _doc.cropScope} · ${_doc.authorOrganization ?? 'Chưa rõ cơ quan ban hành'}',
-                          style: const TextStyle(fontSize: 12, color: Colors.black54),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         if (_doc.hasOriginalFile)
@@ -246,15 +297,24 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Icon(Icons.picture_as_pdf_outlined),
-                            label: Text(_downloading ? 'Đang tải file gốc…' : 'Tải và mở file gốc để đối chiếu'),
+                            label: Text(
+                              _downloading
+                                  ? 'Đang tải file gốc…'
+                                  : 'Tải và mở file gốc để đối chiếu',
+                            ),
                           )
                         else
                           const Text(
                             'Không có file gốc lưu cùng bản ghi. Với tài liệu cũ hoặc nội dung nhập trực tiếp, hãy đối chiếu nguồn riêng.',
-                            style: TextStyle(fontSize: 12, color: Colors.orange),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange,
+                            ),
                           ),
                       ],
                     ),
@@ -277,7 +337,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                       children: [
                         const Text(
                           'Kiểm tra độ đầy đủ (gợi ý)',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: _ink),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _ink,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         const Text(
@@ -291,12 +354,19 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                             child: Row(
                               children: [
                                 Icon(
-                                  entry.value ? Icons.check_circle : Icons.error_outline,
+                                  entry.value
+                                      ? Icons.check_circle
+                                      : Icons.error_outline,
                                   size: 16,
                                   color: entry.value ? _green : Colors.orange,
                                 ),
                                 const SizedBox(width: 7),
-                                Expanded(child: Text(entry.key, style: const TextStyle(fontSize: 11))),
+                                Expanded(
+                                  child: Text(
+                                    entry.key,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -314,7 +384,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                       children: [
                         Text(
                           'Toàn văn trích xuất · ${_content.text.length} ký tự · ${_doc.chunkCount} chunks',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: _ink),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _ink,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         TextField(
@@ -342,7 +415,8 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                           const SizedBox(height: 10),
                           CheckboxListTile(
                             value: _confirmed,
-                            onChanged: (value) => setState(() => _confirmed = value ?? false),
+                            onChanged: (value) =>
+                                setState(() => _confirmed = value ?? false),
                             contentPadding: EdgeInsets.zero,
                             controlAffinity: ListTileControlAffinity.leading,
                             title: Text(
@@ -368,7 +442,9 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: _saving || !_confirmed ? null : () => _saveReview(true),
+                    onPressed: _saving || !_confirmed
+                        ? null
+                        : () => _saveReview(true),
                     icon: const Icon(Icons.verified_outlined),
                     label: Text(_saving ? 'Đang lưu…' : 'Xác nhận & duyệt'),
                   ),
@@ -404,13 +480,17 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Thông tin hệ thống tự nhận diện từ file', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'Thông tin hệ thống tự nhận diện từ file',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const Text(
               'Chỉ ghi giá trị khi file có bằng chứng; chưa thấy thì để trống, không đoán.',
               style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
             for (final (key, label) in rows)
-              if (detection[key] is Map<String, dynamic>) _detectionRow(label, detection[key] as Map<String, dynamic>),
+              if (detection[key] is Map<String, dynamic>)
+                _detectionRow(label, detection[key] as Map<String, dynamic>),
             if (topics.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -465,17 +545,30 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
               status == null
                   ? 'Chưa có kết quả kiểm tra (tài liệu nạp trước khi có tính năng).'
                   : (_verificationText[status] ?? status),
-              style: TextStyle(fontWeight: FontWeight.w600, color: status == null ? Colors.black54 : color),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: status == null ? Colors.black54 : color,
+              ),
             ),
-            if (v?['message'] != null) Text('${v!['message']}', style: const TextStyle(fontSize: 12)),
+            if (v?['message'] != null)
+              Text('${v!['message']}', style: const TextStyle(fontSize: 12)),
             if (v?['documentKind'] != null)
-              Text('AI nhận định đây là: ${v!['documentKind']}', style: const TextStyle(fontSize: 12)),
+              Text(
+                'AI nhận định đây là: ${v!['documentKind']}',
+                style: const TextStyle(fontSize: 12),
+              ),
             if (v?['reason'] != null)
-              Text('Lý do: ${v!['reason']}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              Text(
+                'Lý do: ${v!['reason']}',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
             for (final q in evidence.whereType<Map<String, dynamic>>())
               Text(
                 '“${q['quote']}”${q['page'] == null ? '' : ' · trang ${q['page']}'}',
-                style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
           ],
         ),
@@ -517,7 +610,11 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
           if (evidence != null)
             Text(
               '“${evidence['quote']}”${evidence['page'] == null ? '' : ' · trang ${evidence['page']}'}',
-              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black54),
+              style: const TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: Colors.black54,
+              ),
             ),
           if (candidates != null && candidates.isNotEmpty)
             Text(
@@ -536,7 +633,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Chỉnh thông tin sau khi đối chiếu file gốc', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Chỉnh thông tin sau khi đối chiếu file gốc',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           TextField(
             controller: _title,
             decoration: const InputDecoration(labelText: 'Tiêu đề'),
@@ -564,7 +664,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
             initialValue: _type,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Loại tài liệu'),
-            items: [for (final e in _typeLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+            items: [
+              for (final e in _typeLabels.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
             onChanged: (v) => setState(() => _type = v ?? _type),
           ),
           TextField(
@@ -573,7 +676,9 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
           ),
           TextField(
             controller: _version,
-            decoration: const InputDecoration(labelText: 'Phiên bản / hiệu lực'),
+            decoration: const InputDecoration(
+              labelText: 'Phiên bản / hiệu lực',
+            ),
           ),
         ],
       ),
@@ -585,11 +690,16 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
     decoration: BoxDecoration(
       color: approved ? const Color(0xFFECFDF5) : const Color(0xFFFFF7ED),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: approved ? const Color(0xFFA7F3D0) : const Color(0xFFFED7AA)),
+      border: Border.all(
+        color: approved ? const Color(0xFFA7F3D0) : const Color(0xFFFED7AA),
+      ),
     ),
     child: Row(
       children: [
-        Icon(approved ? Icons.verified : Icons.pending_actions, color: approved ? _green : Colors.orange),
+        Icon(
+          approved ? Icons.verified : Icons.pending_actions,
+          color: approved ? _green : Colors.orange,
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -597,7 +707,10 @@ class _VietGapDocumentReviewScreenState extends State<VietGapDocumentReviewScree
             children: [
               Text(
                 _doc.statusLabel,
-                style: TextStyle(fontWeight: FontWeight.bold, color: approved ? Colors.green[900] : Colors.orange[900]),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: approved ? Colors.green[900] : Colors.orange[900],
+                ),
               ),
               Text(
                 approved

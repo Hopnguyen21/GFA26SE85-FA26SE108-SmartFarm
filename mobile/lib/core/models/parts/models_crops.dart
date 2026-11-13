@@ -33,8 +33,9 @@ class GrowthStageProfile {
   final EnvironmentalRange requirements;
   final List<String> keyActivities;
 
-  int get durationDays =>
-      (endDayFromPlanting - startDayFromPlanting) > 0 ? (endDayFromPlanting - startDayFromPlanting) : 1;
+  int get durationDays => (endDayFromPlanting - startDayFromPlanting) > 0
+      ? (endDayFromPlanting - startDayFromPlanting)
+      : 1;
 
   const GrowthStageProfile({
     required this.stageId,
@@ -94,23 +95,40 @@ class DefaultCropProfile {
 }
 
 /// Dựng hồ sơ cây trồng từ dữ liệu thật của API (GET /growth-profiles + /crops).
-DefaultCropProfile defaultCropProfileFromApi(Map<String, dynamic> p, Map<String, dynamic>? crop) {
+DefaultCropProfile defaultCropProfileFromApi(
+  Map<String, dynamic> p,
+  Map<String, dynamic>? crop,
+) {
   // Dung sai casing/danh sách bị bọc; thiếu số liệu thì 0 như trước (các màn này chưa phân biệt được "chưa có").
   double n(dynamic v) => jsonNumber(v) ?? 0;
-  final rawStages = jsonList(jsonField(p, 'stages')).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
-    ..sort(
-      (a, b) => (jsonNumber(jsonField(a, 'stageOrder')) ?? 0).compareTo(jsonNumber(jsonField(b, 'stageOrder')) ?? 0),
-    );
+  final rawStages =
+      jsonList(
+          jsonField(p, 'stages'),
+        ).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+        ..sort(
+          (a, b) => (jsonNumber(jsonField(a, 'stageOrder')) ?? 0).compareTo(
+            jsonNumber(jsonField(b, 'stageOrder')) ?? 0,
+          ),
+        );
   var cursor = 0;
   final stages = <GrowthStageProfile>[];
   for (final s in rawStages) {
     final days = jsonNumber(jsonField(s, 'durationDays'))?.toInt() ?? 0;
     final reqs = <String, Map<String, dynamic>>{
       for (final r in jsonList(jsonField(s, 'requirements')).whereType<Map>())
-        '${jsonField(r, 'parameterCode') ?? jsonField(r, 'code')}': Map<String, dynamic>.from(r),
+        '${jsonField(r, 'parameterCode') ?? jsonField(r, 'code')}':
+            Map<String, dynamic>.from(r),
     };
-    double min(String k) => n(reqs[k] == null ? null : jsonField(reqs[k]!, 'minValue') ?? jsonField(reqs[k]!, 'min'));
-    double max(String k) => n(reqs[k] == null ? null : jsonField(reqs[k]!, 'maxValue') ?? jsonField(reqs[k]!, 'max'));
+    double min(String k) => n(
+      reqs[k] == null
+          ? null
+          : jsonField(reqs[k]!, 'minValue') ?? jsonField(reqs[k]!, 'min'),
+    );
+    double max(String k) => n(
+      reqs[k] == null
+          ? null
+          : jsonField(reqs[k]!, 'maxValue') ?? jsonField(reqs[k]!, 'max'),
+    );
     final activities = [
       for (final k in ['description', 'fertilizerAction', 'ipmAction'])
         if ('${s[k] ?? ''}'.trim().isNotEmpty) '${s[k]}'.trim(),
@@ -132,8 +150,14 @@ DefaultCropProfile defaultCropProfileFromApi(Map<String, dynamic> p, Map<String,
           humidityMin: min('AirHumidity'),
           humidityMax: max('AirHumidity'),
           // Backend không lưu thời lượng/tần suất tưới trong ngưỡng; lịch tưới thật lấy từ API lịch tưới của hồ sơ. 0 = chưa có số liệu.
-          irrigationDurationMin: jsonNumber(reqs['IrrigationDuration']?['targetValue'])?.toInt() ?? 0,
-          irrigationFrequencyPerDay: jsonNumber(reqs['IrrigationFrequency']?['targetValue'])?.toInt() ?? 0,
+          irrigationDurationMin:
+              jsonNumber(reqs['IrrigationDuration']?['targetValue'])?.toInt() ??
+              0,
+          irrigationFrequencyPerDay:
+              jsonNumber(
+                reqs['IrrigationFrequency']?['targetValue'],
+              )?.toInt() ??
+              0,
         ),
         keyActivities: activities,
       ),
@@ -167,14 +191,21 @@ DefaultCropProfile defaultCropProfileFromApi(Map<String, dynamic> p, Map<String,
     }
   }
 
-  List<String> pests = const ['Bọ trĩ', 'Rệp muội', 'Sâu khoang', 'Bệnh đốm lá'];
+  List<String> pests = const [
+    'Bọ trĩ',
+    'Rệp muội',
+    'Sâu khoang',
+    'Bệnh đốm lá',
+  ];
   if (lower.contains('dưa')) {
     pests = const ['Bọ phấn trắng', 'Bọ trĩ', 'Bệnh phấn trắng', 'Sương mai'];
   } else if (lower.contains('cà chua')) {
     pests = const ['Sâu đục quả', 'Bọ phấn', 'Bệnh mốc sương', 'Héo xanh'];
   } else if (lower.contains('dâu')) {
     pests = const ['Nhện đỏ', 'Bọ trĩ', 'Thối trái Botrytis', 'Phấn trắng'];
-  } else if (lower.contains('cải') || lower.contains('xà lách') || lower.contains('rau')) {
+  } else if (lower.contains('cải') ||
+      lower.contains('xà lách') ||
+      lower.contains('rau')) {
     pests = const ['Sâu tơ', 'Bọ nhảy', 'Bệnh thối nhũn', 'Cháy lá'];
   }
 
@@ -183,13 +214,16 @@ DefaultCropProfile defaultCropProfileFromApi(Map<String, dynamic> p, Map<String,
     profileId: '${p['profileId'] ?? ''}',
     realCropId: '${p['cropId'] ?? ''}',
     varietyId: p['varietyId']?.toString(),
-    cropId: '${p['profileId'] ?? ''}', // khoá chọn trong giao diện = id hồ sơ sinh trưởng
+    cropId:
+        '${p['profileId'] ?? ''}', // khoá chọn trong giao diện = id hồ sơ sinh trưởng
     name: cropName,
     nameEn: '${crop?['scientificName'] ?? ''}',
     variety: '${p['varietyName'] ?? p['name'] ?? ''}',
     emoji: emoji,
     standardType: isSystem ? 'Hệ thống' : 'Tuỳ chỉnh',
-    totalCycleDays: cursor > 0 ? cursor : ((crop?['growthCycleDays'] as num?)?.toInt() ?? 0),
+    totalCycleDays: cursor > 0
+        ? cursor
+        : ((crop?['growthCycleDays'] as num?)?.toInt() ?? 0),
     description: '${p['description'] ?? crop?['description'] ?? ''}',
     origin: 'Việt Nam (TCVN 11892-1:2017)',
     difficulty: 'Trung bình',

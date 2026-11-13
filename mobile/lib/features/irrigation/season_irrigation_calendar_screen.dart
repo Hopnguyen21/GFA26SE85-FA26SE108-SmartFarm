@@ -19,13 +19,19 @@ class SeasonIrrigationCalendarScreen extends StatefulWidget {
 
   /// Vụ cần mở; bỏ trống = vụ đang chạy của Zone (rồi vụ dự kiến).
   final String? seasonId;
-  const SeasonIrrigationCalendarScreen({super.key, required this.zone, this.seasonId});
+  const SeasonIrrigationCalendarScreen({
+    super.key,
+    required this.zone,
+    this.seasonId,
+  });
 
   @override
-  State<SeasonIrrigationCalendarScreen> createState() => _SeasonIrrigationCalendarScreenState();
+  State<SeasonIrrigationCalendarScreen> createState() =>
+      _SeasonIrrigationCalendarScreenState();
 }
 
-class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalendarScreen> {
+class _SeasonIrrigationCalendarScreenState
+    extends State<SeasonIrrigationCalendarScreen> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _seasons = [];
@@ -53,11 +59,16 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
       final all = await CropApi.getPlantingSeasons(zoneId: widget.zone.zoneId);
       final usable = [
         for (final s in all)
-          if ('${s['status']}' == 'InProgress' || '${s['status']}' == 'Planned') s,
+          if ('${s['status']}' == 'InProgress' || '${s['status']}' == 'Planned')
+            s,
       ];
       _seasons = usable;
-      Map<String, dynamic>? pick = usable.where((s) => '${s['seasonId']}' == (seasonId ?? _seasonId)).firstOrNull;
-      pick ??= usable.where((s) => '${s['status']}' == 'InProgress').firstOrNull ?? usable.firstOrNull;
+      Map<String, dynamic>? pick = usable
+          .where((s) => '${s['seasonId']}' == (seasonId ?? _seasonId))
+          .firstOrNull;
+      pick ??=
+          usable.where((s) => '${s['status']}' == 'InProgress').firstOrNull ??
+          usable.firstOrNull;
       if (pick == null) {
         if (!mounted) return;
         setState(() {
@@ -99,7 +110,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
   }
 
   /// Chạy một thao tác ghi: chỉ báo thành công khi backend xác nhận, và dùng đúng dữ liệu backend trả về.
-  Future<void> _write(Future<Map<String, dynamic>> Function() call, String success) async {
+  Future<void> _write(
+    Future<Map<String, dynamic>> Function() call,
+    String success,
+  ) async {
     setState(() => _busy = true);
     try {
       final json = await call();
@@ -113,7 +127,11 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
     }
   }
 
-  Future<void> _saveDays(List<int> days, List<ProfileSession> sessions, String success) {
+  Future<void> _saveDays(
+    List<int> days,
+    List<ProfileSession> sessions,
+    String success,
+  ) {
     final c = _cal!;
     return _write(
       () => CropApi.updateSeasonIrrigation(c.zoneId, c.seasonId, [
@@ -140,7 +158,8 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
       hint:
           'Chỉ lưu cho vụ này (lịch tùy chỉnh theo ngày), không đổi lịch mẫu của hồ sơ. Giờ HH:mm theo múi giờ trang trại. '
           'Mỗi ca tối đa 30 phút. Không có ca nào = ngày này không tưới.',
-      applyAllLabel: 'Áp dụng cho mọi ngày cùng giai đoạn "${day.stageName ?? ''}"',
+      applyAllLabel:
+          'Áp dụng cho mọi ngày cùng giai đoạn "${day.stageName ?? ''}"',
     );
     if (edit == null || !mounted) return;
     final problem = validateStageSessions(edit.sessions);
@@ -148,7 +167,9 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
       _toast(problem, error: true);
       return;
     }
-    final days = edit.applyToAllStages ? targetDays(c, day, wholeSeason: false) : [day.dayNumber];
+    final days = edit.applyToAllStages
+        ? targetDays(c, day, wholeSeason: false)
+        : [day.dayNumber];
     await _saveDays(
       days,
       edit.sessions,
@@ -158,7 +179,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
     );
   }
 
-  Future<void> _applyElsewhere(SeasonDay day, {required bool wholeSeason}) async {
+  Future<void> _applyElsewhere(
+    SeasonDay day, {
+    required bool wholeSeason,
+  }) async {
     final c = _cal!;
     final days = targetDays(c, day, wholeSeason: wholeSeason);
     if (days.isEmpty) return;
@@ -169,7 +193,11 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
       'Áp dụng',
     );
     if (!ok || !mounted) return;
-    await _saveDays(days, day.sessions, 'Đã áp dụng ca tưới của ngày ${day.dayNumber} cho ${days.length} ngày.');
+    await _saveDays(
+      days,
+      day.sessions,
+      'Đã áp dụng ca tưới của ngày ${day.dayNumber} cho ${days.length} ngày.',
+    );
   }
 
   Future<void> _resetDay(SeasonDay day) async {
@@ -181,7 +209,11 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
     );
     if (!ok || !mounted) return;
     await _write(
-      () => CropApi.resetSeasonIrrigation(c.zoneId, c.seasonId, dayNumber: day.dayNumber),
+      () => CropApi.resetSeasonIrrigation(
+        c.zoneId,
+        c.seasonId,
+        dayNumber: day.dayNumber,
+      ),
       'Đã khôi phục ngày ${day.dayNumber} về lịch mẫu.',
     );
   }
@@ -208,8 +240,14 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
         title: Text(title, style: const TextStyle(fontSize: 15)),
         content: Text(body, style: const TextStyle(fontSize: 13, height: 1.4)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(action)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(action),
+          ),
         ],
       ),
     );
@@ -221,9 +259,15 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text('Lịch tưới theo ngày · ${widget.zone.name}', style: const TextStyle(fontSize: 15)),
+        title: Text(
+          'Lịch tưới theo ngày · ${widget.zone.name}',
+          style: const TextStyle(fontSize: 15),
+        ),
         bottom: _busy
-            ? const PreferredSize(preferredSize: Size.fromHeight(3), child: LinearProgressIndicator(minHeight: 3))
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(3),
+                child: LinearProgressIndicator(minHeight: 3),
+              )
             : null,
       ),
       body: _body(),
@@ -234,7 +278,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return _centered([
-        Text('Không tải được lịch tưới của vụ: $_error', textAlign: TextAlign.center),
+        Text(
+          'Không tải được lịch tưới của vụ: $_error',
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 12),
         FilledButton(onPressed: _load, child: const Text('Thử lại')),
       ]);
@@ -266,7 +313,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
           _header(c),
           const SizedBox(height: 12),
           _legend(c),
-          if (c.isStale || c.outOfRangeDays.isNotEmpty) ...[const SizedBox(height: 12), _staleBanner(c)],
+          if (c.isStale || c.outOfRangeDays.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _staleBanner(c),
+          ],
           const SizedBox(height: 12),
           _filters(c),
           const SizedBox(height: 8),
@@ -308,12 +358,18 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
           DropdownButtonFormField<String>(
             initialValue: _seasonId,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Vụ trồng', isDense: true, border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Vụ trồng',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
             items: [
               for (final s in _seasons)
                 DropdownMenuItem(
                   value: '${s['seasonId']}',
-                  child: Text('${s['name']} (${s['status'] == 'InProgress' ? 'đang chạy' : 'dự kiến'})'),
+                  child: Text(
+                    '${s['name']} (${s['status'] == 'InProgress' ? 'đang chạy' : 'dự kiến'})',
+                  ),
                 ),
             ],
             onChanged: _busy ? null : (v) => _load(seasonId: v),
@@ -321,7 +377,11 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
         else
           Text(
             c.seasonName,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _ink),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: _ink,
+            ),
           ),
         const SizedBox(height: 6),
         Text(
@@ -357,7 +417,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
 
   Widget _legend(SeasonIrrigationCalendar c) => Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF1F5F9),
+      borderRadius: BorderRadius.circular(12),
+    ),
     child: const Text(
       'Ba loại lịch khác nhau:\n'
       '• Lịch mẫu theo hồ sơ: đề xuất theo giai đoạn, dùng khi ngày không có chỉnh sửa (không đổi ở đây).\n'
@@ -379,12 +442,19 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
       children: [
         const Text(
           'Vụ đã thay đổi sau lần lưu lịch cuối',
-          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _amber),
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: _amber,
+          ),
         ),
         for (final r in c.staleReasons)
           Padding(
             padding: const EdgeInsets.only(top: 3),
-            child: Text('• ${staleReasonText(r)}', style: const TextStyle(fontSize: 11.5, color: _ink, height: 1.35)),
+            child: Text(
+              '• ${staleReasonText(r)}',
+              style: const TextStyle(fontSize: 11.5, color: _ink, height: 1.35),
+            ),
           ),
         for (final d in c.outOfRangeDays)
           Padding(
@@ -398,7 +468,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
                   ),
                 ),
                 if (c.isEditable)
-                  TextButton(onPressed: _busy ? null : () => _resetDay(d), child: const Text('Khôi phục')),
+                  TextButton(
+                    onPressed: _busy ? null : () => _resetDay(d),
+                    child: const Text('Khôi phục'),
+                  ),
               ],
             ),
           ),
@@ -415,7 +488,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Text('Tất cả (${c.totalDays} ngày)', style: const TextStyle(fontSize: 12)),
+              label: Text(
+                'Tất cả (${c.totalDays} ngày)',
+                style: const TextStyle(fontSize: 12),
+              ),
               selected: _stageFilter == 'ALL',
               onSelected: (_) => setState(() => _stageFilter = 'ALL'),
             ),
@@ -428,8 +504,11 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
                 selected: _stageFilter == s.id,
                 onSelected: (_) => setState(() {
                   _stageFilter = s.id;
-                  final first = c.inRangeDays.where((d) => d.stageId == s.id).firstOrNull;
-                  if (first != null && c.day(_selected)?.stageId != s.id) _selected = first.dayNumber;
+                  final first = c.inRangeDays
+                      .where((d) => d.stageId == s.id)
+                      .firstOrNull;
+                  if (first != null && c.day(_selected)?.stageId != s.id)
+                    _selected = first.dayNumber;
                 }),
               ),
             ),
@@ -458,12 +537,16 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
               width: 50,
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: d.dayNumber == _selected ? const Color(0xFF064E3B) : const Color(0xFFF8FAFC),
+                color: d.dayNumber == _selected
+                    ? const Color(0xFF064E3B)
+                    : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: d.dayNumber == _selected
                       ? const Color(0xFF10B981)
-                      : (d.isOverride ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0)),
+                      : (d.isOverride
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFE2E8F0)),
                   width: d.isOverride || d.dayNumber == _selected ? 2 : 1,
                 ),
               ),
@@ -479,14 +562,19 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
                   ),
                   Text(
                     d.shortDate,
-                    style: TextStyle(fontSize: 10, color: d.dayNumber == _selected ? Colors.white70 : _muted),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: d.dayNumber == _selected ? Colors.white70 : _muted,
+                    ),
                   ),
                   Text(
                     d.source == DaySource.none ? '—' : '${d.enabledCount} ca',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: d.dayNumber == _selected ? Colors.white : (d.isOverride ? _amber : _green),
+                      color: d.dayNumber == _selected
+                          ? Colors.white
+                          : (d.isOverride ? _amber : _green),
                     ),
                   ),
                 ],
@@ -505,18 +593,31 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: d.isOverride ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0), width: 1.5),
+        border: Border.all(
+          color: d.isOverride
+              ? const Color(0xFFF59E0B)
+              : const Color(0xFFE2E8F0),
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Ngày ${d.dayNumber} · ${d.date}${isToday ? ' · hôm nay' : ''}',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _ink),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: _ink,
+            ),
           ),
           Text(
             '${d.stageName ?? 'Ngoài các giai đoạn của hồ sơ'} · Nguồn: ${d.source.label}',
-            style: TextStyle(fontSize: 12, color: d.isOverride ? _amber : _muted, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 12,
+              color: d.isOverride ? _amber : _muted,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           if (d.sessions.isEmpty)
@@ -532,7 +633,10 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
                 padding: const EdgeInsets.only(top: 3),
                 child: Text(
                   '${s.enabled ? '•' : '◦'} ${describeProfileSession(s)}',
-                  style: TextStyle(fontSize: 12.5, color: s.enabled ? _ink : _muted),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: s.enabled ? _ink : _muted,
+                  ),
                 ),
               ),
           if (d.source == DaySource.crop)
@@ -563,11 +667,15 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
                 if (d.sessions.isNotEmpty || d.isOverride) ...[
                   if (d.stageId != null)
                     OutlinedButton(
-                      onPressed: _busy ? null : () => _applyElsewhere(d, wholeSeason: false),
+                      onPressed: _busy
+                          ? null
+                          : () => _applyElsewhere(d, wholeSeason: false),
                       child: const Text('Áp dụng cả giai đoạn'),
                     ),
                   OutlinedButton(
-                    onPressed: _busy ? null : () => _applyElsewhere(d, wholeSeason: true),
+                    onPressed: _busy
+                        ? null
+                        : () => _applyElsewhere(d, wholeSeason: true),
                     child: const Text('Áp dụng cả vụ'),
                   ),
                 ],
@@ -586,6 +694,9 @@ class _SeasonIrrigationCalendarScreenState extends State<SeasonIrrigationCalenda
         ? 'Khi đồng bộ xuống thiết bị hôm nay (ngày ${today.dayNumber}), hệ thống dùng lịch TÙY CHỈNH của ngày này. '
               'Thiết bị lặp hằng ngày cho tới lần đồng bộ kế tiếp.'
         : 'Hôm nay (ngày ${today.dayNumber}) chưa có lịch tùy chỉnh: khi đồng bộ, hệ thống dùng lịch theo giai đoạn của hồ sơ.';
-    return Text(text, style: const TextStyle(fontSize: 11.5, color: _muted, height: 1.4));
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 11.5, color: _muted, height: 1.4),
+    );
   }
 }

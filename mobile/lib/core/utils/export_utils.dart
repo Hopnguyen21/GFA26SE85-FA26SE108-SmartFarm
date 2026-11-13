@@ -11,7 +11,10 @@ String csvCell(Object? value) {
   if (value is String && text.isNotEmpty && '=+-@\t\r'.contains(text[0])) {
     text = "'$text";
   }
-  if (text.contains(',') || text.contains('"') || text.contains('\n') || text.contains('\r')) {
+  if (text.contains(',') ||
+      text.contains('"') ||
+      text.contains('\n') ||
+      text.contains('\r')) {
     text = '"${text.replaceAll('"', '""')}"';
   }
   return text;
@@ -34,7 +37,16 @@ String buildTelemetryCsv({
   required List<Map<String, dynamic>> points,
 }) {
   return buildCsv(
-    ['Zone', 'Chỉ số', 'Khoảng thời gian', 'Bắt đầu (UTC)', 'Trung bình', 'Nhỏ nhất', 'Lớn nhất', 'Số mẫu'],
+    [
+      'Zone',
+      'Chỉ số',
+      'Khoảng thời gian',
+      'Bắt đầu (UTC)',
+      'Trung bình',
+      'Nhỏ nhất',
+      'Lớn nhất',
+      'Số mẫu',
+    ],
     [
       for (final p in points)
         [
@@ -52,15 +64,22 @@ String buildTelemetryCsv({
 }
 
 /// Tên tệp an toàn (không chứa ký tự đường dẫn).
-String safeFileName(String name) => name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+String safeFileName(String name) =>
+    name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 
 /// Ghi tệp vào thư mục tạm của ứng dụng rồi mở hộp thoại chia sẻ/lưu của hệ điều hành.
 /// Ném Exception có thông điệp rõ ràng khi thất bại.
-Future<void> saveAndShareFile(String fileName, List<int> bytes, {String? mimeType}) async {
+Future<void> saveAndShareFile(
+  String fileName,
+  List<int> bytes, {
+  String? mimeType,
+}) async {
   if (bytes.isEmpty) throw Exception('Tệp rỗng, không có dữ liệu để xuất.');
   try {
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}${Platform.pathSeparator}${safeFileName(fileName)}');
+    final file = File(
+      '${dir.path}${Platform.pathSeparator}${safeFileName(fileName)}',
+    );
     await file.writeAsBytes(Uint8List.fromList(bytes), flush: true);
     await SharePlus.instance.share(
       ShareParams(

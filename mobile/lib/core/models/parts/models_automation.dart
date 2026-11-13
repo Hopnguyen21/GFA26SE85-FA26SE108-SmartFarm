@@ -40,7 +40,10 @@ class ScheduleModel {
     this.rainThresholdPercent = 70.0,
   });
 
-  factory ScheduleModel.fromJson(Map<String, dynamic> json, {String defaultZoneName = 'Nhà màng'}) {
+  factory ScheduleModel.fromJson(
+    Map<String, dynamic> json, {
+    String defaultZoneName = 'Nhà màng',
+  }) {
     final nextRun = json['nextRunAtUtc']?.toString();
     String? formattedNext;
     if (nextRun != null && nextRun.length >= 16) {
@@ -58,23 +61,31 @@ class ScheduleModel {
 
     final durSec = (json['durationSeconds'] as num?)?.toInt() ?? 900;
     final durMin = durSec ~/ 60;
-    final enabled = json['isEnabled'] as bool? ?? json['isActive'] as bool? ?? true;
+    final enabled =
+        json['isEnabled'] as bool? ?? json['isActive'] as bool? ?? true;
     final zId = json['zoneId']?.toString() ?? '';
     final aId = json['actuatorId']?.toString() ?? '';
     final rainDelay = json['enableRainDelay'] as bool? ?? true;
-    final rainThreshold = (json['rainThresholdPercent'] as num?)?.toDouble() ?? 70.0;
+    final rainThreshold =
+        (json['rainThresholdPercent'] as num?)?.toDouble() ?? 70.0;
 
     return ScheduleModel(
       scheduleId: json['scheduleId']?.toString() ?? '',
       zoneId: zId,
       actuatorId: aId,
       name: json['name']?.toString() ?? 'Lịch tưới định kỳ',
-      zoneName: json['zoneName']?.toString() ?? (zId.isNotEmpty ? zId : defaultZoneName),
-      actuatorName: json['actuatorName']?.toString() ?? (aId.isNotEmpty ? aId : 'Bơm tưới nhỏ giọt'),
+      zoneName:
+          json['zoneName']?.toString() ??
+          (zId.isNotEmpty ? zId : defaultZoneName),
+      actuatorName:
+          json['actuatorName']?.toString() ??
+          (aId.isNotEmpty ? aId : 'Bơm tưới nhỏ giọt'),
       isEnabled: enabled,
       isActive: enabled,
       // Giờ đọc từ cron hằng ngày của backend; cron khác dạng thì hiện chính chuỗi cron, không bịa giờ.
-      startTime: cronToHhmm(json['cronExpression']?.toString() ?? '') ?? (json['cronExpression']?.toString() ?? '—'),
+      startTime:
+          cronToHhmm(json['cronExpression']?.toString() ?? '') ??
+          (json['cronExpression']?.toString() ?? '—'),
       durationMinutes: durMin > 0 ? durMin : 15,
       durationSeconds: durSec,
       daysOfWeek: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
@@ -144,8 +155,11 @@ class AutomationRuleModel {
       },
       thresholdValue: (json['threshold'] as num?)?.toDouble() ?? 0,
       actuatorName: actuatorName ?? 'Thiết bị chấp hành',
-      actionType: json['action']?.toString() == 'TurnOff' ? 'TẮT (OFF)' : 'BẬT (ON)',
-      actionDurationMinutes: ((json['durationSeconds'] as num?)?.toInt() ?? 0) ~/ 60,
+      actionType: json['action']?.toString() == 'TurnOff'
+          ? 'TẮT (OFF)'
+          : 'BẬT (ON)',
+      actionDurationMinutes:
+          ((json['durationSeconds'] as num?)?.toInt() ?? 0) ~/ 60,
       isActive: json['isActive'] == true,
       zoneId: json['zoneId']?.toString(),
       raw: json,

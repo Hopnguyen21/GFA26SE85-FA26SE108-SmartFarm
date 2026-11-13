@@ -1,7 +1,11 @@
 part of '../farms_management_screen.dart';
 
 extension _FarmsManagementScreenCards on FarmsManagementScreen {
-  Widget _buildFarmCard(BuildContext context, FarmModel farm, FarmProvider provider) {
+  Widget _buildFarmCard(
+    BuildContext context,
+    FarmModel farm,
+    FarmProvider provider,
+  ) {
     final isCurrent = farm.farmId == provider.selectedFarmId;
 
     return InkWell(
@@ -23,7 +27,9 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
           color: isCurrent ? const Color(0xFFF0FDF4) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isCurrent ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+            color: isCurrent
+                ? const Color(0xFF10B981)
+                : const Color(0xFFE2E8F0),
             width: isCurrent ? 2 : 1,
           ),
         ),
@@ -32,10 +38,17 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isCurrent ? const Color(0xFF10B981).withValues(alpha: 0.15) : const Color(0xFFF1F5F9),
+                color: isCurrent
+                    ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.agriculture, color: isCurrent ? const Color(0xFF059669) : const Color(0xFF64748B)),
+              child: Icon(
+                Icons.agriculture,
+                color: isCurrent
+                    ? const Color(0xFF059669)
+                    : const Color(0xFF64748B),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -51,32 +64,51 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
-                            color: isCurrent ? const Color(0xFF065F46) : const Color(0xFF0F172A),
+                            color: isCurrent
+                                ? const Color(0xFF065F46)
+                                : const Color(0xFF0F172A),
                           ),
                         ),
                       ),
                       if (isCurrent) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
                             'Đang chọn',
-                            style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(farm.address, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  Text(
+                    farm.address,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     'Diện tích: ${(farm.totalAreaM2 / 10000).toStringAsFixed(1)} ha (${farm.totalAreaM2.toInt()} m²)',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
                   ),
                 ],
               ),
@@ -84,14 +116,23 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
             if (isCurrent)
               const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20)
             else
-              const Icon(Icons.radio_button_unchecked, color: Color(0xFFCBD5E1), size: 20),
+              const Icon(
+                Icons.radio_button_unchecked,
+                color: Color(0xFFCBD5E1),
+                size: 20,
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFieldItem(String name, String sub, String count, {bool isSelected = false}) {
+  Widget _buildFieldItem(
+    String name,
+    String sub,
+    String count, {
+    bool isSelected = false,
+  }) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -103,10 +144,16 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF0284C7).withValues(alpha: 0.1),
+              color: isSelected
+                  ? const Color(0xFF0284C7)
+                  : const Color(0xFF0284C7).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.layers_outlined, color: isSelected ? Colors.white : const Color(0xFF0284C7), size: 20),
+            child: Icon(
+              Icons.layers_outlined,
+              color: isSelected ? Colors.white : const Color(0xFF0284C7),
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -118,18 +165,28 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: isSelected ? const Color(0xFF0369A1) : const Color(0xFF0F172A),
+                    color: isSelected
+                        ? const Color(0xFF0369A1)
+                        : const Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(sub, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                Text(
+                  sub,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+              color: isSelected
+                  ? const Color(0xFF0284C7)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -146,11 +203,20 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
     );
   }
 
-  Widget _buildZoneCard(BuildContext context, ZoneModel zone, bool isSelected, int zoneIndex, VoidCallback onSelect) {
+  Widget _buildZoneCard(
+    BuildContext context,
+    ZoneModel zone,
+    bool isSelected,
+    int zoneIndex,
+    VoidCallback onSelect,
+  ) {
     return GestureDetector(
       onTap: () {
         onSelect();
-        Navigator.push(context, MaterialPageRoute(builder: (_) => ZoneDetailScreen(zone: zone)));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ZoneDetailScreen(zone: zone)),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -159,7 +225,9 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+            color: isSelected
+                ? const Color(0xFF10B981)
+                : const Color(0xFFE2E8F0),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
@@ -177,12 +245,16 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF062326) : const Color(0xFFF1F5F9),
+                color: isSelected
+                    ? const Color(0xFF062326)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 Icons.grid_view_rounded,
-                color: isSelected ? const Color(0xFF10B981) : const Color(0xFF64748B),
+                color: isSelected
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF64748B),
                 size: 20,
               ),
             ),
@@ -197,15 +269,26 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                       Expanded(
                         child: Text(
                           zone.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (isSelected)
-                        const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18)
+                        const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF10B981),
+                          size: 18,
+                        )
                       else
-                        const Icon(Icons.chevron_right, size: 16, color: Color(0xFFCBD5E1)),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: Color(0xFFCBD5E1),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -215,25 +298,41 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                         const Expanded(
                           child: Text(
                             'Chưa có vụ đang canh tác.',
-                            style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFB45309),
+                            ),
                           ),
                         ),
                         TextButton(
-                          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 24)),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 24),
+                          ),
                           onPressed: () async {
-                            final created = await showCreateSeasonSheet(context, zone);
-                            if (created == true && context.mounted) await context.read<FarmProvider>().fetchFromApi();
+                            final created = await showCreateSeasonSheet(
+                              context,
+                              zone,
+                            );
+                            if (created == true && context.mounted)
+                              await context.read<FarmProvider>().fetchFromApi();
                           },
                           child: const Text(
                             '+ Tạo vụ trồng',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   Text(
                     'Cây trồng: ${zone.currentCrop} • ${zone.currentStage}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -242,7 +341,9 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                     children: [
                       _buildZoneMiniMetric(
                         Icons.water_drop,
-                        zone.telemetryIsFresh ? '${zone.currentSoilMoisture}%' : '—',
+                        zone.telemetryIsFresh
+                            ? '${zone.currentSoilMoisture}%'
+                            : '—',
                         const Color(0xFF10B981),
                       ),
                       const SizedBox(width: 10),
@@ -252,14 +353,21 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                         const Color(0xFFD97706),
                       ),
                       const SizedBox(width: 10),
-                      _buildZoneMiniMetric(Icons.crop_square, '${zone.areaM2.toInt()} m²', const Color(0xFF64748B)),
+                      _buildZoneMiniMetric(
+                        Icons.crop_square,
+                        '${zone.areaM2.toInt()} m²',
+                        const Color(0xFF64748B),
+                      ),
                     ],
                   ),
                   // Assignee info (if available)
                   if (zone.assignedWorkerName != null) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF0F9FF),
                         borderRadius: BorderRadius.circular(6),
@@ -268,11 +376,19 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.person_pin_circle_outlined, size: 12, color: Color(0xFF0284C7)),
+                          const Icon(
+                            Icons.person_pin_circle_outlined,
+                            size: 12,
+                            color: Color(0xFF0284C7),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${zone.assignedWorkerName} • ${zone.workerRole ?? ''}',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0369A1),
+                            ),
                           ),
                         ],
                       ),
@@ -294,7 +410,11 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
         const SizedBox(width: 3),
         Text(
           label,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
         ),
       ],
     );

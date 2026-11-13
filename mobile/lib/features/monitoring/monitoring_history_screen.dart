@@ -10,7 +10,8 @@ class MonitoringHistoryScreen extends StatefulWidget {
   const MonitoringHistoryScreen({super.key});
 
   @override
-  State<MonitoringHistoryScreen> createState() => _MonitoringHistoryScreenState();
+  State<MonitoringHistoryScreen> createState() =>
+      _MonitoringHistoryScreenState();
 }
 
 class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
@@ -18,6 +19,8 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
   String _selectedMetric = 'SOIL_MOISTURE';
   String _timeRange = '24 Giờ';
   bool _isLoadingLive = false;
+  String? _historyError;
+  int _historySeq = 0;
   List<double>? _liveData;
   List<String>? _liveLabels;
   List<Map<String, dynamic>>? _livePoints;
@@ -34,7 +37,11 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
 
   Future<void> _fetchLiveHistory(String zoneId) async {
     if (zoneId.isEmpty) return;
-    setState(() => _isLoadingLive = true);
+    final seq = ++_historySeq;
+    setState(() {
+      _isLoadingLive = true;
+      _historyError = null;
+    });
     try {
       final paramCode = switch (_selectedMetric) {
         'TEMP' => 'Temperature',
@@ -54,7 +61,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
         toUtc: now,
         interval: interval,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _historySeq) return;
       if (points.isNotEmpty) {
         final values = <double>[];
         final labels = <String>[];
@@ -78,8 +85,11 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           return;
         }
       }
-    } catch (_) {}
-    if (mounted) {
+    } catch (e) {
+      if (!mounted || seq != _historySeq) return;
+      _historyError = 'Không tải được lịch sử đo: $e';
+    }
+    if (mounted && seq == _historySeq) {
       setState(() {
         _liveData = null;
         _liveLabels = null;
@@ -93,14 +103,19 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
   Future<void> _exportCsv(String zoneName) async {
     final points = _livePoints;
     if (points == null || points.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Chưa có dữ liệu lịch sử thật để xuất.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có dữ liệu lịch sử thật để xuất.')),
+      );
       return;
     }
     setState(() => _exporting = true);
     try {
-      final csv = buildTelemetryCsv(zoneName: zoneName, metric: _selectedMetric, range: _timeRange, points: points);
+      final csv = buildTelemetryCsv(
+        zoneName: zoneName,
+        metric: _selectedMetric,
+        range: _timeRange,
+        points: points,
+      );
       await saveAndShareFile(
         'lich-su-${_selectedMetric.toLowerCase()}-${DateTime.now().toIso8601String().substring(0, 10)}.csv',
         utf8.encode(csv),
@@ -108,9 +123,13 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Xuất CSV thất bại: ${e.toString().replaceFirst('Exception: ', '')}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Xuất CSV thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -135,7 +154,9 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
         currentData = _liveData ?? const <double>[];
         currentLabels = _liveLabels ?? const <String>[];
         unit = '°C';
-        metricTitle = _liveData != null ? 'Nhiệt độ không khí' : 'Nhiệt độ không khí';
+        metricTitle = _liveData != null
+            ? 'Nhiệt độ không khí'
+            : 'Nhiệt độ không khí';
         chartColor = const Color(0xFFD97706);
         minTarget = 18.0;
         maxTarget = 28.0;
@@ -167,7 +188,11 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           iconTheme: const IconThemeData(color: Colors.white),
           title: const Text(
             'Lịch Sử Vi Khí Hậu',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         body: Center(
@@ -178,12 +203,16 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Chưa có dữ liệu lịch sử cho khu vực và khoảng thời gian này.',
+                      Text(
+                        _historyError ??
+                            'Chưa có dữ liệu lịch sử cho khu vực và khoảng thời gian này.',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton(onPressed: () => _fetchLiveHistory(zoneId), child: const Text('Tải lại')),
+                      OutlinedButton(
+                        onPressed: () => _fetchLiveHistory(zoneId),
+                        child: const Text('Tải lại'),
+                      ),
                     ],
                   ),
                 ),
@@ -201,16 +230,25 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           children: [
             Text(
               'Lịch Sử Vi Khí Hậu',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-            Text('Historical Analytics & Safe-Zone Bounds', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+            Text(
+              'Historical Analytics & Safe-Zone Bounds',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.file_download_outlined, color: Colors.white),
             tooltip: 'Xuất CSV/Excel',
-            onPressed: _exporting ? null : () => _exportCsv(provider.currentZone.name),
+            onPressed: _exporting
+                ? null
+                : () => _exportCsv(provider.currentZone.name),
           ),
         ],
       ),
@@ -222,11 +260,29 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
             // Filter Metric Chips
             Row(
               children: [
-                _buildMetricChip('SOIL_MOISTURE', 'Độ ẩm đất', Icons.water_drop, const Color(0xFF10B981), zoneId),
+                _buildMetricChip(
+                  'SOIL_MOISTURE',
+                  'Độ ẩm đất',
+                  Icons.water_drop,
+                  const Color(0xFF10B981),
+                  zoneId,
+                ),
                 const SizedBox(width: 8),
-                _buildMetricChip('TEMP', 'Nhiệt độ', Icons.thermostat, const Color(0xFFD97706), zoneId),
+                _buildMetricChip(
+                  'TEMP',
+                  'Nhiệt độ',
+                  Icons.thermostat,
+                  const Color(0xFFD97706),
+                  zoneId,
+                ),
                 const SizedBox(width: 8),
-                _buildMetricChip('HUMIDITY', 'Độ ẩm KK', Icons.cloud, const Color(0xFF0284C7), zoneId),
+                _buildMetricChip(
+                  'HUMIDITY',
+                  'Độ ẩm KK',
+                  Icons.cloud,
+                  const Color(0xFF0284C7),
+                  zoneId,
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -239,7 +295,11 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
               child: Column(
@@ -266,7 +326,10 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                                 const SizedBox(
                                   width: 12,
                                   height: 12,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF10B981),
+                                  ),
                                 ),
                               ],
                             ],
@@ -277,12 +340,19 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                               Container(
                                 width: 8,
                                 height: 8,
-                                decoration: BoxDecoration(color: chartColor, shape: BoxShape.circle),
+                                decoration: BoxDecoration(
+                                  color: chartColor,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Hiện tại: ${currentData.last}$unit',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: chartColor),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: chartColor,
+                                ),
                               ),
                             ],
                           ),
@@ -292,7 +362,11 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                       DropdownButton<String>(
                         value: _timeRange,
                         underline: const SizedBox(),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF062326)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF062326),
+                        ),
                         items: ['24 Giờ', '7 Ngày', '30 Ngày'].map((e) {
                           return DropdownMenuItem(value: e, child: Text(e));
                         }).toList(),
@@ -309,7 +383,10 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
 
                   // Target Bounds Legend
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(8),
@@ -320,21 +397,35 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                       children: [
                         Row(
                           children: [
-                            Container(width: 12, height: 2, color: const Color(0xFFE11D48)),
+                            Container(
+                              width: 12,
+                              height: 2,
+                              color: const Color(0xFFE11D48),
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Ngưỡng Min ($minTarget$unit)',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                         Row(
                           children: [
-                            Container(width: 12, height: 2, color: const Color(0xFFE11D48)),
+                            Container(
+                              width: 12,
+                              height: 2,
+                              color: const Color(0xFFE11D48),
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Ngưỡng Max ($maxTarget$unit)',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -353,12 +444,19 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                           drawVerticalLine: false,
                           horizontalInterval: 15,
                           getDrawingHorizontalLine: (value) {
-                            return const FlLine(color: Color(0xFFF1F5F9), strokeWidth: 1);
+                            return const FlLine(
+                              color: Color(0xFFF1F5F9),
+                              strokeWidth: 1,
+                            );
                           },
                         ),
                         titlesData: FlTitlesData(
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
@@ -367,7 +465,10 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                               getTitlesWidget: (value, meta) {
                                 return Text(
                                   value.toInt().toString(),
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                  ),
                                 );
                               },
                             ),
@@ -375,7 +476,9 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              interval: currentLabels.length > 8 ? (currentLabels.length / 5).ceil().toDouble() : 2,
+                              interval: currentLabels.length > 8
+                                  ? (currentLabels.length / 5).ceil().toDouble()
+                                  : 2,
                               getTitlesWidget: (value, meta) {
                                 int idx = value.toInt();
                                 if (idx >= 0 && idx < currentLabels.length) {
@@ -383,7 +486,10 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                                     padding: const EdgeInsets.only(top: 6),
                                     child: Text(
                                       currentLabels[idx],
-                                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF94A3B8),
+                                      ),
                                     ),
                                   );
                                 }
@@ -399,13 +505,19 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                         maxY: 100,
                         lineBarsData: [
                           LineChartBarData(
-                            spots: List.generate(currentData.length, (i) => FlSpot(i.toDouble(), currentData[i])),
+                            spots: List.generate(
+                              currentData.length,
+                              (i) => FlSpot(i.toDouble(), currentData[i]),
+                            ),
                             isCurved: true,
                             color: chartColor,
                             barWidth: 2.5,
                             isStrokeCapRound: true,
                             dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(show: true, color: chartColor.withValues(alpha: 0.1)),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: chartColor.withValues(alpha: 0.1),
+                            ),
                           ),
                         ],
                       ),
@@ -461,7 +573,13 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
     );
   }
 
-  Widget _buildMetricChip(String metricKey, String label, IconData icon, Color color, String zoneId) {
+  Widget _buildMetricChip(
+    String metricKey,
+    String label,
+    IconData icon,
+    Color color,
+    String zoneId,
+  ) {
     final isSelected = _selectedMetric == metricKey;
     return Expanded(
       child: GestureDetector(
@@ -474,7 +592,9 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           decoration: BoxDecoration(
             color: isSelected ? color : Colors.white,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: isSelected ? color : const Color(0xFFCBD5E1)),
+            border: Border.all(
+              color: isSelected ? color : const Color(0xFFCBD5E1),
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -499,11 +619,18 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
   Widget _buildStatItem(String label, String value, Color color) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+        ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
       ],
     );

@@ -30,23 +30,24 @@ class MaterialInventoryModel {
     required this.updatedAt,
   });
 
-  factory MaterialInventoryModel.fromJson(Map<String, dynamic> json) => MaterialInventoryModel(
-    inventoryId: json['id']?.toString() ?? '',
-    farmId: json['farmId']?.toString() ?? '',
-    materialName: json['name']?.toString() ?? '',
-    code: '',
-    category: switch (json['materialType']?.toString()) {
-      'Seed' => 'SEED',
-      'Fertilizer' => 'FERTILIZER',
-      'Pesticide' => 'PESTICIDE',
-      _ => 'EQUIPMENT',
-    },
-    quantity: (json['quantityOnHand'] as num?)?.toDouble() ?? 0,
-    unit: json['unit']?.toString() ?? '',
-    minimumStock: (json['lowStockThreshold'] as num?)?.toDouble() ?? 0,
-    storageLocation: '',
-    updatedAt: '',
-  );
+  factory MaterialInventoryModel.fromJson(Map<String, dynamic> json) =>
+      MaterialInventoryModel(
+        inventoryId: json['id']?.toString() ?? '',
+        farmId: json['farmId']?.toString() ?? '',
+        materialName: json['name']?.toString() ?? '',
+        code: '',
+        category: switch (json['materialType']?.toString()) {
+          'Seed' => 'SEED',
+          'Fertilizer' => 'FERTILIZER',
+          'Pesticide' => 'PESTICIDE',
+          _ => 'EQUIPMENT',
+        },
+        quantity: (json['quantityOnHand'] as num?)?.toDouble() ?? 0,
+        unit: json['unit']?.toString() ?? '',
+        minimumStock: (json['lowStockThreshold'] as num?)?.toDouble() ?? 0,
+        storageLocation: '',
+        updatedAt: '',
+      );
 
   MaterialInventoryModel copyWith({
     double? quantity,

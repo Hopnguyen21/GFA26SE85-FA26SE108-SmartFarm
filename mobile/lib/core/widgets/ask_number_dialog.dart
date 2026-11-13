@@ -16,7 +16,10 @@ Future<double?> askPositiveNumber(BuildContext context, String label) async {
           decoration: InputDecoration(errorText: err),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Huỷ'),
+          ),
           FilledButton(
             onPressed: () {
               final v = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));

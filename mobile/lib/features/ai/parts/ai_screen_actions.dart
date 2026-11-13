@@ -19,7 +19,10 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
     provider.setChatMessages([defaultIntro]);
 
     try {
-      final results = await Future.wait([AiApi.getAiContext(zoneId), AiApi.getAiHistory(zoneId)]);
+      final results = await Future.wait([
+        AiApi.getAiContext(zoneId),
+        AiApi.getAiHistory(zoneId),
+      ]);
 
       if (!mounted) return;
 
@@ -30,8 +33,12 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
         // Sort oldest first
         final sorted = [...history]
           ..sort((a, b) {
-            final tA = DateTime.tryParse(a['createdAtUtc']?.toString() ?? '') ?? DateTime(2000);
-            final tB = DateTime.tryParse(b['createdAtUtc']?.toString() ?? '') ?? DateTime(2000);
+            final tA =
+                DateTime.tryParse(a['createdAtUtc']?.toString() ?? '') ??
+                DateTime(2000);
+            final tB =
+                DateTime.tryParse(b['createdAtUtc']?.toString() ?? '') ??
+                DateTime(2000);
             return tA.compareTo(tB);
           });
 
@@ -41,31 +48,50 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
           final q = h['question']?.toString();
           final summary = h['summary']?.toString() ?? '';
           final details = h['details']?.toString();
-          final aiText = details != null && details.isNotEmpty ? details : summary;
+          final aiText = details != null && details.isNotEmpty
+              ? details
+              : summary;
           final timeStr = h['createdAtUtc'] != null
               ? (DateTime.tryParse(h['createdAtUtc'].toString()) != null
-                    ? _formatTime(DateTime.parse(h['createdAtUtc'].toString()).toLocal())
+                    ? _formatTime(
+                        DateTime.parse(h['createdAtUtc'].toString()).toLocal(),
+                      )
                     : 'Trước')
               : 'Trước';
 
           if (q != null && q.isNotEmpty) {
-            restored.add(ChatMessageModel(id: 'hist-q-$i', text: q, isUser: true, time: timeStr));
+            restored.add(
+              ChatMessageModel(
+                id: 'hist-q-$i',
+                text: q,
+                isUser: true,
+                time: timeStr,
+              ),
+            );
           }
 
           final isActionable = h['isActionable'] == true;
           final proposedAction = h['proposedAction']?.toString();
-          final recommendationStatus = h['status']?.toString().toUpperCase() ?? 'READY';
-          final validUntil = DateTime.tryParse(h['validUntilUtc']?.toString() ?? '');
-          final isExpired = validUntil != null && !validUntil.isAfter(DateTime.now().toUtc());
+          final recommendationStatus =
+              h['status']?.toString().toUpperCase() ?? 'READY';
+          final validUntil = DateTime.tryParse(
+            h['validUntilUtc']?.toString() ?? '',
+          );
+          final isExpired =
+              validUntil != null && !validUntil.isAfter(DateTime.now().toUtc());
           final proposedDur = (h['proposedDurationSeconds'] as num?)?.toInt();
           String? actionSummary;
           if (isActionable && proposedAction != null) {
             final mins = proposedDur != null ? (proposedDur / 60).round() : 0;
-            actionSummary = mins > 0 ? 'Bật tưới $mins phút' : 'Kích hoạt: $proposedAction';
+            actionSummary = mins > 0
+                ? 'Bật tưới $mins phút'
+                : 'Kích hoạt: $proposedAction';
           }
 
           final sourcesList = (h['sources'] as List<dynamic>?)
-              ?.map((s) => s is Map ? (s['title']?.toString() ?? '') : s.toString())
+              ?.map(
+                (s) => s is Map ? (s['title']?.toString() ?? '') : s.toString(),
+              )
               .where((t) => t.isNotEmpty)
               .toList();
 
@@ -76,8 +102,11 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
               isUser: false,
               time: timeStr,
               actionProposal: actionSummary,
-              recommendationId: h['recommendationId']?.toString() ?? h['id']?.toString(),
-              recommendationStatus: recommendationStatus == 'READY' && isExpired ? 'EXPIRED' : recommendationStatus,
+              recommendationId:
+                  h['recommendationId']?.toString() ?? h['id']?.toString(),
+              recommendationStatus: recommendationStatus == 'READY' && isExpired
+                  ? 'EXPIRED'
+                  : recommendationStatus,
               sources: sourcesList,
             ),
           );
@@ -161,7 +190,8 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
       provider.addChatMessage(
         ChatMessageModel(
           id: 'ai-err-${DateTime.now().millisecondsSinceEpoch}',
-          text: 'Không thể kết nối AI lúc này. Kiểm tra kết nối mạng hoặc trạng thái máy chủ backend.',
+          text:
+              'Không thể kết nối AI lúc này. Kiểm tra kết nối mạng hoặc trạng thái máy chủ backend.',
           isUser: false,
           time: _formatTime(DateTime.now()),
         ),
@@ -170,7 +200,10 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
     _scrollToBottom();
   }
 
-  Future<void> _applyRecommendation(FarmProvider provider, ChatMessageModel msg) async {
+  Future<void> _applyRecommendation(
+    FarmProvider provider,
+    ChatMessageModel msg,
+  ) async {
     if (msg.recommendationId == null || msg.recommendationId!.isEmpty) return;
     // Optimistically mark as loading
     msg.recommendationStatus = 'LOADING';
@@ -187,7 +220,8 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
       final commandStatus = result['commandStatus']?.toString();
       msg.recommendationStatus = commandStatus?.toUpperCase() ?? 'ACCEPTED';
       final statusText = switch (commandStatus?.toLowerCase()) {
-        'failed' => 'Lệnh đã được ghi nhận nhưng gửi tới thiết bị thất bại. Hãy kiểm tra kết nối thiết bị.',
+        'failed' =>
+          'Lệnh đã được ghi nhận nhưng gửi tới thiết bị thất bại. Hãy kiểm tra kết nối thiết bị.',
         'pending' => 'Đã duyệt. Lệnh đang chờ gửi tới thiết bị.',
         'sent' => 'Đã gửi lệnh. Đang chờ thiết bị xác nhận thực thi.',
         'acknowledged' => 'Thiết bị đã xác nhận lệnh.',
@@ -216,7 +250,8 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
       provider.addChatMessage(
         ChatMessageModel(
           id: 'sys-${DateTime.now().millisecondsSinceEpoch}',
-          text: '🔒 Hệ thống từ chối phê duyệt:\n$reason\n\nVui lòng kiểm tra lịch tưới hoặc độ ẩm hiện tại.',
+          text:
+              '🔒 Hệ thống từ chối phê duyệt:\n$reason\n\nVui lòng kiểm tra lịch tưới hoặc độ ẩm hiện tại.',
           isUser: false,
           time: _formatTime(DateTime.now()),
         ),
@@ -226,7 +261,10 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
       msg.recommendationStatus = 'PROPOSED'; // Reset
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Áp dụng thất bại'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(
+            content: Text(result['message'] ?? 'Áp dụng thất bại'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
         );
       }
     }
@@ -245,7 +283,10 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
           children: [
             Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 22),
             SizedBox(width: 8),
-            Text('Xóa lịch sử tư vấn?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Xóa lịch sử tư vấn?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
@@ -255,13 +296,18 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Xác nhận xóa'),

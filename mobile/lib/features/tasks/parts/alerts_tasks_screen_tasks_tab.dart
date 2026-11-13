@@ -38,7 +38,11 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                         color: const Color(0xFF10B981).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.add_task, color: Color(0xFF34D399), size: 22),
+                      child: const Icon(
+                        Icons.add_task,
+                        color: Color(0xFF34D399),
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -47,12 +51,19 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                         children: [
                           Text(
                             'Giao Việc Cho Nông Dân',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                           SizedBox(height: 2),
                           Text(
                             'Phân công trực tiếp theo khu vực nhà màng & theo dõi tiến độ',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -61,13 +72,25 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF10B981),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         visualDensity: VisualDensity.compact,
                       ),
-                      onPressed: () => _showQuickAssignTaskDialog(context, farmProvider),
+                      onPressed: () =>
+                          _showQuickAssignTaskDialog(context, farmProvider),
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Giao việc', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Giao việc',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -80,11 +103,18 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                 alignment: Alignment.center,
                 child: Column(
                   children: [
-                    Icon(Icons.checklist_rtl_rounded, size: 48, color: Colors.grey.shade400),
+                    Icon(
+                      Icons.checklist_rtl_rounded,
+                      size: 48,
+                      color: Colors.grey.shade400,
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Chưa có nhiệm vụ nào cần thực hiện',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -99,7 +129,11 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
                   child: Column(
@@ -120,8 +154,12 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13,
-                                          decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                                          color: task.isCompleted ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                                          decoration: task.isCompleted
+                                              ? TextDecoration.lineThrough
+                                              : null,
+                                          color: task.isCompleted
+                                              ? const Color(0xFF94A3B8)
+                                              : const Color(0xFF0F172A),
                                         ),
                                       ),
                                     ),
@@ -130,13 +168,21 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                 const SizedBox(height: 3),
                                 Text(
                                   '${task.zoneName} • Hạn: ${task.dueDate}',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
-                                if (task.assignedFarmerName != null && task.assignedFarmerName!.isNotEmpty) ...[
+                                if (task.assignedFarmerName != null &&
+                                    task.assignedFarmerName!.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
-                                      const Icon(Icons.person_pin_circle_outlined, size: 13, color: Color(0xFF0F766E)),
+                                      const Icon(
+                                        Icons.person_pin_circle_outlined,
+                                        size: 13,
+                                        color: Color(0xFF0F766E),
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Giao cho: ${task.assignedFarmerName}',
@@ -149,15 +195,22 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                       if (task.priority.isNotEmpty) ...[
                                         const SizedBox(width: 8),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: task.priority == 'HIGH'
                                                 ? const Color(0xFFFEE2E2)
                                                 : const Color(0xFFFEF3C7),
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: Text(
-                                            task.priority == 'HIGH' ? 'Ưu tiên cao' : 'Bình thường',
+                                            task.priority == 'HIGH'
+                                                ? 'Ưu tiên cao'
+                                                : 'Bình thường',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -171,8 +224,12 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                     ],
                                   ),
                                 ],
-                                TaskActions(task: task, isOwner: farmProvider.currentRole != 'FARMER'),
-                                if (task.description != null && task.description!.isNotEmpty) ...[
+                                TaskActions(
+                                  task: task,
+                                  isOwner: farmProvider.currentRole != 'FARMER',
+                                ),
+                                if (task.description != null &&
+                                    task.description!.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     task.description!,

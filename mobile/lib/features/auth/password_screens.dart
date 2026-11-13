@@ -40,7 +40,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  bool get _emailOk => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim());
+  bool get _emailOk =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim());
 
   Future<void> _sendCode() async {
     if (_busy) return;
@@ -83,7 +84,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _error = null;
     });
     try {
-      await AccountApi.resetPassword(email: _email.text.trim(), token: tokenText, newPassword: _newPass.text);
+      await AccountApi.resetPassword(
+        email: _email.text.trim(),
+        token: tokenText,
+        newPassword: _newPass.text,
+      );
       if (mounted) {
         _token.clear();
         _newPass.clear();
@@ -104,18 +109,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: _done
               ? Column(
                   children: [
-                    const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 56),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Color(0xFF10B981),
+                      size: 56,
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Đặt lại mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
-                    FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Về đăng nhập')),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Về đăng nhập'),
+                    ),
                   ],
                 )
               : Column(
@@ -133,7 +150,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       FilledButton(
                         onPressed: _busy ? null : _sendCode,
                         child: _busy
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
                             : const Text('Gửi mã xác nhận'),
                       )
                     else ...[
@@ -160,8 +183,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           'Mật khẩu mới',
                           suffix: IconButton(
                             tooltip: 'Hiện hoặc ẩn mật khẩu',
-                            icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _obscure = !_obscure),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
                           ),
                         ),
                       ),
@@ -178,7 +206,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       FilledButton(
                         onPressed: _busy ? null : _reset,
                         child: _busy
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
                             : const Text('Đặt lại mật khẩu'),
                       ),
                     ],
@@ -230,8 +264,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       err = 'Vui lòng nhập mật khẩu hiện tại.';
     } else {
       err = validateNewPassword(_newPass.text);
-      if (err == null && _newPass.text != _confirm.text) err = 'Mật khẩu xác nhận không khớp.';
-      if (err == null && _newPass.text == _current.text) err = 'Mật khẩu mới phải khác mật khẩu hiện tại.';
+      if (err == null && _newPass.text != _confirm.text)
+        err = 'Mật khẩu xác nhận không khớp.';
+      if (err == null && _newPass.text == _current.text)
+        err = 'Mật khẩu mới phải khác mật khẩu hiện tại.';
     }
     if (err != null) {
       setState(() => _error = err);
@@ -242,7 +278,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       _error = null;
     });
     try {
-      await AccountApi.changePassword(currentPassword: _current.text, newPassword: _newPass.text);
+      await AccountApi.changePassword(
+        currentPassword: _current.text,
+        newPassword: _newPass.text,
+      );
       if (mounted) {
         _current.clear();
         _newPass.clear();
@@ -268,15 +307,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: _done
               ? Column(
                   children: [
-                    const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 56),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Color(0xFF10B981),
+                      size: 56,
+                    ),
                     const SizedBox(height: 12),
                     const Text('Đã đổi mật khẩu thành công.'),
                     const SizedBox(height: 16),
-                    FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Xong')),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Xong'),
+                    ),
                   ],
                 )
               : Column(
@@ -312,7 +363,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Text('Đổi mật khẩu'),
                     ),
                     if (_error != null) ...[

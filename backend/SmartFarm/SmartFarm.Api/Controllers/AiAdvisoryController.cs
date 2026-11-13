@@ -25,8 +25,8 @@ public sealed class AiAdvisoryController(IAiAdvisoryService service) : Controlle
         return Created($"/api/v1/zones/{zoneId}/ai/history", result);
     }
 
-    // API catalog #86. Accepted means the Owner authorized an asynchronous control command, not that hardware ran.
-    [Authorize(Roles = "FarmOwner")]
+    // API catalog #86. Accepted means the Owner/Authorized Farmer authorized an asynchronous control command, not that hardware ran.
+    [Authorize(Roles = "FarmOwner,Farmer")]
     [HttpPost("api/v1/zones/{zoneId:guid}/ai/apply-recommendation")]
     public async Task<ActionResult<AiDecisionResult>> Decide(Guid zoneId, [FromBody] DecideAiRecommendationRequest request, CancellationToken cancellationToken)
     {

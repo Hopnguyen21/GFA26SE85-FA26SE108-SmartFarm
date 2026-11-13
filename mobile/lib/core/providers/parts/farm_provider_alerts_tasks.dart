@@ -101,7 +101,10 @@ extension FarmProviderAlertsTasks on FarmProvider {
     }
   }
 
-  Future<String?> _replaceTask(String taskId, Future<TaskModel> Function() call) async {
+  Future<String?> _replaceTask(
+    String taskId,
+    Future<TaskModel> Function() call,
+  ) async {
     try {
       final updated = await call();
       final idx = _tasks.indexWhere((t) => t.taskId == taskId);
@@ -125,13 +128,16 @@ extension FarmProviderAlertsTasks on FarmProvider {
     String? zoneId,
     DateTime? dueAt,
   }) async {
-    if (assignedFarmerId == null || zoneId == null) return 'Hãy chọn Zone và nhân công.';
+    if (assignedFarmerId == null || zoneId == null)
+      return 'Hãy chọn Zone và nhân công.';
     try {
       final created = await TaskApi.createTask(_selectedFarmId, {
         'zoneId': zoneId,
         'title': title,
         'description': description ?? '',
-        'dueAtUtc': (dueAt ?? DateTime.now().add(const Duration(days: 1))).toUtc().toIso8601String(),
+        'dueAtUtc': (dueAt ?? DateTime.now().add(const Duration(days: 1)))
+            .toUtc()
+            .toIso8601String(),
         'farmerIds': [assignedFarmerId],
       });
       _tasks.insert(0, _withZoneName(created));

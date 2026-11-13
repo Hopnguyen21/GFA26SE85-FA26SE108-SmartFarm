@@ -19,7 +19,8 @@ class _ZoneAiAdviceCardState extends State<ZoneAiAdviceCard> {
   Future<Map<String, dynamic>?> _load() async {
     final history = await AiApi.getAiHistory(widget.zoneId);
     if (history.isEmpty) return null;
-    DateTime when(Map<String, dynamic> h) => DateTime.tryParse('${h['createdAtUtc'] ?? ''}') ?? DateTime(2000);
+    DateTime when(Map<String, dynamic> h) =>
+        DateTime.tryParse('${h['createdAtUtc'] ?? ''}') ?? DateTime(2000);
     return ([...history]..sort((a, b) => when(b).compareTo(when(a)))).first;
   }
 
@@ -51,7 +52,9 @@ class _ZoneAiAdviceCardState extends State<ZoneAiAdviceCard> {
         future: _future,
         builder: (context, snap) {
           final h = snap.data;
-          final created = h == null ? null : DateTime.tryParse('${h['createdAtUtc'] ?? ''}');
+          final created = h == null
+              ? null
+              : DateTime.tryParse('${h['createdAtUtc'] ?? ''}');
           final summary = '${h?['summary'] ?? ''}'.trim();
           final loading = snap.connectionState != ConnectionState.done;
           return Column(
@@ -59,16 +62,30 @@ class _ZoneAiAdviceCardState extends State<ZoneAiAdviceCard> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.psychology_outlined, color: AppColors.ink, size: 20),
+                  const Icon(
+                    Icons.psychology_outlined,
+                    color: AppColors.ink,
+                    size: 20,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   const Expanded(
                     child: Text(
                       'Trợ lý AI Nông học',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.ink),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.ink,
+                      ),
                     ),
                   ),
                   if (created != null)
-                    Text(_ago(created.toUtc()), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    Text(
+                      _ago(created.toUtc()),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -82,14 +99,22 @@ class _ZoneAiAdviceCardState extends State<ZoneAiAdviceCard> {
               else if (summary.isEmpty)
                 const Text(
                   'Chưa có khuyến nghị nào cho Zone này. Hỏi AI để nhận tư vấn theo số liệu cảm biến và tiêu chuẩn VietGAP.',
-                  style: TextStyle(fontSize: 13, color: AppColors.textMuted, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                    height: 1.4,
+                  ),
                 )
               else
                 Text(
                   summary,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: AppColors.text, height: 1.4),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.text,
+                    height: 1.4,
+                  ),
                 ),
               const SizedBox(height: AppSpacing.md),
               Align(
@@ -97,7 +122,10 @@ class _ZoneAiAdviceCardState extends State<ZoneAiAdviceCard> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => AiAssistantScreen(initialZoneId: widget.zoneId)),
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          AiAssistantScreen(initialZoneId: widget.zoneId),
+                    ),
                   ),
                   icon: const Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text(summary.isEmpty ? 'Hỏi AI' : 'Xem & hỏi thêm'),

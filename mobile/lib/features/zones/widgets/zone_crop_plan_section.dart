@@ -17,7 +17,11 @@ class ZoneCropPlanSection extends StatefulWidget {
 
   /// Chỉ cho xem (vd. Zone đang có vụ chạy: backend không đổi hồ sơ của vụ đang chạy).
   final String? lockedReason;
-  const ZoneCropPlanSection({super.key, required this.controller, this.lockedReason});
+  const ZoneCropPlanSection({
+    super.key,
+    required this.controller,
+    this.lockedReason,
+  });
 
   @override
   State<ZoneCropPlanSection> createState() => _ZoneCropPlanSectionState();
@@ -45,7 +49,14 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
               'Hồ sơ gắn trực tiếp cho Zone, không tạo vụ trồng. Hồ sơ hệ thống không bị sửa: khi tùy chỉnh, hệ thống tạo bản sao riêng cho trang trại.',
           children: [
             if (widget.lockedReason != null)
-              Text(widget.lockedReason!, style: const TextStyle(fontSize: 12, color: Color(0xFFB45309), height: 1.4))
+              Text(
+                widget.lockedReason!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFB45309),
+                  height: 1.4,
+                ),
+              )
             else ...[
               _modeChips(s),
               if (s.mode != ZoneProfileMode.none) ..._body(context, s),
@@ -57,30 +68,44 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
   }
 
   Widget _modeChips(ZoneCropSelection s) {
-    Widget chip(String label, ZoneProfileMode m, {bool enabled = true}) => ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      selected: s.mode == m,
-      onSelected: enabled
-          ? (_) {
-              c.setMode(m);
-              if (m != ZoneProfileMode.none && s.cropId == null && c.crops.isEmpty && !c.loadingCrops) c.loadCrops();
-            }
-          : null,
-    );
+    Widget chip(String label, ZoneProfileMode m, {bool enabled = true}) =>
+        ChoiceChip(
+          label: Text(label, style: const TextStyle(fontSize: 11)),
+          selected: s.mode == m,
+          onSelected: enabled
+              ? (_) {
+                  c.setMode(m);
+                  if (m != ZoneProfileMode.none &&
+                      s.cropId == null &&
+                      c.crops.isEmpty &&
+                      !c.loadingCrops)
+                    c.loadCrops();
+                }
+              : null,
+        );
     return Wrap(
       spacing: 6,
       runSpacing: 4,
       children: [
         chip('Không áp dụng', ZoneProfileMode.none),
         chip('Dùng hồ sơ có sẵn', ZoneProfileMode.system),
-        chip('Tùy chỉnh bản sao', ZoneProfileMode.custom, enabled: s.cropId == null || c.currentProfileIsSystem),
+        chip(
+          'Tùy chỉnh bản sao',
+          ZoneProfileMode.custom,
+          enabled: s.cropId == null || c.currentProfileIsSystem,
+        ),
       ],
     );
   }
 
   List<Widget> _body(BuildContext context, ZoneCropSelection s) {
     if (c.loadingCrops) {
-      return const [Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator(minHeight: 2))];
+      return const [
+        Padding(
+          padding: EdgeInsets.only(top: 12),
+          child: LinearProgressIndicator(minHeight: 2),
+        ),
+      ];
     }
     if (c.cropsError != null) {
       return [
@@ -107,7 +132,10 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
       DropdownButtonFormField<String>(
         initialValue: s.cropId,
         isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Cây trồng *', prefixIcon: Icon(Icons.grass, size: 20)),
+        decoration: const InputDecoration(
+          labelText: 'Cây trồng *',
+          prefixIcon: Icon(Icons.grass, size: 20),
+        ),
         items: [
           for (final cr in c.crops)
             DropdownMenuItem(
@@ -119,14 +147,20 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
       ),
       if (s.cropId != null) ...[
         if (c.loadingDetail)
-          const Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator(minHeight: 2))
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: LinearProgressIndicator(minHeight: 2),
+          )
         else if (c.detailError != null) ...[
           const SizedBox(height: 8),
           Text(
             'Không tải được giống/hồ sơ: ${c.detailError}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
           ),
-          TextButton(onPressed: () => c.chooseCrop(s.cropId), child: const Text('Thử lại')),
+          TextButton(
+            onPressed: () => c.chooseCrop(s.cropId),
+            child: const Text('Thử lại'),
+          ),
         ] else ...[
           const SizedBox(height: 10),
           DropdownButtonFormField<String?>(
@@ -137,9 +171,15 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
               prefixIcon: Icon(Icons.local_florist_outlined, size: 20),
             ),
             items: [
-              const DropdownMenuItem<String?>(value: null, child: Text('Không chọn giống')),
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Không chọn giống'),
+              ),
               for (final v in c.varieties)
-                DropdownMenuItem<String?>(value: '${v['varietyId']}', child: Text('${v['name']}')),
+                DropdownMenuItem<String?>(
+                  value: '${v['varietyId']}',
+                  child: Text('${v['name']}'),
+                ),
             ],
             onChanged: c.chooseVariety,
           ),
@@ -165,7 +205,10 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
                   style: TextStyle(fontSize: 11.5, color: Color(0xFFB45309)),
                 ),
               ),
-            if (s.profileId != null) ...[const SizedBox(height: 10), ..._profileDetail(context, s)],
+            if (s.profileId != null) ...[
+              const SizedBox(height: 10),
+              ..._profileDetail(context, s),
+            ],
           ],
         ],
       ],
@@ -174,14 +217,25 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
 
   Widget _badge(String text, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(6),
+    ),
     child: Text(
       text,
-      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+      style: TextStyle(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
     ),
   );
 
-  Widget _profileCard(BuildContext context, ZoneCropSelection s, Map<String, dynamic> p) {
+  Widget _profileCard(
+    BuildContext context,
+    ZoneCropSelection s,
+    Map<String, dynamic> p,
+  ) {
     final id = '${p['profileId']}';
     final selected = s.profileId == id;
     final system = p['isSystemDefined'] == true;
@@ -193,11 +247,18 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
       decoration: BoxDecoration(
         color: selected ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: selected ? _green : const Color(0xFFE2E8F0), width: selected ? 1.6 : 1),
+        border: Border.all(
+          color: selected ? _green : const Color(0xFFE2E8F0),
+          width: selected ? 1.6 : 1,
+        ),
       ),
       child: Row(
         children: [
-          Icon(selected ? Icons.check_circle : Icons.menu_book_outlined, size: 22, color: selected ? _green : _muted),
+          Icon(
+            selected ? Icons.check_circle : Icons.menu_book_outlined,
+            size: 22,
+            color: selected ? _green : _muted,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -207,15 +268,25 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
                   '${p['name']}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _ink),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    _badge(system ? 'Hệ thống' : 'Của trang trại', system ? const Color(0xFF0284C7) : _green),
-                    _badge(vName == null ? 'Dùng chung mọi giống' : 'Giống $vName', const Color(0xFF7C3AED)),
+                    _badge(
+                      system ? 'Hệ thống' : 'Của trang trại',
+                      system ? const Color(0xFF0284C7) : _green,
+                    ),
+                    _badge(
+                      vName == null ? 'Dùng chung mọi giống' : 'Giống $vName',
+                      const Color(0xFF7C3AED),
+                    ),
                     _badge('$stages giai đoạn', _muted),
                     if (selected) _badge('Đã chọn', _green),
                   ],
@@ -229,7 +300,10 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
             onPressed: () => _openDetail(context, p),
-            child: const Text('Xem chi tiết', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Xem chi tiết',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -249,31 +323,49 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
     );
     if (result == null) return;
     c.chooseProfile('${p['profileId']}');
-    c.setMode(result == ProfileDetailResult.customize ? ZoneProfileMode.custom : ZoneProfileMode.system);
+    c.setMode(
+      result == ProfileDetailResult.customize
+          ? ZoneProfileMode.custom
+          : ZoneProfileMode.system,
+    );
   }
 
   List<Widget> _profileDetail(BuildContext context, ZoneCropSelection s) {
     final custom = s.mode == ZoneProfileMode.custom;
     final profile = c.currentProfile;
     final crop = c.currentCrop;
-    final variety = c.varieties.where((v) => '${v['varietyId']}' == s.varietyId).firstOrNull;
+    final variety = c.varieties
+        .where((v) => '${v['varietyId']}' == s.varietyId)
+        .firstOrNull;
     return [
       if (c.genericProfileDropsVariety)
         const Padding(
           padding: EdgeInsets.only(bottom: 4),
           child: Text(
             'Hồ sơ dùng chung cho mọi giống: Zone sẽ được gắn hồ sơ này và không ghi nhận giống cụ thể đã chọn.',
-            style: TextStyle(fontSize: 11, color: Color(0xFFB45309), height: 1.3),
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFFB45309),
+              height: 1.3,
+            ),
           ),
         ),
       Text(
         '${profile?['name'] ?? 'Hồ sơ canh tác'} · ${profile?['isSystemDefined'] == true ? 'hệ thống' : 'của trang trại'}',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _ink),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: _ink,
+        ),
       ),
       const SizedBox(height: 2),
       Text(
         '${crop?['name'] ?? ''}${variety == null ? '' : ' · giống ${variety['name']}'}',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _ink),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: _ink,
+        ),
       ),
       Text(
         '${s.stages.length} giai đoạn · tổng ${s.totalDays} ngày'
@@ -313,7 +405,8 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
           stage: s.stages[i],
           editable: custom,
           onDuration: (n) => c.setStageDuration(i, n),
-          onRequirement: (code, {min, max, target}) => c.setRequirement(i, code, min: min, max: max, target: target),
+          onRequirement: (code, {min, max, target}) =>
+              c.setRequirement(i, code, min: min, max: max, target: target),
         ),
       const SizedBox(height: 10),
       _irrigation(context, custom),
@@ -330,12 +423,18 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
             Icon(Icons.water_drop_outlined, size: 16, color: Color(0xFF0284C7)),
             SizedBox(width: 6),
             Expanded(
-              child: Text('Lịch tưới của hồ sơ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              child: Text(
+                'Lịch tưới của hồ sơ',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
         if (c.loadingIrrigation)
-          const Padding(padding: EdgeInsets.only(top: 6), child: LinearProgressIndicator(minHeight: 2))
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: LinearProgressIndicator(minHeight: 2),
+          )
         else if (c.irrigationError != null)
           Text(
             'Không tải được lịch tưới: ${c.irrigationError}',

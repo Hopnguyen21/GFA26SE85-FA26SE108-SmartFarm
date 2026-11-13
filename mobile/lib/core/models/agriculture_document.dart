@@ -43,27 +43,30 @@ class AgricultureDocumentModel {
     this.verificationStatus,
   });
 
-  factory AgricultureDocumentModel.fromJson(Map<String, dynamic> json) => AgricultureDocumentModel(
-    id: json['id']?.toString() ?? '',
-    title: json['title']?.toString() ?? 'Tài liệu VietGAP',
-    fileName: json['fileName']?.toString(),
-    fileType: json['fileType']?.toString() ?? 'text',
-    authorOrganization: json['authorOrganization']?.toString(),
-    category: json['category']?.toString() ?? 'general',
-    cropScope: json['cropScope']?.toString() ?? '',
-    version: json['version']?.toString(),
-    chunkCount: (json['chunkCount'] as num?)?.toInt() ?? 0,
-    reviewStatus: json['reviewStatus']?.toString() ?? 'PendingReview',
-    reviewNotes: json['reviewNotes']?.toString(),
-    contentText: json['contentText']?.toString(),
-    hasOriginalFile: json['hasOriginalFile'] == true,
-    documentType: json['documentType']?.toString() ?? 'Unspecified',
-    metadataDetection: json['metadataDetection'] is Map<String, dynamic>
-        ? json['metadataDetection'] as Map<String, dynamic>
-        : null,
-    verification: json['verification'] is Map<String, dynamic> ? json['verification'] as Map<String, dynamic> : null,
-    verificationStatus: json['verificationStatus']?.toString(),
-  );
+  factory AgricultureDocumentModel.fromJson(Map<String, dynamic> json) =>
+      AgricultureDocumentModel(
+        id: json['id']?.toString() ?? '',
+        title: json['title']?.toString() ?? 'Tài liệu VietGAP',
+        fileName: json['fileName']?.toString(),
+        fileType: json['fileType']?.toString() ?? 'text',
+        authorOrganization: json['authorOrganization']?.toString(),
+        category: json['category']?.toString() ?? 'general',
+        cropScope: json['cropScope']?.toString() ?? '',
+        version: json['version']?.toString(),
+        chunkCount: (json['chunkCount'] as num?)?.toInt() ?? 0,
+        reviewStatus: json['reviewStatus']?.toString() ?? 'PendingReview',
+        reviewNotes: json['reviewNotes']?.toString(),
+        contentText: json['contentText']?.toString(),
+        hasOriginalFile: json['hasOriginalFile'] == true,
+        documentType: json['documentType']?.toString() ?? 'Unspecified',
+        metadataDetection: json['metadataDetection'] is Map<String, dynamic>
+            ? json['metadataDetection'] as Map<String, dynamic>
+            : null,
+        verification: json['verification'] is Map<String, dynamic>
+            ? json['verification'] as Map<String, dynamic>
+            : null,
+        verificationStatus: json['verificationStatus']?.toString(),
+      );
 
   AgricultureDocumentModel copyWith({
     String? reviewStatus,

@@ -2,7 +2,11 @@ part of '../zone_detail_screen.dart';
 
 extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
   // ─── Tab 2: Thiết bị ─────────────────────────────────────────
-  Widget _buildDevicesTab(BuildContext context, FarmProvider provider, List<ActuatorModel> actuators) {
+  Widget _buildDevicesTab(
+    BuildContext context,
+    FarmProvider provider,
+    List<ActuatorModel> actuators,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -11,13 +15,20 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
           // Node sensors header
           const Text(
             'TRẠM SENSOR NODE LORA',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.8),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF64748B),
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 10),
           ZoneNodeSummaryCard(
             zoneId: widget.zone.zoneId,
             zoneName: widget.zone.name,
-            canEditLocations: provider.currentRole == 'OWNER' || provider.currentRole == 'TECHNICIAN',
+            canEditLocations:
+                provider.currentRole == 'OWNER' ||
+                provider.currentRole == 'TECHNICIAN',
           ),
 
           const SizedBox(height: 20),
@@ -37,7 +48,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
               ),
               Text(
                 provider.canControlZone(widget.zone.zoneId)
-                    ? (provider.currentRole == 'OWNER' ? 'Toàn quyền' : 'Được điều khiển')
+                    ? (provider.currentRole == 'OWNER'
+                          ? 'Toàn quyền'
+                          : 'Được điều khiển')
                     : 'Chỉ xem',
                 style: TextStyle(
                   fontSize: 11,
@@ -55,13 +68,20 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                 provider.currentRole == 'FARMER'
                     ? 'Bạn chưa được chủ trang trại cấp quyền điều khiển thiết bị tại Zone này nên chỉ xem được trạng thái.'
                     : 'Vai trò của bạn không có quyền ra lệnh điều khiển thiết bị; chỉ xem trạng thái.',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  height: 1.35,
+                ),
               ),
             ),
           const SizedBox(height: 10),
 
           if (actuators.isNotEmpty) ...[
-            EmergencyStopButton(zoneId: widget.zone.zoneId, zoneName: widget.zone.name),
+            EmergencyStopButton(
+              zoneId: widget.zone.zoneId,
+              zoneName: widget.zone.name,
+            ),
             const SizedBox(height: 12),
           ],
 
@@ -74,21 +94,28 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                 'Lịch sử điều khiển',
                 () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => ActuatorHistoryScreen(zone: widget.zone)),
+                  MaterialPageRoute(
+                    builder: (_) => ActuatorHistoryScreen(zone: widget.zone),
+                  ),
                 ),
               ),
               if (provider.currentRole == 'OWNER')
                 _toolChip(
                   Icons.event_repeat,
                   'Lịch tưới & đồng bộ',
-                  () =>
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => ZoneIrrigationPage(zone: widget.zone))),
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ZoneIrrigationPage(zone: widget.zone),
+                    ),
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 12),
 
-          if (actuators.isEmpty && provider.actuatorErrorFor(widget.zone.zoneId) != null)
+          if (actuators.isEmpty &&
+              provider.actuatorErrorFor(widget.zone.zoneId) != null)
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -101,11 +128,16 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                   Expanded(
                     child: Text(
                       'Không tải được thiết bị của Zone: ${provider.actuatorErrorFor(widget.zone.zoneId)}',
-                      style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+                      style: const TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                   TextButton(
-                    onPressed: () => provider.refreshCurrentZoneActuators(zoneId: widget.zone.zoneId),
+                    onPressed: () => provider.refreshCurrentZoneActuators(
+                      zoneId: widget.zone.zoneId,
+                    ),
                     child: const Text('Thử lại'),
                   ),
                 ],
@@ -117,12 +149,19 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0), style: BorderStyle.solid),
+                border: Border.all(
+                  color: const Color(0xFFE2E8F0),
+                  style: BorderStyle.solid,
+                ),
               ),
               child: const Center(
                 child: Column(
                   children: [
-                    Icon(Icons.device_unknown_outlined, size: 36, color: Color(0xFF94A3B8)),
+                    Icon(
+                      Icons.device_unknown_outlined,
+                      size: 36,
+                      color: Color(0xFF94A3B8),
+                    ),
                     SizedBox(height: 8),
                     Text(
                       'Chưa có thiết bị chấp hành nào được gán vào Zone này.',
@@ -134,7 +173,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
               ),
             )
           else
-            ...actuators.map((act) => _buildActuatorCard(context, provider, act)),
+            ...actuators.map(
+              (act) => _buildActuatorCard(context, provider, act),
+            ),
 
           const SizedBox(height: 20),
 
@@ -156,12 +197,20 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                     children: [
                       Text(
                         'Giới hạn an toàn do máy chủ quyết định',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Color(0xFF92400E),
+                        ),
                       ),
                       SizedBox(height: 3),
                       Text(
                         'Thời lượng tối đa, khóa an toàn (interlock), hoãn do mưa và dữ liệu cảm biến quá cũ đều do máy chủ kiểm tra. Ứng dụng chỉ báo lệnh thành công khi thiết bị phản hồi; nếu bị từ chối sẽ hiện đúng lý do của máy chủ.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFFB45309), height: 1.4),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFB45309),
+                          height: 1.4,
+                        ),
                       ),
                     ],
                   ),
@@ -174,7 +223,11 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
     );
   }
 
-  Widget _buildActuatorCard(BuildContext context, FarmProvider provider, ActuatorModel act) {
+  Widget _buildActuatorCard(
+    BuildContext context,
+    FarmProvider provider,
+    ActuatorModel act,
+  ) {
     IconData icon;
     switch (act.actuatorType) {
       case 'PUMP':
@@ -197,7 +250,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: act.isRunning ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+          color: act.isRunning
+              ? const Color(0xFF10B981)
+              : const Color(0xFFE2E8F0),
           width: act.isRunning ? 1.5 : 1,
         ),
       ),
@@ -206,22 +261,40 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: act.isRunning ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+              color: act.isRunning
+                  ? const Color(0xFFECFDF5)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF64748B), size: 22),
+            child: Icon(
+              icon,
+              color: act.isRunning
+                  ? const Color(0xFF059669)
+                  : const Color(0xFF64748B),
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(act.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Text(
-                  act.isRunning ? '🟢 Đang bật — còn ${act.remainingMinutes} phút' : '⚫ Đang tắt',
+                  act.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  act.isRunning
+                      ? '🟢 Đang bật — còn ${act.remainingMinutes} phút'
+                      : '⚫ Đang tắt',
                   style: TextStyle(
                     fontSize: 11,
-                    color: act.isRunning ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                    color: act.isRunning
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF94A3B8),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -235,7 +308,11 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
             onChanged: provider.canControlZone(act.zoneId)
                 ? (_) {
                     HapticFeedback.mediumImpact();
-                    toggleActuatorWithFeedback(context, provider, act.actuatorId);
+                    toggleActuatorWithFeedback(
+                      context,
+                      provider,
+                      act.actuatorId,
+                    );
                   }
                 : null,
           ),
@@ -247,7 +324,10 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
   Widget _toolChip(IconData icon, String label, VoidCallback onTap) {
     return ActionChip(
       avatar: Icon(icon, size: 16, color: const Color(0xFF065F46)),
-      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+      ),
       backgroundColor: const Color(0xFFECFDF5),
       side: const BorderSide(color: Color(0xFFA7F3D0)),
       onPressed: onTap,
@@ -262,9 +342,17 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ZoneContractsSection(key: ValueKey('contracts_${zone.zoneId}'), zone: zone, canManage: isOwner),
+          ZoneContractsSection(
+            key: ValueKey('contracts_${zone.zoneId}'),
+            zone: zone,
+            canManage: isOwner,
+          ),
           const SizedBox(height: 12),
-          ZoneSupportSection(key: ValueKey('support_${zone.zoneId}'), zone: zone, canCreate: isOwner),
+          ZoneSupportSection(
+            key: ValueKey('support_${zone.zoneId}'),
+            zone: zone,
+            canCreate: isOwner,
+          ),
           const SizedBox(height: 80),
         ],
       ),

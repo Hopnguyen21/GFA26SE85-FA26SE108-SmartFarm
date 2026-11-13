@@ -17,8 +17,11 @@ internal sealed partial class CropGrowthService(SmartFarmDbContext dbContext) : 
 
     public async Task<IReadOnlyList<CropView>> ListCropsAsync(Guid userId, Guid? tenantId, bool? systemDefined, CancellationToken ct)
     {
-        await EnsureUserAsync(userId, tenantId, false, ct);
-        var query = dbContext.Crops.AsNoTracking().Where(x => x.TenantId == null || x.TenantId == tenantId);
+        var user = await EnsureUserAsync(userId, tenantId, false, ct);
+        // Quản trị nền tảng thấy cả cây do các Farm tự thêm (nhãn "của Farm" ở giao diện); người dùng Farm chỉ thấy cây hệ thống và cây của tenant mình.
+        var query = user.Role == UserRole.PlatformAdmin
+            ? dbContext.Crops.AsNoTracking()
+            : dbContext.Crops.AsNoTracking().Where(x => x.TenantId == null || x.TenantId == tenantId);
         if (systemDefined.HasValue) query = query.Where(x => x.IsSystemDefined == systemDefined.Value);
         return (await query.OrderBy(x => x.Name).ToListAsync(ct)).Select(x => x.ToView()).ToList();
     }

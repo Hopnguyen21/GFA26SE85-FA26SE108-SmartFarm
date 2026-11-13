@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode, ValueNotifier, debugPrint;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, kReleaseMode, ValueNotifier, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,12 +37,19 @@ class ApiService {
   static final http.Client _client = http.Client();
 
   // Danh sách host phát hành chính thức được tin cậy
-  static const Set<String> _trustedReleaseHosts = {'api.smartfarm.vn', 'smartfarm.vn', 'app.smartfarm.vn'};
+  static const Set<String> _trustedReleaseHosts = {
+    'api.smartfarm.vn',
+    'smartfarm.vn',
+    'app.smartfarm.vn',
+  };
 
   /// Base URL mặc định theo môi trường
   static String get defaultBaseUrl {
     if (kReleaseMode) {
-      const envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://api.smartfarm.vn');
+      const envUrl = String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'https://api.smartfarm.vn',
+      );
       return envUrl;
     }
     // Debug / Development
@@ -68,7 +76,10 @@ class ApiService {
   /// Kiểm tra và chuẩn hoá Base URL:
   /// - Bản Release: bắt buộc scheme là HTTPS, từ chối HTTP, chỉ cho phép host tin cậy.
   /// - Bản Debug: cho phép HTTP/HTTPS cục bộ.
-  static String validateAndNormalizeBaseUrl(String url, {bool isRelease = kReleaseMode}) {
+  static String validateAndNormalizeBaseUrl(
+    String url, {
+    bool isRelease = kReleaseMode,
+  }) {
     var cleaned = url.trim();
     if (cleaned.endsWith('/')) {
       cleaned = cleaned.substring(0, cleaned.length - 1);
@@ -83,12 +94,18 @@ class ApiService {
 
     if (isRelease) {
       if (scheme != 'https') {
-        throw SecurityException('Bản release từ chối kết nối không mã hóa HTTP. Bắt buộc dùng HTTPS: $url');
+        throw SecurityException(
+          'Bản release từ chối kết nối không mã hóa HTTP. Bắt buộc dùng HTTPS: $url',
+        );
       }
       const envHost = String.fromEnvironment('API_HOST');
-      final isTrusted = _trustedReleaseHosts.contains(host) || (envHost.isNotEmpty && host == envHost.toLowerCase());
+      final isTrusted =
+          _trustedReleaseHosts.contains(host) ||
+          (envHost.isNotEmpty && host == envHost.toLowerCase());
       if (!isTrusted) {
-        throw SecurityException('Host không nằm trong danh sách máy chủ tin cậy được phát hành: $host');
+        throw SecurityException(
+          'Host không nằm trong danh sách máy chủ tin cậy được phát hành: $host',
+        );
       }
     } else {
       if (scheme != 'http' && scheme != 'https') {
@@ -125,14 +142,20 @@ class ApiService {
     }
   }
 
-  static void setTokens({String? accessToken, String? refreshToken, String? email, String? role}) {
+  static void setTokens({
+    String? accessToken,
+    String? refreshToken,
+    String? email,
+    String? role,
+  }) {
     _accessToken = accessToken;
     _refreshToken = refreshToken;
     _userEmail = email;
     _userRole = role;
   }
 
-  static bool get isAuthenticated => _accessToken != null && _accessToken!.isNotEmpty;
+  static bool get isAuthenticated =>
+      _accessToken != null && _accessToken!.isNotEmpty;
   static String? get userEmail => _userEmail;
   static String? get userRole => _userRole;
 
@@ -143,6 +166,13 @@ class ApiService {
   static Future<bool> loadSavedTokens() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('session_invalidated') == true) {
+        _accessToken = null;
+        _refreshToken = null;
+        _userEmail = null;
+        _userRole = null;
+        return false;
+      }
 
       // Đảm bảo không tồn tại token lưu trái phép trong SharedPreferences
       await prefs.remove('access_token');
@@ -173,6 +203,10 @@ class ApiService {
       }
       return _accessToken != null && _accessToken!.isNotEmpty;
     } catch (_) {
+      _accessToken = null;
+      _refreshToken = null;
+      _userEmail = null;
+      _userRole = null;
       return false;
     }
   }
@@ -189,12 +223,14 @@ class ApiService {
     _userEmail = email;
     _userRole = role;
     try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setBool('session_invalidated', true))
+        throw StateError('Không thể bảo vệ phiên đăng nhập.');
       // 1. Ghi token vào kho an toàn hệ thống
       await _secure.write(key: 'access_token', value: accessToken);
       await _secure.write(key: 'refresh_token', value: refreshToken);
 
       // 2. Bảo đảm KHÔNG BAO GIỜ lưu token vào SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
       await prefs.remove('access_token');
       await prefs.remove('refresh_token');
 
@@ -209,7 +245,16 @@ class ApiService {
       } else {
         await prefs.setString('base_url', _baseUrl);
       }
-    } catch (_) {}
+      if (!await prefs.setBool('session_invalidated', false))
+        throw StateError('Không lưu được phiên đăng nhập.');
+    } catch (_) {
+      _accessToken = null;
+      _refreshToken = null;
+      _userEmail = null;
+      _userRole = null;
+      sessionVersion.value++;
+      rethrow;
+    }
   }
 
   /// Xóa sạch token trong kho an toàn và toàn bộ thông tin phiên khi đăng xuất
@@ -218,19 +263,33 @@ class ApiService {
     _refreshToken = null;
     _userEmail = null;
     _userRole = null;
+    var invalidatedOnDisk = false;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await _secure.delete(key: 'access_token');
-      await _secure.delete(key: 'refresh_token');
+      invalidatedOnDisk = await prefs.setBool('session_invalidated', true);
+      for (final key in [
+        'access_token',
+        'refresh_token',
+        'user_email',
+        'user_role',
+        'base_url',
+      ]) {
+        await prefs.remove(key);
+      }
+    } catch (_) {
+      // Secure storage cleanup below is independent of preference availability.
+    }
+    try {
       await _secure.deleteAll();
-
-      await prefs.remove('access_token');
-      await prefs.remove('refresh_token');
-      await prefs.remove('user_email');
-      await prefs.remove('user_role');
-      await prefs.remove('base_url');
-    } catch (_) {}
+      invalidatedOnDisk = true;
+    } catch (_) {
+      // A persisted invalidation marker prevents restoration of surviving keys.
+    }
     sessionVersion.value++;
+    if (!invalidatedOnDisk)
+      throw StateError(
+        'Không thể xóa phiên đã lưu. Vui lòng thử đăng xuất lại.',
+      );
   }
 
   static Map<String, String> get _headers => {
@@ -240,7 +299,10 @@ class ApiService {
   };
 
   // ─── Helper: auto refresh on 401 ────────────────────────────────────
-  static Future<http.Response?> _getWithAuth(String url, {Duration timeout = const Duration(seconds: 15)}) async {
+  static Future<http.Response?> _getWithAuth(
+    String url, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     final uri = Uri.parse(url);
     _assertSecureRequest(uri);
     var resp = await _client.get(uri, headers: _headers).timeout(timeout);
@@ -260,17 +322,24 @@ class ApiService {
   }) async {
     final uri = Uri.parse(url);
     _assertSecureRequest(uri);
-    var resp = await _client.post(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
+    var resp = await _client
+        .post(uri, headers: _headers, body: jsonEncode(body))
+        .timeout(timeout);
     if (resp.statusCode == 401) {
       final ok = await refreshToken();
       if (ok) {
-        resp = await _client.post(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
+        resp = await _client
+            .post(uri, headers: _headers, body: jsonEncode(body))
+            .timeout(timeout);
       }
     }
     return resp;
   }
 
-  static Future<http.Response?> _deleteWithAuth(String url, {Duration timeout = const Duration(seconds: 15)}) async {
+  static Future<http.Response?> _deleteWithAuth(
+    String url, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     final uri = Uri.parse(url);
     _assertSecureRequest(uri);
     var resp = await _client.delete(uri, headers: _headers).timeout(timeout);
@@ -290,18 +359,25 @@ class ApiService {
   }) async {
     final uri = Uri.parse(url);
     _assertSecureRequest(uri);
-    var resp = await _client.put(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
+    var resp = await _client
+        .put(uri, headers: _headers, body: jsonEncode(body))
+        .timeout(timeout);
     if (resp.statusCode == 401) {
       final ok = await refreshToken();
       if (ok) {
-        resp = await _client.put(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
+        resp = await _client
+            .put(uri, headers: _headers, body: jsonEncode(body))
+            .timeout(timeout);
       }
     }
     return resp;
   }
 
   // ─── 1. Auth: Đăng nhập ─────────────────────────────────────────────
-  static Future<Map<String, dynamic>?> login(String email, String password) async {
+  static Future<Map<String, dynamic>?> login(
+    String email,
+    String password,
+  ) async {
     try {
       final loginUri = Uri.parse('$baseUrl/api/v1/auth/login');
       _assertSecureRequest(loginUri);
@@ -317,16 +393,25 @@ class ApiService {
         final data = jsonDecode(response.body);
         final token = data['accessToken'] as String?;
         final rToken = data['refreshToken'] as String?;
-        final role = (data['user'] is Map ? data['user']['role'] : data['role'])?.toString();
+        final role = (data['user'] is Map ? data['user']['role'] : data['role'])
+            ?.toString();
         if (parseAppRole(role) == null) {
           // Role không hỗ trợ: không lưu phiên, thu hồi token vừa cấp (best effort).
           _accessToken = token;
           _refreshToken = rToken;
           await logout();
-          return {'error': 'unsupported_role', 'message': unsupportedRoleMessage(role)};
+          return {
+            'error': 'unsupported_role',
+            'message': unsupportedRoleMessage(role),
+          };
         }
         if (token != null && rToken != null) {
-          await saveTokens(accessToken: token, refreshToken: rToken, email: email, role: role);
+          await saveTokens(
+            accessToken: token,
+            refreshToken: rToken,
+            email: email,
+            role: role,
+          );
         }
         return data;
       }
@@ -380,7 +465,10 @@ class ApiService {
             .post(
               logoutUri,
               headers: _headers,
-              body: jsonEncode({'refreshToken': _refreshToken, 'revokeAllDevices': false}),
+              body: jsonEncode({
+                'refreshToken': _refreshToken,
+                'revokeAllDevices': false,
+              }),
             )
             .timeout(const Duration(seconds: 5));
       }
@@ -427,7 +515,9 @@ class ApiService {
         _refreshCompleter!.complete(true);
         return true;
       }
-      if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403) {
+      if (response.statusCode == 400 ||
+          response.statusCode == 401 ||
+          response.statusCode == 403) {
         // Refresh token bị từ chối/hết hạn/bị thu hồi: xoá phiên.
         await clearTokens();
       }
@@ -443,7 +533,10 @@ class ApiService {
 
   // ─── IoT deployment (IOT-V1) ────────────────────────────────────────
   // TenantId/FarmId không do client quyết định: backend lấy từ JWT và từ deployment request.
-  static dynamic _decodeOrThrow(http.Response? resp, {Set<int> ok = const {200, 201}}) {
+  static dynamic _decodeOrThrow(
+    http.Response? resp, {
+    Set<int> ok = const {200, 201},
+  }) {
     if (resp == null || !ok.contains(resp.statusCode)) {
       throw Exception(_apiErrorMessage(resp));
     }
@@ -452,7 +545,8 @@ class ApiService {
 
   // ─── Lời mời & quyền Zone của nhân công ──────────
   static List<Map<String, dynamic>> _asMapList(dynamic data) => [
-    for (final item in (data as List? ?? const [])) Map<String, dynamic>.from(item as Map),
+    for (final item in (data as List? ?? const []))
+      Map<String, dynamic>.from(item as Map),
   ];
 
   // ─── 10c. Luồng đồng bộ với Web FE ────────────────────────────────────
@@ -465,13 +559,20 @@ class ApiService {
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   /// Giống _decodeOrThrow nhưng luôn giải mã UTF-8 (tên tiếng Việt) bất kể header charset.
-  static dynamic _decodeUtf8OrThrow(http.Response? resp, {Set<int> ok = const {200, 201}}) {
-    if (resp == null || !ok.contains(resp.statusCode)) throw Exception(_apiErrorMessage(resp));
-    return resp.bodyBytes.isEmpty ? null : jsonDecode(utf8.decode(resp.bodyBytes));
+  static dynamic _decodeUtf8OrThrow(
+    http.Response? resp, {
+    Set<int> ok = const {200, 201},
+  }) {
+    if (resp == null || !ok.contains(resp.statusCode))
+      throw Exception(_apiErrorMessage(resp));
+    return resp.bodyBytes.isEmpty
+        ? null
+        : jsonDecode(utf8.decode(resp.bodyBytes));
   }
 
   // ─── VietGAP Knowledge Documents ──────────────────────────────────────────
-  static String _apiErrorMessage(http.Response? response) => errorMessageFor(response);
+  static String _apiErrorMessage(http.Response? response) =>
+      errorMessageFor(response);
 
   /// Thông báo lỗi dễ hiểu cho người dùng từ phản hồi của backend.
   /// Ưu tiên nội dung do backend trả về (detail/message/errors); khi không có hoặc chỉ là tiêu đề chung
@@ -495,10 +596,17 @@ class ApiService {
           ].where((e) => e.trim().isNotEmpty).toList();
           if (parts.isNotEmpty) validation = parts.join(' ');
         }
-        final candidates = [body['detail'], body['message'], validation, body['title']];
+        final candidates = [
+          body['detail'],
+          body['message'],
+          validation,
+          body['title'],
+        ];
         for (final c in candidates) {
           final t = c?.toString().trim();
-          if (t != null && t.isNotEmpty && !_genericHttpTitles.contains(t.toLowerCase())) {
+          if (t != null &&
+              t.isNotEmpty &&
+              !_genericHttpTitles.contains(t.toLowerCase())) {
             fromBody = t;
             break;
           }
@@ -508,11 +616,15 @@ class ApiService {
       }
     } catch (_) {
       final raw = response.body.trim();
-      if (raw.isNotEmpty && raw.length < 300 && !raw.startsWith('<')) fromBody = raw;
+      if (raw.isNotEmpty && raw.length < 300 && !raw.startsWith('<'))
+        fromBody = raw;
     }
     if (response.statusCode == 401 &&
         (problemTitle?.toLowerCase() == 'authentication required' ||
-            problemDetail?.toLowerCase().contains('valid, active bearer token') == true)) {
+            problemDetail?.toLowerCase().contains(
+                  'valid, active bearer token',
+                ) ==
+                true)) {
       return 'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại rồi thử lại.';
     }
     if (fromBody != null) return fromBody;
@@ -531,7 +643,8 @@ class ApiService {
       case 429:
         return 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.';
     }
-    if (response.statusCode >= 500) return 'Máy chủ đang gặp lỗi (HTTP ${response.statusCode}). Vui lòng thử lại sau.';
+    if (response.statusCode >= 500)
+      return 'Máy chủ đang gặp lỗi (HTTP ${response.statusCode}). Vui lòng thử lại sau.';
     return 'Yêu cầu thất bại (HTTP ${response.statusCode}).';
   }
 

@@ -2239,23 +2239,40 @@ export interface ResourceUsageReport { total: number; unit: string; countedComma
 export interface FarmOverviewReport { activeSeasonCount: number; onlineDeviceCount: number; alertsLast7Days: number; openAlertCount: number; openTaskCount: number; zoneCount: number }
 export interface TaskReport { total: number; approved: number; failed: number; overdue: number; completionRatePercent: number }
 
-export const gisProxyService = {
-  /** POST /api/v1/gis/reverse-geocode (dùng POST để bảo vệ tọa độ không bị ghi vào reverse proxy access logs) */
-  reverseGeocode: async (latitude: number, longitude: number) => {
-    const res = await apiClient.post('/api/v1/gis/reverse-geocode', {
-      latitude,
-      longitude
-    });
-    return res.data;
-  },
-
-  /** POST /api/v1/gis/search-location (dùng POST để địa chỉ tìm kiếm không bị ghi vào reverse proxy access logs) */
-  searchLocation: async (query: string) => {
-    const res = await apiClient.post('/api/v1/gis/search-location', {
-      query
-    });
-    return res.data ?? [];
-  },
+export const gisProxyService = {
+
+  /** POST /api/v1/gis/reverse-geocode (dùng POST để bảo vệ tọa độ không bị ghi vào reverse proxy access logs) */
+
+  reverseGeocode: async (latitude: number, longitude: number) => {
+
+    const res = await apiClient.post('/api/v1/gis/reverse-geocode', {
+
+      latitude,
+
+      longitude
+
+    });
+
+    return res.data;
+
+  },
+
+
+
+  /** POST /api/v1/gis/search-location (dùng POST để địa chỉ tìm kiếm không bị ghi vào reverse proxy access logs) */
+
+  searchLocation: async (query: string) => {
+
+    const res = await apiClient.post('/api/v1/gis/search-location', {
+
+      query
+
+    });
+
+    return res.data ?? [];
+
+  },
+
 };
 
 export const reportService = {

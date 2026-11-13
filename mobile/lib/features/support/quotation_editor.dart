@@ -11,7 +11,10 @@ class QuotationDraft {
 /// Only opened by the technician while the quotation is unsigned.
 class QuotationEditor extends StatefulWidget {
   final Quotation? initial;
-  const QuotationEditor({super.key, this.initial});
+
+  /// Dòng dựng sẵn từ dự toán Owner đã lưu (chỉ dùng khi chưa có báo giá). Kỹ thuật viên chỉnh sửa trước khi gửi.
+  final List<QuotationItem>? estimateItems;
+  const QuotationEditor({super.key, this.initial, this.estimateItems});
 
   @override
   State<QuotationEditor> createState() => _QuotationEditorState();
@@ -72,7 +75,12 @@ class _QuotationEditorState extends State<QuotationEditor> {
   @override
   void initState() {
     super.initState();
-    _lines = widget.initial?.items.map((i) => _Line(i)).toList() ?? [];
+    _lines =
+        widget.initial?.items.map((i) => _Line(i)).toList() ??
+        [
+          for (final i in widget.estimateItems ?? const <QuotationItem>[])
+            _Line(i),
+        ];
     if (_lines.isEmpty) _lines.add(_Line());
     _notes = TextEditingController(text: widget.initial?.notes);
     _terms = TextEditingController(text: widget.initial?.contractTerms);
@@ -88,7 +96,8 @@ class _QuotationEditorState extends State<QuotationEditor> {
     super.dispose();
   }
 
-  String? _required(String? v) => v == null || v.trim().isEmpty ? 'Vui lòng nhập thông tin' : null;
+  String? _required(String? v) =>
+      v == null || v.trim().isEmpty ? 'Vui lòng nhập thông tin' : null;
 
   String? _number(String? v, {bool quantity = false, bool vat = false}) {
     final n = double.tryParse(v?.trim() ?? '');
@@ -107,17 +116,23 @@ class _QuotationEditorState extends State<QuotationEditor> {
     return null;
   }
 
-  Widget _field(TextEditingController c, String label, {String? Function(String?)? validator, bool number = false}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextFormField(
-          controller: c,
-          decoration: InputDecoration(labelText: label),
-          keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-          validator: validator ?? _required,
-          onChanged: (_) => setState(() {}),
-        ),
-      );
+  Widget _field(
+    TextEditingController c,
+    String label, {
+    String? Function(String?)? validator,
+    bool number = false,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextFormField(
+      controller: c,
+      decoration: InputDecoration(labelText: label),
+      keyboardType: number
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      validator: validator ?? _required,
+      onChanged: (_) => setState(() {}),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +157,9 @@ class _QuotationEditorState extends State<QuotationEditor> {
                     children: [
                       Row(
                         children: [
-                          Expanded(child: Text('Hạng mục ${_lines.indexOf(line) + 1}')),
+                          Expanded(
+                            child: Text('Hạng mục ${_lines.indexOf(line) + 1}'),
+                          ),
                           IconButton(
                             tooltip: 'Xóa hạng mục',
                             icon: const Icon(Icons.delete_outline),
@@ -159,7 +176,9 @@ class _QuotationEditorState extends State<QuotationEditor> {
                       _field(line.name, 'Tên thiết bị / vật tư / công việc'),
                       DropdownButtonFormField<String>(
                         initialValue: line.category,
-                        decoration: const InputDecoration(labelText: 'Loại hạng mục'),
+                        decoration: const InputDecoration(
+                          labelText: 'Loại hạng mục',
+                        ),
                         items:
                             {
                                   ...['HARDWARE', 'ACCESSORY', 'LABOR'],
@@ -169,19 +188,46 @@ class _QuotationEditorState extends State<QuotationEditor> {
                                   (v) => DropdownMenuItem(
                                     value: v,
                                     child: Text(
-                                      {'HARDWARE': 'Thiết bị', 'ACCESSORY': 'Vật tư', 'LABOR': 'Công lắp đặt'}[v] ?? v,
+                                      {
+                                            'HARDWARE': 'Thiết bị',
+                                            'ACCESSORY': 'Vật tư',
+                                            'LABOR': 'Công lắp đặt',
+                                          }[v] ??
+                                          v,
                                     ),
                                   ),
                                 )
                                 .toList(),
-                        onChanged: (v) => setState(() => line.category = v ?? line.category),
+                        onChanged: (v) =>
+                            setState(() => line.category = v ?? line.category),
                       ),
                       _field(line.unit, 'Đơn vị'),
-                      _field(line.notes, 'Ghi chú hạng mục', validator: (_) => null),
-                      _field(line.quantity, 'Số lượng', number: true, validator: (v) => _number(v, quantity: true)),
-                      _field(line.price, 'Đơn giá (đ)', number: true, validator: (v) => _number(v)),
-                      _field(line.vat, 'VAT (%)', number: true, validator: (v) => _number(v, vat: true)),
-                      Text('Thành tiền có VAT: ${line.total.isFinite ? line.total.toStringAsFixed(0) : "—"} đ'),
+                      _field(
+                        line.notes,
+                        'Ghi chú hạng mục',
+                        validator: (_) => null,
+                      ),
+                      _field(
+                        line.quantity,
+                        'Số lượng',
+                        number: true,
+                        validator: (v) => _number(v, quantity: true),
+                      ),
+                      _field(
+                        line.price,
+                        'Đơn giá (đ)',
+                        number: true,
+                        validator: (v) => _number(v),
+                      ),
+                      _field(
+                        line.vat,
+                        'VAT (%)',
+                        number: true,
+                        validator: (v) => _number(v, vat: true),
+                      ),
+                      Text(
+                        'Thành tiền có VAT: ${line.total.isFinite ? line.total.toStringAsFixed(0) : "—"} đ',
+                      ),
                     ],
                   ),
                 ),
@@ -194,22 +240,32 @@ class _QuotationEditorState extends State<QuotationEditor> {
             TextFormField(
               controller: _notes,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Nội dung trao đổi / lý do bổ sung'),
+              decoration: const InputDecoration(
+                labelText: 'Nội dung trao đổi / lý do bổ sung',
+              ),
             ),
             TextFormField(
               controller: _terms,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Điều khoản hợp đồng'),
+              decoration: const InputDecoration(
+                labelText: 'Điều khoản hợp đồng',
+              ),
             ),
             const SizedBox(height: 16),
-            Text('Tổng gồm VAT: ${total.isFinite ? total.toStringAsFixed(0) : "—"} đ'),
+            Text(
+              'Tổng gồm VAT: ${total.isFinite ? total.toStringAsFixed(0) : "—"} đ',
+            ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: () {
                 if (!_form.currentState!.validate()) return;
                 Navigator.pop(
                   context,
-                  QuotationDraft(_lines.map((l) => l.toJson()).toList(), _notes.text.trim(), _terms.text.trim()),
+                  QuotationDraft(
+                    _lines.map((l) => l.toJson()).toList(),
+                    _notes.text.trim(),
+                    _terms.text.trim(),
+                  ),
                 );
               },
               child: const Text('Gửi báo giá để Owner xem và xác nhận'),

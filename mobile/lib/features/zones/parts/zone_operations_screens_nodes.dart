@@ -30,7 +30,8 @@ class ZoneNodesScreen extends StatelessWidget {
     'Ec': 'EC',
   };
 
-  Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)> _load() async {
+  Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>
+  _load() async {
     final results = await Future.wait([
       FarmApi.getLatestTelemetryByDevice(zoneId),
       FarmApi.getDeviceMapLocations(zoneId),
@@ -41,45 +42,62 @@ class ZoneNodesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Node trong Zone · $zoneName', style: const TextStyle(fontSize: 15))),
-      body: _AsyncList<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
-        load: _load,
-        builder: (context, data, reload) {
-          final (devices, locations) = data;
-          final locById = {for (final l in locations) '${l['deviceId']}'.toLowerCase(): l};
-          final ids = <String>{...devices.map((d) => '${d['deviceId']}'.toLowerCase()), ...locById.keys}.toList();
-          if (ids.isEmpty) return _empty('Zone chưa có node nào được gán.', Icons.sensors_off);
-          final devById = {for (final d in devices) '${d['deviceId']}'.toLowerCase(): d};
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (canEditLocations)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.edit_location_alt_outlined),
-                    label: const Text('Cập nhật toạ độ các node'),
-                    onPressed: () async {
-                      final saved = await Navigator.push<bool>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => _EditNodeLocationsScreen(
-                            zoneId: zoneId,
-                            locations: locations,
-                            deploymentRequestId: deploymentRequestId,
-                            serviceRequestId: serviceRequestId,
-                          ),
-                        ),
-                      );
-                      if (saved == true) await reload();
-                    },
-                  ),
-                ),
-              for (final id in ids) _nodeCard(devById[id], locById[id]),
-            ],
-          );
-        },
+      appBar: AppBar(
+        title: Text(
+          'Node trong Zone · $zoneName',
+          style: const TextStyle(fontSize: 15),
+        ),
       ),
+      body:
+          _AsyncList<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
+            load: _load,
+            builder: (context, data, reload) {
+              final (devices, locations) = data;
+              final locById = {
+                for (final l in locations) '${l['deviceId']}'.toLowerCase(): l,
+              };
+              final ids = <String>{
+                ...devices.map((d) => '${d['deviceId']}'.toLowerCase()),
+                ...locById.keys,
+              }.toList();
+              if (ids.isEmpty)
+                return _empty(
+                  'Zone chưa có node nào được gán.',
+                  Icons.sensors_off,
+                );
+              final devById = {
+                for (final d in devices) '${d['deviceId']}'.toLowerCase(): d,
+              };
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (canEditLocations)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.edit_location_alt_outlined),
+                        label: const Text('Cập nhật toạ độ các node'),
+                        onPressed: () async {
+                          final saved = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => _EditNodeLocationsScreen(
+                                zoneId: zoneId,
+                                locations: locations,
+                                deploymentRequestId: deploymentRequestId,
+                                serviceRequestId: serviceRequestId,
+                              ),
+                            ),
+                          );
+                          if (saved == true) await reload();
+                        },
+                      ),
+                    ),
+                  for (final id in ids) _nodeCard(devById[id], locById[id]),
+                ],
+              );
+            },
+          ),
     );
   }
 
@@ -111,12 +129,20 @@ class ZoneNodesScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   '${loc?['deviceName'] ?? addr}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _ink),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: _ink,
+                  ),
                 ),
               ),
               Text(
                 status.isEmpty ? '' : status,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: online ? _green : _muted),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: online ? _green : _muted,
+                ),
               ),
             ],
           ),
@@ -142,9 +168,14 @@ class ZoneNodesScreen extends StatelessWidget {
               children: [
                 for (final m in metrics)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: m['isFresh'] == true ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                      color: m['isFresh'] == true
+                          ? const Color(0xFFECFDF5)
+                          : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -157,7 +188,10 @@ class ZoneNodesScreen extends StatelessWidget {
           ] else if (d != null)
             const Padding(
               padding: EdgeInsets.only(top: 6),
-              child: Text('Chưa có số đo.', style: TextStyle(fontSize: 11, color: _muted)),
+              child: Text(
+                'Chưa có số đo.',
+                style: TextStyle(fontSize: 11, color: _muted),
+              ),
             ),
         ],
       ),
@@ -177,11 +211,15 @@ class _EditNodeLocationsScreen extends StatefulWidget {
     this.serviceRequestId,
   });
   @override
-  State<_EditNodeLocationsScreen> createState() => _EditNodeLocationsScreenState();
+  State<_EditNodeLocationsScreen> createState() =>
+      _EditNodeLocationsScreenState();
 }
 
 class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
-  late final List<(Map<String, dynamic>, TextEditingController, TextEditingController)> _rows = [
+  late final List<
+    (Map<String, dynamic>, TextEditingController, TextEditingController)
+  >
+  _rows = [
     for (final l in widget.locations)
       (
         l,
@@ -207,7 +245,11 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
       final lat = double.tryParse(latC.text.trim().replaceAll(',', '.'));
       final lng = double.tryParse(lngC.text.trim().replaceAll(',', '.'));
       if (lat == null || lng == null || lat.abs() > 90 || lng.abs() > 180) {
-        _toast(context, 'Toạ độ của ${l['hardwareAddress']} không hợp lệ.', error: true);
+        _toast(
+          context,
+          'Toạ độ của ${l['hardwareAddress']} không hợp lệ.',
+          error: true,
+        );
         return;
       }
       nodes.add({
@@ -247,10 +289,15 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Toạ độ node', style: TextStyle(fontSize: 15))),
+      appBar: AppBar(
+        title: const Text('Toạ độ node', style: TextStyle(fontSize: 15)),
+      ),
       body: _rows.isEmpty
           ? const Center(
-              child: Text('Không có node nào để cập nhật.', style: TextStyle(color: _muted)),
+              child: Text(
+                'Không có node nào để cập nhật.',
+                style: TextStyle(color: _muted),
+              ),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -263,7 +310,10 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
                       children: [
                         Text(
                           '${l['deviceName'] ?? l['hardwareAddress']}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Row(
@@ -271,7 +321,11 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
                             Expanded(
                               child: TextField(
                                 controller: latC,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                      signed: true,
+                                    ),
                                 decoration: const InputDecoration(
                                   labelText: 'Vĩ độ',
                                   isDense: true,
@@ -283,7 +337,11 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
                             Expanded(
                               child: TextField(
                                 controller: lngC,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                      signed: true,
+                                    ),
                                 decoration: const InputDecoration(
                                   labelText: 'Kinh độ',
                                   isDense: true,
@@ -307,7 +365,10 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Text('Lưu toạ độ'),
           ),

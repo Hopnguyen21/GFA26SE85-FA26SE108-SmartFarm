@@ -9,20 +9,31 @@ class ZoneNodeSummaryCard extends StatefulWidget {
   final String zoneName;
   final bool canEditLocations;
 
-  const ZoneNodeSummaryCard({super.key, required this.zoneId, required this.zoneName, this.canEditLocations = false});
+  const ZoneNodeSummaryCard({
+    super.key,
+    required this.zoneId,
+    required this.zoneName,
+    this.canEditLocations = false,
+  });
 
   @override
   State<ZoneNodeSummaryCard> createState() => _ZoneNodeSummaryCardState();
 }
 
 class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
-  late Future<List<Map<String, dynamic>>> _future = FarmApi.getLatestTelemetryByDevice(widget.zoneId);
+  late Future<List<Map<String, dynamic>>> _future =
+      FarmApi.getLatestTelemetryByDevice(widget.zoneId);
 
-  void _reload() => setState(() => _future = FarmApi.getLatestTelemetryByDevice(widget.zoneId));
+  void _reload() => setState(
+    () => _future = FarmApi.getLatestTelemetryByDevice(widget.zoneId),
+  );
 
   Widget _chip(String label, Color bg, Color fg) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(6),
+    ),
     child: Text(
       label,
       style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fg),
@@ -57,8 +68,15 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.router, color: Color(0xFF0284C7), size: 28),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.router,
+                color: Color(0xFF0284C7),
+                size: 28,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -67,12 +85,19 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                 builder: (context, snap) {
                   final title = Text(
                     'Node cảm biến · ${widget.zoneName}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   );
                   if (snap.connectionState != ConnectionState.done) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [title, const SizedBox(height: 8), const LinearProgressIndicator(minHeight: 2)],
+                      children: [
+                        title,
+                        const SizedBox(height: 8),
+                        const LinearProgressIndicator(minHeight: 2),
+                      ],
                     );
                   }
                   if (snap.hasError) {
@@ -83,7 +108,10 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                         const SizedBox(height: 4),
                         Text(
                           'Không tải được trạng thái node. Chạm để thử lại.',
-                          style: TextStyle(fontSize: 11, color: Colors.red.shade700),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.red.shade700,
+                          ),
                         ),
                       ],
                     );
@@ -97,16 +125,29 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                         const SizedBox(height: 4),
                         const Text(
                           'Zone chưa có node nào được gán.',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     );
                   }
-                  final online = nodes.where((n) => '${n['status']}' == 'Online').length;
-                  final batteries = [for (final n in nodes) (n['batteryLevel'] as num?)?.toInt()].whereType<int>();
-                  final rssis = [for (final n in nodes) (n['rssi'] as num?)?.toDouble()].whereType<double>();
-                  final minBattery = batteries.isEmpty ? null : batteries.reduce((a, b) => a < b ? a : b);
-                  final worstRssi = rssis.isEmpty ? null : rssis.reduce((a, b) => a < b ? a : b);
+                  final online = nodes
+                      .where((n) => '${n['status']}' == 'Online')
+                      .length;
+                  final batteries = [
+                    for (final n in nodes) (n['batteryLevel'] as num?)?.toInt(),
+                  ].whereType<int>();
+                  final rssis = [
+                    for (final n in nodes) (n['rssi'] as num?)?.toDouble(),
+                  ].whereType<double>();
+                  final minBattery = batteries.isEmpty
+                      ? null
+                      : batteries.reduce((a, b) => a < b ? a : b);
+                  final worstRssi = rssis.isEmpty
+                      ? null
+                      : rssis.reduce((a, b) => a < b ? a : b);
                   final allOnline = online == nodes.length;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +156,10 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                       const SizedBox(height: 3),
                       const Text(
                         'Chạm để xem số đo & vị trí từng node',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -124,14 +168,22 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                         children: [
                           _chip(
                             '● $online/${nodes.length} online',
-                            allOnline ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                            allOnline ? const Color(0xFF059669) : const Color(0xFFD97706),
+                            allOnline
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFFFFBEB),
+                            allOnline
+                                ? const Color(0xFF059669)
+                                : const Color(0xFFD97706),
                           ),
                           if (minBattery != null)
                             _chip(
                               '🔋 thấp nhất $minBattery%',
-                              minBattery < 20 ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
-                              minBattery < 20 ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                              minBattery < 20
+                                  ? const Color(0xFFFEF2F2)
+                                  : const Color(0xFFECFDF5),
+                              minBattery < 20
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFF059669),
                             ),
                           if (worstRssi != null)
                             _chip(

@@ -6,10 +6,15 @@ part of '../zone_contract_forms.dart';
 class ZoneContractDetailScreen extends StatefulWidget {
   final ZoneContractModel contract;
   final bool canRenew;
-  const ZoneContractDetailScreen({super.key, required this.contract, this.canRenew = false});
+  const ZoneContractDetailScreen({
+    super.key,
+    required this.contract,
+    this.canRenew = false,
+  });
 
   @override
-  State<ZoneContractDetailScreen> createState() => _ZoneContractDetailScreenState();
+  State<ZoneContractDetailScreen> createState() =>
+      _ZoneContractDetailScreenState();
 }
 
 class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
@@ -45,14 +50,21 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Text(l, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          child: Text(
+            l,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
         ),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             v,
             textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 12, fontWeight: bold ? FontWeight.bold : FontWeight.w600, color: color),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -66,7 +78,11 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF64748B),
+          ),
         ),
         const SizedBox(height: 6),
         ...children,
@@ -82,8 +98,13 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final c = _c;
-    final subtotal = c.subtotalVnd > 0 ? c.subtotalVnd : c.totalContractValueVnd - c.vatAmountVnd + c.discountVnd;
-    final equipmentTotal = c.equipment.fold<double>(0, (s, e) => s + e.lineTotal);
+    final subtotal = c.subtotalVnd > 0
+        ? c.subtotalVnd
+        : c.totalContractValueVnd - c.vatAmountVnd + c.discountVnd;
+    final equipmentTotal = c.equipment.fold<double>(
+      0,
+      (s, e) => s + e.lineTotal,
+    );
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -91,12 +112,23 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('HĐ ${c.contractNumber}', style: const TextStyle(fontSize: 15)),
+          title: Text(
+            'HĐ ${c.contractNumber}',
+            style: const TextStyle(fontSize: 15),
+          ),
           actions: [
-            IconButton(tooltip: 'Tải lại', onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh)),
+            IconButton(
+              tooltip: 'Tải lại',
+              onPressed: _loading ? null : _reload,
+              icon: const Icon(Icons.refresh),
+            ),
           ],
         ),
-        floatingActionButton: widget.canRenew && (c.status == 'Active' || c.status == 'Expired' || c.isExpiringSoon)
+        floatingActionButton:
+            widget.canRenew &&
+                (c.status == 'Active' ||
+                    c.status == 'Expired' ||
+                    c.isExpiringSoon)
             ? FloatingActionButton.extended(
                 icon: const Icon(Icons.autorenew),
                 label: const Text('Gia hạn'),
@@ -105,7 +137,10 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                   if (updated == null || !mounted) return;
                   _changed = true;
                   setState(() => _c = updated);
-                  _snack(this.context, 'Đã gia hạn đến ${_d(updated.endDate)}.');
+                  _snack(
+                    this.context,
+                    'Đã gia hạn đến ${_d(updated.endDate)}.',
+                  );
                 },
               )
             : null,
@@ -120,16 +155,28 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     'Không tải lại được chi tiết: $_error',
-                    style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+                    style: const TextStyle(
+                      color: Color(0xFFDC2626),
+                      fontSize: 12,
+                    ),
                   ),
                 ),
-              Text('${c.farmName} → ${c.zoneName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(
+                '${c.farmName} → ${c.zoneName}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               Text(
                 '${c.statusText} · còn ${c.daysRemaining} ngày',
                 style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
               if (c.parentContractNumber != null)
-                Text('Tái ký từ HĐ ${c.parentContractNumber}', style: const TextStyle(fontSize: 12)),
+                Text(
+                  'Tái ký từ HĐ ${c.parentContractNumber}',
+                  style: const TextStyle(fontSize: 12),
+                ),
               _section('BÊN THUÊ', [
                 _row('Họ tên', c.lesseeName),
                 _row('Điện thoại', c.lesseePhone ?? '—'),
@@ -143,7 +190,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                 if (c.signedAtUtc != null) _row('Ký lúc', _d(c.signedAtUtc!)),
               ]),
               _section('TÀI CHÍNH', [
-                _row('Giá thuê / tháng', _vnd.format(c.monthlyRentVnd)),
+                _row('Giá trị / tháng', _vnd.format(c.monthlyRentVnd)),
                 _row('Thành tiền', _vnd.format(subtotal)),
                 if (c.discountVnd > 0)
                   _row(
@@ -151,25 +198,56 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     '-${_vnd.format(c.discountVnd)}',
                     color: const Color(0xFF059669),
                   ),
-                if (c.vatAmountVnd > 0) _row('VAT (${c.vatPercent}%)', _vnd.format(c.vatAmountVnd)),
-                _row('Tổng giá trị hợp đồng', _vnd.format(c.totalContractValueVnd), bold: true),
+                if (c.vatAmountVnd > 0)
+                  _row('VAT (${c.vatPercent}%)', _vnd.format(c.vatAmountVnd)),
+                _row(
+                  'Tổng giá trị hợp đồng',
+                  _vnd.format(c.totalContractValueVnd),
+                  bold: true,
+                ),
                 _row('Đã tạm ứng / cọc', _vnd.format(c.depositVnd)),
-                _row('Còn lại', _vnd.format((c.totalContractValueVnd - c.depositVnd).clamp(0, double.infinity))),
+                _row(
+                  'Còn lại',
+                  _vnd.format(
+                    (c.totalContractValueVnd - c.depositVnd).clamp(
+                      0,
+                      double.infinity,
+                    ),
+                  ),
+                ),
               ]),
               _section('THIẾT BỊ KÈM THEO (${c.equipment.length})', [
                 if (c.equipment.isEmpty)
-                  const Text('Hợp đồng không kèm thiết bị.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  const Text(
+                    'Hợp đồng không kèm thiết bị.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
                 for (final e in c.equipment)
-                  _row('${e.name} (${e.code}) × ${e.quantity} ${e.unit}', _vnd.format(e.lineTotal)),
-                if (c.equipment.isNotEmpty) _row('Cộng thiết bị', _vnd.format(equipmentTotal), bold: true),
+                  _row(
+                    '${e.name} (${e.code}) × ${e.quantity} ${e.unit}',
+                    _vnd.format(e.lineTotal),
+                  ),
+                if (c.equipment.isNotEmpty)
+                  _row(
+                    'Cộng thiết bị',
+                    _vnd.format(equipmentTotal),
+                    bold: true,
+                  ),
               ]),
               if ((c.specialTerms ?? '').isNotEmpty)
-                _section('ĐIỀU KHOẢN ĐẶC BIỆT', [Text(c.specialTerms!, style: const TextStyle(fontSize: 12))]),
+                _section('ĐIỀU KHOẢN ĐẶC BIỆT', [
+                  Text(c.specialTerms!, style: const TextStyle(fontSize: 12)),
+                ]),
               if ((c.notes ?? '').isNotEmpty)
-                _section('GHI CHÚ', [Text(c.notes!, style: const TextStyle(fontSize: 12))]),
+                _section('GHI CHÚ', [
+                  Text(c.notes!, style: const TextStyle(fontSize: 12)),
+                ]),
               _section('LỊCH SỬ GIA HẠN (${c.renewals.length})', [
                 if (c.renewals.isEmpty)
-                  const Text('Chưa gia hạn lần nào.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  const Text(
+                    'Chưa gia hạn lần nào.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
                 for (final (i, r) in c.renewals.indexed)
                   Container(
                     margin: const EdgeInsets.only(bottom: 6),
@@ -187,12 +265,22 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                           _vnd.format(r.renewalValueVnd),
                           bold: true,
                         ),
-                        if (r.newMonthlyRentVnd != null) _row('Giá thuê mới', _vnd.format(r.newMonthlyRentVnd)),
+                        if (r.newMonthlyRentVnd != null)
+                          _row('Giá trị mới', _vnd.format(r.newMonthlyRentVnd)),
                         if ((r.notes ?? '').isNotEmpty)
-                          Text(r.notes!, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+                          Text(
+                            r.notes!,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
                         Text(
                           'Tạo lúc ${_d(r.createdAt)}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
                         ),
                       ],
                     ),

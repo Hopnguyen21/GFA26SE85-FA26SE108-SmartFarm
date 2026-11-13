@@ -33,10 +33,12 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
 
   Future<void> _load() async {
     final provider = Provider.of<FarmProvider>(context, listen: false);
-    if (provider.currentRole != 'OWNER' && provider.currentRole != 'TECHNICIAN') {
+    if (provider.currentRole != 'OWNER' &&
+        provider.currentRole != 'TECHNICIAN') {
       setState(() {
         _loading = false;
-        _error = 'Bạn không có quyền xem trạng thái MQTT (Yêu cầu tài khoản Chủ trang trại hoặc Kỹ thuật viên).';
+        _error =
+            'Bạn không có quyền xem trạng thái MQTT (Yêu cầu tài khoản Chủ trang trại hoặc Kỹ thuật viên).';
       });
       return;
     }
@@ -58,10 +60,16 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
         gateways.map((g) async {
           try {
             final r = await SupportApi.getGatewayMqttStatus(g.gatewayId);
-            return GatewayMqttState(g, r['mqttConnected'] == true, null, DateTime.now());
+            return GatewayMqttState(
+              g,
+              r['mqttConnected'] == true,
+              null,
+              DateTime.now(),
+            );
           } catch (e) {
             final msg = e.toString().replaceFirst('Exception: ', '');
-            final is403 = msg.contains('403') || msg.toLowerCase().contains('forbidden');
+            final is403 =
+                msg.contains('403') || msg.toLowerCase().contains('forbidden');
             return GatewayMqttState(
               g,
               null,
@@ -75,7 +83,8 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
     } catch (e) {
       if (mounted) {
         final msg = e.toString().replaceFirst('Exception: ', '');
-        final is403 = msg.contains('403') || msg.toLowerCase().contains('forbidden');
+        final is403 =
+            msg.contains('403') || msg.toLowerCase().contains('forbidden');
         setState(
           () => _error = is403
               ? 'Bạn không có quyền xem trạng thái MQTT (403 Forbidden - Yêu cầu tài khoản Chủ trang trại hoặc Kỹ thuật viên).'
@@ -95,7 +104,13 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trạng thái MQTT'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), tooltip: 'Làm mới', onPressed: _loading ? null : _load)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Làm mới',
+            onPressed: _loading ? null : _load,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -112,7 +127,10 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
                       style: const TextStyle(color: Color(0xFFDC2626)),
                     ),
                     const SizedBox(height: 12),
-                    OutlinedButton(onPressed: _load, child: const Text('Thử lại')),
+                    OutlinedButton(
+                      onPressed: _load,
+                      child: const Text('Thử lại'),
+                    ),
                   ],
                 ),
               ),
@@ -123,7 +141,9 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
                   ? ListView(
                       children: const [
                         SizedBox(height: 120),
-                        Center(child: Text('Trang trại này chưa có gateway nào.')),
+                        Center(
+                          child: Text('Trang trại này chưa có gateway nào.'),
+                        ),
                       ],
                     )
                   : ListView.separated(
@@ -141,12 +161,20 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
                           child: ListTile(
                             leading: Icon(Icons.wifi, color: color),
                             title: Text(
-                              s.gateway.gatewaySerial.isEmpty ? s.gateway.macAddress : s.gateway.gatewaySerial,
+                              s.gateway.gatewaySerial.isEmpty
+                                  ? s.gateway.macAddress
+                                  : s.gateway.gatewaySerial,
                             ),
-                            subtitle: Text('${s.error ?? label} · cập nhật ${_hhmmss(s.checkedAt)}'),
+                            subtitle: Text(
+                              '${s.error ?? label} · cập nhật ${_hhmmss(s.checkedAt)}',
+                            ),
                             trailing: Text(
                               label,
-                              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(
+                                color: color,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         );
@@ -172,21 +200,27 @@ class NotificationSettingsScreen extends StatelessWidget {
           ListTile(
             leading: Icon(Icons.notifications_active, color: Color(0xFF059669)),
             title: Text('Thông báo trong ứng dụng'),
-            subtitle: Text('Đang hoạt động: nhận từ máy chủ (mục Cảnh báo & Thông báo).'),
+            subtitle: Text(
+              'Đang hoạt động: nhận từ máy chủ (mục Cảnh báo & Thông báo).',
+            ),
           ),
           Divider(),
           ListTile(
             enabled: false,
             leading: Icon(Icons.phone_android),
             title: Text('Push notification'),
-            subtitle: Text('Chưa khả dụng: backend chưa có dịch vụ gửi push và API đăng ký thiết bị.'),
+            subtitle: Text(
+              'Chưa khả dụng: backend chưa có dịch vụ gửi push và API đăng ký thiết bị.',
+            ),
             trailing: Switch(value: false, onChanged: null),
           ),
           ListTile(
             enabled: false,
             leading: Icon(Icons.sms_outlined),
             title: Text('Tin nhắn SMS'),
-            subtitle: Text('Chưa khả dụng: backend chưa có dịch vụ gửi SMS và API lưu tuỳ chọn.'),
+            subtitle: Text(
+              'Chưa khả dụng: backend chưa có dịch vụ gửi SMS và API lưu tuỳ chọn.',
+            ),
             trailing: Switch(value: false, onChanged: null),
           ),
           SizedBox(height: 12),

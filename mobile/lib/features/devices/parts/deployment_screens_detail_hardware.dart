@@ -1,13 +1,18 @@
 part of '../deployment_screens.dart';
 
-extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetailScreenState {
+extension _DeploymentRequestDetailScreenStateHardware
+    on _DeploymentRequestDetailScreenState {
   // ─── Cấp phát phần cứng (chỉ khi Installing) ───────────────────────────
   List<Widget> _hardware(DeploymentRequest r) {
-    if (r.status != 'Installing' && _gateways.isEmpty && _devices.isEmpty) return const [];
+    if (r.status != 'Installing' && _gateways.isEmpty && _devices.isEmpty)
+      return const [];
     final installing = r.status == 'Installing';
     return [
       const Divider(height: 24),
-      const Text('Gateway & thiết bị', style: TextStyle(fontWeight: FontWeight.bold)),
+      const Text(
+        'Gateway & thiết bị',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
       const Text(
         'Mã/MAC/serial do kỹ thuật viên nhập từ nhãn thiết bị; app không tạo giá trị giả.',
         style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
@@ -48,7 +53,10 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${d.hardwareAddress} · ${d.deviceType}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              '${d.hardwareAddress} · ${d.deviceType}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             Text(
               'Trạng thái: ${d.status}${d.zoneId == null ? ' · chưa gán Zone' : ' · đã gán Zone'}',
               style: const TextStyle(fontSize: 12),
@@ -61,7 +69,9 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
                 fontSize: 12,
                 color: t == null
                     ? const Color(0xFF64748B)
-                    : (t.succeeded ? const Color(0xFF059669) : const Color(0xFFDC2626)),
+                    : (t.succeeded
+                          ? const Color(0xFF059669)
+                          : const Color(0xFFDC2626)),
               ),
             ),
             if (installing)
@@ -73,7 +83,10 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
                       onPressed: _busy
                           ? null
                           : () => _act(
-                              () async => DeploymentApi.assignDeviceToZone(r.zoneId, d.deviceId),
+                              () async => DeploymentApi.assignDeviceToZone(
+                                r.zoneId,
+                                d.deviceId,
+                              ),
                               confirmTitle: 'Gán thiết bị vào Zone',
                               confirmBody: d.hardwareAddress,
                             ),
@@ -110,8 +123,14 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Gửi')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Gửi'),
+          ),
         ],
       ),
     );
@@ -165,7 +184,9 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
               DropdownButtonFormField<String>(
                 initialValue: modelId,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Model theo kế hoạch'),
+                decoration: const InputDecoration(
+                  labelText: 'Model theo kế hoạch',
+                ),
                 items: [
                   for (final i in r.planItems)
                     DropdownMenuItem(
@@ -177,13 +198,21 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
               ),
               TextField(
                 controller: addr,
-                decoration: const InputDecoration(labelText: 'Hardware address (trên nhãn Node)'),
+                decoration: const InputDecoration(
+                  labelText: 'Hardware address (trên nhãn Node)',
+                ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Cấp phát')),
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Cấp phát'),
+            ),
           ],
         ),
       ),
@@ -202,7 +231,11 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
         gatewayId: _gateways.first.gatewayId,
         farmId: r.farmId,
         nodes: [
-          {'hardwareAddress': address, 'deviceType': item.deviceType, 'deviceModelId': item.deviceModelId},
+          {
+            'hardwareAddress': address,
+            'deviceType': item.deviceType,
+            'deviceModelId': item.deviceModelId,
+          },
         ],
       ),
     );
@@ -257,8 +290,14 @@ extension _DeploymentRequestDetailScreenStateHardware on _DeploymentRequestDetai
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Huỷ')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Lưu kết quả')),
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Lưu kết quả'),
+            ),
           ],
         ),
       ),

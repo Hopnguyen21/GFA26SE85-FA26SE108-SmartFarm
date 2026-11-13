@@ -3,7 +3,10 @@ part of '../mini_gis_map_picker.dart';
 extension _MiniGISMapPickerStateGeocode on _MiniGISMapPickerState {
   /// Mở hộp thoại tìm địa điểm (backend proxy) và dời ghim tới kết quả được chọn.
   Future<void> _openLocationSearch() async {
-    final picked = await showDialog<LatLng>(context: context, builder: (_) => const _LocationSearchDialog());
+    final picked = await showDialog<LatLng>(
+      context: context,
+      builder: (_) => const _LocationSearchDialog(),
+    );
     if (picked != null && mounted) _moveTo(picked, zoom: 16);
   }
 
@@ -17,7 +20,10 @@ extension _MiniGISMapPickerStateGeocode on _MiniGISMapPickerState {
     bool stale() => !mounted || myId != _requestId;
 
     // Chỉ gọi qua backend proxy, tuyệt đối không gọi trực tiếp bên thứ ba từ thiết bị client
-    final result = await FarmApi.reverseGeocodeDetailed(point.latitude, point.longitude);
+    final result = await FarmApi.reverseGeocodeDetailed(
+      point.latitude,
+      point.longitude,
+    );
     // Response của toạ độ cũ (đã có request mới hơn) bị bỏ, không ghi đè địa chỉ của vị trí mới.
     if (stale()) return;
 
@@ -30,7 +36,9 @@ extension _MiniGISMapPickerStateGeocode on _MiniGISMapPickerState {
 
     if (result.ok) {
       final resolvedAddress = result.displayName!;
-      debugPrint('[MiniGISMapPicker][$levelTag] Địa chỉ: $resolvedAddress | Vùng: ${result.region}');
+      debugPrint(
+        '[MiniGISMapPicker][$levelTag] Địa chỉ: $resolvedAddress | Vùng: ${result.region}',
+      );
       _rebuild(() {
         _displayPlaceName = resolvedAddress;
       });
@@ -90,7 +98,8 @@ class _LocationSearchDialogState extends State<_LocationSearchDialog> {
         _message = r.isEmpty ? 'Không tìm thấy địa điểm phù hợp.' : null;
       });
     } catch (e) {
-      if (mounted) setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted)
+        setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -120,11 +129,20 @@ class _LocationSearchDialogState extends State<_LocationSearchDialog> {
               ),
             ),
             if (_loading)
-              const Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator(minHeight: 2)),
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
             if (_message != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: Text(_message!, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                child: Text(
+                  _message!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
               ),
             Flexible(
               child: ListView(
@@ -134,11 +152,15 @@ class _LocationSearchDialogState extends State<_LocationSearchDialog> {
                     ListTile(
                       dense: true,
                       leading: const Icon(Icons.place_outlined, size: 18),
-                      title: Text('${r['displayName'] ?? ''}', style: const TextStyle(fontSize: 12)),
+                      title: Text(
+                        '${r['displayName'] ?? ''}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                       onTap: () {
                         final lat = (r['latitude'] as num?)?.toDouble();
                         final lng = (r['longitude'] as num?)?.toDouble();
-                        if (lat != null && lng != null) Navigator.pop(context, LatLng(lat, lng));
+                        if (lat != null && lng != null)
+                          Navigator.pop(context, LatLng(lat, lng));
                       },
                     ),
                 ],
@@ -147,7 +169,12 @@ class _LocationSearchDialogState extends State<_LocationSearchDialog> {
           ],
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng'))],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Đóng'),
+        ),
+      ],
     );
   }
 }

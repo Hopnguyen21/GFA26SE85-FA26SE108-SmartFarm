@@ -139,19 +139,32 @@ public sealed class AiAdvisoryService(
 
     private async Task<AiRecommendationView> AskInternalAsync(Guid ownerId, Guid tenantId, Guid zoneId, AskAiCommand command, bool checkRateLimit, CancellationToken cancellationToken)
     {
-        var question = Required(command.Question, "question", 2000, 3);
-        RejectPromptInjection(question);
-        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
-        var zone = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, ownerOnly: true, cancellationToken);
-        if (checkRateLimit) await EnsureRateLimitAsync(ownerId, zoneId, cancellationToken);
-        if (command.ParentRecommendationId.HasValue && !await db.AiRecommendations.AnyAsync(x => x.Id == command.ParentRecommendationId && x.ZoneId == zoneId && x.TenantId == tenantId, cancellationToken))
-            throw new ResourceNotFoundException("Parent recommendation was not found in this Zone.");
-
-        var now = clock.GetUtcNow().UtcDateTime;
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        long classifyMs, contextMs, ragMs = 0, providerMs = 0;
-        // Phân loại câu hỏi (gọi HTTP tới Gemini, không dùng DbContext) chạy song song với việc nạp ngữ cảnh Zone từ DB: tiết kiệm trọn
-        // thời gian nạp ngữ cảnh (~0,3–0,5 giây) ở mọi câu hỏi. Chỉ câu hỏi lịch sử/theo ngày mới cần nạp thêm sau khi biết ý định.
+        var question = Required(command.Question, "question", 2000, 3);
+
+        RejectPromptInjection(question);
+
+        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+
+        var zone = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, ownerOnly: true, cancellationToken);
+
+        if (checkRateLimit) await EnsureRateLimitAsync(ownerId, zoneId, cancellationToken);
+
+        if (command.ParentRecommendationId.HasValue && !await db.AiRecommendations.AnyAsync(x => x.Id == command.ParentRecommendationId && x.ZoneId == zoneId && x.TenantId == tenantId, cancellationToken))
+
+            throw new ResourceNotFoundException("Parent recommendation was not found in this Zone.");
+
+
+
+        var now = clock.GetUtcNow().UtcDateTime;
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        long classifyMs, contextMs, ragMs = 0, providerMs = 0;
+
+        // Phân loại câu hỏi (gọi HTTP tới Gemini, không dùng DbContext) chạy song song với việc nạp ngữ cảnh Zone từ DB: tiết kiệm trọn
+
+        // thời gian nạp ngữ cảnh (~0,3–0,5 giây) ở mọi câu hỏi. Chỉ câu hỏi lịch sử/theo ngày mới cần nạp thêm sau khi biết ý định.
+
         var classifyTask = ClassifyIntentAsync(sanitizedQuestion, cancellationToken);
         var baseContext = await BuildContextAsync(zone, includeHistory: false, historyCount: 0, historyDays: 0, cancellationToken);
         var intent = await classifyTask;
@@ -339,7 +352,8 @@ public sealed class AiAdvisoryService(
                     var ragStart = stopwatch.ElapsedMilliseconds;
                     try
                     {
-                        passages = await knowledgeRetriever.RetrievePassagesAsync(
+                        passages = await knowledgeRetriever.RetrievePassagesAsync(
+
                             sanitizedQuestion,
                             cropName: ragCrop,
                             category: null,      // Không lọc theo danh mục để tối đa tài liệu
@@ -1117,13 +1131,20 @@ public sealed class AiAdvisoryService(
             parts.Any(p => p.WantsOverallComment));
     }
 
-    private async Task<QuestionIntent> ClassifyIntentAsync(string question, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
-            var classified = await intentClassifier.ClassifyAsync(sanitizedQuestion, cancellationToken) ?? QuestionIntent.Unknown;
-            return WithPeriodFallbacks(sanitizedQuestion, classified.Topics.Count == 0 ? WithHypotheticalFallback(sanitizedQuestion, classified) : classified);
+    private async Task<QuestionIntent> ClassifyIntentAsync(string question, CancellationToken cancellationToken)
+
+    {
+
+        try
+
+        {
+
+            var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+
+            var classified = await intentClassifier.ClassifyAsync(sanitizedQuestion, cancellationToken) ?? QuestionIntent.Unknown;
+
+            return WithPeriodFallbacks(sanitizedQuestion, classified.Topics.Count == 0 ? WithHypotheticalFallback(sanitizedQuestion, classified) : classified);
+
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

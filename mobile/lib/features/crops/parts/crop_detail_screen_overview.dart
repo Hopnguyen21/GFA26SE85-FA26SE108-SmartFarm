@@ -47,7 +47,12 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
           // Banner truy cập nhanh Lịch tưới cả tháng
           InkWell(
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => IrrigationCalendarScreen(profile: profile)));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => IrrigationCalendarScreen(profile: profile),
+                ),
+              );
             },
             borderRadius: BorderRadius.circular(14),
             child: Container(
@@ -75,7 +80,11 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.calendar_month, color: Color(0xFF34D399), size: 22),
+                    child: const Icon(
+                      Icons.calendar_month,
+                      color: Color(0xFF34D399),
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -84,17 +93,28 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                       children: [
                         Text(
                           'Xem Cuốn Lịch Tưới Chi Tiết Cả Tháng',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.white,
+                          ),
                         ),
                         SizedBox(height: 2),
                         Text(
                           'Lưới 30 ngày • 3 ca tưới/ngày • Tự do chỉnh sửa & lưu',
-                          style: TextStyle(fontSize: 11, color: Color(0xFFA7F3D0)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFA7F3D0),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white70),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.white70,
+                  ),
                 ],
               ),
             ),
@@ -123,15 +143,32 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(profile.description, style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), height: 1.5)),
+                Text(
+                  profile.description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                    height: 1.5,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 if (profile.origin.isNotEmpty)
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 14, color: Color(0xFF64748B)),
+                      const Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: Color(0xFF64748B),
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
-                        child: Text(profile.origin, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        child: Text(
+                          profile.origin,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -144,7 +181,10 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                       Expanded(
                         child: Text(
                           'Vùng phù hợp: ${profile.suitableRegion}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ),
                     ],
@@ -183,15 +223,22 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                       borderData: FlBorderData(show: false),
                       gridData: const FlGridData(show: false),
                       titlesData: FlTitlesData(
-                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
                             getTitlesWidget: (v, meta) {
                               final idx = v.toInt();
-                              if (idx >= 0 && idx < profile.growthStages.length) {
+                              if (idx >= 0 &&
+                                  idx < profile.growthStages.length) {
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
@@ -211,7 +258,9 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                           barRods: [
                             BarChartRodData(
                               toY: e.value.durationDays.toDouble(),
-                              color: const Color(0xFF10B981).withValues(alpha: 0.6 + e.key * 0.1),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.6 + e.key * 0.1),
                               width: 28,
                               borderRadius: BorderRadius.circular(4),
                             ),
@@ -250,7 +299,11 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.water_drop, color: Color(0xFF0284C7), size: 18),
+                        Icon(
+                          Icons.water_drop,
+                          color: Color(0xFF0284C7),
+                          size: 18,
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'LỊCH TƯỚI KHUYẾN NGHỊ (VIETGAP)',
@@ -264,11 +317,21 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(6)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                       child: const Text(
                         'Theo hồ sơ',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0284C7),
+                        ),
                       ),
                     ),
                   ],
@@ -289,25 +352,41 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => IrrigationCalendarScreen(profile: profile)),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            IrrigationCalendarScreen(profile: profile),
+                      ),
                     );
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0284C7).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
-                        Icon(Icons.calendar_month, size: 16, color: Color(0xFF0284C7)),
+                        Icon(
+                          Icons.calendar_month,
+                          size: 16,
+                          color: Color(0xFF0284C7),
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Xem cuốn lịch tưới chi tiết cả tháng ➜',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0284C7),
+                          ),
                         ),
                       ],
                     ),
@@ -328,7 +407,12 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                   title: 'THIẾT BỊ SỬ DỤNG',
                   icon: Icons.devices,
                   items: profile.compatibleActuators.map((a) {
-                    final icons = {'PUMP': '💧', 'FAN': '🌀', 'GROW_LIGHT': '💡', 'VALVE': '🔧'};
+                    final icons = {
+                      'PUMP': '💧',
+                      'FAN': '🌀',
+                      'GROW_LIGHT': '💡',
+                      'VALVE': '🔧',
+                    };
                     final names = {
                       'PUMP': 'Máy bơm',
                       'FAN': 'Quạt gió',
@@ -366,12 +450,19 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
         children: [
           SizedBox(
             width: 140,
-            child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
             ),
           ),
         ],
@@ -379,7 +470,13 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
     );
   }
 
-  Widget _statCard(String emoji, String label, String value, Color color, Color bgColor) {
+  Widget _statCard(
+    String emoji,
+    String label,
+    String value,
+    Color color,
+    Color bgColor,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -393,9 +490,16 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+          ),
         ],
       ),
     );
@@ -425,7 +529,12 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color, letterSpacing: 0.3),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    letterSpacing: 0.3,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -436,7 +545,10 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
           ...items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text('• $item', style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B))),
+              child: Text(
+                '• $item',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B)),
+              ),
             ),
           ),
         ],

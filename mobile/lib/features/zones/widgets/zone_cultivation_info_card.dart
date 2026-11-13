@@ -22,10 +22,15 @@ class ZoneCultivationInfoCard extends StatefulWidget {
 
   /// Tăng giá trị này để buộc tải lại (sau khi gắn profile, tạo/đóng vụ...).
   final int version;
-  const ZoneCultivationInfoCard({super.key, required this.zone, this.version = 0});
+  const ZoneCultivationInfoCard({
+    super.key,
+    required this.zone,
+    this.version = 0,
+  });
 
   @override
-  State<ZoneCultivationInfoCard> createState() => _ZoneCultivationInfoCardState();
+  State<ZoneCultivationInfoCard> createState() =>
+      _ZoneCultivationInfoCardState();
 }
 
 class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
@@ -61,7 +66,9 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     // Mỗi nguồn tải độc lập: một nguồn lỗi không làm mất nguồn còn lại.
     final results = await Future.wait<Object?>([
       if (profileId != null)
-        CropApi.getGrowthProfiles().then<Object?>((v) => v).catchError((Object e) => e)
+        CropApi.getGrowthProfiles()
+            .then<Object?>((v) => v)
+            .catchError((Object e) => e)
       else
         Future<Object?>.value(null),
     ]);
@@ -70,8 +77,15 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
       final p = results[0];
       _profile = null;
       if (p is List<Map<String, dynamic>>) {
-        _profile = p.where((x) => '${x['profileId']}'.toLowerCase() == profileId!.toLowerCase()).firstOrNull;
-        if (_profile == null) _profileError = 'Không đọc được chi tiết hồ sơ (có thể hồ sơ không còn hiển thị).';
+        _profile = p
+            .where(
+              (x) =>
+                  '${x['profileId']}'.toLowerCase() == profileId!.toLowerCase(),
+            )
+            .firstOrNull;
+        if (_profile == null)
+          _profileError =
+              'Không đọc được chi tiết hồ sơ (có thể hồ sơ không còn hiển thị).';
       } else if (p != null) {
         _profileError = _err(p);
       }
@@ -79,33 +93,39 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     });
   }
 
-  Widget _section(String title, IconData icon, List<Widget> children) => Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _section(String title, IconData icon, List<Widget> children) =>
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 15, color: _green),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _green, letterSpacing: 0.4),
+            Row(
+              children: [
+                Icon(icon, size: 15, color: _green),
+                const SizedBox(width: 6),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: _green,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 8),
+            ...children,
           ],
         ),
-        const SizedBox(height: 8),
-        ...children,
-      ],
-    ),
-  );
+      );
 
   Widget _row(String label, Object? value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
@@ -114,12 +134,19 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
       children: [
         SizedBox(
           width: 140,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: _muted),
+          ),
         ),
         Expanded(
           child: Text(
             _val(value),
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _val(value) == '—' ? _muted : _ink),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _val(value) == '—' ? _muted : _ink,
+            ),
           ),
         ),
       ],
@@ -131,7 +158,10 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     child: Row(
       children: [
         Expanded(
-          child: Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+          ),
         ),
         TextButton(onPressed: retry, child: const Text('Thử lại')),
       ],
@@ -142,13 +172,19 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
   Widget build(BuildContext context) {
     final zone = widget.zone;
     if (_loading) {
-      return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: LinearProgressIndicator(minHeight: 2));
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
     }
     final stages = [
       for (final s in jsonList(jsonField(_profile ?? const {}, 'stages')))
         if (s is Map) Map<String, dynamic>.from(s),
     ];
-    final totalDays = stages.fold<int>(0, (a, s) => a + (jsonNumber(jsonField(s, 'durationDays'))?.toInt() ?? 0));
+    final totalDays = stages.fold<int>(
+      0,
+      (a, s) => a + (jsonNumber(jsonField(s, 'durationDays'))?.toInt() ?? 0),
+    );
     final hasCrop = !zone.currentCrop.startsWith('Chưa gán cây');
 
     return Column(
@@ -157,37 +193,54 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
         _section('THUỘC ZONE', Icons.crop_square_outlined, [
           _row('Trang trại', zone.farmName),
           _row('Lô đất', zone.fieldName),
-          _row('Diện tích', zone.areaM2 > 0 ? '${zone.areaM2.toInt()} m²' : null),
+          _row(
+            'Diện tích',
+            zone.areaM2 > 0 ? '${zone.areaM2.toInt()} m²' : null,
+          ),
           _row('Cây của Zone', hasCrop ? zone.currentCrop : 'Chưa gán cây'),
         ]),
-        _section('HỒ SƠ CANH TÁC (gắn trực tiếp cho Zone)', Icons.menu_book_outlined, [
-          if (zone.growthProfileId == null)
-            const Text(
-              'Zone chưa gắn hồ sơ canh tác. Gắn hồ sơ không tạo vụ trồng; vụ trồng tạo riêng ở mục "Vụ trồng".',
-              style: TextStyle(fontSize: 12, color: _muted, height: 1.4),
-            )
-          else ...[
-            _row('Hồ sơ', _profile?['name'] ?? zone.growthProfileName),
-            _row(
-              'Nguồn',
-              (_profile?['isSystemDefined'] ?? zone.growthProfileIsSystem) == null
-                  ? null
-                  : ((_profile?['isSystemDefined'] ?? zone.growthProfileIsSystem) == true
-                        ? 'Hồ sơ hệ thống (chỉ xem)'
-                        : 'Bản riêng của trang trại'),
-            ),
-            _row(
-              'Cây / giống',
-              _profile == null ? null : '${_profile!['cropName'] ?? '—'} · ${_profile!['varietyName'] ?? 'dùng chung'}',
-            ),
-            _row('Số giai đoạn', _profile == null ? null : '${stages.length}'),
-            _row(
-              'Tổng thời gian giai đoạn',
-              _profile == null || stages.isEmpty ? null : '$totalDays ngày (theo hồ sơ)',
-            ),
-            if (_profileError != null) _error(_profileError!, _load),
+        _section(
+          'HỒ SƠ CANH TÁC (gắn trực tiếp cho Zone)',
+          Icons.menu_book_outlined,
+          [
+            if (zone.growthProfileId == null)
+              const Text(
+                'Zone chưa gắn hồ sơ canh tác. Gắn hồ sơ không tạo vụ trồng; vụ trồng tạo riêng ở mục "Vụ trồng".',
+                style: TextStyle(fontSize: 12, color: _muted, height: 1.4),
+              )
+            else ...[
+              _row('Hồ sơ', _profile?['name'] ?? zone.growthProfileName),
+              _row(
+                'Nguồn',
+                (_profile?['isSystemDefined'] ?? zone.growthProfileIsSystem) ==
+                        null
+                    ? null
+                    : ((_profile?['isSystemDefined'] ??
+                                  zone.growthProfileIsSystem) ==
+                              true
+                          ? 'Hồ sơ hệ thống (chỉ xem)'
+                          : 'Bản riêng của trang trại'),
+              ),
+              _row(
+                'Cây / giống',
+                _profile == null
+                    ? null
+                    : '${_profile!['cropName'] ?? '—'} · ${_profile!['varietyName'] ?? 'dùng chung'}',
+              ),
+              _row(
+                'Số giai đoạn',
+                _profile == null ? null : '${stages.length}',
+              ),
+              _row(
+                'Tổng thời gian giai đoạn',
+                _profile == null || stages.isEmpty
+                    ? null
+                    : '$totalDays ngày (theo hồ sơ)',
+              ),
+              if (_profileError != null) _error(_profileError!, _load),
+            ],
           ],
-        ]),
+        ),
       ],
     );
   }

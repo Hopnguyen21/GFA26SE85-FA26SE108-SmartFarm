@@ -27,20 +27,34 @@ class LegacyFlowRedirectScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.router),
               title: const Text('Yêu cầu triển khai thiết bị'),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeploymentPlanningScreen())),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const OwnerDeploymentRequestsScreen(),
+                ),
+              ),
             ),
           if (role == AppRole.platformTechnician)
             ListTile(
               leading: const Icon(Icons.router),
               title: const Text('Yêu cầu triển khai (Kỹ thuật viên)'),
-              onTap: () =>
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TechnicianDeploymentsScreen())),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TechnicianDeploymentsScreen(),
+                ),
+              ),
             ),
           if (role == AppRole.farmOwner || role == AppRole.platformTechnician)
             ListTile(
               leading: const Icon(Icons.support_agent),
               title: const Text('Yêu cầu hỗ trợ & báo giá'),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportRequestsScreen())),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SupportRequestsScreen(),
+                ),
+              ),
             ),
         ],
       ),

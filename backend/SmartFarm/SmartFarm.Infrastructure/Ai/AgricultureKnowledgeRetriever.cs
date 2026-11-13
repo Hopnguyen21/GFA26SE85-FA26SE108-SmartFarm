@@ -167,35 +167,64 @@ public sealed class AgricultureKnowledgeRetriever(
         IReadOnlyList<string>? expansionTerms,
         CancellationToken cancellationToken)
     {
-        // ── 1. Chuẩn hóa & giảm thiểu dữ liệu câu hỏi trước khi tạo embedding ──
-        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
-        var embeddingKey = "ai_query_embedding_" + sanitizedQuestion.Trim().ToLowerInvariant();
-        float[]? questionEmbedding = null;
-        // API embedding vừa lỗi (thường là hết quota): tạm dùng tìm theo từ khóa, không gọi lại ở mọi câu hỏi.
-        if ((cache is null || !cache.TryGetValue(embeddingKey, out questionEmbedding)) && cache?.TryGetValue(EmbeddingUnavailableKey, out _) != true)
-        {
-            questionEmbedding = await embeddingProvider.EmbedQueryAsync(sanitizedQuestion, cancellationToken);
-            if (questionEmbedding is not null) cache?.Set(embeddingKey, questionEmbedding, TimeSpan.FromHours(6));
-            else cache?.Set(EmbeddingUnavailableKey, true, TimeSpan.FromMinutes(5));
-        }
-
-        if (questionEmbedding is not null)
-        {
-            try
-            {
-                var vectorResults = await SearchByVectorAsync(sanitizedQuestion, questionEmbedding, allowedDocumentIds, category, tenantId, topK, cancellationToken);
-                if (vectorResults.Count > 0) return vectorResults;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "[RAG] Vector query failed (e.g. pgvector not installed in PostgreSQL). Falling back gracefully to keyword search.");
-            }
-        }
-
-        // ── 2. Fallback: keyword scoring khi chưa có embedding hoặc embedding chưa trả kết quả ──
-        // Vẫn trong cùng phạm vi tài liệu (đúng cây + chung): không nới sang tài liệu của cây khác.
-        // Ghi log metadata an toàn, tuyệt đối không ghi nội dung câu hỏi ra log.
-        logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback (QueryLength: {Length}).", sanitizedQuestion.Length);
+        // ── 1. Chuẩn hóa & giảm thiểu dữ liệu câu hỏi trước khi tạo embedding ──
+
+        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+
+        var embeddingKey = "ai_query_embedding_" + sanitizedQuestion.Trim().ToLowerInvariant();
+
+        float[]? questionEmbedding = null;
+
+        // API embedding vừa lỗi (thường là hết quota): tạm dùng tìm theo từ khóa, không gọi lại ở mọi câu hỏi.
+
+        if ((cache is null || !cache.TryGetValue(embeddingKey, out questionEmbedding)) && cache?.TryGetValue(EmbeddingUnavailableKey, out _) != true)
+
+        {
+
+            questionEmbedding = await embeddingProvider.EmbedQueryAsync(sanitizedQuestion, cancellationToken);
+
+            if (questionEmbedding is not null) cache?.Set(embeddingKey, questionEmbedding, TimeSpan.FromHours(6));
+
+            else cache?.Set(EmbeddingUnavailableKey, true, TimeSpan.FromMinutes(5));
+
+        }
+
+
+
+        if (questionEmbedding is not null)
+
+        {
+
+            try
+
+            {
+
+                var vectorResults = await SearchByVectorAsync(sanitizedQuestion, questionEmbedding, allowedDocumentIds, category, tenantId, topK, cancellationToken);
+
+                if (vectorResults.Count > 0) return vectorResults;
+
+            }
+
+            catch (Exception ex) when (ex is not OperationCanceledException)
+
+            {
+
+                logger.LogWarning(ex, "[RAG] Vector query failed (e.g. pgvector not installed in PostgreSQL). Falling back gracefully to keyword search.");
+
+            }
+
+        }
+
+
+
+        // ── 2. Fallback: keyword scoring khi chưa có embedding hoặc embedding chưa trả kết quả ──
+
+        // Vẫn trong cùng phạm vi tài liệu (đúng cây + chung): không nới sang tài liệu của cây khác.
+
+        // Ghi log metadata an toàn, tuyệt đối không ghi nội dung câu hỏi ra log.
+
+        logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback (QueryLength: {Length}).", sanitizedQuestion.Length);
+
         return await SearchByKeywordsAsync(sanitizedQuestion, allowedDocumentIds, category, tenantId, topK, expansionTerms, cancellationToken);
     }
 

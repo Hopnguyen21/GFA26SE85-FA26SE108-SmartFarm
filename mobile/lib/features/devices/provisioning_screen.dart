@@ -21,14 +21,17 @@ class ProvisioningScreen extends StatelessWidget {
           'FARMER' => AppRole.farmer,
           _ => null,
         };
-    if (role == AppRole.platformTechnician) return const TechnicianDeploymentsScreen();
-    if (role == AppRole.farmOwner) return const DeploymentPlanningScreen();
+    if (role == AppRole.platformTechnician)
+      return const TechnicianDeploymentsScreen();
+    if (role == AppRole.farmOwner) return const OwnerDeploymentRequestsScreen();
     return Scaffold(
       appBar: AppBar(title: const Text('Lắp đặt thiết bị IoT')),
       body: const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('Tài khoản của bạn không có thao tác trong luồng lắp đặt thiết bị.'),
+          child: Text(
+            'Tài khoản của bạn không có thao tác trong luồng lắp đặt thiết bị.',
+          ),
         ),
       ),
     );

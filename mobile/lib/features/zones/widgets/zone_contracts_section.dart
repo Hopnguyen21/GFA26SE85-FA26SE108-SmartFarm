@@ -12,7 +12,11 @@ const _muted = Color(0xFF64748B);
 class ZoneContractsSection extends StatefulWidget {
   final ZoneModel zone;
   final bool canManage;
-  const ZoneContractsSection({super.key, required this.zone, required this.canManage});
+  const ZoneContractsSection({
+    super.key,
+    required this.zone,
+    required this.canManage,
+  });
 
   @override
   State<ZoneContractsSection> createState() => _ZoneContractsSectionState();
@@ -61,7 +65,12 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
   }
 
   Future<void> _create() async {
-    await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => SupportRequestsScreen(zone: widget.zone)));
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SupportRequestsScreen(zone: widget.zone),
+      ),
+    );
     if (mounted) await _load();
   }
 
@@ -80,7 +89,11 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
         children: [
           Row(
             children: [
-              const Icon(Icons.assignment_outlined, size: 16, color: Color(0xFF059669)),
+              const Icon(
+                Icons.assignment_outlined,
+                size: 16,
+                color: Color(0xFF059669),
+              ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
@@ -102,14 +115,20 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
             ],
           ),
           if (_loading)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator(minHeight: 2))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
           else if (_error != null)
             Row(
               children: [
                 Expanded(
                   child: Text(
                     'Không tải được hợp đồng: $_error',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB91C1C),
+                    ),
                   ),
                 ),
                 TextButton(onPressed: _load, child: const Text('Thử lại')),
@@ -130,7 +149,10 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ZoneContractDetailScreen(contract: c, canRenew: widget.canManage),
+                      builder: (_) => ZoneContractDetailScreen(
+                        contract: c,
+                        canRenew: false,
+                      ),
                     ),
                   );
                   if (mounted) await _load();
@@ -151,20 +173,33 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              c.contractNumber.isEmpty ? 'Hợp đồng' : c.contractNumber,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _ink),
+                              c.contractNumber.isEmpty
+                                  ? 'Hợp đồng'
+                                  : c.contractNumber,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: _ink,
+                              ),
                             ),
                             Text(
                               '${c.startDate.isEmpty ? '—' : c.startDate} → ${c.endDate.isEmpty ? '—' : c.endDate}'
                               '${c.lesseeName.isEmpty ? '' : ' · ${c.lesseeName}'}',
-                              style: const TextStyle(fontSize: 11, color: _muted),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _muted,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Text(
                         c.statusText.isEmpty ? c.status : c.statusText,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _muted),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _muted,
+                        ),
                       ),
                       const Icon(Icons.chevron_right, size: 18, color: _muted),
                     ],

@@ -1,9 +1,12 @@
 part of '../schedules_automation_screen.dart';
 
-extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationScreenState {
+extension _SchedulesAutomationScreenStateCreateSchedule
+    on _SchedulesAutomationScreenState {
   void _showCreateScheduleDialog(BuildContext context) {
     final provider = Provider.of<FarmProvider>(context, listen: false);
-    String selectedZone = provider.zones.isNotEmpty ? provider.zones.first.name : 'Nhà màng 01';
+    String selectedZone = provider.zones.isNotEmpty
+        ? provider.zones.first.name
+        : 'Nhà màng 01';
     String selectedActuator = 'Bơm Tưới Nhỏ Giọt';
     String name = 'Lịch tưới định kỳ hàng ngày';
     String startTime = '06:00';
@@ -22,7 +25,10 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
             children: [
               TextFormField(
                 initialValue: name,
-                decoration: const InputDecoration(labelText: 'Tên lịch', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Tên lịch',
+                  border: OutlineInputBorder(),
+                ),
                 onChanged: (v) => name = v,
               ),
               const SizedBox(height: 10),
@@ -31,7 +37,10 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
                   Expanded(
                     child: TextFormField(
                       initialValue: startTime,
-                      decoration: const InputDecoration(labelText: 'Giờ bắt đầu (HH:mm)', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Giờ bắt đầu (HH:mm)',
+                        border: OutlineInputBorder(),
+                      ),
                       onChanged: (v) => startTime = v,
                     ),
                   ),
@@ -40,7 +49,10 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
                     child: TextFormField(
                       initialValue: duration.toString(),
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Thời lượng (phút)', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Thời lượng (phút)',
+                        border: OutlineInputBorder(),
+                      ),
                       onChanged: (v) {
                         final p = int.tryParse(v);
                         if (p != null) duration = p;
@@ -52,12 +64,20 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Huỷ'),
+            ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF062326), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF062326),
+                foregroundColor: Colors.white,
+              ),
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
-                final zone = provider.zones.where((z) => z.name == selectedZone).firstOrNull;
+                final zone = provider.zones
+                    .where((z) => z.name == selectedZone)
+                    .firstOrNull;
                 final wanted = selectedActuator.contains('Quạt')
                     ? 'FAN'
                     : selectedActuator.contains('Đèn')
@@ -66,14 +86,25 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
                     ? 'VALVE'
                     : 'PUMP';
                 final actuator = provider.actuators
-                    .where((a) => a.zoneId == zone?.zoneId && a.actuatorType == wanted)
+                    .where(
+                      (a) =>
+                          a.zoneId == zone?.zoneId && a.actuatorType == wanted,
+                    )
                     .firstOrNull;
                 if (zone == null || actuator == null) {
-                  messenger.showSnackBar(const SnackBar(content: Text('Zone này chưa có thiết bị chấp hành phù hợp.')));
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Zone này chưa có thiết bị chấp hành phù hợp.',
+                      ),
+                    ),
+                  );
                   return;
                 }
                 if (name.trim().isEmpty) {
-                  messenger.showSnackBar(const SnackBar(content: Text('Vui lòng nhập tên lịch.')));
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Vui lòng nhập tên lịch.')),
+                  );
                   return;
                 }
                 try {
@@ -88,7 +119,9 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
                 } catch (e) {
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(e.toString().replaceFirst('Exception: ', '')),
+                      content: Text(
+                        e.toString().replaceFirst('Exception: ', ''),
+                      ),
                       backgroundColor: const Color(0xFFEF4444),
                     ),
                   );
@@ -96,7 +129,10 @@ extension _SchedulesAutomationScreenStateCreateSchedule on _SchedulesAutomationS
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('✅ Đã tạo lịch tưới trên máy chủ.'), backgroundColor: Color(0xFF062326)),
+                  const SnackBar(
+                    content: Text('✅ Đã tạo lịch tưới trên máy chủ.'),
+                    backgroundColor: Color(0xFF062326),
+                  ),
                 );
               },
               child: const Text('Lưu Lịch'),

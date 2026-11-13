@@ -149,6 +149,15 @@ export const TasksPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      // Calculate future UTC deadline: at least 23:59:59 UTC of the selected date or tomorrow
+      const selectedDate = new Date(newTask.dueDate);
+      selectedDate.setHours(23, 59, 59, 0);
+      const now = new Date();
+      if (selectedDate <= now) {
+        selectedDate.setDate(now.getDate() + 1);
+      }
+      const dueAtUtc = selectedDate.toISOString();
+
       await supportService.createTask(farmId, {
         zoneId: form.zoneId,
         title: form.title.trim(),
@@ -365,10 +374,54 @@ export const TasksPage: React.FC = () => {
             <label className="block text-slate-700 font-bold mb-1">Tên công việc *</label>
             <Input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Tỉa cành và buộc dây giàn cà chua" />
           </div>
+
           <div>
             <label className="block text-slate-700 font-bold mb-1">Mô tả</label>
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} className="w-full border border-slate-300 rounded-lg p-2 text-xs" />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-700 font-medium mb-1">Khu vực / Nhà màng (Zone) *</label>
+              <select
+                required
+                value={newTask.zoneId}
+                onChange={e => setNewTask({ ...newTask, zoneId: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:outline-none focus:border-[#119653] shadow-xs"
+              >
+                {zones.length === 0 ? (
+                  <option value="">(Chưa có zone nào)</option>
+                ) : (
+                  zones.map(z => (
+                    <option key={z.zoneId} value={z.zoneId}>
+                      {z.name} ({z.currentCrop || 'Khu canh tác'})
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-medium mb-1">Người phụ trách (Công nhân) *</label>
+              <select
+                required
+                value={newTask.assignedFarmerId}
+                onChange={e => setNewTask({ ...newTask, assignedFarmerId: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:outline-none focus:border-[#119653] shadow-xs"
+              >
+                {farmers.length === 0 ? (
+                  <option value="">(Đang tải danh sách công nhân...)</option>
+                ) : (
+                  farmers.map(f => (
+                    <option key={f.employeeId || f.userId} value={f.employeeId || f.userId}>
+                      {f.fullName} {f.employeeCode ? `(${f.employeeCode})` : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-bold mb-1">Zone *</label>
@@ -401,6 +454,30 @@ export const TasksPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed top-5 right-5 z-[9999] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border animate-in slide-in-from-top-3 fade-in duration-300 ${
+            toast.type === 'success'
+              ? 'bg-emerald-900/95 border-emerald-600 text-white'
+              : 'bg-rose-900/95 border-rose-600 text-white'
+          }`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          ) : (
+            <AlertTriangle size={18} className="text-rose-400 shrink-0" />
+          )}
+          <span className="text-xs font-semibold">{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 text-white/70 hover:text-white transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

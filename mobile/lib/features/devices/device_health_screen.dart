@@ -44,7 +44,11 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
         elevation: 0,
         title: const Text(
           'Sức Khỏe Thiết Bị IoT',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         actions: [
           IconButton(
@@ -58,7 +62,9 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
         future: _future,
         builder: (context, snap) {
           if (_future == null || snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF10B981)),
+            );
           }
           if (snap.hasError) {
             return Center(
@@ -67,23 +73,36 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.cloud_off, size: 36, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      Icons.cloud_off,
+                      size: 36,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'Không tải được tình trạng thiết bị: ${snap.error.toString().replaceFirst('Exception: ', '')}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Color(0xFF64748B)),
                     ),
-                    TextButton(onPressed: _reload, child: const Text('Thử lại')),
+                    TextButton(
+                      onPressed: _reload,
+                      child: const Text('Thử lại'),
+                    ),
                   ],
                 ),
               ),
             );
           }
           final devices = snap.data!;
-          final online = devices.where((d) => d.healthStatus == 'ONLINE').length;
-          final warning = devices.where((d) => d.healthStatus == 'WARNING').length;
-          final offline = devices.where((d) => d.healthStatus == 'OFFLINE').length;
+          final online = devices
+              .where((d) => d.healthStatus == 'ONLINE')
+              .length;
+          final warning = devices
+              .where((d) => d.healthStatus == 'WARNING')
+              .length;
+          final offline = devices
+              .where((d) => d.healthStatus == 'OFFLINE')
+              .length;
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView(
@@ -135,7 +154,11 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
                     '• ≤ 3× chu kỳ → ONLINE\n'
                     '• 3–12× chu kỳ → CẢNH BÁO (mất sóng tạm thời)\n'
                     '• > 12× chu kỳ hoặc chưa từng nhận dữ liệu → OFFLINE (cần kiểm tra thực địa)',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF0369A1), height: 1.5),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF0369A1),
+                      height: 1.5,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -167,7 +190,13 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
     );
   }
 
-  Widget _summaryCard(String label, int count, Color color, Color bgColor, IconData icon) {
+  Widget _summaryCard(
+    String label,
+    int count,
+    Color color,
+    Color bgColor,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -181,11 +210,19 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
           const SizedBox(height: 4),
           Text(
             '$count',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -264,10 +301,18 @@ class _DeviceCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: device.healthStatus == 'ONLINE' ? const Color(0xFFE2E8F0) : _statusColor.withValues(alpha: 0.4),
+          color: device.healthStatus == 'ONLINE'
+              ? const Color(0xFFE2E8F0)
+              : _statusColor.withValues(alpha: 0.4),
           width: device.healthStatus == 'ONLINE' ? 1 : 1.5,
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +321,10 @@ class _DeviceCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: _statusBgColor, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  color: _statusBgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Icon(_deviceIcon, color: _statusColor, size: 20),
               ),
               const SizedBox(width: 12),
@@ -286,21 +334,36 @@ class _DeviceCard extends StatelessWidget {
                   children: [
                     Text(
                       device.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     Text(
                       device.nodeId,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontFamily: 'monospace'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                        fontFamily: 'monospace',
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: _statusBgColor, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                  color: _statusBgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(
                   device.healthStatus,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: _statusColor,
+                  ),
                 ),
               ),
             ],
@@ -314,19 +377,30 @@ class _DeviceCard extends StatelessWidget {
               _stat(
                 Icons.signal_cellular_alt,
                 'RSSI',
-                device.signalRssi == null ? '—' : '${device.signalRssi!.toInt()} dBm',
+                device.signalRssi == null
+                    ? '—'
+                    : '${device.signalRssi!.toInt()} dBm',
               ),
               _stat(
                 Icons.battery_full,
                 'Pin',
-                device.batteryPercent == null ? '—' : '${device.batteryPercent}%',
+                device.batteryPercent == null
+                    ? '—'
+                    : '${device.batteryPercent}%',
                 valueColor: _batteryColor,
               ),
-              _stat(Icons.timer, 'Chu kỳ', '${device.expectedIntervalSeconds}s'),
+              _stat(
+                Icons.timer,
+                'Chu kỳ',
+                '${device.expectedIntervalSeconds}s',
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(_timeoutExplanation, style: TextStyle(fontSize: 11, color: _statusColor)),
+          Text(
+            _timeoutExplanation,
+            style: TextStyle(fontSize: 11, color: _statusColor),
+          ),
         ],
       ),
     );
@@ -341,10 +415,17 @@ class _DeviceCard extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
             Text(
               value,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: valueColor ?? const Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: valueColor ?? const Color(0xFF0F172A),
+              ),
             ),
           ],
         ),

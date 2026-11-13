@@ -303,7 +303,6 @@ export const FarmsPage: React.FC = () => {
     if (location.state && (farms.length > 0 || fields.length > 0 || zones.length > 0)) {
       const { farmId, farmName, zoneId, zoneName, openContract } = location.state as any;
       const stateKey = `${farmId || ''}_${farmName || ''}_${zoneId || ''}_${zoneName || ''}_${openContract || ''}`;
-
       if (handledDeepLinkRef.current === stateKey) return;
 
       // 1. Find Target Zone (match by zoneId or name)

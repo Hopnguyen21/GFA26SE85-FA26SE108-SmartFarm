@@ -32,15 +32,22 @@ class ContractsDepreciationScreen extends StatefulWidget {
   });
 
   @override
-  State<ContractsDepreciationScreen> createState() => _ContractsDepreciationScreenState();
+  State<ContractsDepreciationScreen> createState() =>
+      _ContractsDepreciationScreenState();
 }
 
-class _ContractsDepreciationScreenState extends State<ContractsDepreciationScreen> with SingleTickerProviderStateMixin {
+class _ContractsDepreciationScreenState
+    extends State<ContractsDepreciationScreen>
+    with SingleTickerProviderStateMixin {
   /// Cho phép code trong các file part (extension) cập nhật state.
   void _rebuild(VoidCallback fn) => setState(fn);
 
   late TabController _tabController;
-  final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+  final currencyFormat = NumberFormat.currency(
+    locale: 'vi_VN',
+    symbol: '₫',
+    decimalDigits: 0,
+  );
 
   bool _isLoading = false;
   List<ZoneContractModel> _contracts = [];
@@ -55,7 +62,11 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -73,8 +84,14 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final contracts = await ContractApi.getZoneContracts(farmId: _selectedFarmId, zoneId: _selectedZoneId);
-      final depreciations = await ContractApi.getDeviceDepreciations(farmId: _selectedFarmId, zoneId: _selectedZoneId);
+      final contracts = await ContractApi.getZoneContracts(
+        farmId: _selectedFarmId,
+        zoneId: _selectedZoneId,
+      );
+      final depreciations = await ContractApi.getDeviceDepreciations(
+        farmId: _selectedFarmId,
+        zoneId: _selectedZoneId,
+      );
       final alerts = await ContractApi.getExpiringContracts(
         farmId: _selectedFarmId,
         zoneId: widget.lockedZone?.zoneId,
@@ -106,9 +123,15 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không tải được hợp đồng/khấu hao: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text(
+              'Không tải được hợp đồng/khấu hao: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
             backgroundColor: const Color(0xFFDC2626),
-            action: SnackBarAction(label: 'Thử lại', textColor: Colors.white, onPressed: _loadData),
+            action: SnackBarAction(
+              label: 'Thử lại',
+              textColor: Colors.white,
+              onPressed: _loadData,
+            ),
           ),
         );
       }
@@ -132,10 +155,17 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hợp Đồng Thuê & Khấu Hao',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              'Hợp Đồng Zone & Khấu Hao',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-            Text('Zone Contracts & Device Depreciation', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+            Text(
+              'Zone Contracts & Device Depreciation',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
           ],
         ),
         actions: [
@@ -153,7 +183,10 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
           indicatorWeight: 3,
           labelColor: const Color(0xFF10B981),
           unselectedLabelColor: const Color(0xFF94A3B8),
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          labelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
           tabs: [
             Tab(
               child: Row(
@@ -194,7 +227,9 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF10B981)),
+            )
           : TabBarView(
               controller: _tabController,
               children: [
@@ -215,7 +250,10 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_circle_outline, color: Color(0xFF10B981)),
-        label: const Text('Gửi yêu cầu hỗ trợ kỹ thuật', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Gửi yêu cầu hỗ trợ kỹ thuật',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         onPressed: () => _showCreateContractDialog(provider),
       );
     } else if (currentTab == 1 && (isOwner || isTech)) {
@@ -223,7 +261,10 @@ class _ContractsDepreciationScreenState extends State<ContractsDepreciationScree
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.post_add, color: Color(0xFF10B981)),
-        label: const Text('Thêm Hồ Sơ Khấu Hao', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Thêm Hồ Sơ Khấu Hao',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         onPressed: () => _showCreateDepreciationDialog(provider),
       );
     }
