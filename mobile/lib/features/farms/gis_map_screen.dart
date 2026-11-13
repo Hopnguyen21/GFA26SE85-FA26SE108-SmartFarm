@@ -127,6 +127,14 @@ class _GISMapScreenState extends State<GISMapScreen> {
         if (z.boundaryProblem != null) 'Zone "${z.name}": ${z.boundaryProblem}',
     ];
     final hasMissingGeo = fieldsNoGeo.isNotEmpty || zonesNoGeo.isNotEmpty;
+    // Kỹ thuật viên chỉ thấy trang trại có yêu cầu được giao và không đọc được số đo cảm biến của trang trại.
+    final isTech = provider.currentRole == 'TECHNICIAN';
+    final techNoAssignment =
+        isTech &&
+        !provider.isLoadingApi &&
+        loadError == null &&
+        provider.allZones.isEmpty &&
+        provider.fields.isEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -340,10 +348,36 @@ class _GISMapScreenState extends State<GISMapScreen> {
             ),
 
           // ── Trạng thái: Không có ranh giới nào và không lỗi API ───────────
+          if (techNoAssignment)
+            const Positioned(
+              left: 16,
+              right: 16,
+              top: 16,
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.map_outlined, color: Color(0xFF0284C7)),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Chưa có trang trại nào được giao cho bạn. '
+                          'Tiếp nhận một yêu cầu ở tab Dịch Vụ (Yêu cầu triển khai) để xem vị trí lắp đặt trên bản đồ.',
+                          style: TextStyle(fontSize: 13, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (!provider.isLoadingApi &&
               loadError == null &&
               invalidGeo.isEmpty &&
-              !hasGeometry)
+              !hasGeometry &&
+              !techNoAssignment)
             Positioned(
               left: 16,
               right: 16,
@@ -387,7 +421,9 @@ class _GISMapScreenState extends State<GISMapScreen> {
                         'Diện tích: ${selected.areaM2 > 0 ? '${selected.areaM2.toStringAsFixed(0)} m²' : '—'}',
                         style: const TextStyle(fontSize: 12),
                       ),
-                      if (selected.telemetryIsFresh)
+                      if (isTech)
+                        const SizedBox.shrink()
+                      else if (selected.telemetryIsFresh)
                         Text(
                           'Ẩm đất ${selected.currentSoilMoisture}% · ${selected.currentTemp}°C · Ẩm KK ${selected.currentHumidity}%',
                           style: const TextStyle(fontSize: 12),

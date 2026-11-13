@@ -173,4 +173,60 @@ void main() {
     expect(find.text('Nơi lắp đặt'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('kỹ thuật thêm model vào kế hoạch rỗng và gửi đúng số lượng', (
+    tester,
+  ) async {
+    Map<String, dynamic>? sent;
+    final body = requestJson()..['status'] = 'Surveyed';
+    handler = (r) async {
+      Object value = body;
+      if (r.url.path.endsWith('/models')) {
+        value = [
+          {
+            'deviceModelId': 'model-a',
+            'modelName': 'Node thử nghiệm',
+            'deviceType': 'SensorNode',
+            'quantity': 1,
+          },
+        ];
+      } else if (r.method == 'PUT' && r.url.path.endsWith('/plan')) {
+        sent = jsonDecode(r.body) as Map<String, dynamic>;
+      }
+      return http.Response(
+        jsonEncode(value),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    };
+    tester.view.physicalSize = const Size(600, 2500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DeploymentRequestDetailScreen(
+          requestId: '4fd9ce0e-b78f-4132-aaec-ca8efe97372d',
+          technician: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Điều chỉnh kế hoạch sau khảo sát'));
+    await tester.tap(find.text('Điều chỉnh kế hoạch sau khảo sát'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Lưu'))
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Sử dụng Node thử nghiệm'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Lưu'));
+    await tester.pumpAndSettle();
+    expect(sent, isNotNull);
+    expect((sent!['items'] as List).single['deviceModelId'], 'model-a');
+    expect((sent!['items'] as List).single['quantity'], 1);
+    expect(tester.takeException(), isNull);
+  });
 }

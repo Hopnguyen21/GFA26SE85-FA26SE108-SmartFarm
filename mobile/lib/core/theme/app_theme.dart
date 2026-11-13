@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 
 /// Bảng màu dùng chung. Giá trị khớp với màu đang dùng khắp app để chuyển dần sang token mà không đổi diện mạo.
 abstract final class AppColors {
@@ -60,6 +61,8 @@ ThemeData buildAppTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.surfaceMuted,
     visualDensity: VisualDensity.standard,
+    textTheme: _textTheme(),
+    splashFactory: InkSparkle.splashFactory,
     materialTapTargetSize: MaterialTapTargetSize.padded,
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
@@ -73,11 +76,22 @@ ThemeData buildAppTheme() {
       iconTheme: IconThemeData(color: Colors.white),
       actionsIconTheme: IconThemeData(color: Colors.white),
       centerTitle: false,
+      elevation: 0,
       scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      titleTextStyle: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.1,
+        color: Colors.white,
+      ),
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
-      elevation: 0,
+      elevation: 1.5,
+      shadowColor: const Color(0x1A0F172A),
+      surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -110,8 +124,15 @@ ThemeData buildAppTheme() {
         minimumSize: const Size(64, 48),
         backgroundColor: AppColors.ink,
         foregroundColor: Colors.white,
+        disabledBackgroundColor: AppColors.border,
+        disabledForegroundColor: AppColors.textFaint,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        elevation: 0,
         shape: shape,
-        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.1,
+        ),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -125,13 +146,17 @@ ThemeData buildAppTheme() {
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(64, 48),
         foregroundColor: AppColors.ink,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         side: const BorderSide(color: AppColors.borderStrong),
         shape: shape,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 44),
+        foregroundColor: AppColors.primaryDark,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
         shape: shape,
       ),
     ),
@@ -148,7 +173,16 @@ ThemeData buildAppTheme() {
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       side: const BorderSide(color: AppColors.border),
-      labelStyle: const TextStyle(fontSize: 12),
+      // Đặt màu chữ tường minh: không đặt thì ChoiceChip/FilterChip lấy màu từ bảng màu và có máy hiện chữ trắng trên nền trắng.
+      labelStyle: const TextStyle(fontSize: 12, color: AppColors.text),
+      secondaryLabelStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.primaryDark,
+      ),
+      backgroundColor: Colors.white,
+      selectedColor: AppColors.primarySoft,
+      checkmarkColor: AppColors.primaryDark,
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: Colors.white,
@@ -170,9 +204,15 @@ ThemeData buildAppTheme() {
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: AppColors.text,
+      actionTextColor: AppColors.primary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      contentTextStyle: const TextStyle(fontSize: 13, height: 1.35),
+      contentTextStyle: const TextStyle(
+        fontSize: 13,
+        height: 1.35,
+        color: Colors.white,
+      ),
     ),
     tabBarTheme: const TabBarThemeData(
       indicatorColor: AppColors.primary,
@@ -184,6 +224,12 @@ ThemeData buildAppTheme() {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: const Color(0x260F172A),
+      height: 68,
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
       indicatorColor: AppColors.primary.withValues(alpha: 0.15),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
@@ -201,6 +247,90 @@ ThemeData buildAppTheme() {
       color: AppColors.primary,
     ),
     listTileTheme: const ListTileThemeData(minVerticalPadding: 8),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected)
+            ? Colors.white
+            : AppColors.textFaint,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected)
+            ? AppColors.primaryDark
+            : AppColors.border,
+      ),
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      fillColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? AppColors.primaryDark : null,
+      ),
+    ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected)
+            ? AppColors.primaryDark
+            : AppColors.textFaint,
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        shape: WidgetStatePropertyAll(shape),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected)
+              ? AppColors.primarySoft
+              : Colors.white,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected)
+              ? AppColors.primaryDark
+              : AppColors.text,
+        ),
+        side: const WidgetStatePropertyAll(
+          BorderSide(color: AppColors.borderStrong),
+        ),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: AppColors.text,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: const TextStyle(fontSize: 12, color: Colors.white),
+    ),
     dividerTheme: const DividerThemeData(color: AppColors.border, space: 1),
   );
+}
+
+/// Chữ dùng chung: tiêu đề đậm gọn, chữ nội dung 14sp dễ đọc, màu theo bảng màu slate.
+TextTheme _textTheme() {
+  const base = TextTheme(
+    titleLarge: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w800,
+      height: 1.25,
+    ),
+    titleMedium: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+      height: 1.3,
+    ),
+    titleSmall: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w700,
+      height: 1.3,
+    ),
+    bodyLarge: TextStyle(fontSize: 15, height: 1.4),
+    bodyMedium: TextStyle(fontSize: 14, height: 1.4),
+    bodySmall: TextStyle(fontSize: 12, height: 1.35),
+    labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+    labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+  );
+  return base.apply(bodyColor: AppColors.text, displayColor: AppColors.text);
 }

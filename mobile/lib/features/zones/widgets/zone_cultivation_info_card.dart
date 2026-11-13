@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/utils/json_utils.dart';
+import '../../../core/utils/profile_name.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -36,7 +37,10 @@ class ZoneCultivationInfoCard extends StatefulWidget {
 class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
   bool _loading = true;
   String? _profileError;
+  String? _seasonError;
   Map<String, dynamic>? _profile;
+  // Vụ trồng hiện tại của Zone: vụ đang canh tác, nếu không có thì vụ dự kiến. null = chưa có.
+  Map<String, dynamic>? _season;
 
   String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
 
@@ -62,6 +66,7 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     setState(() {
       _loading = true;
       _profileError = null;
+      _seasonError = null;
     });
     // Mỗi nguồn tải độc lập: một nguồn lỗi không làm mất nguồn còn lại.
     final results = await Future.wait<Object?>([
@@ -71,9 +76,28 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             .catchError((Object e) => e)
       else
         Future<Object?>.value(null),
+      CropApi.getPlantingSeasons(
+        zoneId: zoneId,
+      ).then<Object?>((v) => v).catchError((Object e) => e),
     ]);
     if (!mounted || widget.zone.zoneId != zoneId) return;
     setState(() {
+      final s = results[1];
+      _season = null;
+      if (s is List<Map<String, dynamic>>) {
+        // Chỉ giữ vụ của đúng Zone này (API có thể trả thêm vụ của Zone khác).
+        final mine = [
+          for (final x in s)
+            if ('${x['zoneId'] ?? zoneId}'.toLowerCase() ==
+                zoneId.toLowerCase())
+              x,
+        ];
+        _season =
+            mine.where((x) => '${x['status']}' == 'InProgress').firstOrNull ??
+            mine.where((x) => '${x['status']}' == 'Planned').firstOrNull;
+      } else if (s != null) {
+        _seasonError = _err(s);
+      }
       final p = results[0];
       _profile = null;
       if (p is List<Map<String, dynamic>>) {
@@ -93,39 +117,45 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     });
   }
 
-  Widget _section(String title, IconData icon, List<Widget> children) =>
-      Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _section(
+    String title,
+    IconData icon,
+    List<Widget> children,
+  ) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Icon(icon, size: 15, color: _green),
-                const SizedBox(width: 6),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: _green,
-                    letterSpacing: 0.4,
-                  ),
+            Icon(icon, size: 15, color: _green),
+            const SizedBox(width: 6),
+            // Expanded: tiêu đề dài (vd. "HỒ SƠ CANH TÁC (gắn trực tiếp cho Zone)") xuống dòng thay vì tràn ở màn hẹp/chữ lớn.
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: _green,
+                  letterSpacing: 0.4,
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 8),
-            ...children,
           ],
         ),
-      );
+        const SizedBox(height: 8),
+        ...children,
+      ],
+    ),
+  );
 
   Widget _row(String label, Object? value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
@@ -186,6 +216,20 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
       (a, s) => a + (jsonNumber(jsonField(s, 'durationDays'))?.toInt() ?? 0),
     );
     final hasCrop = !zone.currentCrop.startsWith('Chưa gán cây');
+    final season = _season;
+    final seasonCrop = _val(season?['cropName']);
+    // Zone chưa có cây thì lấy cây từ vụ đang canh tác (vụ gán cây cho Zone); không suy đoán từ nguồn nào khác.
+    final zoneCrop = hasCrop
+        ? zone.currentCrop
+        : ('${season?['status']}' == 'InProgress' && seasonCrop != '—'
+              ? seasonCrop
+              : 'Chưa gán cây');
+    const statusVi = {
+      'Planned': 'Dự kiến',
+      'InProgress': 'Đang canh tác',
+      'Completed': 'Đã thu hoạch',
+      'Cancelled': 'Đã hủy',
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,7 +241,7 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             'Diện tích',
             zone.areaM2 > 0 ? '${zone.areaM2.toInt()} m²' : null,
           ),
-          _row('Cây của Zone', hasCrop ? zone.currentCrop : 'Chưa gán cây'),
+          _row('Cây của Zone', zoneCrop),
         ]),
         _section(
           'HỒ SƠ CANH TÁC (gắn trực tiếp cho Zone)',
@@ -209,7 +253,16 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
                 style: TextStyle(fontSize: 12, color: _muted, height: 1.4),
               )
             else ...[
-              _row('Hồ sơ', _profile?['name'] ?? zone.growthProfileName),
+              _row(
+                'Hồ sơ',
+                displayProfileNameOrNull(
+                      '${_profile?['name'] ?? ''}'.trim().isEmpty
+                          ? null
+                          : '${_profile!['name']}',
+                      zoneName: zone.name,
+                    ) ??
+                    zone.growthProfileName,
+              ),
               _row(
                 'Nguồn',
                 (_profile?['isSystemDefined'] ?? zone.growthProfileIsSystem) ==
@@ -241,6 +294,31 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             ],
           ],
         ),
+        _section('VỤ TRỒNG', Icons.eco_outlined, [
+          if (_seasonError != null)
+            _error('Không tải được vụ trồng: $_seasonError', _load)
+          else if (season == null)
+            const Text(
+              'Zone chưa có vụ trồng. Tạo vụ ở mục "Vụ trồng của Zone này" bên dưới; cây của Zone được gán khi tạo vụ.',
+              style: TextStyle(fontSize: 12, color: _muted, height: 1.4),
+            )
+          else ...[
+            _row('Tên vụ', season['name']),
+            _row(
+              'Trạng thái',
+              statusVi['${season['status']}'] ?? season['status'],
+            ),
+            _row(
+              'Cây / giống',
+              _val(season['varietyName']) == '—'
+                  ? season['cropName']
+                  : '${_val(season['cropName'])} · ${season['varietyName']}',
+            ),
+            _row('Giai đoạn hiện tại', season['currentGrowthStageName']),
+            _row('Bắt đầu', season['startDate']),
+            _row('Dự kiến kết thúc', season['expectedEndDate']),
+          ],
+        ]),
       ],
     );
   }

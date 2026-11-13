@@ -5,7 +5,18 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
     if (widget.level == 'ZONE' &&
         widget.parentPolygon != null &&
         widget.parentPolygon!.length >= 3) {
-      // Tính độ rộng của Field mẹ để tạo ô Zone nằm gọn bên trong
+      // Ưu tiên ô nằm trọn trong thửa đất, không chồng Zone đã có và không vượt diện tích còn trống.
+      final suggested = suggestZoneBox(
+        parent: widget.parentPolygon!,
+        others: [
+          for (final z in _otherPolygons)
+            if (z['polygon'] case final List<LatLng> pts) pts,
+        ],
+        maxAreaM2: widget.maxDefaultAreaM2,
+      );
+      if (suggested != null) return suggested;
+
+      // Thửa đất không còn chỗ trống phù hợp: vẫn đặt một ô nhỏ quanh tâm để người dùng tự chỉnh (bản đồ sẽ cảnh báo).
       double minLat = double.infinity, maxLat = -double.infinity;
       double minLng = double.infinity, maxLng = -double.infinity;
       for (final p in widget.parentPolygon!) {
@@ -14,14 +25,9 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
         if (p.longitude < minLng) minLng = p.longitude;
         if (p.longitude > maxLng) maxLng = p.longitude;
       }
-      final double latHalfSpan = ((maxLat - minLat) * 0.25).clamp(
-        0.0003,
-        0.0008,
-      );
-      final double lngHalfSpan = ((maxLng - minLng) * 0.25).clamp(
-        0.0004,
-        0.0010,
-      );
+      // Không ép kích thước tối thiểu: ô tối thiểu cũ (~66×86 m) lớn hơn cả thửa đất nhỏ nên luôn thò ra ngoài.
+      final double latHalfSpan = math.min((maxLat - minLat) * 0.1, 0.0008);
+      final double lngHalfSpan = math.min((maxLng - minLng) * 0.1, 0.0010);
       return [
         LatLng(center.latitude + latHalfSpan, center.longitude - lngHalfSpan),
         LatLng(center.latitude + latHalfSpan, center.longitude + lngHalfSpan),

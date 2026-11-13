@@ -28,7 +28,9 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('owner without API data sees empty state, not sample farms', (tester) async {
+  testWidgets('owner without API data sees empty state, not sample farms', (
+    tester,
+  ) async {
     final provider = await _pump(tester, 'OWNER');
     expect(find.text('Chưa có trang trại nào.'), findsOneWidget);
     expect(find.textContaining('Đà Lạt'), findsNothing);

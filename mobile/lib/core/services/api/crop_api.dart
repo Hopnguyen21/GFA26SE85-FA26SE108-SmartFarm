@@ -9,10 +9,12 @@ abstract final class CropApi {
   }) async {
     final q = <String, String>{'farmId': ?farmId, 'zoneId': ?zoneId};
     final query = q.isEmpty ? '' : '?${Uri(queryParameters: q).query}';
-    return ApiService._listOf(
-      ApiService._decodeOrThrow(
-        await ApiService._getWithAuth(
-          '${ApiService.baseUrl}/api/v1/planting-seasons$query',
+    return withDisplayProfileNames(
+      ApiService._listOf(
+        ApiService._decodeOrThrow(
+          await ApiService._getWithAuth(
+            '${ApiService.baseUrl}/api/v1/planting-seasons$query',
+          ),
         ),
       ),
     );
@@ -42,6 +44,45 @@ abstract final class CropApi {
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 
+  /// PUT /zones/{z}/planting-seasons/{s}/stage (Owner): chuyển vụ đang canh tác sang một giai đoạn khác của hồ sơ.
+  /// Backend không tự chuyển giai đoạn theo ngày; ngưỡng cảnh báo của vụ đổi theo giai đoạn mới.
+  static Future<Map<String, dynamic>> transitionSeasonStage(
+    String zoneId,
+    String seasonId, {
+    required String growthStageId,
+    String? notes,
+  }) async {
+    final data = ApiService._decodeOrThrow(
+      await ApiService._putWithAuth(
+        '${ApiService.baseUrl}/api/v1/zones/$zoneId/planting-seasons/$seasonId/stage',
+        {
+          'growthStageId': growthStageId,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      ),
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  /// GET /api/v1/seasons: mùa vụ chung (FarmingSeason) của trang trại/hệ thống, để gắn vào vụ trồng khi tạo vụ.
+  static Future<List<Map<String, dynamic>>> getFarmingSeasons({
+    int? year,
+    String? status,
+  }) async {
+    final q = <String, String>{
+      if (year != null) 'year': '$year',
+      if (status != null && status.isNotEmpty) 'status': status,
+    };
+    final query = q.isEmpty ? '' : '?${Uri(queryParameters: q).query}';
+    return ApiService._listOf(
+      ApiService._decodeOrThrow(
+        await ApiService._getWithAuth(
+          '${ApiService.baseUrl}/api/v1/seasons$query',
+        ),
+      ),
+    );
+  }
+
   /// GET /varieties?cropId=: giống cây.
   static Future<List<Map<String, dynamic>>> getVarieties({
     String? cropId,
@@ -56,10 +97,12 @@ abstract final class CropApi {
   /// GET /crops/{id}/growth-profiles: hồ sơ sinh trưởng của một cây.
   static Future<List<Map<String, dynamic>>> getCropGrowthProfiles(
     String cropId,
-  ) async => ApiService._listOf(
-    ApiService._decodeOrThrow(
-      await ApiService._getWithAuth(
-        '${ApiService.baseUrl}/api/v1/crops/$cropId/growth-profiles',
+  ) async => withDisplayProfileNames(
+    ApiService._listOf(
+      ApiService._decodeOrThrow(
+        await ApiService._getWithAuth(
+          '${ApiService.baseUrl}/api/v1/crops/$cropId/growth-profiles',
+        ),
       ),
     ),
   );
@@ -150,10 +193,12 @@ abstract final class CropApi {
       throw const FormatException(
         'Danh sách cây trồng/hồ sơ từ máy chủ không hợp lệ.',
       );
-    return rawList
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    return withDisplayProfileNames(
+      rawList
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList(),
+    );
   }
 
   /// POST /api/v1/zones/{zoneId}/planting-seasons (Owner). Tạo vụ là cách duy nhất gán cây cho Zone.
@@ -170,6 +215,22 @@ abstract final class CropApi {
       throw Exception(ApiService._apiErrorMessage(response));
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// POST /api/v1/zones/{zoneId}/planting-seasons/{seasonId}/start (Owner): bắt đầu một vụ DỰ KIẾN. Vụ vừa tạo ở trạng thái dự kiến;
+  /// bắt đầu vụ mới chuyển sang đang canh tác và áp dụng cây/hồ sơ của vụ cho Zone. Backend từ chối khi chưa đến ngày bắt đầu,
+  /// vụ đã quá hạn, hoặc Zone đang có vụ khác đang canh tác (thông báo lỗi nêu rõ lý do).
+  static Future<Map<String, dynamic>> startPlantingSeason(
+    String zoneId,
+    String seasonId,
+  ) async {
+    final data = ApiService._decodeOrThrow(
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/zones/$zoneId/planting-seasons/$seasonId/start',
+        {},
+      ),
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 
   /// PUT /growth-profiles/{id} (Owner: chỉ bản sao của trang trại; profile hệ thống bị backend từ chối): đổi tên/mô tả.

@@ -34,6 +34,11 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
   // Chọn cây + hồ sơ canh tác (không bắt buộc). Dữ liệu từ API; lưu qua Vụ trồng sau khi Zone được tạo.
   final cropPlan = ZoneCropPlanController();
   var submitting = false;
+  // Vụ trồng tạo kèm Zone. Chỉ khi bật mục này mới chọn được cây và hồ sơ (cây của Zone được gán qua vụ trồng).
+  var createSeason = false;
+  final seasonNameController = TextEditingController();
+  var seasonStart = DateUtils.dateOnly(DateTime.now());
+  var seasonEnd = seasonStart.add(const Duration(days: autoSeasonDays));
   // Bản sao hồ sơ đã tạo ở lần bấm trước (tạo Zone lỗi giữa chừng) để dùng lại khi thử lại, tránh tạo trùng.
   String? preparedCloneId;
   String? preparedKey;
@@ -265,6 +270,15 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                               )
                               .toList();
 
+                          // Diện tích còn trống của thửa đất (backend từ chối Zone lớn hơn phần này).
+                          final fieldFreeAreaM2 =
+                              selectedField.areaM2 -
+                              provider.allZones
+                                  .where(
+                                    (z) => z.fieldId == selectedField.fieldId,
+                                  )
+                                  .fold<double>(0, (s, z) => s + z.areaM2);
+
                           return MiniGISMapPicker(
                             key: ValueKey(
                               'zone_picker_${selectedField.fieldId}',
@@ -276,6 +290,10 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                             level: 'ZONE',
                             parentPolygon: fieldPolygon,
                             existingZones: existingZonesInField,
+                            maxDefaultAreaM2: fieldFreeAreaM2 > 0
+                                ? fieldFreeAreaM2
+                                : null,
+                            emitInitialPolygon: true,
                             height: 250,
                             onPolygonChanged: (pts) {
                               currentZonePolygon = pts;
@@ -298,7 +316,113 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                   ),
                   const SizedBox(height: 12),
 
-                  ZoneCropPlanSection(controller: cropPlan),
+                  // Vụ trồng: phải bật tạo vụ thì mới chọn được cây và hồ sơ (cây của Zone được gán qua vụ trồng).
+                  FormSection(
+                    title: 'Vụ trồng',
+                    icon: Icons.eco_outlined,
+                    subtitle:
+                        'Tạo vụ trồng rồi mới chọn được cây. Không tạo vụ thì Zone chưa gán cây; có thể tạo vụ sau trong màn Zone.',
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: createSeason,
+                        onChanged: submitting
+                            ? null
+                            : (v) => setModalState(() => createSeason = v),
+                        title: const Text(
+                          'Tạo vụ trồng cho Zone này',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (createSeason) ...[
+                        TextField(
+                          controller: seasonNameController,
+                          maxLength: 200,
+                          decoration: const InputDecoration(
+                            labelText: 'Tên vụ (không bắt buộc)',
+                            hintText: 'Để trống: tự đặt "Vụ <tên cây> <năm>"',
+                            prefixIcon: Icon(Icons.label_outline, size: 20),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.event, size: 18),
+                                label: Text(
+                                  'Bắt đầu: ${autoSeasonDate(seasonStart)}',
+                                ),
+                                onPressed: () async {
+                                  final now = DateTime.now();
+                                  final d = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: seasonStart,
+                                    firstDate: DateTime(now.year - 2),
+                                    // Backend tạo vụ ở trạng thái đang canh tác ngay nên không nhận ngày bắt đầu ở tương lai.
+                                    lastDate: now,
+                                  );
+                                  if (d == null) return;
+                                  setModalState(() {
+                                    seasonStart = d;
+                                    final minEnd = minSeasonEnd(d);
+                                    if (seasonEnd.isBefore(minEnd))
+                                      seasonEnd = d.add(
+                                        const Duration(days: autoSeasonDays),
+                                      );
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(
+                                  Icons.event_available,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  'Dự kiến: ${autoSeasonDate(seasonEnd)}',
+                                ),
+                                onPressed: () async {
+                                  final minEnd = minSeasonEnd(seasonStart);
+                                  final d = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: seasonEnd.isBefore(minEnd)
+                                        ? minEnd
+                                        : seasonEnd,
+                                    firstDate: minEnd,
+                                    lastDate: DateTime(seasonStart.year + 3),
+                                  );
+                                  if (d != null)
+                                    setModalState(() => seasonEnd = d);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Vụ bắt đầu ở trạng thái đang canh tác. Ngày kết thúc dự kiến phải sau ngày bắt đầu ít nhất $minSeasonDays ngày.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (createSeason) ...[
+                    const SizedBox(height: 12),
+                    ZoneCropPlanSection(
+                      controller: cropPlan,
+                      createsSeason: true,
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   Row(
@@ -469,8 +593,25 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                                   final messenger = ScaffoldMessenger.of(
                                     context,
                                   );
+                                  // Đã bật tạo vụ thì phải chọn đủ cây và hồ sơ: không tạo Zone rồi âm thầm bỏ qua vụ.
+                                  if (createSeason &&
+                                      (!cropPlan.selection.active ||
+                                          cropPlan.selection.cropId == null ||
+                                          cropPlan.selection.profileId ==
+                                              null)) {
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Bạn đã bật "Tạo vụ trồng": hãy chọn cây và hồ sơ canh tác cho vụ, hoặc tắt mục tạo vụ.',
+                                        ),
+                                        backgroundColor: Color(0xFFD97706),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   // Hồ sơ được chọn: nhắc lại và xác nhận TRƯỚC khi tạo bản sao/Zone.
-                                  if (cropPlan.selection.active &&
+                                  if (createSeason &&
+                                      cropPlan.selection.active &&
                                       cropPlan.selection.profileId != null) {
                                     final sel = cropPlan.selection;
                                     final p = cropPlan.currentProfile;
@@ -498,7 +639,8 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                                   // 1) Chuẩn bị hồ sơ (sao chép + chỉnh nếu "Tùy chỉnh bản sao") TRƯỚC khi tạo Zone. Không tạo vụ mùa.
                                   String? profileId;
                                   var profileName = '';
-                                  if (cropPlan.selection.active) {
+                                  if (createSeason &&
+                                      cropPlan.selection.active) {
                                     final sel = cropPlan.selection;
                                     final key =
                                         '${sel.profileId}|${sel.customName}|${sel.customDescription}|'
@@ -564,20 +706,76 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                                     );
                                     return;
                                   }
+                                  // 3) Có hồ sơ thì tự tạo vụ trồng mặc định cho Zone (giống web). Lỗi tạo vụ không hủy Zone, nhưng phải báo rõ.
+                                  AutoSeasonResult? season;
+                                  final seasonCropId =
+                                      cropPlan.selection.cropId;
+                                  final newZoneId = result.zoneId;
+                                  if (createSeason &&
+                                      profileId != null &&
+                                      seasonCropId != null &&
+                                      newZoneId != null) {
+                                    final p = cropPlan.currentProfile;
+                                    final v = p?['varietyId'];
+                                    season = await autoCreateSeasonForNewZone(
+                                      zoneId: newZoneId,
+                                      cropId: seasonCropId,
+                                      cropName:
+                                          '${cropPlan.currentCrop?['name'] ?? p?['cropName'] ?? ''}',
+                                      // Giống lấy theo hồ sơ đã gắn (hồ sơ chung thì không có giống), để vụ khớp với cây của Zone.
+                                      varietyId: v == null ? null : '$v',
+                                      growthProfileId: profileId,
+                                      name: seasonNameController.text,
+                                      startDate: seasonStart,
+                                      expectedEndDate: seasonEnd,
+                                    );
+                                    if (season.created)
+                                      await provider.fetchFromApi();
+                                  }
                                   if (!ctx.mounted) return;
                                   Navigator.pop(ctx);
 
                                   final warning = result.warning;
+                                  final seasonCreated = season?.created == true;
+                                  // Zone chưa có vụ trồng: cho Owner tạo vụ ngay từ thông báo (giống nút trên web).
+                                  final createdZone = seasonCreated
+                                      ? null
+                                      : provider.allZones
+                                            .where(
+                                              (z) => z.zoneId == result.zoneId,
+                                            )
+                                            .firstOrNull;
                                   messenger.showSnackBar(
                                     SnackBar(
+                                      showCloseIcon: true,
+                                      action: createdZone == null
+                                          ? null
+                                          : SnackBarAction(
+                                              label: 'Tạo vụ trồng',
+                                              textColor: Colors.white,
+                                              onPressed: () {
+                                                if (!context.mounted) return;
+                                                showCreateSeasonSheet(
+                                                  context,
+                                                  createdZone,
+                                                ).then((created) {
+                                                  if (created == true)
+                                                    provider.fetchFromApi();
+                                                });
+                                              },
+                                            ),
                                       content: Text(
-                                        warning != null
-                                            ? 'Đã tạo Zone "$zoneName". $warning'
-                                            : profileId != null
-                                            ? 'Đã tạo Zone "$zoneName" và gắn hồ sơ "$profileName". Chưa tạo vụ trồng: chỉ tạo vụ khi bắt đầu mùa vụ.'
-                                            : 'Đã tạo Zone "$zoneName" (chưa gắn hồ sơ canh tác).',
+                                        [
+                                          profileId != null
+                                              ? 'Đã tạo Zone "$zoneName" và gắn hồ sơ "$profileName".'
+                                              : 'Đã tạo Zone "$zoneName" (chưa tạo vụ trồng nên Zone chưa gán cây).',
+                                          ?season?.message,
+                                          ?warning,
+                                        ].join(' '),
                                       ),
-                                      backgroundColor: warning == null
+                                      backgroundColor:
+                                          warning == null &&
+                                              season?.created != false
                                           ? const Color(0xFF059669)
                                           : const Color(0xFFD97706),
                                       behavior: SnackBarBehavior.floating,
@@ -602,7 +800,11 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
       },
     ),
   ).then((_) {
-    disposeControllersLater([nameController, areaController]);
+    disposeControllersLater([
+      nameController,
+      areaController,
+      seasonNameController,
+    ]);
     cropPlan.dispose();
   });
 }

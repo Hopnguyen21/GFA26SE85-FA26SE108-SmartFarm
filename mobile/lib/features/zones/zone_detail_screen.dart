@@ -8,6 +8,7 @@ import '../../core/widgets/mini_gis_map_picker.dart';
 import '../../core/services/api_service.dart';
 import '../ai/ai_screen.dart';
 import '../support/support_requests_screen.dart';
+// ZonePendingActionsBanner (thông báo việc đang chờ Owner) nằm trong cùng tệp trên.
 import '../crops/crop_profiles_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
 import 'widgets/emergency_stop_button.dart';
@@ -364,25 +365,33 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
 
           // ─── Tab Content ───
           SliverFillRemaining(
-            child: TabBarView(
-              controller: _tabController,
+            child: Column(
               children: [
-                _buildClimateTab(zone, provider),
-                _buildDevicesTab(context, provider, zoneActuators),
-                _buildCultivationTab(context, provider, zone),
-                ZoneIotPlanTab(
-                  zoneId: zone.zoneId,
-                  zoneName: zone.name,
-                  areaM2: zone.areaM2,
-                  cropName: zone.currentCrop,
-                  perimeterM: zone.polygon == null
-                      ? null
-                      : convexHullPerimeterM([
-                          for (final p in zone.polygon!)
-                            (lat: p.latitude, lng: p.longitude),
-                        ]),
+                if (isOwner) ZonePendingActionsBanner(zone: zone),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildClimateTab(zone, provider),
+                      _buildDevicesTab(context, provider, zoneActuators),
+                      _buildCultivationTab(context, provider, zone),
+                      ZoneIotPlanTab(
+                        zoneId: zone.zoneId,
+                        zoneName: zone.name,
+                        areaM2: zone.areaM2,
+                        cropName: zone.currentCrop,
+                        perimeterM: zone.polygon == null
+                            ? null
+                            : convexHullPerimeterM([
+                                for (final p in zone.polygon!)
+                                  (lat: p.latitude, lng: p.longitude),
+                              ]),
+                      ),
+                      if (_showAdminTab)
+                        _buildContractsSupportTab(zone, provider),
+                    ],
+                  ),
                 ),
-                if (_showAdminTab) _buildContractsSupportTab(zone, provider),
               ],
             ),
           ),

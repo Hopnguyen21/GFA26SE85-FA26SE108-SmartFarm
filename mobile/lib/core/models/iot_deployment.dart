@@ -36,8 +36,9 @@ const deploymentStatusLabels = <String, String>{
   'Surveyed': 'Đã khảo sát',
   'PlanConfirmed': 'Đã xác nhận kế hoạch',
   'Installing': 'Đang lắp đặt',
-  'Completed': 'Hoàn tất',
+  'Completed': 'Hoàn tất triển khai',
   'MaintenanceRequired': 'Thất bại, chuyển bảo trì',
+  'Cancelled': 'Đã hủy',
 };
 
 double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -434,6 +435,10 @@ class QuotationItem {
 }
 
 class Quotation {
+  final String? serviceRequestId;
+  final String? technicianUserId;
+  final DateTime? createdAtUtc;
+  final double? vatPercent;
   final String id;
   final double subtotal;
   final double vatAmount;
@@ -445,6 +450,10 @@ class Quotation {
   final String status; // SentToOwner → SignedByOwner → Completed
   final List<QuotationItem> items;
   Quotation({
+    this.serviceRequestId,
+    this.technicianUserId,
+    this.createdAtUtc,
+    this.vatPercent,
     required this.id,
     required this.subtotal,
     required this.vatAmount,
@@ -457,6 +466,10 @@ class Quotation {
     required this.items,
   });
   factory Quotation.fromJson(Map<String, dynamic> j) => Quotation(
+    serviceRequestId: j['serviceRequestId'] as String?,
+    technicianUserId: j['technicianUserId'] as String?,
+    createdAtUtc: DateTime.tryParse('${j['createdAtUtc'] ?? ''}'),
+    vatPercent: (j['vatPercent'] as num?)?.toDouble(),
     id: '${j['id']}',
     subtotal: _num(j['subtotal']),
     vatAmount: _num(j['vatAmount']),
@@ -479,6 +492,7 @@ class ServicePayment {
   final String? transactionReference;
   final String signerFullName;
   final String status;
+  final String? paidAtUtc;
   ServicePayment({
     required this.paymentStage,
     required this.amount,
@@ -486,6 +500,7 @@ class ServicePayment {
     this.transactionReference,
     required this.signerFullName,
     required this.status,
+    this.paidAtUtc,
   });
   factory ServicePayment.fromJson(Map<String, dynamic> j) => ServicePayment(
     paymentStage: '${j['paymentStage']}',
@@ -494,5 +509,6 @@ class ServicePayment {
     transactionReference: j['transactionReference'] as String?,
     signerFullName: '${j['signerFullName']}',
     status: '${j['status']}',
+    paidAtUtc: j['paidAtUtc'] as String?,
   );
 }

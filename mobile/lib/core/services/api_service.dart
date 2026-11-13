@@ -12,6 +12,7 @@ import '../models/agriculture_document.dart';
 import '../models/iot_deployment.dart';
 import 'app_role.dart';
 import 'geocode_result.dart';
+import '../utils/profile_name.dart';
 export 'geocode_result.dart';
 part 'api/deployment_api.dart';
 part 'api/support_api.dart';

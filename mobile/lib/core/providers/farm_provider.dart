@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart'
 import 'package:latlong2/latlong.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/app_role.dart';
 
 part 'parts/farm_provider_sync.dart';
 part 'parts/farm_provider_structure.dart';

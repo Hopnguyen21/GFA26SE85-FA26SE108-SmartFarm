@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
+import 'zone_default_box.dart';
 
 part 'parts/mini_gis_map_picker_map_layer.dart';
 part 'parts/mini_gis_map_picker_overlays.dart';
@@ -46,6 +47,9 @@ class MiniGISMapPicker extends StatefulWidget {
   /// để người dùng không cần chạm vào bản đồ mới có ranh giới. Mặc định tắt để không đổi hành vi các màn cũ.
   final bool emitInitialPolygon;
 
+  /// Diện tích tối đa (m²) của ranh giới Zone gợi ý sẵn, thường là phần còn trống của thửa đất. null = không giới hạn.
+  final double? maxDefaultAreaM2;
+
   const MiniGISMapPicker({
     super.key,
     required this.initialCenter,
@@ -66,6 +70,7 @@ class MiniGISMapPicker extends StatefulWidget {
     this.height = 220,
     this.isReadOnly = false,
     this.emitInitialPolygon = false,
+    this.maxDefaultAreaM2,
   });
 
   @override

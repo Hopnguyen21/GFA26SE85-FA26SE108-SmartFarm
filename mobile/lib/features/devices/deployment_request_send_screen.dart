@@ -11,6 +11,8 @@ import '../farms/farm_setup_logic.dart';
 import '../zones/honeycomb_estimate.dart';
 import '../zones/widgets/zone_honeycomb_estimate_card.dart';
 import 'deployment_screens.dart';
+import 'deployment_board_logic.dart';
+import 'widgets/cancel_deployment_dialog.dart';
 
 /// Owner xem THÔNG TIN ZONE và NỘI DUNG YÊU CẦU (thông số cần đo, thiết bị đề xuất & dự toán, ghi chú) rồi bấm
 /// "Xác nhận gửi yêu cầu". Gửi qua POST /zones/{id}/deployment-requests/submit: yêu cầu ở trạng thái Submitted ngay;
@@ -103,6 +105,37 @@ class _DeploymentRequestSendScreenState
         }
       }
     });
+  }
+
+  bool _cancelling = false;
+
+  /// Hủy yêu cầu đang chạy của Zone để gửi lại (ví dụ gửi nhầm); backend từ chối nếu đã ký/cọc hoặc đang lắp.
+  Future<void> _cancelActive(DeploymentRequest request) async {
+    if (_cancelling) return;
+    final reason = await askCancelDeploymentReason(context);
+    if (reason == null || !mounted) return;
+    setState(() => _cancelling = true);
+    try {
+      await DeploymentApi.cancelDeploymentRequest(
+        request.requestId,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã hủy yêu cầu. Bạn có thể gửi yêu cầu mới.'),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(cancelDeploymentErrorText(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
   }
 
   String _friendlySendError(Object e) {
@@ -301,6 +334,19 @@ class _DeploymentRequestSendScreenState
                           ),
                           child: const Text('Mở yêu cầu đang xử lý'),
                         ),
+                        if (canCancelDeployment(active.status))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.danger,
+                              ),
+                              onPressed: _cancelling
+                                  ? null
+                                  : () => _cancelActive(active),
+                              child: const Text('Hủy yêu cầu này'),
+                            ),
+                          ),
                       ],
                     ),
                   ),

@@ -11,26 +11,34 @@ import 'package:smartfarm_mobile/core/providers/farm_provider.dart';
 import 'package:smartfarm_mobile/core/services/api_service.dart';
 import 'package:smartfarm_mobile/features/zones/widgets/zone_crop_plan_edit_panel.dart';
 
-Future<http.Response> Function(http.Request) handler = (_) async => http.Response('[]', 200);
+Future<http.Response> Function(http.Request) handler = (_) async =>
+    http.Response('[]', 200);
 final calls = <http.Request>[];
 
-http.Response utf8Json(Object o, [int code = 200]) =>
-    http.Response.bytes(utf8.encode(jsonEncode(o)), code, headers: {'content-type': 'application/json; charset=utf-8'});
-
-ZoneModel _zone({String? profileId, String? profileName, bool? system}) => ZoneModel.fromJson(
-  {
-    'zoneId': 'z1',
-    'name': 'Nhà màng 1',
-    'areaM2': 100,
-    'growthProfileId': profileId,
-    'growthProfileName': profileName,
-    'growthProfileIsSystemDefined': system,
-  },
-  farmId: 'f1',
-  fieldId: 'fl1',
+http.Response utf8Json(Object o, [int code = 200]) => http.Response.bytes(
+  utf8.encode(jsonEncode(o)),
+  code,
+  headers: {'content-type': 'application/json; charset=utf-8'},
 );
 
-Map<String, dynamic> _season({String profileName = 'Hồ sơ vụ', String status = 'InProgress'}) => {
+ZoneModel _zone({String? profileId, String? profileName, bool? system}) =>
+    ZoneModel.fromJson(
+      {
+        'zoneId': 'z1',
+        'name': 'Nhà màng 1',
+        'areaM2': 100,
+        'growthProfileId': profileId,
+        'growthProfileName': profileName,
+        'growthProfileIsSystemDefined': system,
+      },
+      farmId: 'f1',
+      fieldId: 'fl1',
+    );
+
+Map<String, dynamic> _season({
+  String profileName = 'Hồ sơ vụ',
+  String status = 'InProgress',
+}) => {
   'seasonId': 's1',
   'zoneId': 'z1',
   'cropId': 'c1',
@@ -41,7 +49,11 @@ Map<String, dynamic> _season({String profileName = 'Hồ sơ vụ', String statu
   'status': status,
 };
 
-Map<String, dynamic> _profile({required String id, String name = 'VietGAP Dưa lưới', bool system = true}) => {
+Map<String, dynamic> _profile({
+  required String id,
+  String name = 'VietGAP Dưa lưới',
+  bool system = true,
+}) => {
   'profileId': id,
   'name': name,
   'cropName': 'Dưa lưới',
@@ -55,7 +67,13 @@ Map<String, dynamic> _profile({required String id, String name = 'VietGAP Dưa l
       'stageOrder': 1,
       'durationDays': 20,
       'requirements': [
-        {'parameterCode': 'SoilMoisture', 'minValue': 60, 'maxValue': 80, 'targetValue': 70, 'unit': '%'},
+        {
+          'parameterCode': 'SoilMoisture',
+          'minValue': 60,
+          'maxValue': 80,
+          'targetValue': 70,
+          'unit': '%',
+        },
       ],
     },
   ],
@@ -69,9 +87,12 @@ void _route({
 }) {
   handler = (r) async {
     final p = r.url.path;
-    if (p == '/api/v1/planting-seasons') return seasonsError ?? utf8Json(seasons);
-    if (p == '/api/v1/growth-profiles' && r.method == 'GET') return utf8Json(profiles);
-    if (r.method == 'PUT' && p == '/api/v1/zones/z1') return putZone?.call(r) ?? utf8Json({'zoneId': 'z1'});
+    if (p == '/api/v1/planting-seasons')
+      return seasonsError ?? utf8Json(seasons);
+    if (p == '/api/v1/growth-profiles' && r.method == 'GET')
+      return utf8Json(profiles);
+    if (r.method == 'PUT' && p == '/api/v1/zones/z1')
+      return putZone?.call(r) ?? utf8Json({'zoneId': 'z1'});
     return utf8Json([]);
   };
 }
@@ -117,23 +138,39 @@ void main() {
   setUp(() {
     calls.clear();
     handler = (_) async => http.Response('[]', 200);
-    ApiService.setTokens(accessToken: 't', refreshToken: 'r', email: 'a@b.c', role: 'FarmOwner');
+    ApiService.setTokens(
+      accessToken: 't',
+      refreshToken: 'r',
+      email: 'a@b.c',
+      role: 'FarmOwner',
+    );
   });
 
-  testWidgets('mở lại Zone: hiển thị hồ sơ ĐANG GẮN TRÊN ZONE (từ Zone API), kèm giai đoạn và ngưỡng', (tester) async {
-    _route(profiles: [_profile(id: 'p1')]);
-    await _pump(tester, _zone(profileId: 'p1', profileName: 'VietGAP Dưa lưới', system: true));
+  testWidgets(
+    'mở lại Zone: hiển thị hồ sơ ĐANG GẮN TRÊN ZONE (từ Zone API), kèm giai đoạn và ngưỡng',
+    (tester) async {
+      _route(profiles: [_profile(id: 'p1')]);
+      await _pump(
+        tester,
+        _zone(profileId: 'p1', profileName: 'VietGAP Dưa lưới', system: true),
+      );
 
-    expect(find.textContaining('Dưa lưới · giống Giống A'), findsOneWidget);
-    expect(find.textContaining('Hồ sơ: VietGAP Dưa lưới (hệ thống'), findsOneWidget);
-    expect(find.textContaining('1. Cây con'), findsOneWidget);
-    expect(find.textContaining('Độ ẩm đất: 60–80 %'), findsOneWidget);
-    expect(find.text('Đổi hồ sơ'), findsOneWidget);
-    expect(find.text('Gỡ hồ sơ'), findsOneWidget);
-    await _dispose(tester);
-  });
+      expect(find.textContaining('Dưa lưới · giống Giống A'), findsOneWidget);
+      expect(
+        find.textContaining('Hồ sơ: VietGAP Dưa lưới (hệ thống'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('1. Cây con'), findsOneWidget);
+      expect(find.textContaining('Độ ẩm đất: 60–80 %'), findsOneWidget);
+      expect(find.text('Đổi hồ sơ'), findsOneWidget);
+      expect(find.text('Gỡ hồ sơ'), findsOneWidget);
+      await _dispose(tester);
+    },
+  );
 
-  testWidgets('hồ sơ hệ thống: không có nút sửa, chỉ hướng dẫn sao chép', (tester) async {
+  testWidgets('hồ sơ hệ thống: không có nút sửa, chỉ hướng dẫn sao chép', (
+    tester,
+  ) async {
     _route(profiles: [_profile(id: 'p1')]);
     await _pump(tester, _zone(profileId: 'p1', system: true));
     expect(find.text('Sửa hồ sơ riêng'), findsNothing);
@@ -151,71 +188,116 @@ void main() {
     await _dispose(tester);
   });
 
-  testWidgets('Zone chưa gắn hồ sơ: mở được, không tự gán hồ sơ, dù vụ mùa có hồ sơ', (tester) async {
-    _route(seasons: [_season()]);
-    await _pump(tester, _zone());
-    expect(find.textContaining('Zone chưa gắn hồ sơ canh tác'), findsOneWidget);
-    expect(find.text('Gắn hồ sơ cho Zone'), findsOneWidget);
-    expect(find.textContaining('Hồ sơ:'), findsNothing, reason: 'không suy hồ sơ của Zone từ vụ mùa');
-    expect(calls.where((c) => c.method == 'PUT'), isEmpty);
-    await _dispose(tester);
-  });
+  testWidgets(
+    'Zone chưa gắn hồ sơ: mở được, không tự gán hồ sơ, dù vụ mùa có hồ sơ',
+    (tester) async {
+      _route(seasons: [_season()]);
+      await _pump(tester, _zone());
+      expect(
+        find.textContaining('Zone chưa gắn hồ sơ canh tác'),
+        findsOneWidget,
+      );
+      expect(find.text('Gắn hồ sơ cho Zone'), findsOneWidget);
+      expect(
+        find.textContaining('Hồ sơ:'),
+        findsNothing,
+        reason: 'không suy hồ sơ của Zone từ vụ mùa',
+      );
+      expect(calls.where((c) => c.method == 'PUT'), isEmpty);
+      await _dispose(tester);
+    },
+  );
 
-  testWidgets('vụ đang chạy dùng hồ sơ khác hồ sơ của Zone: nói rõ vụ giữ hồ sơ riêng', (tester) async {
-    _route(
-      seasons: [_season(profileName: 'Hồ sơ cũ của vụ')],
-      profiles: [_profile(id: 'p1')],
-    );
-    await _pump(tester, _zone(profileId: 'p1', system: true));
-    expect(find.textContaining('Vụ đang chạy: Vụ 1 · dùng hồ sơ "Hồ sơ cũ của vụ"'), findsOneWidget);
-    expect(find.textContaining('vụ giữ hồ sơ riêng của nó'), findsOneWidget);
-    await _dispose(tester);
-  });
+  testWidgets(
+    'vụ đang chạy dùng hồ sơ khác hồ sơ của Zone: nói rõ vụ giữ hồ sơ riêng',
+    (tester) async {
+      _route(
+        seasons: [_season(profileName: 'Hồ sơ cũ của vụ')],
+        profiles: [_profile(id: 'p1')],
+      );
+      await _pump(tester, _zone(profileId: 'p1', system: true));
+      expect(
+        find.textContaining(
+          'Vụ đang chạy: Vụ 1 · dùng hồ sơ "Hồ sơ cũ của vụ"',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('vụ giữ hồ sơ riêng của nó'), findsOneWidget);
+      await _dispose(tester);
+    },
+  );
 
-  testWidgets('API lỗi: báo lỗi tải và có nút thử lại, không hiện như thể chưa gắn hồ sơ', (tester) async {
-    _route(seasonsError: http.Response('{"title":"boom"}', 500));
-    await _pump(tester, _zone(profileId: 'p1'));
-    expect(find.textContaining('Không tải được hồ sơ của Zone'), findsOneWidget);
-    expect(find.text('Thử lại'), findsOneWidget);
-    expect(find.textContaining('Zone chưa gắn hồ sơ'), findsNothing);
-    await _dispose(tester);
-  });
+  testWidgets(
+    'API lỗi: báo lỗi tải và có nút thử lại, không hiện như thể chưa gắn hồ sơ',
+    (tester) async {
+      _route(seasonsError: http.Response('{"title":"boom"}', 500));
+      await _pump(tester, _zone(profileId: 'p1'));
+      expect(
+        find.textContaining('Không tải được hồ sơ của Zone'),
+        findsOneWidget,
+      );
+      expect(find.text('Thử lại'), findsOneWidget);
+      expect(find.textContaining('Zone chưa gắn hồ sơ'), findsNothing);
+      await _dispose(tester);
+    },
+  );
 
-  testWidgets('gỡ hồ sơ: hỏi xác nhận rồi PUT clearGrowthProfile, không đụng vụ mùa', (tester) async {
-    _route(profiles: [_profile(id: 'p1')]);
-    await _pump(tester, _zone(profileId: 'p1', system: true));
-    await tester.tap(find.text('Gỡ hồ sơ'));
-    await tester.pumpAndSettle();
-    expect(find.text('Gỡ hồ sơ khỏi Zone?'), findsOneWidget);
-    expect(calls.where((c) => c.method == 'PUT'), isEmpty, reason: 'chưa xác nhận thì chưa gọi API');
-    await tester.tap(find.widgetWithText(FilledButton, 'Gỡ hồ sơ'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'gỡ hồ sơ: hỏi xác nhận rồi PUT clearGrowthProfile, không đụng vụ mùa',
+    (tester) async {
+      _route(profiles: [_profile(id: 'p1')]);
+      await _pump(tester, _zone(profileId: 'p1', system: true));
+      await tester.tap(find.text('Gỡ hồ sơ'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gỡ hồ sơ khỏi Zone?'), findsOneWidget);
+      expect(
+        calls.where((c) => c.method == 'PUT'),
+        isEmpty,
+        reason: 'chưa xác nhận thì chưa gọi API',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Gỡ hồ sơ'));
+      await tester.pumpAndSettle();
 
-    final put = calls.firstWhere((c) => c.method == 'PUT');
-    expect(put.url.path, '/api/v1/zones/z1');
-    expect((jsonDecode(put.body) as Map<String, dynamic>)['clearGrowthProfile'], isTrue);
-    expect(calls.where((c) => c.url.path.contains('planting-seasons') && c.method == 'POST'), isEmpty);
-    expect(find.text('Đã gỡ hồ sơ khỏi Zone.'), findsOneWidget);
-    await _dispose(tester);
-  });
+      final put = calls.firstWhere((c) => c.method == 'PUT');
+      expect(put.url.path, '/api/v1/zones/z1');
+      expect(
+        (jsonDecode(put.body) as Map<String, dynamic>)['clearGrowthProfile'],
+        isTrue,
+      );
+      expect(
+        calls.where(
+          (c) => c.url.path.contains('planting-seasons') && c.method == 'POST',
+        ),
+        isEmpty,
+      );
+      expect(find.text('Đã gỡ hồ sơ khỏi Zone.'), findsOneWidget);
+      await _dispose(tester);
+    },
+  );
 
-  testWidgets('gỡ hồ sơ bị backend từ chối → báo lỗi thật, hồ sơ vẫn hiển thị', (tester) async {
-    _route(
-      profiles: [_profile(id: 'p1')],
-      putZone: (_) => utf8Json({'message': 'Bạn không có quyền'}, 403),
-    );
-    await _pump(tester, _zone(profileId: 'p1', system: true));
-    await tester.tap(find.text('Gỡ hồ sơ'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Gỡ hồ sơ'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Không gỡ được hồ sơ'), findsOneWidget);
-    expect(find.textContaining('Hồ sơ: VietGAP Dưa lưới'), findsOneWidget);
-    await _dispose(tester);
-  });
+  testWidgets(
+    'gỡ hồ sơ bị backend từ chối → báo lỗi thật, hồ sơ vẫn hiển thị',
+    (tester) async {
+      _route(
+        profiles: [_profile(id: 'p1')],
+        putZone: (_) => utf8Json({'message': 'Bạn không có quyền'}, 403),
+      );
+      await _pump(tester, _zone(profileId: 'p1', system: true));
+      await tester.tap(find.text('Gỡ hồ sơ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Gỡ hồ sơ'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Không gỡ được hồ sơ'), findsOneWidget);
+      expect(find.textContaining('Hồ sơ: VietGAP Dưa lưới'), findsOneWidget);
+      await _dispose(tester);
+    },
+  );
 
   group('chọn hồ sơ: xem chi tiết → áp dụng → xác nhận → gắn', () {
-    void routeCatalog({List<Map<String, dynamic>>? putLog, http.Response Function(http.Request)? putZone}) {
+    void routeCatalog({
+      List<Map<String, dynamic>>? putLog,
+      http.Response Function(http.Request)? putZone,
+    }) {
       handler = (r) async {
         final p = r.url.path;
         if (p == '/api/v1/planting-seasons') return utf8Json([]);
@@ -231,8 +313,15 @@ void main() {
         }
         if (p == '/api/v1/crops/c1/growth-profiles') {
           return utf8Json([
-            {..._profile(id: 'general', name: 'Hồ sơ chung'), 'varietyId': null, 'varietyName': null},
-            {..._profile(id: 'forV1', name: 'Hồ sơ giống A'), 'varietyId': 'v1'},
+            {
+              ..._profile(id: 'general', name: 'Hồ sơ chung'),
+              'varietyId': null,
+              'varietyName': null,
+            },
+            {
+              ..._profile(id: 'forV1', name: 'Hồ sơ giống A'),
+              'varietyId': 'v1',
+            },
           ]);
         }
         if (p.endsWith('/irrigation-schedule')) {
@@ -265,7 +354,8 @@ void main() {
             ],
           });
         }
-        if (r.method == 'PUT' && p == '/api/v1/zones/z1') return putZone?.call(r) ?? utf8Json({'zoneId': 'z1'});
+        if (r.method == 'PUT' && p == '/api/v1/zones/z1')
+          return putZone?.call(r) ?? utf8Json({'zoneId': 'z1'});
         return utf8Json([]);
       };
     }
@@ -287,14 +377,21 @@ void main() {
         await openList(tester);
 
         expect(find.text('Hồ sơ chung'), findsOneWidget);
-        expect(find.text('Xem chi tiết'), findsOneWidget, reason: 'chưa chọn giống: chỉ hồ sơ chung');
+        expect(
+          find.text('Xem chi tiết'),
+          findsOneWidget,
+          reason: 'chưa chọn giống: chỉ hồ sơ chung',
+        );
         expect(find.textContaining('Chưa chọn hồ sơ nào'), findsOneWidget);
 
         await tester.tap(find.text('Xem chi tiết'));
         await tester.pumpAndSettle();
         expect(find.text('Chi tiết hồ sơ canh tác'), findsOneWidget);
         expect(find.textContaining('Hồ sơ hệ thống (chỉ xem)'), findsWidgets);
-        expect(find.textContaining('Độ ẩm đất: 60–80 % (mục tiêu 70)'), findsOneWidget);
+        expect(
+          find.textContaining('Độ ẩm đất: 60–80 % (mục tiêu 70)'),
+          findsOneWidget,
+        );
         expect(find.textContaining('Tưới sáng'), findsOneWidget);
         expect(find.textContaining('Nhỏ giọt'), findsOneWidget);
         expect(find.text('Tạo bản sao riêng để chỉnh'), findsOneWidget);
@@ -302,7 +399,11 @@ void main() {
 
         await tester.tap(find.text('Quay lại danh sách'));
         await tester.pumpAndSettle();
-        expect(find.textContaining('Chưa chọn hồ sơ nào'), findsOneWidget, reason: 'quay lại không chọn gì');
+        expect(
+          find.textContaining('Chưa chọn hồ sơ nào'),
+          findsOneWidget,
+          reason: 'quay lại không chọn gì',
+        );
 
         // Chưa chọn hồ sơ thì không gắn được.
         await tester.tap(find.text('Gắn hồ sơ cho Zone'));
@@ -315,7 +416,11 @@ void main() {
         await tester.tap(find.text('Áp dụng profile này cho Zone'));
         await tester.pumpAndSettle();
         expect(find.textContaining('Đã chọn'), findsOneWidget);
-        expect(calls.where((c) => c.method == 'PUT'), isEmpty, reason: 'chọn xong vẫn chưa lưu');
+        expect(
+          calls.where((c) => c.method == 'PUT'),
+          isEmpty,
+          reason: 'chọn xong vẫn chưa lưu',
+        );
 
         await tester.tap(find.text('Gắn hồ sơ cho Zone'));
         await tester.pumpAndSettle();
@@ -323,31 +428,47 @@ void main() {
         expect(find.textContaining('Hồ sơ: Hồ sơ chung'), findsOneWidget);
         await tester.tap(find.text('Hủy'));
         await tester.pumpAndSettle();
-        expect(calls.where((c) => c.method == 'PUT'), isEmpty, reason: 'hủy xác nhận thì không gắn');
+        expect(
+          calls.where((c) => c.method == 'PUT'),
+          isEmpty,
+          reason: 'hủy xác nhận thì không gắn',
+        );
 
         await tester.tap(find.text('Gắn hồ sơ cho Zone'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Xác nhận gắn'));
         await tester.pumpAndSettle();
         final put = calls.firstWhere((c) => c.method == 'PUT');
-        expect((jsonDecode(put.body) as Map<String, dynamic>)['growthProfileId'], 'general');
-        expect(calls.where((c) => c.url.path.contains('planting-seasons') && c.method == 'POST'), isEmpty);
+        expect(
+          (jsonDecode(put.body) as Map<String, dynamic>)['growthProfileId'],
+          'general',
+        );
+        expect(
+          calls.where(
+            (c) =>
+                c.url.path.contains('planting-seasons') && c.method == 'POST',
+          ),
+          isEmpty,
+        );
         await _dispose(tester);
       },
     );
 
-    testWidgets('chọn giống: hồ sơ chung (không gắn giống) vẫn hiện cùng hồ sơ riêng của giống', (tester) async {
-      routeCatalog();
-      await _pump(tester, _zone());
-      await openList(tester);
-      await tester.tap(find.byType(DropdownButtonFormField<String?>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Giống A').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Hồ sơ chung'), findsOneWidget);
-      expect(find.text('Hồ sơ giống A'), findsOneWidget);
-      expect(find.text('Xem chi tiết'), findsNWidgets(2));
-      await _dispose(tester);
-    });
+    testWidgets(
+      'chọn giống: hồ sơ chung (không gắn giống) vẫn hiện cùng hồ sơ riêng của giống',
+      (tester) async {
+        routeCatalog();
+        await _pump(tester, _zone());
+        await openList(tester);
+        await tester.tap(find.byType(DropdownButtonFormField<String?>).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Giống A').last);
+        await tester.pumpAndSettle();
+        expect(find.text('Hồ sơ chung'), findsOneWidget);
+        expect(find.text('Hồ sơ giống A'), findsOneWidget);
+        expect(find.text('Xem chi tiết'), findsNWidgets(2));
+        await _dispose(tester);
+      },
+    );
   });
 }

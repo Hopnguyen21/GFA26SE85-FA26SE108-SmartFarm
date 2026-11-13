@@ -237,6 +237,22 @@ abstract final class FarmApi {
     return ApiService._listOf(data);
   }
 
+  /// GET /zones/{id}: thông tin một Zone kèm ranh giới (kỹ thuật viên được giao đọc được dù Zone không nằm trong danh sách trang trại của mình).
+  static Future<ZoneModel> getZone(String zoneId) async {
+    final data =
+        ApiService._decodeOrThrow(
+              await ApiService._getWithAuth(
+                '${ApiService.baseUrl}/api/v1/zones/$zoneId',
+              ),
+            )
+            as Map<String, dynamic>;
+    return ZoneModel.fromJson(
+      data,
+      farmId: '${data['farmId'] ?? ''}',
+      fieldId: '${data['fieldId'] ?? ''}',
+    );
+  }
+
   /// GET /zones/{id}/devices/map-locations: toạ độ GIS của từng node.
   static Future<List<Map<String, dynamic>>> getDeviceMapLocations(
     String zoneId,

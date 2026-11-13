@@ -398,7 +398,11 @@ class ZoneModel {
       polygon: geo.points,
       boundaryProblem: geo.problem,
       growthProfileId: _nonEmpty(fieldStr('GrowthProfileId')),
-      growthProfileName: fieldStr('GrowthProfileName'),
+      // Bỏ đuôi " · <tên Zone> · <mã>" mà backend thêm vào tên bản sao hồ sơ.
+      growthProfileName: displayProfileNameOrNull(
+        fieldStr('GrowthProfileName'),
+        zoneName: fieldStr('Name'),
+      ),
       growthProfileIsSystem:
           (json['growthProfileIsSystemDefined'] ??
                   json['GrowthProfileIsSystemDefined'])

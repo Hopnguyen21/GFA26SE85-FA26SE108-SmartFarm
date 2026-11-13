@@ -15,7 +15,10 @@ void main() {
     });
 
     test('thiếu message thì tự tạo thông báo theo số rơ-le', () {
-      final r = EmergencyStopResult.fromJson({'success': true, 'stoppedCount': 0});
+      final r = EmergencyStopResult.fromJson({
+        'success': true,
+        'stoppedCount': 0,
+      });
       expect(r.stoppedCount, 0);
       expect(r.message, 'Đã phát lệnh dừng khẩn cấp 0 rơ-le.');
     });

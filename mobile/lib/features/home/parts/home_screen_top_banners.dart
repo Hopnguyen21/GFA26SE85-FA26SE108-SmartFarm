@@ -280,7 +280,10 @@ extension _HomeScreenTopBanners on HomeScreen {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                itemCount: farmProvider.zones.length + 1,
+                // Nút "+ Zone Mới" chỉ có với chủ trang trại: backend chỉ cho FarmOwner tạo Zone (kỹ thuật viên, nông dân không có quyền).
+                itemCount:
+                    farmProvider.zones.length +
+                    (farmProvider.canManageFarmStructure ? 1 : 0),
                 separatorBuilder: (context, index) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   if (index == farmProvider.zones.length) {

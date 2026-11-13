@@ -41,6 +41,8 @@ class ZoneContractModel {
   final String zoneName;
   final String? parentContractId;
   final String? parentContractNumber;
+  final String? contractPackageName;
+  final bool isCustomPackage;
   final String contractNumber;
   final String? cropType;
   final double monthlyRentVnd;
@@ -70,6 +72,8 @@ class ZoneContractModel {
     required this.zoneName,
     this.parentContractId,
     this.parentContractNumber,
+    this.contractPackageName,
+    this.isCustomPackage = false,
     required this.contractNumber,
     this.cropType,
     required this.monthlyRentVnd,
@@ -142,6 +146,8 @@ class ZoneContractModel {
       zoneName: json['zoneName']?.toString() ?? 'Vùng trồng',
       parentContractId: json['parentContractId']?.toString(),
       parentContractNumber: json['parentContractNumber']?.toString(),
+      contractPackageName: json['contractPackageName']?.toString(),
+      isCustomPackage: json['isCustomPackage'] == true,
       contractNumber: json['contractNumber']?.toString() ?? '',
       cropType: json['cropType']?.toString(),
       monthlyRentVnd: (json['monthlyRentVnd'] as num?)?.toDouble() ?? 0.0,

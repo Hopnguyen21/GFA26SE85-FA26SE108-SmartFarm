@@ -103,7 +103,11 @@ extension FarmProviderSync on FarmProvider {
           else
             Future.value(<FarmerModel>[]),
           TaskApi.getAlerts(_selectedFarmId).catchError((_) => <AlertModel>[]),
-          TaskApi.getTasks(_selectedFarmId).catchError((_) => <TaskModel>[]),
+          if (parseAppRole(ApiService.userRole) == AppRole.farmOwner ||
+              parseAppRole(ApiService.userRole) == AppRole.farmer)
+            TaskApi.getTasks(_selectedFarmId).catchError((_) => <TaskModel>[])
+          else
+            Future.value(<TaskModel>[]),
           fetchNotifications().catchError((_) {}),
         ]);
 

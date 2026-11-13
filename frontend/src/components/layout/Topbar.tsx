@@ -162,6 +162,7 @@ export const Topbar: React.FC = () => {
       {/* Right section: Weather, Notifications, Dev Role Switcher, Profile */}
       <div className="flex items-center gap-3">
 
+
         {/* Notifications Bell */}
         <div className="relative" ref={notificationRef}>
           <button

@@ -14,8 +14,11 @@ import 'package:smartfarm_mobile/core/services/api_service.dart';
 http.Response Function(http.Request) handler = (_) => http.Response('[]', 200);
 final calls = <http.Request>[];
 
-http.Response utf8Json(Object o, [int code = 200]) =>
-    http.Response.bytes(utf8.encode(jsonEncode(o)), code, headers: {'content-type': 'application/json; charset=utf-8'});
+http.Response utf8Json(Object o, [int code = 200]) => http.Response.bytes(
+  utf8.encode(jsonEncode(o)),
+  code,
+  headers: {'content-type': 'application/json; charset=utf-8'},
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,21 +38,36 @@ void main() {
   setUp(() {
     calls.clear();
     handler = (_) => http.Response('[]', 200);
-    ApiService.setTokens(accessToken: 't', refreshToken: 'r', email: 'a@b.c', role: 'FarmOwner');
+    ApiService.setTokens(
+      accessToken: 't',
+      refreshToken: 'r',
+      email: 'a@b.c',
+      role: 'FarmOwner',
+    );
   });
 
   group('DeviceHealthModel', () {
-    DeviceHealthModel at(Duration ago, {int interval = 60}) => DeviceHealthModel(
-      nodeId: 'n',
-      name: 'n',
-      type: 'SENSOR_NODE',
-      lastSeenAt: DateTime.now().subtract(ago),
-      expectedIntervalSeconds: interval,
-    );
+    DeviceHealthModel at(Duration ago, {int interval = 60}) =>
+        DeviceHealthModel(
+          nodeId: 'n',
+          name: 'n',
+          type: 'SENSOR_NODE',
+          lastSeenAt: DateTime.now().subtract(ago),
+          expectedIntervalSeconds: interval,
+        );
 
-    test('≤ 3× chu kỳ → ONLINE', () => expect(at(const Duration(seconds: 150)).healthStatus, 'ONLINE'));
-    test('3–12× chu kỳ → WARNING', () => expect(at(const Duration(minutes: 8)).healthStatus, 'WARNING'));
-    test('> 12× chu kỳ → OFFLINE', () => expect(at(const Duration(hours: 1)).healthStatus, 'OFFLINE'));
+    test(
+      '≤ 3× chu kỳ → ONLINE',
+      () => expect(at(const Duration(seconds: 150)).healthStatus, 'ONLINE'),
+    );
+    test(
+      '3–12× chu kỳ → WARNING',
+      () => expect(at(const Duration(minutes: 8)).healthStatus, 'WARNING'),
+    );
+    test(
+      '> 12× chu kỳ → OFFLINE',
+      () => expect(at(const Duration(hours: 1)).healthStatus, 'OFFLINE'),
+    );
     test('chưa từng nhận dữ liệu → OFFLINE, không bịa thời điểm', () {
       final d = DeviceHealthModel(
         nodeId: 'n',
@@ -73,7 +91,8 @@ void main() {
         if (r.method == 'POST' && r.url.path == '/api/v1/fields/fld/zones') {
           return utf8Json({'zoneId': 'z9'}, 201);
         }
-        if (r.method == 'PUT' && r.url.path == '/api/v1/users/f1/zone-access') return utf8Json({});
+        if (r.method == 'PUT' && r.url.path == '/api/v1/users/f1/zone-access')
+          return utf8Json({});
         return http.Response('[]', 200);
       };
       final p = FarmProvider();
@@ -87,36 +106,60 @@ void main() {
       expect(res.error, isNull);
       expect(res.warning, isNull);
       expect(res.zoneId, 'z9');
-      final put = calls.firstWhere((c) => c.method == 'PUT' && c.url.path == '/api/v1/users/f1/zone-access');
+      final put = calls.firstWhere(
+        (c) =>
+            c.method == 'PUT' && c.url.path == '/api/v1/users/f1/zone-access',
+      );
       final access = (jsonDecode(put.body) as Map)['access'] as List;
       expect(access.single, {'zoneId': 'z9', 'canControl': false});
       p.dispose();
     });
 
-    test('Zone đã tạo nhưng gán nhân công lỗi → warning rõ ràng, không báo thành công giả', () async {
-      handler = (r) {
-        if (r.method == 'POST' && r.url.path == '/api/v1/fields/fld/zones') return utf8Json({'zoneId': 'z9'}, 201);
-        if (r.method == 'PUT' && r.url.path == '/api/v1/users/f1/zone-access') {
-          return utf8Json({'message': 'Farmer không thuộc trang trại này.'}, 403);
-        }
-        return http.Response('[]', 200);
-      };
-      final p = FarmProvider();
-      final res = await p.addNewZone(name: 'Z', areaM2: 500, assignFarmerId: 'f1', customFieldId: 'fld', polygon: box);
-      expect(res.error, isNull);
-      expect(res.warning, contains('Farmer không thuộc trang trại này.'));
-      p.dispose();
-    });
+    test(
+      'Zone đã tạo nhưng gán nhân công lỗi → warning rõ ràng, không báo thành công giả',
+      () async {
+        handler = (r) {
+          if (r.method == 'POST' && r.url.path == '/api/v1/fields/fld/zones')
+            return utf8Json({'zoneId': 'z9'}, 201);
+          if (r.method == 'PUT' &&
+              r.url.path == '/api/v1/users/f1/zone-access') {
+            return utf8Json({
+              'message': 'Farmer không thuộc trang trại này.',
+            }, 403);
+          }
+          return http.Response('[]', 200);
+        };
+        final p = FarmProvider();
+        final res = await p.addNewZone(
+          name: 'Z',
+          areaM2: 500,
+          assignFarmerId: 'f1',
+          customFieldId: 'fld',
+          polygon: box,
+        );
+        expect(res.error, isNull);
+        expect(res.warning, contains('Farmer không thuộc trang trại này.'));
+        p.dispose();
+      },
+    );
 
     test('backend từ chối tạo Zone → error, không gọi API gán quyền', () async {
       handler = (r) {
         if (r.method == 'POST' && r.url.path == '/api/v1/fields/fld/zones') {
-          return utf8Json({'message': 'Zone vượt ngoài ranh giới thửa đất.'}, 400);
+          return utf8Json({
+            'message': 'Zone vượt ngoài ranh giới thửa đất.',
+          }, 400);
         }
         return http.Response('[]', 200);
       };
       final p = FarmProvider();
-      final res = await p.addNewZone(name: 'Z', areaM2: 500, assignFarmerId: 'f1', customFieldId: 'fld', polygon: box);
+      final res = await p.addNewZone(
+        name: 'Z',
+        areaM2: 500,
+        assignFarmerId: 'f1',
+        customFieldId: 'fld',
+        polygon: box,
+      );
       expect(res.error, contains('vượt ngoài ranh giới'));
       expect(calls.where((c) => c.url.path.contains('zone-access')), isEmpty);
       p.dispose();
@@ -126,7 +169,11 @@ void main() {
   group('FarmApi.searchLocation', () {
     test('đọc danh sách địa điểm từ backend', () async {
       handler = (_) => utf8Json([
-        {'displayName': 'Đà Lạt, Lâm Đồng', 'latitude': 11.94, 'longitude': 108.44},
+        {
+          'displayName': 'Đà Lạt, Lâm Đồng',
+          'latitude': 11.94,
+          'longitude': 108.44,
+        },
       ]);
       final r = await FarmApi.searchLocation(' Đà Lạt ');
       expect(calls.single.url.path, '/api/v1/gis/search-location');
@@ -140,18 +187,21 @@ void main() {
     });
   });
 
-  test('getFarmDevicesRaw/getFarmGatewaysRaw giữ nguyên lastSeenAtUtc cho màn tình trạng thiết bị', () async {
-    handler = (_) => utf8Json([
-      {
-        'deviceId': 'd1',
-        'hardwareAddress': 'AA:01',
-        'lastSeenAtUtc': '2026-11-10T01:00:00Z',
-        'heartbeatIntervalSeconds': 30,
-      },
-    ]);
-    final devices = await DeploymentApi.getFarmDevicesRaw('f1');
-    expect(calls.single.url.path, '/api/v1/farms/f1/devices');
-    expect(devices.single['lastSeenAtUtc'], '2026-11-10T01:00:00Z');
-    expect(devices.single['heartbeatIntervalSeconds'], 30);
-  });
+  test(
+    'getFarmDevicesRaw/getFarmGatewaysRaw giữ nguyên lastSeenAtUtc cho màn tình trạng thiết bị',
+    () async {
+      handler = (_) => utf8Json([
+        {
+          'deviceId': 'd1',
+          'hardwareAddress': 'AA:01',
+          'lastSeenAtUtc': '2026-11-10T01:00:00Z',
+          'heartbeatIntervalSeconds': 30,
+        },
+      ]);
+      final devices = await DeploymentApi.getFarmDevicesRaw('f1');
+      expect(calls.single.url.path, '/api/v1/farms/f1/devices');
+      expect(devices.single['lastSeenAtUtc'], '2026-11-10T01:00:00Z');
+      expect(devices.single['heartbeatIntervalSeconds'], 30);
+    },
+  );
 }

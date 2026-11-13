@@ -26,27 +26,33 @@ extension _ContractsDepreciationScreenStateContractsTab
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Phân biệt với cọc/nghiệm thu của yêu cầu dịch vụ kỹ thuật
+          // Phân biệt với cọc/nghiệm thu của yêu cầu dịch vụ kỹ thuật (nằm ở "Yêu cầu & Hợp đồng").
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
               color: const Color(0xFFF0F9FF),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFBAE6FD)),
             ),
-            child: const Text(
-              'Danh sách hợp đồng của các Zone: hợp đồng đang hiệu lực và các hợp đồng đã kết thúc (tuỳ chọn, lập sau khi Zone đã có). '
-              'Không phải tiền đặt cọc 30% / nghiệm thu 70% của báo giá lắp đặt thiết bị — '
-              'phần đó nằm ở "Hỗ trợ kỹ thuật & Báo giá" và không phụ thuộc hợp đồng của Zone.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF0369A1),
-                height: 1.4,
-              ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Color(0xFF0369A1)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Hợp đồng của từng Zone (đang hiệu lực và đã kết thúc). Cọc 30% / nghiệm thu 70% của báo giá lắp đặt nằm ở "Yêu cầu & Hợp đồng".',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF0369A1),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          // Metrics Cards
+          ), // Metrics Cards
           Row(
             children: [
               Expanded(

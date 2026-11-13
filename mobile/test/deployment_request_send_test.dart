@@ -65,6 +65,8 @@ void main() {
   final posts = <http.Request>[];
   var activeStatus = '';
   var seasonMissing = false;
+  final cancels = <http.Request>[];
+  var cancelConflict = false;
   http.Response json(Object body, [int code = 200]) => http.Response(
     jsonEncode(body),
     code,
@@ -73,6 +75,18 @@ void main() {
 
   Future<http.Response> handler(http.Request r) async {
     final p = r.url.path;
+    if (r.method == 'POST' && p.endsWith('/cancel')) {
+      cancels.add(r);
+      if (cancelConflict) {
+        return json({
+          'title': 'Conflict',
+          'detail':
+              'The contract is already signed or the deposit is paid; contact the platform administrator to cancel.',
+        }, 409);
+      }
+      activeStatus = '';
+      return json(existingRequest('Cancelled'));
+    }
     if (r.method == 'POST' && p.endsWith('/deployment-requests/submit')) {
       posts.add(r);
       return json(existingRequest('Submitted'), 201);
@@ -145,6 +159,8 @@ void main() {
     posts.clear();
     activeStatus = '';
     seasonMissing = false;
+    cancels.clear();
+    cancelConflict = false;
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -268,6 +284,67 @@ void main() {
       ),
     );
     expect(button.onPressed, isNull);
+  });
+
+  testWidgets(
+    'Zone có yêu cầu đang xử lý: hủy kèm lý do → gọi /cancel đúng id, tải lại và cho gửi yêu cầu mới',
+    (tester) async {
+      activeStatus = 'Submitted';
+      await pumpScreen(tester);
+      expect(find.text('Hủy yêu cầu này'), findsOneWidget);
+      await tester.tap(find.text('Hủy yêu cầu này'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hủy yêu cầu triển khai?'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'Gửi nhầm Zone');
+      await tester.tap(find.text('Hủy yêu cầu'));
+      await tester.pumpAndSettle();
+      expect(cancels, hasLength(1));
+      expect(
+        cancels.single.url.path,
+        endsWith('/4fd9ce0e-b78f-4132-aaec-ca8efe97372d/cancel'),
+      );
+      expect(jsonDecode(cancels.single.body), {'reason': 'Gửi nhầm Zone'});
+      expect(find.text('Hủy yêu cầu này'), findsNothing);
+      expect(find.text('Xác nhận gửi yêu cầu'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('chọn "Giữ lại": không gọi /cancel', (tester) async {
+    activeStatus = 'Accepted';
+    await pumpScreen(tester);
+    await tester.tap(find.text('Hủy yêu cầu này'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Giữ lại'));
+    await tester.pumpAndSettle();
+    expect(cancels, isEmpty);
+    expect(find.text('Hủy yêu cầu này'), findsOneWidget);
+  });
+
+  testWidgets(
+    'backend từ chối vì đã ký/cọc: báo câu dễ hiểu, yêu cầu vẫn còn',
+    (tester) async {
+      activeStatus = 'PlanConfirmed';
+      cancelConflict = true;
+      await pumpScreen(tester);
+      await tester.tap(find.text('Hủy yêu cầu này'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hủy yêu cầu'));
+      await tester.pumpAndSettle();
+      expect(cancels, hasLength(1));
+      expect(
+        find.textContaining('đã được ký hoặc đã đóng cọc'),
+        findsOneWidget,
+      );
+      expect(find.text('Hủy yêu cầu này'), findsOneWidget);
+    },
+  );
+
+  testWidgets('đang lắp đặt (Installing): không có nút hủy', (tester) async {
+    activeStatus = 'Installing';
+    await pumpScreen(tester);
+    expect(find.text('Mở yêu cầu đang xử lý'), findsOneWidget);
+    expect(find.text('Hủy yêu cầu này'), findsNothing);
   });
 
   testWidgets('không tràn ngang ở 320px, chữ 1,3×', (tester) async {

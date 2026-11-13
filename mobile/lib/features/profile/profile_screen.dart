@@ -13,7 +13,6 @@ import '../tasks/alerts_tasks_screen.dart';
 import '../workforce/workforce_screen.dart';
 import 'connection_notification_screens.dart';
 import '../auth/password_screens.dart';
-import '../support/technician_maintenance_screen.dart';
 import '../workforce/farm_invitations_screen.dart';
 import '../cf1/cf1_progress_screen.dart';
 import '../support/support_requests_screen.dart';
