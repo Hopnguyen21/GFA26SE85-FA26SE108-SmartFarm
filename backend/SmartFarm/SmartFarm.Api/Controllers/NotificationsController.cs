@@ -71,4 +71,3 @@ public sealed class NotificationsController(INotificationService notificationSer
         return Ok(new { deletedCount = count });
     }
 }
-
