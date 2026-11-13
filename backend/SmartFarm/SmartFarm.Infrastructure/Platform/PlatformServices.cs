@@ -253,79 +253,24 @@ public sealed class GisService(SmartFarmDbContext db) : IGisService
 {
     public async Task BulkUpdateNodeLocationsAsync(Guid technicianId, Guid zoneId, BulkUpdateNodeLocationsCommand command, CancellationToken ct)
     {
-        var zone = await db.Zones.Include(z => z.Field).FirstOrDefaultAsync(z => z.Id == zoneId, ct);
-        if (zone is null && command.ServiceRequestId is { } reqId)
-        {
-            var sr = await db.ServiceRequests.FirstOrDefaultAsync(x => x.Id == reqId, ct);
-            if (sr is not null)
-            {
-                zoneId = sr.ZoneId;
-                zone = await db.Zones.Include(z => z.Field).FirstOrDefaultAsync(z => z.Id == zoneId, ct);
-            }
-        }
-
-        var farmId = zone?.Field?.FarmId ?? Guid.Parse("30000000-0000-0000-0000-000000000001");
-        var gateway = await db.Gateways.FirstOrDefaultAsync(g => g.FarmId == farmId, ct);
-        var defaultGwId = gateway?.Id ?? Guid.Parse("40000000-0000-0000-0000-000000000001");
-        var defaultDepReqId = gateway?.DeploymentRequestId ?? Guid.Parse("22000000-0000-0000-0000-000000000001");
-
         var deviceIds = command.Nodes.Select(n => n.DeviceId).ToList();
-        var devices = await db.Devices.Where(x => deviceIds.Contains(x.Id) || (x.ZoneId == zoneId)).ToListAsync(ct);
-
+        var devices = await db.Devices.Where(x => deviceIds.Contains(x.Id) && x.ZoneId == zoneId).ToListAsync(ct);
         foreach (var node in command.Nodes)
         {
             var device = devices.FirstOrDefault(d => d.Id == node.DeviceId);
-            if (device is null)
-            {
-                var newId = node.DeviceId != Guid.Empty ? node.DeviceId : Guid.NewGuid();
-                device = new Device
-                {
-                    Id = newId,
-                    FarmId = farmId,
-                    GatewayId = defaultGwId,
-                    DeploymentRequestId = defaultDepReqId,
-                    ZoneId = zoneId,
-                    HardwareAddress = $"NODE-{newId.ToString()[..8].ToUpperInvariant()}",
-                    DeviceType = DeviceType.SensorNode,
-                    Status = DeviceStatus.Online,
-                    GpsLatitude = node.Latitude,
-                    GpsLongitude = node.Longitude,
-                    BatteryLevel = node.BatteryLevel ?? 100,
-                    Rssi = node.Rssi ?? -70
-                };
-                db.Devices.Add(device);
-                devices.Add(device);
-            }
-            else
-            {
-                device.ZoneId = zoneId;
-                device.GpsLatitude = node.Latitude;
-                device.GpsLongitude = node.Longitude;
-                if (node.BatteryLevel.HasValue) device.BatteryLevel = node.BatteryLevel;
-                if (node.Rssi.HasValue) device.Rssi = node.Rssi;
-            }
+            if (device is null) continue;
+            device.GpsLatitude = node.Latitude;
+            device.GpsLongitude = node.Longitude;
+            device.BatteryLevel = node.BatteryLevel;
+            device.Rssi = node.Rssi;
         }
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<DeviceMapLocationView>> GetMapLocationsAsync(Guid userId, Guid zoneId, CancellationToken ct)
-    {
-        var sr = await db.ServiceRequests.AsNoTracking().FirstOrDefaultAsync(x => x.Id == zoneId, ct);
-        var targetZoneId = sr?.ZoneId ?? zoneId;
-
-        return await db.Devices.AsNoTracking()
-            .Where(x => x.ZoneId == targetZoneId && x.Status != DeviceStatus.Decommissioned)
-            .Select(x => new DeviceMapLocationView(
-                x.Id,
-                x.HardwareAddress,
-                x.DeviceType.ToString(),
-                x.GpsLatitude,
-                x.GpsLongitude,
-                x.BatteryLevel,
-                x.Rssi,
-                x.Status.ToString()))
+    public async Task<IReadOnlyList<DeviceMapLocationView>> GetMapLocationsAsync(Guid userId, Guid zoneId, CancellationToken ct) =>
+        await db.Devices.AsNoTracking().Where(x => x.ZoneId == zoneId && x.Status != DeviceStatus.Decommissioned)
+            .Select(x => new DeviceMapLocationView(x.Id, x.HardwareAddress, x.DeviceType.ToString(), x.GpsLatitude, x.GpsLongitude, x.BatteryLevel, x.Rssi, x.Status.ToString()))
             .ToListAsync(ct);
-    }
 }
 
 // ─── Farm Wizard Service ──────────────────────────────────────────────────────
@@ -350,14 +295,11 @@ public sealed class FarmWizardService(SmartFarmDbContext db) : IFarmWizardServic
         // 2. Create Field (optional)
         if (command.Field is not null)
         {
-            var fieldArea = command.Field.AreaM2 ?? 0;
-            var zoneArea = command.Zone?.AreaM2 ?? 0;
             var field = new Field
             {
                 FarmId = farm.Id,
                 Name = command.Field.Name,
-                AreaM2 = fieldArea,
-                AvailableAreaM2 = Math.Max(0, fieldArea - zoneArea),
+                AreaM2 = command.Field.AreaM2 ?? 0,
                 SoilType = command.Field.SoilType,
                 BoundaryGeoJson = command.Field.BoundaryGeoJson
             };
@@ -492,11 +434,36 @@ public sealed class WeatherService(SmartFarmDbContext db, HttpClient httpClient,
 // ─── Farmer Service ───────────────────────────────────────────────────────────
 public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
 {
-    public async Task<IReadOnlyList<object>> GetMyTasksAsync(Guid farmerId, CancellationToken ct) =>
-        (await db.FarmTasks.AsNoTracking().Include(x => x.Zone).Where(x => x.AssignedFarmerId == farmerId && x.Status != FarmTaskStatus.Cancelled)
-            .OrderBy(x => x.DueAtUtc).ToListAsync(ct))
-        .Select(x => (object)new { x.Id, x.Title, x.Description, x.Status, DueDate = x.DueAtUtc, ZoneName = x.Zone != null ? x.Zone.Name : null, x.CreatedAtUtc })
-        .ToList();
+    public async Task<IReadOnlyList<object>> GetMyTasksAsync(Guid farmerId, CancellationToken ct)
+    {
+        var caller = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == farmerId, ct);
+        var query = db.FarmTasks.AsNoTracking().Include(x => x.Zone).AsQueryable();
+
+        if (caller != null && caller.Role != UserRole.Farmer)
+        {
+            if (caller.TenantId.HasValue)
+                query = query.Where(x => x.TenantId == caller.TenantId.Value && x.Status != FarmTaskStatus.Cancelled);
+            else
+                query = query.Where(x => x.Status != FarmTaskStatus.Cancelled);
+        }
+        else
+        {
+            query = query.Where(x => x.AssignedFarmerId == farmerId && x.Status != FarmTaskStatus.Cancelled);
+        }
+
+        var list = await query.OrderBy(x => x.DueAtUtc).ToListAsync(ct);
+        return list.Select(x => (object)new {
+            Id = x.Id,
+            TaskId = x.Id,
+            Title = x.Title,
+            Description = x.Description,
+            Status = x.Status.ToString(),
+            DueDate = x.DueAtUtc,
+            DueAtUtc = x.DueAtUtc,
+            ZoneName = x.Zone != null ? x.Zone.Name : null,
+            CreatedAtUtc = x.CreatedAtUtc
+        }).ToList();
+    }
 
     public async Task CompleteTaskAsync(Guid farmerId, Guid taskId, FarmerCompleteTaskCommand command, CancellationToken ct)
     {
@@ -521,11 +488,24 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<FarmerZoneView>> GetMyZonesAsync(Guid farmerId, CancellationToken ct) =>
-        await db.UserZoneAccesses.AsNoTracking().Include(x => x.Zone).ThenInclude(z => z.Field)
+    public async Task<IReadOnlyList<FarmerZoneView>> GetMyZonesAsync(Guid farmerId, CancellationToken ct)
+    {
+        var caller = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == farmerId, ct);
+        if (caller != null && caller.Role != UserRole.Farmer)
+        {
+            var zones = await db.Zones.AsNoTracking().Include(z => z.Field)
+                .Where(z => z.ArchivedAtUtc == null && (caller.TenantId == null || z.Field.Farm.TenantId == caller.TenantId.Value))
+                .OrderBy(z => z.Name)
+                .Select(z => new FarmerZoneView(z.Id, z.Name, z.FieldId, z.Field.FarmId, true, z.CreatedAtUtc))
+                .ToListAsync(ct);
+            return zones;
+        }
+
+        return await db.UserZoneAccesses.AsNoTracking().Include(x => x.Zone).ThenInclude(z => z.Field)
             .Where(x => x.AppUserId == farmerId).OrderBy(x => x.Zone.Name)
             .Select(x => new FarmerZoneView(x.ZoneId, x.Zone.Name, x.Zone.FieldId, x.Zone.Field.FarmId, x.CanControl, x.AssignedAtUtc))
             .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyList<PlatformHardwareItemView>> GetMySparePartsAsync(Guid technicianId, CancellationToken ct) =>
         await db.PlatformHardwareItems.AsNoTracking().Where(x => x.AssignedTechnicianId == technicianId)
@@ -541,14 +521,29 @@ public sealed class ScheduleSyncService(SmartFarmDbContext db) : IScheduleSyncSe
     {
         // Find growth profile for crop
         var profile = await db.GrowthProfiles.Include(x => x.Stages).AsNoTracking()
-            .FirstOrDefaultAsync(x => x.CropId == cropId, ct);
-        if (profile is null) return [];
+            .FirstOrDefaultAsync(x => x.CropId == cropId, ct)
+            ?? await db.GrowthProfiles.Include(x => x.Stages).AsNoTracking().FirstOrDefaultAsync(ct);
 
         var zone = await db.Zones.Include(z => z.Field).ThenInclude(f => f.Farm).SingleOrDefaultAsync(z => z.Id == zoneId, ct)
             ?? throw new ResourceNotFoundException("Zone not found.");
 
-        var actuator = await db.DeviceActuators.SingleOrDefaultAsync(x => x.Id == actuatorId, ct)
-            ?? throw new ResourceNotFoundException("Actuator not found.");
+        // Find actuator: use provided actuatorId if exists, otherwise pick first actuator in this zone or in the farm
+        var actuator = await db.DeviceActuators.Include(a => a.Device).SingleOrDefaultAsync(x => x.Id == actuatorId, ct);
+        if (actuator is null)
+        {
+            actuator = await db.DeviceActuators.Include(a => a.Device)
+                .FirstOrDefaultAsync(x => x.Device.ZoneId == zoneId, ct)
+                ?? await db.DeviceActuators.Include(a => a.Device)
+                .FirstOrDefaultAsync(x => x.Device.FarmId == zone.Field.FarmId, ct)
+                ?? await db.DeviceActuators.FirstOrDefaultAsync(ct);
+        }
+
+        if (actuator is null)
+        {
+            throw new ResourceNotFoundException("No actuator available for this zone or farm.");
+        }
+
+        actuatorId = actuator.Id;
 
         // Remove old synced schedules for this zone+actuator
         var existing = await db.ControlSchedules.Where(x => x.ZoneId == zoneId && x.ActuatorId == actuatorId && x.Name.StartsWith("[AutoSync]")).ToListAsync(ct);
@@ -565,7 +560,7 @@ public sealed class ScheduleSyncService(SmartFarmDbContext db) : IScheduleSyncSe
                 FarmId = zone.Field.FarmId,
                 ZoneId = zoneId,
                 ActuatorId = actuatorId,
-                Name = $"[AutoSync] {profile.Name} {h:D2}:{m:D2}",
+                Name = $"[AutoSync] {profile?.Name ?? "Lịch tưới Chuẩn"} {h:D2}:{m:D2}",
                 CronExpression = $"0 {m} {h} * * *",
                 DurationSeconds = dur * 60,
                 EnableRainDelay = true,
