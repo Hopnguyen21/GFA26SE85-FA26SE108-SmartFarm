@@ -16,7 +16,12 @@ void main() {
         'progressPercent': 100,
         'result': 'Xong',
       },
-      {'farmerId': 'f2', 'farmerName': 'Bình', 'status': 'Pending', 'progressPercent': 0},
+      {
+        'farmerId': 'f2',
+        'farmerName': 'Bình',
+        'status': 'Pending',
+        'progressPercent': 0,
+      },
     ],
   };
 
@@ -31,11 +36,18 @@ void main() {
     expect(task.dueDate, isNot(contains('T10')));
   });
 
-  test('pending task is not completed and missing due date is not invented', () {
-    final task = TaskModel.fromJson({'id': 't2', 'title': 'X', 'status': 'Pending'});
-    expect(task.isCompleted, isFalse);
-    expect(task.dueDate, 'Chưa đặt hạn');
-  });
+  test(
+    'pending task is not completed and missing due date is not invented',
+    () {
+      final task = TaskModel.fromJson({
+        'id': 't2',
+        'title': 'X',
+        'status': 'Pending',
+      });
+      expect(task.isCompleted, isFalse);
+      expect(task.dueDate, 'Chưa đặt hạn');
+    },
+  );
 
   test('farmer keeps zone access from the API', () {
     final farmer = FarmerModel.fromJson({

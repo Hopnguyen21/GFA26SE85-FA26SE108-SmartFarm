@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../core/models/iot_deployment.dart';
 import '../../core/services/api_service.dart';
 import '../zones/zone_operations_screens.dart';
+import 'widgets/device_actions_sheet.dart' show promptText;
+import 'widgets/device_config_dialogs.dart';
 
 /// Công cụ kỹ thuật viên trước đây chỉ có trên Web: cấu hình gateway, cấu hình cảm biến node,
 /// xem cấu hình firmware, thử kết nối, cập nhật toạ độ node hàng loạt và kho linh kiện cá nhân.
@@ -482,93 +484,13 @@ class _GatewayCardState extends State<_GatewayCard> {
     );
   }
 
-  static const _sensorPresets = <(String, String, String)>[
-    ('SoilMoisture', '%', 'Độ ẩm đất'),
-    ('Temperature', '°C', 'Nhiệt độ'),
-    ('AirHumidity', '%', 'Độ ẩm không khí'),
-    ('LightIntensity', 'lux', 'Ánh sáng'),
-    ('Ph', 'pH', 'pH'),
-    ('Ec', 'mS/cm', 'EC'),
-  ];
-
   Future<void> _configureSensors(IotDevice d) async {
-    final chosen = <String>{};
-    final intervalC = TextEditingController(text: '60');
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(
-            'Cảm biến · ${d.hardwareAddress}',
-            style: const TextStyle(fontSize: 15),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (code, unit, label) in _sensorPresets)
-                  CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    value: chosen.contains(code),
-                    onChanged: (v) => setLocal(
-                      () => v == true ? chosen.add(code) : chosen.remove(code),
-                    ),
-                    title: Text('$label ($unit)'),
-                  ),
-                TextField(
-                  controller: intervalC,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Chu kỳ lấy mẫu (giây, 10–3600)',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final interval = int.tryParse(intervalC.text.trim());
-                if (chosen.isEmpty ||
-                    interval == null ||
-                    interval < 10 ||
-                    interval > 3600) {
-                  _snack(
-                    ctx,
-                    'Chọn ít nhất một cảm biến; chu kỳ 10–3600 giây.',
-                    error: true,
-                  );
-                  return;
-                }
-                try {
-                  await DeploymentApi.configureDeviceSensors(d.deviceId, [
-                    for (final (code, unit, _) in _sensorPresets.where(
-                      (p) => chosen.contains(p.$1),
-                    ))
-                      {
-                        'sensorType': code,
-                        'unit': unit,
-                        'samplingIntervalSec': interval,
-                      },
-                  ]);
-                  if (ctx.mounted) Navigator.pop(ctx, true);
-                } catch (e) {
-                  if (ctx.mounted) _snack(ctx, _err(e), error: true);
-                }
-              },
-              child: const Text('Lưu'),
-            ),
-          ],
-        ),
-      ),
+    final saved = await showSensorConfigDialog(
+      context,
+      deviceId: d.deviceId,
+      label: d.hardwareAddress,
     );
-    intervalC.dispose();
-    if (saved == true && mounted) {
+    if (saved && mounted) {
       _snack(context, 'Đã cấu hình cảm biến cho ${d.hardwareAddress}.');
       await widget.onChanged();
     }
@@ -593,6 +515,130 @@ class _SparePartsTabState extends State<_SparePartsTab> {
     } catch (_) {}
   }
 
+  bool _busy = false;
+
+  /// Trả linh kiện đang giữ về kho trung tâm.
+  Future<void> _return(Map<String, dynamic> p) async {
+    if (_busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Trả linh kiện về kho?'),
+        content: Text('${p['name']} (${p['code']}) sẽ về kho trung tâm.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Giữ lại'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Trả kho'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await DeploymentApi.returnHardwareItem('${p['id']}');
+      if (mounted) _snack(context, 'Đã trả linh kiện về kho.');
+      await _reload();
+    } catch (e) {
+      if (mounted) _snack(context, _err(e), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Nhận linh kiện từ kho trung tâm: chọn món, Gateway/Node nhận từng chiếc, vật tư khác hỏi số lượng.
+  Future<void> _receive() async {
+    if (_busy) return;
+    final List<Map<String, dynamic>> stock;
+    try {
+      stock = await DeploymentApi.getWarehouseParts();
+    } catch (e) {
+      if (mounted) _snack(context, _err(e), error: true);
+      return;
+    }
+    if (!mounted) return;
+    if (stock.isEmpty) {
+      _snack(context, 'Kho trung tâm hiện không còn linh kiện để nhận.');
+      return;
+    }
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Chọn linh kiện cần nhận',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+            for (final s in stock)
+              ListTile(
+                leading: const Icon(Icons.memory_outlined),
+                title: Text('${s['name']}'),
+                subtitle: Text(
+                  '${s['code']} · ${s['category']} · còn ${s['quantityInStock']}',
+                ),
+                onTap: () => Navigator.pop(ctx, s),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final category = '${picked['category']}'.toUpperCase();
+    final single = category.contains('GATEWAY') || category.contains('NODE');
+    var quantity = 1;
+    if (!single) {
+      final max = (picked['quantityInStock'] as num?)?.toInt() ?? 1;
+      final text = await promptText(
+        context,
+        title: 'Số lượng cần nhận',
+        body: 'Kho còn $max.',
+        label: 'Số lượng',
+        confirmLabel: 'Nhận',
+        keyboardType: TextInputType.number,
+      );
+      if (text == null || !mounted) return;
+      final n = int.tryParse(text);
+      if (n == null || n < 1 || n > max) {
+        _snack(context, 'Số lượng phải từ 1 đến $max.', error: true);
+        return;
+      }
+      quantity = n;
+    }
+    setState(() => _busy = true);
+    try {
+      await DeploymentApi.assignHardwareItem(
+        '${picked['id']}',
+        quantity: quantity,
+      );
+      if (mounted) _snack(context, 'Đã nhận linh kiện từ kho.');
+      await _reload();
+    } catch (e) {
+      if (mounted) _snack(context, _err(e), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _receiveButton() => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    child: OutlinedButton.icon(
+      onPressed: _busy ? null : _receive,
+      icon: const Icon(Icons.inventory_2_outlined),
+      label: const Text('Nhận linh kiện từ kho'),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -616,17 +662,19 @@ class _SparePartsTabState extends State<_SparePartsTab> {
           onRefresh: _reload,
           child: parts.isEmpty
               ? ListView(
-                  children: const [
-                    SizedBox(height: 80),
-                    Center(child: Text('Bạn chưa giữ linh kiện nào.')),
+                  children: [
+                    _receiveButton(),
+                    const SizedBox(height: 60),
+                    const Center(child: Text('Bạn chưa giữ linh kiện nào.')),
                   ],
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: parts.length,
+                  itemCount: parts.length + 1,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, i) {
-                    final p = parts[i];
+                    if (i == 0) return _receiveButton();
+                    final p = parts[i - 1];
                     final rawPrice = p['unitPrice'] as num?;
                     final priceText = rawPrice != null && rawPrice > 0
                         ? NumberFormat.currency(
@@ -650,6 +698,7 @@ class _SparePartsTabState extends State<_SparePartsTab> {
                         '${p['locationRack'] != null ? ' · Kệ ${p['locationRack']}' : ''}',
                         style: const TextStyle(fontSize: 11),
                       ),
+                      isThreeLine: true,
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -670,6 +719,20 @@ class _SparePartsTabState extends State<_SparePartsTab> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                          TextButton(
+                            onPressed: _busy ? null : () => _return(p),
+                            style: TextButton.styleFrom(
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Trả kho',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
                         ],
                       ),
                     );

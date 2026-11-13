@@ -9,21 +9,53 @@ import '../../core/services/api_service.dart';
 /// Owner xem trang trại đang chọn; kỹ thuật viên xem các trang trại có yêu cầu triển khai được giao.
 Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
   final farmIds = <String>{};
-  if (provider.currentRole == 'TECHNICIAN') {
+  // Kỹ thuật viên có nhiều trang trại: tên Zone/trang trại giúp phân biệt các node trùng tên.
+  final farmNames = <String, String>{};
+  final zoneNames = <String, String>{};
+  final isTech = provider.currentRole == 'TECHNICIAN';
+  if (isTech) {
     final requests = await DeploymentApi.getTechnicianDeploymentRequests();
-    farmIds.addAll(requests.map((r) => r.farmId).where((id) => id.isNotEmpty));
+    for (final r in requests) {
+      // Chỉ yêu cầu đang lắp đặt hoặc đã chuyển bảo trì mới có thiết bị và còn được backend cho đọc trang trại;
+      // yêu cầu chưa tiếp nhận hay đã hoàn tất thì trang trại không đọc được (404).
+      if (r.farmId.isEmpty ||
+          (r.status != 'Installing' && r.status != 'MaintenanceRequired')) {
+        continue;
+      }
+      farmIds.add(r.farmId);
+      final c = r.context;
+      if (c != null) {
+        farmNames[r.farmId] = c.farmName;
+        zoneNames[r.zoneId.toLowerCase()] = c.zoneName;
+      }
+    }
   } else if (provider.selectedFarmId.isNotEmpty) {
     farmIds.add(provider.selectedFarmId);
   }
 
   final result = <DeviceHealthModel>[];
+  Object? firstError;
   for (final farmId in farmIds) {
-    final fetched = await Future.wait([
-      DeploymentApi.getFarmGatewaysRaw(farmId),
-      DeploymentApi.getFarmDevicesRaw(farmId),
-    ]);
-    final gateways = fetched[0];
-    final devices = fetched[1];
+    final List<Map<String, dynamic>> gateways;
+    final List<Map<String, dynamic>> devices;
+    try {
+      final fetched = await Future.wait([
+        DeploymentApi.getFarmGatewaysRaw(farmId),
+        DeploymentApi.getFarmDevicesRaw(farmId),
+      ]);
+      gateways = fetched[0];
+      devices = fetched[1];
+    } catch (e) {
+      // Một trang trại không đọc được không được làm mất thiết bị của các trang trại còn lại.
+      firstError ??= e;
+      continue;
+    }
+    String where(String? zoneId) {
+      final zone = zoneNames[(zoneId ?? '').toLowerCase()];
+      final farm = farmNames[farmId];
+      final parts = [zone, farm].whereType<String>().where((s) => s.isNotEmpty);
+      return !isTech || parts.isEmpty ? '' : ' · ${parts.join(' · ')}';
+    }
 
     // Pin/RSSI chỉ có ở API vị trí theo Zone.
     final zoneIds = {
@@ -45,7 +77,7 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
       result.add(
         DeviceHealthModel(
           nodeId: '${g['gatewaySerial'] ?? g['gatewayId']}',
-          name: 'Gateway ${g['gatewaySerial'] ?? ''}'.trim(),
+          name: '${'Gateway ${g['gatewaySerial'] ?? ''}'.trim()}${where(null)}',
           type: 'GATEWAY',
           lastSeenAt: DateTime.tryParse(
             '${g['lastSeenAtUtc'] ?? ''}',
@@ -62,8 +94,7 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
         DeviceHealthModel(
           nodeId: '${d['hardwareAddress'] ?? d['deviceId']}',
           name:
-              '${isActuator ? 'Node chấp hành' : 'Node cảm biến'} ${d['hardwareAddress'] ?? ''}'
-                  .trim(),
+              '${'${isActuator ? 'Node chấp hành' : 'Node cảm biến'} ${d['hardwareAddress'] ?? ''}'.trim()}${where('${d['zoneId'] ?? ''}')}',
           type: isActuator ? 'ACTUATOR_NODE' : 'SENSOR_NODE',
           lastSeenAt: DateTime.tryParse(
             '${d['lastSeenAtUtc'] ?? ''}',
@@ -72,9 +103,13 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
               (d['heartbeatIntervalSeconds'] as num?)?.toInt() ?? 60,
           signalRssi: (loc?['rssi'] as num?)?.toDouble(),
           batteryPercent: (loc?['batteryLevel'] as num?)?.toInt(),
+          deviceId: '${d['deviceId']}',
+          zoneId: '${d['zoneId'] ?? ''}'.isEmpty ? null : '${d['zoneId']}',
         ),
       );
     }
   }
+  // Chỉ báo lỗi khi KHÔNG đọc được trang trại nào; có ít nhất một trang trại thì trả phần đọc được.
+  if (result.isEmpty && firstError != null) throw firstError;
   return result;
 }

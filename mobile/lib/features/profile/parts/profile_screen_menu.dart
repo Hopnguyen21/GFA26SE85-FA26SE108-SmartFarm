@@ -7,16 +7,17 @@ extension _ProfileScreenMenu on ProfileScreen {
     final isFarmer = provider.currentRole == 'FARMER';
 
     final items = [
-      // Farmer: xem cảnh báo & tác vụ
-      {
-        'icon': Icons.warning_amber_rounded,
-        'label': 'Cảnh báo & Tác vụ thực địa',
-        'color': const Color(0xFFE11D48),
-        'onTap': () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AlertsTasksScreen()),
-        ),
-      },
+      // Cảnh báo & tác vụ nông trại là dữ liệu của chủ trại/nông dân: kỹ thuật viên không đọc được (việc của họ ở tab Bảo Trì).
+      if (!isTech)
+        {
+          'icon': Icons.warning_amber_rounded,
+          'label': 'Cảnh báo & Tác vụ thực địa',
+          'color': const Color(0xFFE11D48),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AlertsTasksScreen()),
+          ),
+        },
       if (isFarmer)
         {
           'icon': Icons.mail_outline,
@@ -27,16 +28,17 @@ extension _ProfileScreenMenu on ProfileScreen {
             MaterialPageRoute(builder: (_) => const FarmInvitationsScreen()),
           ),
         },
-      // Farmer + Tech + Owner: lịch sử cảm biến
-      {
-        'icon': Icons.history,
-        'label': 'Lịch sử Cảm biến & Biểu đồ',
-        'color': const Color(0xFF7C3AED),
-        'onTap': () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MonitoringHistoryScreen()),
-        ),
-      },
+      // Farmer + Owner: lịch sử cảm biến (backend không cho kỹ thuật viên đọc telemetry)
+      if (!isTech)
+        {
+          'icon': Icons.history,
+          'label': 'Lịch sử Cảm biến & Biểu đồ',
+          'color': const Color(0xFF7C3AED),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MonitoringHistoryScreen()),
+          ),
+        },
       // Farmer + Owner: lịch tưới (xem)
       if (!isTech) ...[
         {
@@ -72,13 +74,11 @@ extension _ProfileScreenMenu on ProfileScreen {
             MaterialPageRoute(builder: (_) => const ReportsScreen()),
           ),
         },
-      // TECHNICIAN + OWNER: thiết bị
-      if (!isFarmer) ...[
+      // OWNER: thiết bị (kỹ thuật viên đã có sẵn hai tab Khảo Sát và Thiết Bị cho việc này)
+      if (isOwner) ...[
         {
           'icon': Icons.qr_code_scanner,
-          'label': isTech
-              ? 'Yêu cầu triển khai thiết bị (KTV)'
-              : 'Lắp đặt thiết bị IoT cho Zone',
+          'label': 'Lắp đặt thiết bị IoT cho Zone',
           'color': const Color(0xFF10B981),
           'onTap': () => Navigator.push(
             context,
@@ -95,18 +95,17 @@ extension _ProfileScreenMenu on ProfileScreen {
           ),
         },
       ],
-      // OWNER + TECHNICIAN: đơn hàng, khảo sát
-      if (isOwner || isTech) ...[
-        if (isOwner)
-          {
-            'icon': Icons.support_agent,
-            'label': 'Hỗ trợ kỹ thuật & Yêu cầu bảo trì',
-            'color': const Color(0xFF7C3AED),
-            'onTap': () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SupportRequestsScreen()),
-            ),
-          },
+      // OWNER: hỗ trợ kỹ thuật, quản lý trang trại và Zone (kỹ thuật viên không quản lý cấu trúc trang trại)
+      if (isOwner) ...[
+        {
+          'icon': Icons.support_agent,
+          'label': 'Hỗ trợ kỹ thuật & Yêu cầu bảo trì',
+          'color': const Color(0xFF7C3AED),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SupportRequestsScreen()),
+          ),
+        },
         {
           'icon': Icons.corporate_fare,
           'label': 'Quản lý Trang trại & Zone',
@@ -150,17 +149,6 @@ extension _ProfileScreenMenu on ProfileScreen {
         },
       ],
       if (isTech) ...[
-        {
-          'icon': Icons.build_circle_outlined,
-          'label': 'Bảo trì & sửa chữa được giao',
-          'color': const Color(0xFFD97706),
-          'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const TechnicianMaintenanceScreen(),
-            ),
-          ),
-        },
         {
           'icon': Icons.settings_input_antenna,
           'label': 'Cấu hình Gateway / Node & Kho linh kiện',
@@ -254,7 +242,7 @@ extension _ProfileScreenMenu on ProfileScreen {
                     color: Color(0xFFCBD5E1),
                   ),
                   onTap: item['onTap'] as VoidCallback,
-                  dense: true,
+                  // Không dùng dense: vùng chạm tối thiểu 56 px để bấm chắc tay.
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 2,

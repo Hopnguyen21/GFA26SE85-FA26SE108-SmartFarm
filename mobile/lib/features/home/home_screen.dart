@@ -22,6 +22,8 @@ import '../cf1/cf1_progress_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 import '../zones/widgets/emergency_stop_button.dart';
 import 'widgets/zone_ai_advice_card.dart';
+import 'widgets/owner_pending_actions_card.dart';
+import '../../core/theme/app_theme.dart';
 
 part 'parts/home_screen_top_banners.dart';
 part 'parts/home_screen_owner_actions.dart';

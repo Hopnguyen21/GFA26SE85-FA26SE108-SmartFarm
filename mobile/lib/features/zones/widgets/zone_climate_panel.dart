@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/utils/json_utils.dart';
+import '../../../core/utils/profile_name.dart';
 import '../zone_climate_logic.dart';
 import '../zone_crop_plan_logic.dart';
 import 'stage_draft_tile.dart' show fmtNumber;
@@ -152,7 +153,10 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
           _profileError =
               'Không đọc được hồ sơ canh tác của Zone (có thể không còn hiển thị với tài khoản này).';
         } else {
-          _profileName = '${p['name']}';
+          _profileName = displayProfileName(
+            '${p['name']}',
+            zoneName: widget.zone.name,
+          );
           _stages = [
             for (final s in jsonList(jsonField(p, 'stages')))
               if (s is Map) StageDraft.fromJson(Map<String, dynamic>.from(s)),

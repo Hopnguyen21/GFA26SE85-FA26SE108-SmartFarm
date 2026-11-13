@@ -3,9 +3,13 @@ import 'package:provider/provider.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/farm_provider.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/profile_name.dart';
+import '../../../core/widgets/state_views.dart';
 import '../../crops/widgets/create_season_sheet.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
+import '../zone_auto_season.dart' show startSeasonForZone;
 import '../zone_operations_screens.dart';
+import 'change_stage_dialog.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -17,6 +21,78 @@ const _statusVi = {
   'Completed': ('Đã thu hoạch', Color(0xFF7C3AED)),
   'Cancelled': ('Đã hủy', _muted),
 };
+
+const _statusOrder = ['InProgress', 'Planned', 'Completed', 'Cancelled'];
+
+/// Hộp xác nhận bắt đầu một vụ dự kiến. Nói rõ hệ quả: vụ chuyển sang đang canh tác và cây/hồ sơ của vụ được áp dụng cho Zone.
+Future<bool> confirmStartSeason(
+  BuildContext context,
+  Map<String, dynamic> season,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bắt đầu vụ?', style: TextStyle(fontSize: 16)),
+        content: Text(
+          'Vụ: ${season['name'] ?? '—'}\n'
+          'Cây: ${season['cropName'] ?? '—'}\n'
+          'Dự kiến ${season['startDate'] ?? '—'} → ${season['expectedEndDate'] ?? '—'}\n\n'
+          'Vụ chuyển sang đang canh tác; cây và hồ sơ của vụ được áp dụng cho Zone. '
+          'Zone chỉ có một vụ đang canh tác, và chỉ bắt đầu được khi đã đến ngày bắt đầu của vụ.',
+          style: const TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Bắt đầu vụ'),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
+/// Thứ tự hiển thị vụ trồng (giống web): đang canh tác, dự kiến, đã thu hoạch, đã hủy; cùng trạng thái thì vụ mới hơn lên trước.
+int compareSeasonsForDisplay(Map<String, dynamic> a, Map<String, dynamic> b) {
+  int rank(Map<String, dynamic> s) {
+    final i = _statusOrder.indexOf('${s['status']}');
+    return i < 0 ? _statusOrder.length : i;
+  }
+
+  final byStatus = rank(a).compareTo(rank(b));
+  return byStatus != 0
+      ? byStatus
+      : '${b['startDate']}'.compareTo('${a['startDate']}');
+}
+
+/// Tiến độ theo thời gian của vụ ĐANG CANH TÁC: ngày thứ mấy trên tổng số ngày dự kiến (backend không trả tiến độ).
+/// null khi vụ không đang chạy hoặc thiếu/sai ngày.
+({int percent, int day, int totalDays})? seasonTimeProgress(
+  Map<String, dynamic> s, {
+  DateTime? now,
+}) {
+  if ('${s['status']}' != 'InProgress') return null;
+  final start = DateTime.tryParse('${s['startDate']}');
+  final end = DateTime.tryParse('${s['expectedEndDate']}');
+  if (start == null || end == null) return null;
+  final total = end.difference(start).inDays;
+  if (total <= 0) return null;
+  final n = now ?? DateTime.now();
+  final elapsed = DateTime(
+    n.year,
+    n.month,
+    n.day,
+  ).difference(DateTime(start.year, start.month, start.day)).inDays;
+  final day = (elapsed + 1).clamp(0, total);
+  return (
+    percent: (elapsed * 100 / total).round().clamp(0, 100),
+    day: day,
+    totalDays: total,
+  );
+}
 
 /// null, rỗng hoặc chuỗi "null" (do nội suy chuỗi) đều là ID thiếu.
 String? validId(Object? v) {
@@ -79,7 +155,7 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
             if ('${s['zoneId'] ?? zoneId}'.toLowerCase() ==
                 zoneId.toLowerCase())
               s,
-        ]..sort((a, b) => '${b['startDate']}'.compareTo('${a['startDate']}'));
+        ]..sort(compareSeasonsForDisplay);
         _loading = false;
       });
     } catch (e) {
@@ -99,6 +175,16 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
   Future<void> _create() async {
     final created = await showCreateSeasonSheet(context, widget.zone);
     if (created == true) await _changed();
+  }
+
+  /// Bắt đầu một vụ dự kiến: xác nhận, gọi backend, rồi báo kết quả (kể cả lý do bị từ chối) và tải lại.
+  Future<void> _startSeason(Map<String, dynamic> s, String seasonId) async {
+    final ok = await confirmStartSeason(context, s);
+    if (!ok || !mounted) return;
+    final result = await startSeasonForZone(widget.zone.zoneId, seasonId);
+    if (!mounted) return;
+    showAppSnack(context, result.message, error: !result.ok);
+    if (result.ok) await _changed();
   }
 
   @override
@@ -228,6 +314,15 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
         (statusCode == 'InProgress' || statusCode == 'Completed') &&
         seasonId != null;
     final progress = s['progressPercent'] ?? s['progress'];
+    final timeProgress = seasonTimeProgress(s);
+    final isOwner = context.read<FarmProvider>().currentRole == 'OWNER';
+    final canChangeStage =
+        isOwner &&
+        statusCode == 'InProgress' &&
+        seasonId != null &&
+        profileId != null;
+    // Vụ dự kiến chỉ chạy thật sau khi Owner bắt đầu vụ tường minh.
+    final canStart = isOwner && statusCode == 'Planned' && seasonId != null;
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
@@ -266,13 +361,28 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
             'Cây / giống',
             '${s['cropName'] ?? '—'}${validId(s['varietyName']) != null ? ' · ${s['varietyName']}' : ''}',
           ),
-          _row('Hồ sơ của vụ', s['growthProfileName']),
+          // Mùa vụ chung chỉ có ở vụ tạo từ web; mobile hiển thị để đối chiếu, không tạo/sửa.
+          if (validId(s['farmingSeasonName']) != null)
+            _row('Mùa vụ chung', s['farmingSeasonName']),
+          _row(
+            'Hồ sơ của vụ',
+            displayProfileNameOrNull(
+              s['growthProfileName']?.toString(),
+              zoneName: widget.zone.name,
+            ),
+          ),
           _row('Giai đoạn hiện tại', s['currentGrowthStageName']),
           _row('Bắt đầu', s['startDate']),
           _row('Dự kiến kết thúc', s['expectedEndDate']),
           if (validId(s['actualEndDate']) != null)
             _row('Kết thúc thực tế', s['actualEndDate']),
-          if (progress != null) _row('Tiến độ', '$progress%'),
+          if (progress != null)
+            _row('Tiến độ', '$progress%')
+          else if (timeProgress != null)
+            _row(
+              'Tiến độ thời gian',
+              '${timeProgress.percent}% · ngày ${timeProgress.day}/${timeProgress.totalDays}',
+            ),
           if (yieldKg != null) _row('Sản lượng', '$yieldKg kg'),
           Wrap(
             spacing: 4,
@@ -290,12 +400,35 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                           builder: (_) => GrowthStagesScreen(
                             profileId: profileId,
                             title:
-                                '${s['growthProfileName'] ?? s['cropName'] ?? 'Hồ sơ sinh trưởng'}',
+                                displayProfileNameOrNull(
+                                  s['growthProfileName']?.toString(),
+                                  zoneName: widget.zone.name,
+                                ) ??
+                                '${s['cropName'] ?? 'Hồ sơ sinh trưởng'}',
                             currentStageId: validId(s['currentGrowthStageId']),
                           ),
                         ),
                       ),
               ),
+              if (canStart)
+                FilledButton.icon(
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: const Text('Bắt đầu vụ'),
+                  onPressed: () => _startSeason(s, seasonId),
+                ),
+              if (canChangeStage)
+                TextButton.icon(
+                  icon: const Icon(Icons.skip_next_outlined, size: 16),
+                  label: const Text('Chuyển giai đoạn'),
+                  onPressed: () async {
+                    final ok = await showChangeStageDialog(
+                      context,
+                      widget.zone.zoneId,
+                      s,
+                    );
+                    if (ok == true) await _changed();
+                  },
+                ),
               if (open && seasonId != null)
                 TextButton.icon(
                   icon: const Icon(Icons.calendar_month_outlined, size: 16),

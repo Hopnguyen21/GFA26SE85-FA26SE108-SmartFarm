@@ -61,6 +61,9 @@ class DeviceHealthModel {
   final int expectedIntervalSeconds;
   final double? signalRssi; // null: backend chưa có số đo
   final int? batteryPercent; // null: backend chưa có số đo
+  final String?
+  deviceId; // id thiết bị thật (null với gateway); dùng cho thao tác kỹ thuật
+  final String? zoneId; // Zone đang gán, null nếu chưa gán
 
   DeviceHealthModel({
     required this.nodeId,
@@ -70,6 +73,8 @@ class DeviceHealthModel {
     required this.expectedIntervalSeconds,
     this.signalRssi,
     this.batteryPercent,
+    this.deviceId,
+    this.zoneId,
   });
 
   /// Phát hiện theo thời gian im lặng (timeout), không đếm gói rớt: ≤ 3× chu kỳ → ONLINE,

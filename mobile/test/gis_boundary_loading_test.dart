@@ -16,8 +16,11 @@ import 'package:smartfarm_mobile/features/farms/gis_map_screen.dart';
 
 http.Response Function(http.Request) handler = (_) => http.Response('[]', 200);
 
-http.Response utf8Json(Object o, [int code = 200]) =>
-    http.Response.bytes(utf8.encode(jsonEncode(o)), code, headers: {'content-type': 'application/json; charset=utf-8'});
+http.Response utf8Json(Object o, [int code = 200]) => http.Response.bytes(
+  utf8.encode(jsonEncode(o)),
+  code,
+  headers: {'content-type': 'application/json; charset=utf-8'},
+);
 
 Map<String, dynamic> _polygon(List<List<double>> lngLat) => {
   'type': 'Polygon',
@@ -32,8 +35,11 @@ final _square = _polygon([
   [108.0, 11.0],
 ]);
 
-ZoneModel _zone(Map<String, dynamic> extra) =>
-    ZoneModel.fromJson({'zoneId': 'z1', 'name': 'Zone A', 'areaM2': 100, ...extra}, farmId: 'f1', fieldId: 'fl1');
+ZoneModel _zone(Map<String, dynamic> extra) => ZoneModel.fromJson(
+  {'zoneId': 'z1', 'name': 'Zone A', 'areaM2': 100, ...extra},
+  farmId: 'f1',
+  fieldId: 'fl1',
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -41,18 +47,27 @@ void main() {
   setUpAll(() async {
     // flutter_map ghi cache ô bản đồ qua path_provider; giả lập thư mục tạm để không cần plugin thật.
     final tmp = Directory.systemTemp.createTempSync('gis_test').path;
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (_) async => tmp,
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => tmp,
+        );
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({});
-    await http.runWithClient(() => SupportApi.getServiceRequests(), () => MockClient((req) async => handler(req)));
+    await http.runWithClient(
+      () => SupportApi.getServiceRequests(),
+      () => MockClient((req) async => handler(req)),
+    );
   });
 
   setUp(() {
     handler = (_) => http.Response('[]', 200);
-    ApiService.setTokens(accessToken: 't', refreshToken: 'r', email: 'a@b.c', role: 'FarmOwner');
+    ApiService.setTokens(
+      accessToken: 't',
+      refreshToken: 'r',
+      email: 'a@b.c',
+      role: 'FarmOwner',
+    );
   });
 
   group('parseGeoJsonPolygon', () {
@@ -65,7 +80,10 @@ void main() {
 
     test('chấp nhận chuỗi JSON và Feature', () {
       expect(parseGeoJsonPolygon(jsonEncode(_square)).points, isNotNull);
-      expect(parseGeoJsonPolygon({'type': 'Feature', 'geometry': _square}).points, isNotNull);
+      expect(
+        parseGeoJsonPolygon({'type': 'Feature', 'geometry': _square}).points,
+        isNotNull,
+      );
     });
 
     test('null / rỗng = chưa có ranh giới, không phải lỗi', () {
@@ -141,7 +159,13 @@ void main() {
       handler = (r) {
         req = r;
         return utf8Json([
-          {'fieldId': 'fl1', 'farmId': 'f1', 'name': 'Lô', 'areaM2': 5, 'boundaryGeoJson': _square},
+          {
+            'fieldId': 'fl1',
+            'farmId': 'f1',
+            'name': 'Lô',
+            'areaM2': 5,
+            'boundaryGeoJson': _square,
+          },
         ]);
       };
       final fields = await FarmApi.getFields('f1');
@@ -151,7 +175,12 @@ void main() {
   });
 
   group('GISMapScreen trạng thái', () {
-    Future<void> pump(WidgetTester tester, {List<FieldModel>? fields, List<ZoneModel>? zones, String? error}) async {
+    Future<void> pump(
+      WidgetTester tester, {
+      List<FieldModel>? fields,
+      List<ZoneModel>? zones,
+      String? error,
+    }) async {
       tester.view.physicalSize = const Size(400, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -164,12 +193,20 @@ void main() {
         ),
       );
       // Chờ lần đồng bộ nền của constructor kết thúc (không có backend nên lỗi) rồi mới đặt trạng thái cần thử.
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-      p.setStructureForTesting(fields: fields ?? [], zones: zones ?? [], error: error);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      p.setStructureForTesting(
+        fields: fields ?? [],
+        zones: zones ?? [],
+        error: error,
+      );
       await tester.pump();
     }
 
-    testWidgets('lỗi tải hiển thị lỗi tải, KHÔNG nói chưa có ranh giới', (tester) async {
+    testWidgets('lỗi tải hiển thị lỗi tải, KHÔNG nói chưa có ranh giới', (
+      tester,
+    ) async {
       await pump(tester, error: 'Không tải được Thửa đất: 403');
       expect(find.textContaining('Lỗi tải dữ liệu bản đồ'), findsOneWidget);
       expect(find.textContaining('Chưa có ranh giới nào'), findsNothing);
@@ -177,14 +214,18 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('Zone chưa có ranh giới được liệt kê và chạm được', (tester) async {
+    testWidgets('Zone chưa có ranh giới được liệt kê và chạm được', (
+      tester,
+    ) async {
       await pump(tester, zones: [_zone({})]);
       expect(find.textContaining('Chưa có ranh giới nào'), findsOneWidget);
       expect(find.textContaining('Zone: Zone A'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('dữ liệu ranh giới hỏng báo lỗi hình học riêng', (tester) async {
+    testWidgets('dữ liệu ranh giới hỏng báo lỗi hình học riêng', (
+      tester,
+    ) async {
       await pump(
         tester,
         zones: [
@@ -196,7 +237,9 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('có ranh giới hợp lệ: không hiện cảnh báo thiếu/lỗi', (tester) async {
+    testWidgets('có ranh giới hợp lệ: không hiện cảnh báo thiếu/lỗi', (
+      tester,
+    ) async {
       await pump(
         tester,
         zones: [

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +15,7 @@ import 'features/farms/gis_map_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/farmer/farmer_dashboard_screen.dart';
 import 'features/tasks/alerts_tasks_screen.dart';
+import 'features/support/technician_work_screen.dart';
 import 'features/auth/landing_screen.dart';
 
 /// Chỉ dùng cho môi trường Debug/Phát triển nội bộ khi làm việc với chứng chỉ tự ký cục bộ.
@@ -210,11 +211,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   ];
 
   // Technician screens (No AI -> Alerts/Tasks)
+  // Tab đầu là công việc của kỹ thuật viên nền tảng (tiếp nhận, khảo sát, lắp đặt), KHÔNG phải trang chủ theo dõi của chủ trang trại:
+  // kỹ thuật viên không thuộc trang trại nào và backend không cho đọc telemetry/điều khiển của trang trại.
   static const List<Widget> _technicianScreens = [
-    HomeScreen(),
+    // Công việc: một danh sách, mỗi yêu cầu một thẻ; thao tác đổi theo tiến độ (trước cọc, đã cọc, sau hoàn tất).
+    TechnicianWorkScreen(),
     DeviceHealthScreen(),
     GISMapScreen(),
-    AlertsTasksScreen(),
     ProfileScreen(),
   ];
 
@@ -303,62 +306,101 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             setState(() => _currentIndex = index);
           },
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: [
-            NavigationDestination(
-              icon: Icon(
-                isFarmer
-                    ? Icons.grass_outlined
-                    : (isTech
-                          ? Icons.precision_manufacturing_outlined
-                          : Icons.dashboard_outlined),
-              ),
-              selectedIcon: Icon(
-                isFarmer
-                    ? Icons.grass
-                    : (isTech
-                          ? Icons.precision_manufacturing
-                          : Icons.dashboard),
-                color: const Color(0xFF062326),
-              ),
-              label: isFarmer
-                  ? 'Khu Vực'
-                  : (isTech ? 'Khảo Sát' : 'Trang Trại'),
-            ),
-            NavigationDestination(
-              icon: Icon(
-                isTech ? Icons.monitor_heart_outlined : Icons.eco_outlined,
-              ),
-              selectedIcon: Icon(
-                isTech ? Icons.monitor_heart : Icons.eco,
-                color: const Color(0xFF062326),
-              ),
-              label: isTech ? 'Thiết Bị' : 'Cây Trồng',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map, color: Color(0xFF062326)),
-              label: 'Bản Đồ',
-            ),
-            NavigationDestination(
-              icon: isOwner
-                  ? const Icon(Icons.psychology_outlined)
-                  : Badge(
-                      isLabelVisible: pendingAlerts > 0,
-                      label: Text('$pendingAlerts'),
-                      child: const Icon(Icons.assignment_outlined),
+          destinations: isTech
+              ? const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_repair_service_outlined),
+                    selectedIcon: Icon(
+                      Icons.home_repair_service,
+                      color: Color(0xFF062326),
                     ),
-              selectedIcon: Icon(
-                isOwner ? Icons.psychology : Icons.assignment,
-                color: const Color(0xFF062326),
-              ),
-              label: isOwner ? 'Trợ Lý AI' : 'Tác Vụ',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person, color: Color(0xFF062326)),
-              label: 'Hồ Sơ',
-            ),
-          ],
+                    label: 'Công Việc',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.monitor_heart_outlined),
+                    selectedIcon: Icon(
+                      Icons.monitor_heart,
+                      color: Color(0xFF062326),
+                    ),
+                    label: 'Thiết Bị',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map, color: Color(0xFF062326)),
+                    label: 'Bản Đồ',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person, color: Color(0xFF062326)),
+                    label: 'Hồ Sơ',
+                  ),
+                ]
+              : [
+                  NavigationDestination(
+                    icon: Icon(
+                      isFarmer
+                          ? Icons.grass_outlined
+                          : (isTech
+                                ? Icons.precision_manufacturing_outlined
+                                : Icons.dashboard_outlined),
+                    ),
+                    selectedIcon: Icon(
+                      isFarmer
+                          ? Icons.grass
+                          : (isTech
+                                ? Icons.precision_manufacturing
+                                : Icons.dashboard),
+                      color: const Color(0xFF062326),
+                    ),
+                    label: isFarmer
+                        ? 'Khu Vực'
+                        : (isTech ? 'Khảo Sát' : 'Trang Trại'),
+                  ),
+                  NavigationDestination(
+                    icon: Icon(
+                      isTech
+                          ? Icons.monitor_heart_outlined
+                          : Icons.eco_outlined,
+                    ),
+                    selectedIcon: Icon(
+                      isTech ? Icons.monitor_heart : Icons.eco,
+                      color: const Color(0xFF062326),
+                    ),
+                    label: isTech ? 'Thiết Bị' : 'Cây Trồng',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map, color: Color(0xFF062326)),
+                    label: 'Bản Đồ',
+                  ),
+                  NavigationDestination(
+                    icon: isOwner
+                        ? const Icon(Icons.psychology_outlined)
+                        : isTech
+                        ? const Icon(Icons.home_repair_service_outlined)
+                        : Badge(
+                            isLabelVisible: pendingAlerts > 0,
+                            label: Text('$pendingAlerts'),
+                            child: const Icon(Icons.assignment_outlined),
+                          ),
+                    selectedIcon: Icon(
+                      isOwner
+                          ? Icons.psychology
+                          : (isTech
+                                ? Icons.home_repair_service
+                                : Icons.assignment),
+                      color: const Color(0xFF062326),
+                    ),
+                    label: isOwner
+                        ? 'Trợ Lý AI'
+                        : (isTech ? 'Công Việc' : 'Tác Vụ'),
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person, color: Color(0xFF062326)),
+                    label: 'Hồ Sơ',
+                  ),
+                ],
         ),
       ),
     );

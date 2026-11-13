@@ -90,6 +90,24 @@ class _DeploymentRequestDetailScreenState
     }
   }
 
+  /// Chủ trại hủy yêu cầu: hỏi lý do rồi gọi backend; backend vẫn là nơi quyết định có được hủy hay không.
+  Future<void> _cancelRequest(DeploymentRequest r) async {
+    if (_busy) return;
+    final reason = await askCancelDeploymentReason(context);
+    if (reason == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await DeploymentApi.cancelDeploymentRequest(r.requestId, reason: reason);
+      if (!mounted) return;
+      _toast(context, 'Đã hủy yêu cầu triển khai.');
+      await _load();
+    } catch (e) {
+      if (mounted) _toast(context, cancelDeploymentErrorText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Thông tin nơi lắp đặt: farm, thửa đất, Zone, cây và vụ mùa (để Owner và kỹ thuật viên biết yêu cầu thuộc về đâu).
   Widget _contextCard(DeploymentRequest r) {
     final c = r.context;
@@ -190,6 +208,13 @@ class _DeploymentRequestDetailScreenState
                   ],
                 ),
                 const SizedBox(height: 10),
+                DeploymentProgressBar(status: r.status),
+                if (widget.technician) ...[
+                  NextStepBanner(status: r.status),
+                  // Nút thao tác lên đầu để không phải cuộn qua cả màn mới thấy việc cần làm.
+                  ..._actions(r),
+                ],
+                const SizedBox(height: 10),
                 _contextCard(r),
                 if (r.ownerNotes != null && r.ownerNotes!.trim().isNotEmpty)
                   SectionCard(
@@ -285,7 +310,7 @@ class _DeploymentRequestDetailScreenState
                   ),
                   if (r.failureDescription != null) Text(r.failureDescription!),
                 ],
-                ..._actions(r),
+                if (!widget.technician) ..._actions(r),
                 if (widget.technician) ..._hardware(r),
                 if (r.surveys.isNotEmpty) ...[
                   const Divider(height: 24),

@@ -1,305 +1,223 @@
 part of '../home_screen.dart';
 
 extension _HomeScreenOwnerActions on HomeScreen {
+  /// Lối tắt của Owner: thẻ "Việc cần bạn xử lý" (hợp đồng/thanh toán đang chờ) rồi lưới 2×2 (Kho vật tư, Yêu cầu & Hợp đồng,
+  /// Hỏi AI, Hợp đồng Zone & Khấu hao) và thẻ tiến độ thiết lập.
   List<Widget> _ownerQuickActionsSection(
     BuildContext context,
     FarmProvider farmProvider,
     ZoneModel zone,
   ) {
-    return [
-      // Owner Quick Action Utilities (Kho Vật Tư, Báo giá & cọc, AI, Hợp đồng & Khấu hao, Mùa vụ)
-      if (farmProvider.currentRole == 'OWNER') ...[
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Row 1: Vận hành thiết bị & kho
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const InventoryScreen(),
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(7),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF0F766E,
-                                      ).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(
-                                      Icons.inventory_2_outlined,
-                                      color: Color(0xFF0F766E),
-                                      size: 18,
-                                    ),
-                                  ),
-                                  if (farmProvider.lowStockCount > 0)
-                                    Positioned(
-                                      top: -3,
-                                      right: -3,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFFDC2626),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Kho Vật Tư',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 28,
-                      color: const Color(0xFFE2E8F0),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SupportRequestsScreen(),
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFD97706,
-                                  ).withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: Color(0xFFD97706),
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Báo Giá & Cọc',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 28,
-                      color: const Color(0xFFE2E8F0),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                AiAssistantScreen(initialZoneId: zone.zoneId),
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF10B981,
-                                  ).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.smart_toy_outlined,
-                                  color: Color(0xFF059669),
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Hỏi AI Trại',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-                ),
-                // Row 2: Hợp đồng Zone & Khấu hao thiết bị
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ContractsDepreciationScreen(),
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFA7F3D0)),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.assignment_outlined,
-                                size: 16,
-                                color: Color(0xFF059669),
-                              ),
-                              SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  'Hợp Đồng Zone & Khấu Hao',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF065F46),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-                ),
-                // Row 3: Hướng dẫn & Tiến độ thiết lập CF1 (Platform, Farm & IoT Setup)
-                InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const Cf1ProgressScreen(),
-                    ),
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
-                    ),
+    if (farmProvider.currentRole != 'OWNER') return const [];
+    void open(Widget page) =>
+        Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
+    Widget tile({
+      required IconData icon,
+      required Color color,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap,
+      bool dot = false,
+    }) => Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(color: AppColors.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F0F172A),
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F766E).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF0F766E).withValues(alpha: 0.25),
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 22),
+                  ),
+                  if (dot)
+                    Positioned(
+                      top: -3,
+                      right: -3,
+                      child: Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          color: AppColors.danger,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.route_outlined,
-                          size: 16,
-                          color: Color(0xFF0F766E),
-                        ),
-                        SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            'Tiến Độ Thiết Lập CF1 (Farm & Hạ Tầng IoT)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F766E),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 10,
-                          color: Color(0xFF0F766E),
-                        ),
-                      ],
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.25,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-      ],
+      ),
+    );
+
+    return [
+      OwnerPendingActionsCard(
+        key: ValueKey('pending-${farmProvider.allZones.length}'),
+        zones: farmProvider.allZones,
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          children: [
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: tile(
+                      icon: Icons.inventory_2_outlined,
+                      color: const Color(0xFF0F766E),
+                      title: 'Kho vật tư',
+                      subtitle: farmProvider.lowStockCount > 0
+                          ? '${farmProvider.lowStockCount} mục sắp hết'
+                          : 'Tồn kho, nhập xuất',
+                      dot: farmProvider.lowStockCount > 0,
+                      onTap: () => open(const InventoryScreen()),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: tile(
+                      icon: Icons.assignment_turned_in_outlined,
+                      color: AppColors.warning,
+                      title: 'Yêu cầu & Hợp đồng',
+                      subtitle: 'Báo giá, ký, thanh toán',
+                      onTap: () => open(const SupportRequestsScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: tile(
+                      icon: Icons.smart_toy_outlined,
+                      color: AppColors.primaryDark,
+                      title: 'Hỏi AI Trại',
+                      subtitle: 'Tư vấn theo dữ liệu Zone',
+                      onTap: () =>
+                          open(AiAssistantScreen(initialZoneId: zone.zoneId)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: tile(
+                      icon: Icons.description_outlined,
+                      color: AppColors.info,
+                      title: 'Hợp đồng Zone',
+                      subtitle: 'Hợp đồng & khấu hao',
+                      onTap: () => open(const ContractsDepreciationScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Material(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              child: InkWell(
+                onTap: () => open(const Cf1ProgressScreen()),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.route_outlined,
+                        size: 20,
+                        color: AppColors.primaryDark,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Tiến độ thiết lập trang trại & hạ tầng IoT',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF065F46),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 12,
+                        color: AppColors.primaryDark,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 14),
     ];
   }
 }

@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../core/models/iot_deployment.dart';
 import '../../core/services/api_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/section_card.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/summary_tile.dart';
 import '../zones/honeycomb_estimate.dart';
+import 'deployment_board_logic.dart';
+import 'widgets/cancel_deployment_dialog.dart';
+import 'widgets/survey_dialog.dart';
+import 'widgets/deployment_progress_bar.dart';
 import '../zones/widgets/zone_honeycomb_estimate_card.dart'
     show measurementLabel;
 part 'parts/deployment_screens_owner_list.dart';
@@ -14,12 +21,7 @@ part 'parts/deployment_screens_detail_hardware.dart';
 // Luồng triển khai thiết bị IoT cho Zone (IOT-V1). Mọi trạng thái và lịch sử lấy từ backend;
 // app không tự suy ra thiết bị online hay kết nối thành công.
 
-Color _statusColor(String s) => switch (s) {
-  'Completed' => const Color(0xFF059669),
-  'MaintenanceRequired' => const Color(0xFFDC2626),
-  'Draft' => const Color(0xFF64748B),
-  _ => const Color(0xFF0284C7),
-};
+Color _statusColor(String s) => deploymentStatusColor(s);
 
 void _toast(BuildContext context, String message) => ScaffoldMessenger.of(
   context,

@@ -36,6 +36,11 @@ extension _DeploymentRequestDetailScreenStateActions
           ),
         );
       }
+      if (canCancelDeployment(r.status)) {
+        buttons.add(
+          btn('Hủy yêu cầu triển khai', () => _cancelRequest(r), danger: true),
+        );
+      }
     } else {
       switch (r.status) {
         case 'Submitted':
@@ -118,11 +123,23 @@ extension _DeploymentRequestDetailScreenStateActions
     DeploymentRequest r, {
     required bool technician,
   }) async {
+    // Kế hoạch đang chỉnh (bắt đầu từ kế hoạch hiện có). Kỹ thuật viên có thể thêm model từ danh mục, kể cả khi kế hoạch đang rỗng.
+    final working = <PlanItem>[...r.planItems];
     final qty = {for (final i in r.planItems) i.deviceModelId: i.quantity};
     final notes = {
       for (final i in r.planItems)
         i.deviceModelId: TextEditingController(text: i.installationNotes ?? ''),
     };
+    var catalogue = <PlanItem>[];
+    String? catalogueError;
+    if (technician) {
+      try {
+        catalogue = await DeploymentApi.getDeploymentPlanModels(r.requestId);
+      } catch (e) {
+        catalogueError = e.toString().replaceFirst('Exception: ', '');
+      }
+      if (!mounted) return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -131,11 +148,38 @@ extension _DeploymentRequestDetailScreenStateActions
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final i in r.planItems) ...[
-                  Text(
-                    i.modelName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                if (working.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Kế hoạch chưa có thiết bị. Thêm ít nhất một model để lưu.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                for (final i in working) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          i.modelName,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      if (technician)
+                        IconButton(
+                          tooltip: 'Bỏ khỏi kế hoạch',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => setLocal(() {
+                            working.removeWhere(
+                              (x) => x.deviceModelId == i.deviceModelId,
+                            );
+                            notes.remove(i.deviceModelId)?.dispose();
+                            qty.remove(i.deviceModelId);
+                          }),
+                        ),
+                    ],
                   ),
                   Row(
                     children: [
@@ -165,6 +209,29 @@ extension _DeploymentRequestDetailScreenStateActions
                     ),
                   ),
                 ],
+                if (technician) ...[
+                  if (catalogueError != null)
+                    Text(
+                      'Không tải được danh mục model: $catalogueError',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB91C1C),
+                      ),
+                    ),
+                  for (final m in catalogue.where(
+                    (m) =>
+                        !working.any((w) => w.deviceModelId == m.deviceModelId),
+                  ))
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text('Sử dụng ${m.modelName}'),
+                      onPressed: () => setLocal(() {
+                        working.add(m);
+                        qty[m.deviceModelId] = m.quantity < 1 ? 1 : m.quantity;
+                        notes[m.deviceModelId] = TextEditingController();
+                      }),
+                    ),
+                ],
               ],
             ),
           ),
@@ -174,7 +241,8 @@ extension _DeploymentRequestDetailScreenStateActions
               child: const Text('Huỷ'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(c, true),
+              // Backend không nhận kế hoạch rỗng.
+              onPressed: working.isEmpty ? null : () => Navigator.pop(c, true),
               child: const Text('Lưu'),
             ),
           ],
@@ -182,7 +250,7 @@ extension _DeploymentRequestDetailScreenStateActions
       ),
     );
     final items = [
-      for (final i in r.planItems)
+      for (final i in working)
         PlanItem(
           deviceModelId: i.deviceModelId,
           modelName: i.modelName,
@@ -203,69 +271,14 @@ extension _DeploymentRequestDetailScreenStateActions
   }
 
   Future<void> _survey(DeploymentRequest r) async {
-    var feasible = true;
-    final site = TextEditingController();
-    final notes = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => StatefulBuilder(
-        builder: (c, setLocal) => AlertDialog(
-          title: const Text('Khảo sát địa điểm'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Khả thi để lắp đặt'),
-                  value: feasible,
-                  onChanged: (v) => setLocal(() => feasible = v),
-                ),
-                TextField(
-                  controller: site,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Điều kiện địa điểm',
-                  ),
-                ),
-                TextField(
-                  controller: notes,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú khảo sát',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Huỷ'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Ghi nhận'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final siteText = site.text.trim();
-    final noteText = notes.text.trim();
-    site.dispose();
-    notes.dispose();
-    if (ok != true || !mounted) return;
-    if (siteText.isEmpty || noteText.isEmpty) {
-      _toast(context, 'Cần nhập điều kiện địa điểm và ghi chú.');
-      return;
-    }
+    final input = await askSurvey(context);
+    if (input == null || !mounted) return;
     await _act(
       () async => DeploymentApi.surveyDeploymentRequest(
         r.requestId,
-        isFeasible: feasible,
-        siteConditions: siteText,
-        notes: noteText,
+        isFeasible: input.feasible,
+        siteConditions: input.siteConditions,
+        notes: input.notes,
       ),
     );
   }

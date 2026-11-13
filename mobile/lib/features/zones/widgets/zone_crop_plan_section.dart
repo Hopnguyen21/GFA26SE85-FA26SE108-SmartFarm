@@ -17,10 +17,14 @@ class ZoneCropPlanSection extends StatefulWidget {
 
   /// Chỉ cho xem (vd. Zone đang có vụ chạy: backend không đổi hồ sơ của vụ đang chạy).
   final String? lockedReason;
+
+  /// true ở form TẠO Zone: chọn hồ sơ thì Zone mới được tự tạo vụ trồng mặc định. Ở form sửa Zone thì không tạo vụ.
+  final bool createsSeason;
   const ZoneCropPlanSection({
     super.key,
     required this.controller,
     this.lockedReason,
+    this.createsSeason = false,
   });
 
   @override
@@ -46,7 +50,7 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
           title: 'Cây trồng & hồ sơ canh tác',
           icon: Icons.spa_outlined,
           subtitle:
-              'Hồ sơ gắn trực tiếp cho Zone, không tạo vụ trồng. Hồ sơ hệ thống không bị sửa: khi tùy chỉnh, hệ thống tạo bản sao riêng cho trang trại.',
+              '${widget.createsSeason ? 'Cây và hồ sơ của vụ trồng ở trên; hồ sơ cũng được gắn trực tiếp cho Zone.' : 'Hồ sơ gắn trực tiếp cho Zone, không tạo vụ trồng.'} Hồ sơ hệ thống không bị sửa: khi tùy chỉnh, hệ thống tạo bản sao riêng cho trang trại.',
           children: [
             if (widget.lockedReason != null)
               Text(
@@ -67,31 +71,128 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
     );
   }
 
+  /// Ba chế độ hồ sơ dạng thẻ chọn một: chữ rõ, có mô tả ngắn, vùng chạm lớn, xếp dọc nên không bị cắt ở màn hẹp.
+  /// Màu đặt tường minh (không phụ thuộc theme) để chữ luôn đọc được.
   Widget _modeChips(ZoneCropSelection s) {
-    Widget chip(String label, ZoneProfileMode m, {bool enabled = true}) =>
-        ChoiceChip(
-          label: Text(label, style: const TextStyle(fontSize: 11)),
-          selected: s.mode == m,
-          onSelected: enabled
-              ? (_) {
-                  c.setMode(m);
-                  if (m != ZoneProfileMode.none &&
-                      s.cropId == null &&
-                      c.crops.isEmpty &&
-                      !c.loadingCrops)
-                    c.loadCrops();
-                }
-              : null,
-        );
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
+    const slate = Color(0xFF94A3B8);
+    Widget option({
+      required String label,
+      required String hint,
+      required IconData icon,
+      required ZoneProfileMode mode,
+      bool enabled = true,
+      String? disabledHint,
+    }) {
+      final selected = s.mode == mode;
+      final titleColor = !enabled
+          ? slate
+          : (selected ? const Color(0xFF065F46) : _ink);
+      return Semantics(
+        button: true,
+        selected: selected,
+        enabled: enabled,
+        child: Material(
+          color: !enabled
+              ? const Color(0xFFF8FAFC)
+              : (selected ? const Color(0xFFECFDF5) : Colors.white),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: selected
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFCBD5E1),
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: enabled
+                ? () {
+                    c.setMode(mode);
+                    if (mode != ZoneProfileMode.none &&
+                        s.cropId == null &&
+                        c.crops.isEmpty &&
+                        !c.loadingCrops) {
+                      c.loadCrops();
+                    }
+                  }
+                : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 56),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: !enabled
+                          ? slate
+                          : (selected ? _green : const Color(0xFF475569)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: titleColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            !enabled && disabledHint != null
+                                ? disabledHint
+                                : hint,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              height: 1.3,
+                              color: enabled ? _muted : slate,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (selected)
+                      const Icon(Icons.check_circle, size: 20, color: _green),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
       children: [
-        chip('Không áp dụng', ZoneProfileMode.none),
-        chip('Dùng hồ sơ có sẵn', ZoneProfileMode.system),
-        chip(
-          'Tùy chỉnh bản sao',
-          ZoneProfileMode.custom,
+        option(
+          label: 'Không áp dụng',
+          hint: 'Chưa chọn cây và hồ sơ',
+          icon: Icons.block,
+          mode: ZoneProfileMode.none,
+        ),
+        const SizedBox(height: 8),
+        option(
+          label: 'Dùng hồ sơ có sẵn',
+          hint: 'Chọn cây rồi dùng hồ sơ của hệ thống hoặc của trang trại',
+          icon: Icons.menu_book_outlined,
+          mode: ZoneProfileMode.system,
+        ),
+        const SizedBox(height: 8),
+        option(
+          label: 'Tùy chỉnh bản sao',
+          hint: 'Sao chép hồ sơ hệ thống, chỉnh giai đoạn, ngưỡng và lịch tưới',
+          disabledHint: 'Chỉ sao chép được từ hồ sơ hệ thống đã chọn',
+          icon: Icons.tune,
+          mode: ZoneProfileMode.custom,
           enabled: s.cropId == null || c.currentProfileIsSystem,
         ),
       ],

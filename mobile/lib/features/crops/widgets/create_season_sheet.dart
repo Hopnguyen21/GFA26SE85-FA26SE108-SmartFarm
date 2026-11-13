@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
+import '../../zones/zone_auto_season.dart' show autoSeasonDays, minSeasonDays;
 import '../../zones/zone_operations_screens.dart'
     show ZonePlantingSeasonsScreen;
 
@@ -43,6 +44,11 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
   final _nameCtrl = TextEditingController();
   DateTime _start = DateTime.now();
   DateTime? _end;
+  // Người dùng đã tự chọn ngày kết thúc: không ghi đè bằng ngày tự tính theo hồ sơ.
+  bool _endPicked = false;
+  // Mùa vụ chung (không bắt buộc): gom nhiều vụ trồng của nhiều Zone cùng một mùa.
+  List<Map<String, dynamic>> _farmingSeasons = [];
+  String? _farmingSeasonId;
   bool _confirmChange = false;
   bool _loading = true;
   bool _saving = false;
@@ -70,8 +76,38 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       final seasons = await CropApi.getPlantingSeasons(
         zoneId: widget.zone.zoneId,
       );
+      // Mùa vụ chung chỉ là tùy chọn: không tải được thì vẫn tạo được vụ độc lập.
+      List<Map<String, dynamic>> farming = [];
+      try {
+        farming = await CropApi.getFarmingSeasons();
+      } catch (_) {}
+      // Zone đã gắn hồ sơ canh tác: tự nhận diện cây, giống, hồ sơ của vụ theo hồ sơ đó.
+      final zoneProfileId = widget.zone.growthProfileId?.toLowerCase();
+      final preset = zoneProfileId == null
+          ? null
+          : profiles
+                .where(
+                  (p) => '${p['profileId']}'.toLowerCase() == zoneProfileId,
+                )
+                .firstOrNull;
+      List<Map<String, dynamic>> presetVarieties = [];
+      if (preset != null) {
+        try {
+          presetVarieties = await CropApi.getVarieties(
+            cropId: '${preset['cropId']}',
+          );
+        } catch (_) {}
+      }
       if (!mounted) return;
       setState(() {
+        _farmingSeasons = farming;
+        if (preset != null) {
+          _cropId = '${preset['cropId']}';
+          _varietyId = preset['varietyId']?.toString();
+          _profileId = '${preset['profileId']}';
+          _varieties = presetVarieties;
+          _applyDefaultEnd();
+        }
         _running = seasons
             .where((x) => '${x['status']}' == 'InProgress')
             .firstOrNull;
@@ -158,6 +194,53 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  String? _farmingId(Map<String, dynamic> s) {
+    final id = '${s['id'] ?? s['seasonId'] ?? ''}'.trim();
+    return id.isEmpty ? null : id;
+  }
+
+  String _farmingLabel(Map<String, dynamic> s) {
+    final name = '${s['name'] ?? ''}'.trim();
+    final code = '${s['code'] ?? ''}'.trim();
+    return code.isEmpty ? name : '$name ($code)';
+  }
+
+  /// Số ngày dự kiến của vụ theo hồ sơ (tổng thời gian các giai đoạn). Hồ sơ không nêu thì dùng mặc định; không ít hơn mức backend yêu cầu.
+  int _profileDays(Map<String, dynamic>? profile) {
+    var total = 0;
+    final stages = profile?['stages'];
+    if (stages is List) {
+      for (final s in stages) {
+        if (s is Map)
+          total += num.tryParse('${s['durationDays']}')?.toInt() ?? 0;
+      }
+    }
+    if (total <= 0) {
+      total =
+          num.tryParse(
+            '${profile?['totalDays'] ?? profile?['totalDurationDays'] ?? ''}',
+          )?.toInt() ??
+          0;
+    }
+    if (total <= 0) return autoSeasonDays;
+    return total < minSeasonDays ? minSeasonDays : total;
+  }
+
+  /// Tự điền ngày kết thúc dự kiến theo hồ sơ đã chọn, trừ khi người dùng đã tự chọn ngày.
+  /// Gọi bên trong setState.
+  void _applyDefaultEnd() {
+    if (_endPicked || _profileId == null) return;
+    final profile = _profiles
+        .followedBy(const <Map<String, dynamic>>[])
+        .where((p) => '${p['profileId']}' == _profileId)
+        .firstOrNull;
+    _end = DateTime(
+      _start.year,
+      _start.month,
+      _start.day + _profileDays(profile),
+    );
+  }
+
   Future<void> _pick(bool isStart) async {
     final initial = isStart
         ? _start
@@ -173,7 +256,16 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
             ), // backend chỉ tạo vụ đang canh tác: không nhận ngày bắt đầu tương lai
     );
     if (picked == null) return;
-    if (mounted) setState(() => isStart ? _start = picked : _end = picked);
+    if (!mounted) return;
+    setState(() {
+      if (isStart) {
+        _start = picked;
+        _applyDefaultEnd();
+      } else {
+        _end = picked;
+        _endPicked = true;
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -182,7 +274,11 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       setState(() => _error = _runningMessage());
       return;
     }
-    if (end != null && end.isBefore(_start.add(const Duration(days: 20)))) {
+    // So theo NGÀY (bỏ giờ): ngày bắt đầu mặc định là "bây giờ" còn ngày chọn từ lịch chỉ có ngày.
+    if (end != null &&
+        DateUtils.dateOnly(end).isBefore(
+          DateTime(_start.year, _start.month, _start.day + minSeasonDays),
+        )) {
       setState(
         () => _error =
             'Ngày kết thúc dự kiến phải sau ngày bắt đầu ít nhất 20 ngày.',
@@ -213,6 +309,9 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
             .where((p) => '${p['profileId']}' == _profileId)
             .firstOrNull?['name'] ??
         '—';
+    final farmingName = _farmingSeasons
+        .where((s) => _farmingId(s) == _farmingSeasonId)
+        .firstOrNull?['name'];
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -225,6 +324,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
           'Cây: $cropName${varietyName == null ? '' : ' · giống $varietyName'}\n'
           'Hồ sơ: $profileName\n'
           'Vụ: ${_nameCtrl.text.trim()}\n'
+          '${farmingName == null ? '' : 'Mùa vụ chung: $farmingName\n'}'
           'Từ ${_fmt(_start)} đến ${_fmt(end)} (dự kiến)\n'
           '${_confirmChange ? '\nBạn đã xác nhận đổi/gán cây của Zone theo cây của vụ này.\n' : ''}'
           '\nVụ được tạo ở trạng thái đang canh tác ngay.',
@@ -255,6 +355,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
         'growthProfileId': _profileId,
         'startDate': _fmt(_start),
         'expectedEndDate': _fmt(end),
+        if (_farmingSeasonId != null) 'farmingSeasonId': _farmingSeasonId,
         'setZoneCrop': _confirmChange,
       });
       if (mounted) Navigator.pop(context, true);
@@ -302,6 +403,32 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  if (_farmingSeasons.isNotEmpty) ...[
+                    DropdownButtonFormField<String?>(
+                      initialValue: _farmingSeasonId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Mùa vụ chung (không bắt buộc)',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Không gắn mùa vụ chung (vụ độc lập)'),
+                        ),
+                        for (final s in _farmingSeasons)
+                          DropdownMenuItem<String?>(
+                            value: _farmingId(s),
+                            child: Text(
+                              _farmingLabel(s),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _farmingSeasonId = v),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   DropdownButtonFormField<String>(
                     initialValue: _cropId,
                     decoration: const InputDecoration(
@@ -371,7 +498,10 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                         .toList(),
                     onChanged: _cropId == null
                         ? null
-                        : (v) => setState(() => _profileId = v),
+                        : (v) => setState(() {
+                            _profileId = v;
+                            _applyDefaultEnd();
+                          }),
                     isExpanded: true,
                   ),
                   if (_cropId != null && profiles.isEmpty)

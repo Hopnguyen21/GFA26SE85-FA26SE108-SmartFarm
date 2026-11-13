@@ -30,13 +30,19 @@ class ZoneNodesScreen extends StatelessWidget {
     'Ec': 'EC',
   };
 
-  Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>
+  /// Số đo mới nhất (chỉ Owner/Nhân công được đọc) là tùy chọn: kỹ thuật viên bị chặn route này nhưng vẫn phải thấy và
+  /// sửa được toạ độ node. Vị trí node lỗi thì vẫn báo lỗi như cũ.
+  Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>, bool)>
   _load() async {
-    final results = await Future.wait([
-      FarmApi.getLatestTelemetryByDevice(zoneId),
+    var telemetryOk = true;
+    final results = await Future.wait<List<Map<String, dynamic>>>([
+      FarmApi.getLatestTelemetryByDevice(zoneId).catchError((Object _) {
+        telemetryOk = false;
+        return <Map<String, dynamic>>[];
+      }),
       FarmApi.getDeviceMapLocations(zoneId),
     ]);
-    return (results[0], results[1]);
+    return (results[0], results[1], telemetryOk);
   }
 
   @override
@@ -49,10 +55,12 @@ class ZoneNodesScreen extends StatelessWidget {
         ),
       ),
       body:
-          _AsyncList<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
+          _AsyncList<
+            (List<Map<String, dynamic>>, List<Map<String, dynamic>>, bool)
+          >(
             load: _load,
             builder: (context, data, reload) {
-              final (devices, locations) = data;
+              final (devices, locations, telemetryOk) = data;
               final locById = {
                 for (final l in locations) '${l['deviceId']}'.toLowerCase(): l,
               };
@@ -71,6 +79,18 @@ class ZoneNodesScreen extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (!telemetryOk)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Chưa có số đo mới nhất của node (tài khoản này không được xem số đo); vẫn xem và sửa được toạ độ.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _muted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
                   if (canEditLocations)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),

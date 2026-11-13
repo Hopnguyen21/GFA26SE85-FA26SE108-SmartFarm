@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
+import '../../support/support_requests_screen.dart' show OwnerRequestCard;
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -33,6 +34,7 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _requests = [];
+  int _gen = 0; // đổi sau mỗi lần tải để thẻ đọc lại hợp đồng/trạng thái
 
   @override
   void initState() {
@@ -62,6 +64,7 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
             if ('${r['zoneId']}'.toLowerCase() == zoneId.toLowerCase()) r,
         ];
         _loading = false;
+        _gen++;
       });
     } catch (e) {
       if (!mounted) return;
@@ -178,48 +181,14 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
             )
           else
             for (final r in _requests)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            zoneSupportFailureCodes['${r['failureCode']}'] ??
-                                '${r['failureCode']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12.5,
-                              color: _ink,
-                            ),
-                          ),
-                          Text(
-                            '${r['description'] ?? ''}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: _muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${r['status'] ?? '—'}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _muted,
-                      ),
-                    ),
-                  ],
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: OwnerRequestCard(
+                  key: ValueKey('${r['id']}-$_gen'),
+                  request: r,
+                  zoneName: '${widget.zone.name} · ${widget.zone.farmName}',
+                  zone: widget.zone,
+                  onChanged: _load,
                 ),
               ),
         ],

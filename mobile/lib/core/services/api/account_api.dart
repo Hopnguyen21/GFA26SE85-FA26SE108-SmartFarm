@@ -64,6 +64,8 @@ abstract final class AccountApi {
   /// GET /tenants/me: tổ chức (tenant) của tài khoản. Trả null khi tài khoản không thuộc tenant
   /// (vd. kỹ thuật viên nền tảng) hoặc backend từ chối — khi đó UI ẩn thông tin tổ chức, không bịa tên.
   static Future<Map<String, dynamic>?> getMyTenant() async {
+    // Endpoint này chỉ dành cho FarmOwner, không phải mọi tài khoản đăng nhập.
+    if (parseAppRole(ApiService.userRole) != AppRole.farmOwner) return null;
     try {
       final resp = await ApiService._getWithAuth(
         '${ApiService.baseUrl}/api/v1/tenants/me',

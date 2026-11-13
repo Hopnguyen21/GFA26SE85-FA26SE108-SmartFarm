@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'geo_polygon.dart';
 import '../utils/cron_utils.dart';
 import '../utils/json_utils.dart';
+import '../utils/profile_name.dart';
 export 'geo_polygon.dart';
 part 'parts/models_farm.dart';
 part 'parts/models_devices.dart';

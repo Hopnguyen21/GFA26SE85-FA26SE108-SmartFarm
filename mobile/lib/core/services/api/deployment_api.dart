@@ -110,6 +110,34 @@ abstract final class DeploymentApi {
         as Map<String, dynamic>,
   );
 
+  /// GET /platform/deployment-requests/{id}/models (kỹ thuật viên): các model thiết bị có thể đưa vào kế hoạch, kèm số lượng gợi ý.
+  /// Chủ trại hủy yêu cầu triển khai khi chưa bắt đầu lắp đặt và chưa ký hợp đồng/đóng cọc.
+  static Future<DeploymentRequest> cancelDeploymentRequest(
+    String requestId, {
+    String? reason,
+  }) async => DeploymentRequest.fromJson(
+    ApiService._decodeOrThrow(
+          await ApiService._postWithAuth(
+            '${ApiService.baseUrl}/api/v1/deployment-requests/$requestId/cancel',
+            {if (reason != null && reason.isNotEmpty) 'reason': reason},
+          ),
+        )
+        as Map<String, dynamic>,
+  );
+
+  static Future<List<PlanItem>> getDeploymentPlanModels(
+    String requestId,
+  ) async => [
+    for (final m in ApiService._listOf(
+      ApiService._decodeOrThrow(
+        await ApiService._getWithAuth(
+          '${ApiService.baseUrl}/api/v1/platform/deployment-requests/$requestId/models',
+        ),
+      ),
+    ))
+      PlanItem.fromJson(m),
+  ];
+
   /// Owner đọc theo `/deployment-requests/{id}`, kỹ thuật viên theo `/platform/deployment-requests/{id}`.
   static Future<DeploymentRequest> getDeploymentRequest(
     String requestId, {
@@ -421,6 +449,126 @@ abstract final class DeploymentApi {
       await ApiService._putWithAuth(
         '${ApiService.baseUrl}/api/v1/devices/$deviceId/sensors',
         {'sensors': sensors},
+      ),
+    );
+  }
+
+  /// PUT /devices/{id}/actuators: thay toàn bộ cơ cấu; mỗi phần tử cần actuatorType, relayChannel 1..8 (không trùng),
+  /// maxDurationMinutes 1..30; ratedPowerWatt và flowRateLitersPerMinute (nếu có) phải lớn hơn 0.
+  static Future<void> configureDeviceActuators(
+    String deviceId,
+    List<Map<String, dynamic>> actuators,
+  ) async {
+    ApiService._decodeOrThrow(
+      await ApiService._putWithAuth(
+        '${ApiService.baseUrl}/api/v1/devices/$deviceId/actuators',
+        {'actuators': actuators},
+      ),
+    );
+  }
+
+  /// GET /devices/{id}: thông tin thiết bị kèm danh sách loại cảm biến/cơ cấu đang cấu hình.
+  static Future<Map<String, dynamic>> getDeviceDetail(String deviceId) async =>
+      Map<String, dynamic>.from(
+        ApiService._decodeOrThrow(
+              await ApiService._getWithAuth(
+                '${ApiService.baseUrl}/api/v1/devices/$deviceId',
+              ),
+            )
+            as Map,
+      );
+
+  /// Kết quả kiểm tra kết nối gần nhất của thiết bị (GET /devices/{id}/ping); 404 nếu chưa từng kiểm tra.
+  static Future<ConnectionTest> pingDevice(String deviceId) async =>
+      ConnectionTest.fromJson(
+        ApiService._decodeOrThrow(
+              await ApiService._getWithAuth(
+                '${ApiService.baseUrl}/api/v1/devices/$deviceId/ping',
+              ),
+            )
+            as Map<String, dynamic>,
+      );
+
+  /// Hành động chẩn đoán backend chấp nhận (khớp danh sách của IoTDeploymentService.DiagnoseAsync).
+  static const diagnosticActions = <String, String>{
+    'REBOOT_NODE': 'Khởi động lại node',
+    'CHANGE_CHANNEL': 'Đổi kênh tần số',
+    'REBOOT_AND_CHANGE_CHANNEL': 'Khởi động lại và đổi kênh',
+    'CALIBRATE_SENSOR': 'Hiệu chuẩn cảm biến',
+    'FACTORY_RESET': 'Khôi phục cài đặt gốc',
+  };
+
+  /// Xếp lệnh chẩn đoán vào hàng đợi (202); kết quả thực thi do thiết bị phản hồi, app không tự coi là thành công.
+  static Future<Map<String, dynamic>> diagnoseDevice(
+    String deviceId, {
+    required String action,
+    double? newFrequencyChannel,
+    int? increaseTxPowerDbm,
+  }) async =>
+      ApiService._decodeOrThrow(
+            await ApiService._postWithAuth(
+              '${ApiService.baseUrl}/api/v1/devices/$deviceId/diagnose',
+              {
+                'action': action,
+                'newFrequencyChannel': ?newFrequencyChannel,
+                'increaseTxPowerDbm': ?increaseTxPowerDbm,
+              },
+            ),
+            ok: const {200, 201, 202},
+          )
+          as Map<String, dynamic>;
+
+  /// Gỡ thiết bị khỏi Zone (bắt buộc ghi lý do); thiết bị về trạng thái chưa gán.
+  static Future<void> unassignDevice(
+    String zoneId,
+    String deviceId, {
+    required String reason,
+  }) async {
+    ApiService._decodeOrThrow(
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/zones/$zoneId/devices/$deviceId/unassign',
+        {'reason': reason},
+      ),
+    );
+  }
+
+  /// Ngừng sử dụng thiết bị; backend chỉ cho phép khi thiết bị đã được gỡ khỏi Zone.
+  static Future<void> decommissionDevice(String deviceId) async {
+    ApiService._decodeOrThrow(
+      await ApiService._deleteWithAuth(
+        '${ApiService.baseUrl}/api/v1/devices/$deviceId',
+      ),
+      ok: const {200, 204},
+    );
+  }
+
+  /// Kho trung tâm: danh mục linh kiện còn có thể nhận (chưa giao cho kỹ thuật viên nào).
+  static Future<List<Map<String, dynamic>>> getWarehouseParts() async =>
+      (await getHardwareItems())
+          .where(
+            (e) =>
+                e['assignedTechnicianId'] == null &&
+                ((e['quantityInStock'] as num?) ?? 0) > 0,
+          )
+          .toList();
+
+  /// Nhận linh kiện từ kho về tên mình (kỹ thuật viên lấy từ token, không gửi từ client).
+  /// Gateway và Node chỉ nhận từng chiếc (số lượng 1).
+  static Future<void> assignHardwareItem(String id, {int quantity = 1}) async {
+    ApiService._decodeOrThrow(
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/platform/hardware-items/$id/assign',
+        {'quantity': quantity},
+      ),
+    );
+  }
+
+  /// Trả linh kiện đang giữ về kho trung tâm.
+  static Future<void> returnHardwareItem(String id) async {
+    ApiService._decodeOrThrow(
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/platform/hardware-items/$id/return',
+        {},
       ),
     );
   }

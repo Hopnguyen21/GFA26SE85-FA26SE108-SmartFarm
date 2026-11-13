@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
 import 'device_health_loader.dart';
+import 'widgets/device_actions_sheet.dart';
 
 /// Tình trạng thiết bị IoT (gateway & node) theo dữ liệu thật của backend.
 /// Phát hiện lỗi theo thời gian im lặng (last seen + timeout), không đếm gói rớt vì LoRa mất gói là bình thường.
@@ -181,7 +182,16 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
                       style: TextStyle(color: Color(0xFF64748B)),
                     ),
                   ),
-                ...devices.map((device) => _DeviceCard(device: device)),
+                ...devices.map(
+                  (device) => _DeviceCard(
+                    device: device,
+                    canManage:
+                        device.deviceId != null &&
+                        context.read<FarmProvider>().currentRole ==
+                            'TECHNICIAN',
+                    onChanged: _reload,
+                  ),
+                ),
               ],
             ),
           );
@@ -232,8 +242,15 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
 
 class _DeviceCard extends StatelessWidget {
   final DeviceHealthModel device;
+  final bool
+  canManage; // chỉ kỹ thuật viên và chỉ node (gateway không có thao tác này)
+  final VoidCallback onChanged;
 
-  const _DeviceCard({required this.device});
+  const _DeviceCard({
+    required this.device,
+    this.canManage = false,
+    required this.onChanged,
+  });
 
   Color get _statusColor {
     switch (device.healthStatus) {
@@ -401,6 +418,19 @@ class _DeviceCard extends StatelessWidget {
             _timeoutExplanation,
             style: TextStyle(fontSize: 11, color: _statusColor),
           ),
+          if (canManage)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => showDeviceActionsSheet(
+                  context,
+                  device,
+                  onChanged: onChanged,
+                ),
+                icon: const Icon(Icons.tune, size: 18),
+                label: const Text('Thao tác kỹ thuật'),
+              ),
+            ),
         ],
       ),
     );

@@ -72,6 +72,16 @@ class _ContractsDepreciationScreenState
     });
     _selectedFarmId = widget.lockedZone?.farmId ?? widget.initialFarmId;
     _selectedZoneId = widget.lockedZone?.zoneId ?? widget.initialZoneId;
+    // Hợp đồng luôn xem THEO ZONE: không chỉ định Zone thì chọn Zone đầu tiên, đổi Zone bằng ô chọn phía trên.
+    if (_selectedZoneId == null) {
+      try {
+        final first = context.read<FarmProvider>().allZones.firstOrNull;
+        if (first != null) {
+          _selectedZoneId = first.zoneId;
+          _selectedFarmId ??= first.farmId;
+        }
+      } catch (_) {}
+    }
     _loadData();
   }
 
@@ -94,11 +104,11 @@ class _ContractsDepreciationScreenState
       );
       final alerts = await ContractApi.getExpiringContracts(
         farmId: _selectedFarmId,
-        zoneId: widget.lockedZone?.zoneId,
+        zoneId: widget.lockedZone?.zoneId ?? _selectedZoneId,
         daysThreshold: 30,
       );
       // Ngữ cảnh Zone: lọc lại phía app theo zoneId để chắc chắn không lộ dữ liệu Zone khác (kể cả khi API cũ chưa hỗ trợ lọc).
-      final zid = widget.lockedZone?.zoneId.toLowerCase();
+      final zid = (widget.lockedZone?.zoneId ?? _selectedZoneId)?.toLowerCase();
       bool inZone(String id) => zid == null || id.toLowerCase() == zid;
 
       if (mounted) {
@@ -226,19 +236,68 @@ class _ContractsDepreciationScreenState
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981)),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildContractsTab(provider, isOwner),
-                _buildDepreciationsTab(provider, isOwner),
-                _buildExpiringAlertsTab(provider),
-              ],
-            ),
+      body: Column(
+        children: [
+          if (widget.lockedZone == null) _zonePicker(provider),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF10B981)),
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildContractsTab(provider, isOwner),
+                      _buildDepreciationsTab(provider, isOwner),
+                      _buildExpiringAlertsTab(provider),
+                    ],
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: _buildFloatingActionButton(provider, isOwner),
+    );
+  }
+
+  /// Ô chọn Zone: hợp đồng, khấu hao và cảnh báo hết hạn chỉ của Zone đang chọn.
+  Widget _zonePicker(FarmProvider provider) {
+    final zones = provider.allZones;
+    final value = zones.any((z) => z.zoneId == _selectedZoneId)
+        ? _selectedZoneId
+        : null;
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('zone-$value'),
+        initialValue: value,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Zone',
+          prefixIcon: Icon(Icons.grid_view_outlined, size: 18),
+          isDense: true,
+        ),
+        hint: const Text('Chưa có Zone nào'),
+        items: [
+          for (final z in zones)
+            DropdownMenuItem(
+              value: z.zoneId,
+              child: Text(
+                z.farmName.isEmpty ? z.name : '${z.name} · ${z.farmName}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: (id) {
+          if (id == null || id == _selectedZoneId) return;
+          final z = zones.firstWhere((z) => z.zoneId == id);
+          setState(() {
+            _selectedZoneId = id;
+            _selectedFarmId = z.farmId;
+          });
+          _loadData();
+        },
+      ),
     );
   }
 
