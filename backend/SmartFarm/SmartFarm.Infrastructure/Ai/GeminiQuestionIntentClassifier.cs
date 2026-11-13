@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using SmartFarm.Application.Features.Ai;
 using SmartFarm.Domain.Enums;
@@ -14,9 +15,13 @@ namespace SmartFarm.Infrastructure.Ai;
 public sealed class GeminiQuestionIntentClassifier(
     HttpClient httpClient,
     IOptions<GeminiOptions> options,
-    ILogger<GeminiQuestionIntentClassifier> logger) : IQuestionIntentClassifier
+    ILogger<GeminiQuestionIntentClassifier> logger,
+    IMemoryCache? cache = null) : IQuestionIntentClassifier
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(12);
+    // Phân loại chậm thì thà đi tiếp với đầy đủ ngữ cảnh còn hơn để người dùng chờ.
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
+    // Ý định chỉ phụ thuộc nội dung câu hỏi nên dùng lại được; không phụ thuộc Zone hay Tenant.
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(6);
 
     private const string SystemInstruction = """
         Bạn phân loại ý định của câu hỏi mà người dùng gửi cho trợ lý của MỘT khu vực (Zone) trong trang trại thông minh. Chỉ phân loại, không trả lời câu hỏi.
@@ -31,12 +36,17 @@ public sealed class GeminiQuestionIntentClassifier(
         - commands: hỏi về lệnh điều khiển thiết bị đã/đang thực hiện gần đây.
         - schedules: hỏi về lịch tưới/lịch chạy tự động sắp tới.
         - tasks: hỏi về công việc/nhiệm vụ của Zone.
-        - season: hỏi về vụ mùa hiện tại, cây đang trồng, giai đoạn sinh trưởng hiện tại, tuổi vụ của Zone.
+        - season: hỏi về vụ mùa hiện tại, cây đang trồng, giống/loại cây đang trồng ("cà chua thuộc loại nào", "trồng giống gì"), giai đoạn sinh trưởng hiện tại, tuổi vụ của Zone. Hỏi cây/giống đang trồng là dữ liệu của Zone: chỉ chọn season, không thêm agronomy_knowledge.
         - zone_info: hỏi thông tin chung của Zone (diện tích, loại, trạng thái).
+        - farm_info: hỏi về cả Farm hoặc các Zone/Field khác chứ không riêng Zone đang chọn (Farm có mấy zone/khu, tên Farm, chủ Farm, tổng diện tích Farm, zone khác). Trợ lý không trả dữ liệu ngoài Zone đang chọn.
+        - unsupported_data: hỏi dữ liệu mà trợ lý KHÔNG có: tài chính (chi phí, doanh thu, lãi lỗ), hợp đồng, gói dịch vụ/thanh toán, camera/hình ảnh, tài khoản/chủ Farm/thông tin người dùng, kho vật tư, báo cáo/năng suất/sản lượng thu hoạch và lịch sử các vụ trước, định mức/số lượng nhân công cần để chăm sóc ("cần mấy người", "bao nhiêu công"; hệ thống không có định mức nhân công — đừng chọn agronomy_knowledge cho câu này), hoặc dữ liệu của Zone/Field/Farm khác. Chọn chủ đề này thay vì đoán sang chủ đề gần giống. Yêu cầu của VietGAP/quy trình canh tác (kể cả ghi chép nhật ký, truy xuất nguồn gốc theo VietGAP) vẫn là agronomy_knowledge, không phải unsupported_data. Mật độ/khoảng cách trồng và "trồng được bao nhiêu cây" cũng là agronomy_knowledge kèm zone_info (cần mật độ trong tài liệu và diện tích Zone), không phải unsupported_data.
+        - zone_members: hỏi ai ĐANG được phân công/giao/phụ trách/có quyền trong Zone này, ai làm việc ở Zone, người được giao việc, số người đang được phân công (không phải số người cần có).
         - auto_rules: hỏi về quy tắc điều khiển tự động của Zone.
         - device_health: hỏi về pin, cường độ tín hiệu, tình trạng hoạt động của thiết bị.
         - irrigation_or_control: hỏi có nên/cần tưới hay không, hoặc yêu cầu bật/tắt/điều khiển thiết bị.
         - agronomy_knowledge: hỏi kiến thức nông học, kỹ thuật canh tác, quy chuẩn VietGAP, ngưỡng khuyến nghị, sâu bệnh, bón phân, thu hoạch... (cần tài liệu tham khảo, không phải dữ liệu của Zone).
+        Câu hỏi nhận diện thiết bị của Zone ("thiết bị chấp hành là gì", "các node gồm những gì", "cảm biến là cái nào") là devices (đặt deviceScope phù hợp), không phải agronomy_knowledge.
+        Câu giả định về hậu quả ("nếu nhiệt độ xuống 0 độ thì sao", "độ ẩm 95% có sao không", "ảnh hưởng gì đến cây") là agronomy_knowledge, kể cả khi có nhắc thông số.
         - harvest: hỏi thời gian đến thu hoạch, số ngày chín, cây chín sau bao lâu, khi nào thu hoạch, tiêu chí hoặc phương pháp thu hoạch (có thể chọn cùng season và agronomy_knowledge).
         - small_talk: chào hỏi, cảm ơn, hỏi bạn làm được gì.
         - out_of_scope: không liên quan nông nghiệp hay vận hành trang trại.
@@ -46,21 +56,30 @@ public sealed class GeminiQuestionIntentClassifier(
 
         parameters: các thông số môi trường mà câu hỏi nhắc tới, chọn trong Temperature, SoilMoisture, AirHumidity, Ph, LightIntensity, Ec.
         Chỉ điền khi câu hỏi nói rõ thông số. "Độ ẩm" không nói rõ đất hay không khí thì điền cả SoilMoisture và AirHumidity.
-        wantsHistory: true khi hỏi lịch sử, xu hướng, biến thiên qua các lần đo.
+        wantsHistory: true khi hỏi lịch sử, xu hướng, biến thiên qua các lần đo, hoặc xin "N bản ghi/lần đo gần nhất".
+        historyCount: số bản ghi gần nhất người dùng muốn xem (1-20); 0 nếu không nêu số cụ thể hoặc không hỏi lịch sử.
+        searchTerms: chỉ khi hỏi kiến thức nông học (agronomy_knowledge, harvest, irrigation_or_control): 3-8 từ khóa hoặc cụm từ ngắn mà tài liệu kỹ thuật VietGAP/canh tác hay dùng cho nội dung câu hỏi (chủ yếu tiếng Việt, kèm 2-3 từ tiếng Anh tương đương như "fertilizer", "irrigation", "pest" để tìm được cả tài liệu tiếng Anh) (thuật ngữ đồng nghĩa, nguyên nhân, biện pháp; ví dụ "úa lá" → "thiếu đạm", "vàng lá", "bón phân"). Không có thì [].
+        historyDays: số ngày gần nhất (tính cả hôm nay, tối đa 14) khi câu hỏi so sánh hoặc tổng hợp theo ngày ("so sánh hôm nay với hôm qua" = 2, "3 ngày qua" = 3, "tuần qua" = 7, "trung bình hôm nay" = 1); 0 nếu không hỏi theo ngày.
+        deviceNumber: số thứ tự node khi câu hỏi nhắc một node cụ thể ("node cảm biến 1" → 1); bỏ qua hoặc 0 nếu hỏi tất cả node.
         wantsDeviceDetail: true khi hỏi chi tiết/số đo/thông tin của từng thiết bị.
         deviceScope (khi hỏi về thiết bị): "sensors" nếu chỉ hỏi về cảm biến; "actuators" nếu chỉ hỏi về thiết bị chấp hành/điều khiển (bơm, quạt, van, đèn, rơ-le); "all" nếu hỏi chung về "thiết bị" hoặc cả hai loại hoặc không rõ.
 
-        Trả JSON đúng dạng: {"topics":[...],"parameters":[...],"wantsHistory":false,"wantsDeviceDetail":false,"deviceScope":"all"}
+        Trả JSON đúng dạng: {"topics":[...],"parameters":[...],"wantsHistory":false,"wantsDeviceDetail":false,"deviceScope":"all","historyCount":0,"deviceNumber":0,"historyDays":0,"searchTerms":[]}
         """;
 
     public async Task<QuestionIntent?> ClassifyAsync(string question, CancellationToken cancellationToken)
     {
         var settings = options.Value;
+        var cacheKey = "ai_intent_" + string.Join(' ', question.ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (cache is not null && cache.TryGetValue(cacheKey, out QuestionIntent? cached) && cached is not null) return cached;
         try
         {
             var user = $"<question>{AiPromptBuilder.Escape(question)}</question>";
             var (json, _) = await GeminiJsonClient.SendAsync(httpClient, settings, SystemInstruction, user, 1024, Timeout, cancellationToken);
-            return Parse(json);
+            var intent = Parse(json);
+            // Chỉ nhớ kết quả hợp lệ; lỗi hoặc kết quả rỗng lần sau được phân loại lại.
+            if (intent is not null) cache?.Set(cacheKey, intent, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = CacheDuration });
+            return intent;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -92,7 +111,17 @@ public sealed class GeminiQuestionIntentClassifier(
             var scope = root.TryGetProperty("deviceScope", out var s) && s.ValueKind == JsonValueKind.String ? s.GetString()?.Trim().ToLowerInvariant() : null;
             // Thiếu hoặc không hợp lệ thì liệt kê tất cả: không bao giờ âm thầm giấu một loại thiết bị.
             scope = scope is QuestionIntent.ScopeSensors or QuestionIntent.ScopeActuators ? scope : QuestionIntent.ScopeAll;
-            return new QuestionIntent(topics, parameters, ReadBool(root, "wantsHistory"), ReadBool(root, "wantsDeviceDetail"), scope);
+            var wantsHistory = ReadBool(root, "wantsHistory");
+            var historyCount = Math.Clamp(ReadInt(root, "historyCount"), 0, QuestionIntent.MaxHistoryCount);
+            // Xin "bản ghi gần nhất" mà không nêu số thì lấy số mặc định; có nêu số thì chắc chắn là hỏi lịch sử.
+            var deviceNumber = ReadInt(root, "deviceNumber");
+            var historyDays = Math.Clamp(ReadInt(root, "historyDays"), 0, QuestionIntent.MaxHistoryDays);
+            // Hỏi theo ngày thì tổng hợp theo ngày, không đặt số bản ghi mặc định (nếu không câu "hôm nay so với hôm qua" thành "5 số đo gần nhất").
+            if (historyCount == 0 && wantsHistory && historyDays == 0) historyCount = QuestionIntent.DefaultHistoryCount;
+            return new QuestionIntent(topics, parameters, wantsHistory || historyCount > 0, ReadBool(root, "wantsDeviceDetail"), scope,
+                historyCount, deviceNumber is > 0 and <= 999 ? deviceNumber : null,
+                ReadStrings(root, "searchTerms").Select(t => t.Trim()).Where(t => t.Length is >= 2 and <= 40).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+                historyDays);
         }
         catch (JsonException)
         {
@@ -104,6 +133,9 @@ public sealed class GeminiQuestionIntentClassifier(
         root.TryGetProperty(name, out var arr) && arr.ValueKind == JsonValueKind.Array
             ? arr.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString() ?? string.Empty)
             : [];
+
+    private static int ReadInt(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
 
     private static bool ReadBool(JsonElement root, string name) =>
         root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;

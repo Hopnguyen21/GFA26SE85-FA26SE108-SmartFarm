@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { cropService, knowledgeService } from '../../services';
 import { Crop, VietGapStructuredExtraction } from '../../types';
-import { checkVietGapCompleteness, MIN_NOTES_FOR_INCOMPLETE_APPROVAL, DOCUMENT_TYPE_INFO, AgricultureDocumentType } from './vietGapCompleteness';
+import { checkVietGapCompleteness, detectTextCorruption, MIN_NOTES_FOR_INCOMPLETE_APPROVAL, DOCUMENT_TYPE_INFO, AgricultureDocumentType } from './vietGapCompleteness';
 import { canonicalCrop } from './cropNames';
 import { foldVietnamese } from './vietGapCompleteness';
 
@@ -167,6 +167,21 @@ const VerificationCard: React.FC<{ verification: any; status?: string; busy: boo
       {Array.isArray(verification?.evidence) && verification.evidence.map((q: any, i: number) => (
         <p key={i} className="text-xs italic text-slate-700">“{q.quote}”{q.page ? ` · trang ${q.page}` : ''}</p>
       ))}
+      {(verification?.scopeKind === 'general' || verification?.scopeKind === 'specific') && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-1">
+          <p className="text-xs text-slate-800">
+            <b>AI nhận định tài liệu áp dụng cho:</b>{' '}
+            {verification.scopeKind === 'general'
+              ? 'chung (rau/cây trồng nói chung, không riêng một cây)'
+              : (verification.scopeCrops || []).join(', ')}
+          </p>
+          {verification.scopeReason && <p className="text-xs text-slate-600">Lý do: {verification.scopeReason}</p>}
+          {Array.isArray(verification.scopeEvidence) && verification.scopeEvidence.map((q: any, i: number) => (
+            <p key={i} className="text-xs italic text-slate-700">“{q.quote}”{q.page ? ` · trang ${q.page}` : ''}</p>
+          ))}
+          <p className="text-[10px] text-slate-500">Chỉ là gợi ý có trích dẫn; người duyệt đối chiếu file gốc rồi quyết định.</p>
+        </div>
+      )}
       {verification?.checkedAtUtc && (
         <p className="text-[10px] text-slate-400">
           Kiểm tra lúc {new Date(verification.checkedAtUtc).toLocaleString('vi-VN')}{verification.model ? ` · ${verification.model}` : ''} · prompt {verification.promptVersion}
@@ -929,10 +944,10 @@ export const VietGapStandardsPage: React.FC = () => {
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
+    if (file.size > 50 * 1024 * 1024) {
       setSelectedUploadFile(null);
       e.target.value = '';
-      setNotification({ type: 'error', message: 'Dung lượng tệp vượt quá giới hạn tối đa 15 MB!' });
+      setNotification({ type: 'error', message: 'Dung lượng tệp vượt quá giới hạn tối đa 50 MB!' });
       return;
     }
 
@@ -1277,27 +1292,61 @@ export const VietGapStandardsPage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDoc?.id]);
 
+  // Lỗi kiểm tra khi duyệt hiện ngay cạnh nút bấm: thông báo chung nằm đầu trang nên người đang ở cuối khung rà soát không thấy.
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const showReviewError = (n: { type: 'success' | 'error' | 'warning'; message: string }) => {
+    setNotification(n);
+    setReviewError(n.message);
+  };
+  useEffect(() => { setReviewError(null); }, [selectedDoc?.id, isReviewPanelOpen]);
+
+  // Kết quả AI kiểm tra chạy nền: khi tài liệu đang chọn còn "Pending" thì tự hỏi lại vài giây một lần cho đến khi có kết quả (tối đa ~3 phút),
+  // để người dùng không phải tải lại trang mới thấy.
+  const pendingDocId = selectedDoc && (selectedDoc.verification?.status ?? selectedDoc.verificationStatus) === 'Pending' ? selectedDoc.id : null;
+  useEffect(() => {
+    if (!pendingDocId) return;
+    let cancelled = false;
+    let attempts = 0;
+    const timer = window.setInterval(async () => {
+      attempts += 1;
+      if (attempts > 45) { window.clearInterval(timer); return; }
+      try {
+        const detail: any = await knowledgeService.getDocument(pendingDocId);
+        if (cancelled) return;
+        const status = detail?.verification?.status ?? detail?.verificationStatus;
+        if (status && status !== 'Pending') {
+          window.clearInterval(timer);
+          const refreshed = deriveVietGapDetails(detail, detail, crops, growthProfiles);
+          setDocuments(prev => prev.map(doc => doc.id === refreshed.id ? { ...doc, verification: refreshed.verification, verificationStatus: refreshed.verificationStatus } : doc));
+          setSelectedDoc((prev: any) => prev && prev.id === refreshed.id ? { ...prev, verification: refreshed.verification, verificationStatus: refreshed.verificationStatus } : prev);
+        }
+      } catch { /* mạng lỗi tạm thời: thử lại ở lần sau */ }
+    }, 4000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [pendingDocId]);
+
   const handleReviewDocument = async (approve: boolean) => {
     if (!selectedDoc) return;
+    setReviewError(null);
     if (reviewText.trim().length < 50) {
-      setNotification({ type: 'error', message: 'Nội dung rà soát cần có ít nhất 50 ký tự.' });
+      showReviewError({ type: 'error', message: 'Nội dung rà soát cần có ít nhất 50 ký tự.' });
       return;
     }
     if (approve && !reviewConfirmed) {
-      setNotification({ type: 'error', message: 'Vui lòng xác nhận đã đối chiếu nội dung với tài liệu gốc.' });
+      showReviewError({ type: 'error', message: 'Vui lòng xác nhận đã đối chiếu nội dung với tài liệu gốc.' });
       return;
     }
     if (approve && missingCriticalChecks.length > 0 && reviewNotes.trim().length < MIN_NOTES_FOR_INCOMPLETE_APPROVAL) {
-      setNotification({ type: 'error', message: `Tài liệu chưa thấy: ${missingCriticalChecks.map(c => c.label).join(', ')}. Bổ sung nội dung hoặc ghi chú lý do duyệt (tối thiểu ${MIN_NOTES_FOR_INCOMPLETE_APPROVAL} ký tự).` });
+      showReviewError({ type: 'error', message: `Tài liệu chưa thấy: ${missingCriticalChecks.map(c => c.label).join(', ')}. Bổ sung nội dung hoặc ghi chú lý do duyệt (tối thiểu ${MIN_NOTES_FOR_INCOMPLETE_APPROVAL} ký tự).` });
       return;
     }
     if (approve && reviewMeta.documentType === 'Unspecified') {
-      setNotification({ type: 'error', message: 'Chưa xác định loại tài liệu: hãy chọn loại (tiêu chuẩn, hướng dẫn kỹ thuật hoặc chuyên đề) trước khi duyệt.' });
+      showReviewError({ type: 'error', message: 'Chưa xác định loại tài liệu: hãy chọn loại (tiêu chuẩn, hướng dẫn kỹ thuật hoặc chuyên đề) trước khi duyệt.' });
       return;
     }
     const det = selectedDoc.metadataDetection;
     if (approve && det && !reviewMeta.cropScope.trim() && !reviewMeta.confirmGeneral && det.generalScope?.status !== 'detected') {
-      setNotification({ type: 'error', message: 'Chưa xác định cây áp dụng: hãy nhập cây, hoặc xác nhận tài liệu áp dụng chung sau khi đối chiếu file gốc.' });
+      showReviewError({ type: 'error', message: 'Chưa xác định cây áp dụng: hãy nhập cây, hoặc xác nhận tài liệu áp dụng chung sau khi đối chiếu file gốc.' });
       return;
     }
     setIsSavingReview(true);
@@ -1331,7 +1380,7 @@ export const VietGapStandardsPage: React.FC = () => {
       const validationErrors = err?.response?.data?.errors
         ? Object.values(err.response.data.errors as Record<string, string[]>).flat().join(' ')
         : '';
-      setNotification({ type: 'error', message: `Không lưu được rà soát: ${validationErrors || err?.response?.data?.message || err?.message || 'Lỗi máy chủ'}` });
+      showReviewError({ type: 'error', message: `Không lưu được rà soát: ${validationErrors || err?.response?.data?.message || err?.message || 'Lỗi máy chủ'}` });
     } finally {
       setIsSavingReview(false);
     }
@@ -1788,9 +1837,53 @@ export const VietGapStandardsPage: React.FC = () => {
                       <p className="text-xs text-amber-900 mt-1">Các kiểm tra dưới đây chỉ giúp phát hiện phần cần xem lại; không chứng minh nội dung đúng. {selectedDoc.hasOriginalFile ? 'Tải file gốc đã lưu, đối chiếu và sửa nội dung trích xuất trước khi duyệt.' : 'Bản ghi này không có file gốc lưu trong DB; hãy đối chiếu với nguồn đáng tin cậy bên ngoài hoặc tải lại file gốc trước khi duyệt.'}</p>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-2 text-xs bg-white/70 border border-amber-200 rounded-xl p-3" aria-label="Chỉnh thông tin tài liệu">
+                      {(() => {
+                        const q = detectTextCorruption(reviewText);
+                        return q.suspicious ? (
+                          <div role="alert" className="sm:col-span-2 rounded-lg border border-amber-400 bg-amber-50 p-2.5 text-xs font-normal text-amber-900">
+                            <b>Văn bản trích xuất có vẻ bị lỗi font/OCR</b> ({q.count} từ nghi lỗi, ví dụ: {q.examples.join(', ')}). AI sẽ trích dẫn nguyên văn các đoạn này, nên câu trả lời có thể khó đọc hoặc sai chữ.
+                            Nên dùng bản PDF khác (bản chính thức, có lớp chữ chuẩn) thay vì duyệt bản này, hoặc sửa nội dung trích xuất trước khi duyệt.
+                          </div>
+                        ) : null;
+                      })()}
+                      {selectedDoc.verification?.suggestedTitle && selectedDoc.verification.suggestedTitle.trim() !== reviewMeta.title.trim() && (
+                        <div className="sm:col-span-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 text-xs font-normal text-slate-800">
+                          <span><b>AI gợi ý tên tài liệu:</b> {selectedDoc.verification.suggestedTitle}</span>
+                          <button
+                            type="button"
+                            onClick={() => setReviewMeta(m => ({ ...m, title: selectedDoc.verification.suggestedTitle }))}
+                            className="ml-auto px-2.5 py-1 rounded-lg border border-emerald-600 bg-white text-emerald-800 font-bold"
+                          >
+                            Dùng tên này
+                          </button>
+                        </div>
+                      )}
                       <label className="font-semibold text-slate-700 sm:col-span-2">Tiêu đề
                         <input value={reviewMeta.title} onChange={e => setReviewMeta(m => ({ ...m, title: e.target.value }))} maxLength={300} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 font-normal" />
                       </label>
+                      {(selectedDoc.verification?.scopeKind === 'general' || selectedDoc.verification?.scopeKind === 'specific') && !reviewMeta.cropScope.trim() && !reviewMeta.confirmGeneral && (
+                        <div className="sm:col-span-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 text-xs font-normal text-slate-800">
+                          <span>
+                            <b>AI gợi ý phạm vi:</b>{' '}
+                            {selectedDoc.verification.scopeKind === 'general' ? 'áp dụng chung cho mọi cây' : (selectedDoc.verification.scopeCrops || []).join(', ')}
+                            {selectedDoc.verification.scopeReason ? ` — ${selectedDoc.verification.scopeReason}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setReviewMeta(m => selectedDoc.verification.scopeKind === 'general'
+                              ? { ...m, cropScope: '', confirmGeneral: true }
+                              : { ...m, cropScope: (selectedDoc.verification.scopeCrops || []).join(', '), confirmGeneral: false })}
+                            className="ml-auto px-2.5 py-1 rounded-lg border border-emerald-600 bg-white text-emerald-800 font-bold"
+                          >
+                            Dùng gợi ý này
+                          </button>
+                        </div>
+                      )}
+                      {selectedDoc.verification && !selectedDoc.verification.scopeKind && !reviewMeta.cropScope.trim() && !reviewMeta.confirmGeneral && selectedDoc.verification.status !== 'Pending' && (
+                        <p className="sm:col-span-2 text-[11px] font-normal text-slate-500">
+                          AI chưa nhận định được phạm vi áp dụng của tài liệu này (thiếu câu trích hợp lệ). Bấm "Kiểm tra lại" ở khung AI bên dưới để thử lại, hoặc tự chọn sau khi đối chiếu file gốc.
+                        </p>
+                      )}
                       <label className="font-semibold text-slate-700">Cây áp dụng (phân tách bằng dấu phẩy)
                         <input value={reviewMeta.cropScope} onChange={e => setReviewMeta(m => ({ ...m, cropScope: e.target.value, confirmGeneral: e.target.value.trim() ? false : m.confirmGeneral }))} list="review-crop-options" maxLength={500} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 font-normal" placeholder="Để trống nếu tài liệu áp dụng chung" />
                         <datalist id="review-crop-options">{crops.map((c: any) => <option key={c.cropId || c.id || c.name} value={c.name} />)}</datalist>
@@ -1854,6 +1947,12 @@ export const VietGapStandardsPage: React.FC = () => {
                       <input type="checkbox" checked={reviewConfirmed} onChange={e => setReviewConfirmed(e.target.checked)} className="mt-0.5" />
                       {selectedDoc.hasOriginalFile ? 'Tôi đã đối chiếu nội dung ở trên với file gốc đã tải xuống' : 'Tôi đã đối chiếu nội dung với nguồn đáng tin cậy bên ngoài hoặc xác minh đây là nội dung nhập chủ động'}; việc duyệt không đồng nghĩa chứng nhận tuân thủ VietGAP.
                     </label>
+                    {reviewError && (
+                      <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{reviewError}</span>
+                      </div>
+                    )}
                     <div className="flex flex-wrap justify-end gap-2">
                       <button type="button" disabled={isSavingReview} onClick={() => handleReviewDocument(false)} className="px-3 py-2 rounded-lg border border-rose-300 bg-white text-rose-800 text-xs font-bold disabled:opacity-50">Lưu · cần chỉnh sửa</button>
                       <button type="button" disabled={isSavingReview || !reviewConfirmed} onClick={() => handleReviewDocument(true)} className="px-3 py-2 rounded-lg bg-emerald-700 text-white text-xs font-bold disabled:opacity-50">{isSavingReview ? 'Đang lưu…' : 'Xác nhận & duyệt'}</button>

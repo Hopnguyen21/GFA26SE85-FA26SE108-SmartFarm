@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -21,12 +22,14 @@ namespace SmartFarm.Infrastructure.Ai.Knowledge;
 public sealed class AgricultureKnowledgeRetriever(
     SmartFarmDbContext db,
     GeminiEmbeddingProvider embeddingProvider,
-    ILogger<AgricultureKnowledgeRetriever> logger) : IAgricultureKnowledgeRetriever
+    ILogger<AgricultureKnowledgeRetriever> logger,
+    IMemoryCache? cache = null) : IAgricultureKnowledgeRetriever
 {
     // Ngưỡng similarity tối thiểu (cosine similarity, 0-1)
     // Cosine distance trong pgvector = 1 - cosine_similarity
     // Ngưỡng distance < 0.60 ≈ similarity > 0.40
     private const float MaxCosineDistance = 0.60f;
+    private const string EmbeddingUnavailableKey = "ai_query_embedding_unavailable";
     // Đường từ khóa: một từ trùng trong câu hỏi dài chỉ ~0.07 nên ngưỡng cũ 0.05 cho lọt cả đoạn không liên quan.
     // Cần khớp ít nhất khoảng một phần ba các từ có nghĩa của câu hỏi.
     internal const float MinKeywordScore = 0.25f;
@@ -68,7 +71,8 @@ public sealed class AgricultureKnowledgeRetriever(
         Guid? tenantId,
         int topK,
         bool generalOnlyWhenCropUnknown,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? expansionTerms = null)
     {
         if (string.IsNullOrWhiteSpace(question)) return [];
         question = question.Normalize(NormalizationForm.FormC).Trim();
@@ -78,7 +82,7 @@ public sealed class AgricultureKnowledgeRetriever(
         if (scope.Allowed is { Count: 0 }) return [];
 
         // Lấy dư ứng viên rồi mới chọn: ưu tiên chủ đề câu hỏi, tài liệu đúng cây, và giới hạn số đoạn mỗi tài liệu.
-        var candidates = (await RetrieveCandidatesAsync(question, scope.Allowed, category, tenantId, topK * 3, cancellationToken))
+        var candidates = (await RetrieveCandidatesAsync(question, scope.Allowed, category, tenantId, topK * 3, expansionTerms, cancellationToken))
             .Where(c => IsSubstantive(c.Content)).ToList();
         var selected = await DiversifyAsync(question, candidates, scope.CropSpecific, topK, cancellationToken);
         return await WithVersionsAsync(selected, cancellationToken);
@@ -126,7 +130,9 @@ public sealed class AgricultureKnowledgeRetriever(
         var ids = candidates.Select(c => c.ChunkId).ToList();
         var topics = questionTopics.Count == 0
             ? new Dictionary<Guid, string>()
+            // Chọn cột trước khi tạo từ điển: nếu không EF nạp cả thực thể, kể cả cột embedding (kiểu text khi chưa cài pgvector thì đọc lỗi).
             : await db.AgricultureKnowledgeChunks.AsNoTracking().Where(c => ids.Contains(c.Id))
+                .Select(c => new { c.Id, c.Topic })
                 .ToDictionaryAsync(c => c.Id, c => c.Topic, ct);
 
         return candidates
@@ -148,10 +154,20 @@ public sealed class AgricultureKnowledgeRetriever(
         string? category,
         Guid? tenantId,
         int topK,
+        IReadOnlyList<string>? expansionTerms,
         CancellationToken cancellationToken)
     {
         // ── 1. Tạo embedding cho câu hỏi ─────────────────────────────────────
-        var questionEmbedding = await embeddingProvider.EmbedQueryAsync(question, cancellationToken);
+        // Vector của cùng một câu hỏi không đổi: dùng lại để khỏi gọi API embedding mỗi lần.
+        var embeddingKey = "ai_query_embedding_" + question.Trim().ToLowerInvariant();
+        float[]? questionEmbedding = null;
+        // API embedding vừa lỗi (thường là hết quota): tạm dùng tìm theo từ khóa, không gọi lại ở mọi câu hỏi.
+        if ((cache is null || !cache.TryGetValue(embeddingKey, out questionEmbedding)) && cache?.TryGetValue(EmbeddingUnavailableKey, out _) != true)
+        {
+            questionEmbedding = await embeddingProvider.EmbedQueryAsync(question, cancellationToken);
+            if (questionEmbedding is not null) cache?.Set(embeddingKey, questionEmbedding, TimeSpan.FromHours(6));
+            else cache?.Set(EmbeddingUnavailableKey, true, TimeSpan.FromMinutes(5));
+        }
 
         if (questionEmbedding is not null)
         {
@@ -169,7 +185,7 @@ public sealed class AgricultureKnowledgeRetriever(
         // ── 2. Fallback: keyword scoring khi chưa có embedding hoặc embedding chưa trả kết quả ──
         // Vẫn trong cùng phạm vi tài liệu (đúng cây + chung): không nới sang tài liệu của cây khác.
         logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback for question: {Q}", question[..Math.Min(100, question.Length)]);
-        return await SearchByKeywordsAsync(question, allowedDocumentIds, category, tenantId, topK, cancellationToken);
+        return await SearchByKeywordsAsync(question, allowedDocumentIds, category, tenantId, topK, expansionTerms, cancellationToken);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -360,6 +376,7 @@ public sealed class AgricultureKnowledgeRetriever(
         string? category,
         Guid? tenantId,
         int topK,
+        IReadOnlyList<string>? expansionTerms,
         CancellationToken ct)
     {
         var query = db.AgricultureKnowledgeChunks
@@ -401,7 +418,7 @@ public sealed class AgricultureKnowledgeRetriever(
         return chunks
             .Select(c =>
             {
-                var score = ComputeKeywordScore(question, qWords, c.Content, c.Keywords);
+                var score = Math.Max(ComputeKeywordScore(question, qWords, c.Content, c.Keywords), ComputeExpansionScore(expansionTerms, c.Content, c.Keywords));
                 return (c, score);
             })
             .Where(x => x.score >= MinKeywordScore)
@@ -431,7 +448,38 @@ public sealed class AgricultureKnowledgeRetriever(
         "tự", "động", "hôm", "nay", "sắp", "chạy", "lúc", "mấy", "giờ", "bao", "nhiêu", "xem"
     };
 
-    private static float ComputeKeywordScore(string rawQuestion, string[] qWords, string content, string keywords)
+    /// <summary>
+    /// Điểm theo các thuật ngữ đồng nghĩa do AI sinh từ câu hỏi: câu hỏi diễn đạt khác từ trong tài liệu vẫn tìm được đoạn đúng mà không cần embedding.
+    /// Khớp nguyên cụm (không phân biệt dấu); điểm tăng theo tỷ lệ cụm khớp. Khớp một cụm vẫn đạt ngưỡng tối thiểu để đoạn được xét.
+    /// </summary>
+    internal static float ComputeExpansionScore(IReadOnlyList<string>? terms, string? content, string? keywords)
+    {
+        if (terms is null || terms.Count == 0) return 0f;
+        var haystack = RemoveDiacritics(((content ?? string.Empty) + " " + (keywords ?? string.Empty)).ToLowerInvariant());
+        var hits = terms.Count(t => !string.IsNullOrWhiteSpace(t) &&
+            Regex.IsMatch(haystack, @"(^|[^\p{L}\p{N}])" + Regex.Escape(RemoveDiacritics(t.Trim().ToLowerInvariant())) + @"($|[^\p{L}\p{N}])"));
+        return hits == 0 ? 0f : Math.Min(0.9f, 0.35f + 0.55f * hits / terms.Count);
+    }
+
+    private static readonly Regex AnySpace = new(@"s+", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Điểm cộng khi các từ chính của câu hỏi đứng liền nhau đúng thứ tự trong đoạn (cụm "quản lý đất" trong đoạn viết về quản lý đất),
+    /// để đoạn đúng chủ đề xếp trên đoạn chỉ chứa rời từng từ "quản lý" và "đất".
+    /// </summary>
+    internal static float PhraseProximityBonus(string[] meaningfulWords, string contentNoMark)
+    {
+        if (meaningfulWords.Length < 2) return 0f;
+        var text = AnySpace.Replace(contentNoMark, " ");
+        var words = meaningfulWords.Select(w => RemoveDiacritics(w).ToLowerInvariant()).ToArray();
+        if (text.Contains(string.Join(' ', words), StringComparison.Ordinal)) return 0.25f;
+        var pairs = 0;
+        for (var i = 0; i + 1 < words.Length; i++)
+            if (text.Contains(words[i] + " " + words[i + 1], StringComparison.Ordinal)) pairs++;
+        return pairs == 0 ? 0f : 0.15f * pairs / (words.Length - 1);
+    }
+
+    internal static float ComputeKeywordScore(string rawQuestion, string[] qWords, string content, string keywords)
     {
         if (qWords.Length == 0) return 0f;
         var contentLower = (content ?? string.Empty).ToLowerInvariant();
@@ -476,7 +524,7 @@ public sealed class AgricultureKnowledgeRetriever(
             phraseBonus += 0.30f;
 
         if (hits == 0 && phraseBonus == 0) return 0f;
-        var baseScore = (hits / meaningfulWords.Length) * 0.70f + phraseBonus;
+        var baseScore = (hits / meaningfulWords.Length) * 0.70f + phraseBonus + (hits > 0 ? PhraseProximityBonus(meaningfulWords, contentNoMark) : 0f);
         return Math.Min(1.0f, Math.Max(0f, baseScore));
     }
 

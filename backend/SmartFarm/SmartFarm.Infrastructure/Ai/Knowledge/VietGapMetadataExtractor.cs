@@ -33,13 +33,13 @@ public static class VietGapMetadataExtractor
     private static readonly Regex CropLine = new(
         @"^\s*[-•*]?\s*(?:cây trồng áp dụng|cay trong ap dung|cây trồng|cay trong|đối tượng cây trồng|doi tuong cay trong|đối tượng áp dụng|doi tuong ap dung|áp dụng cho cây|ap dung cho cay|áp dụng cho|ap dung cho)\s*[:：]\s*(?<v>.+)$", Opts);
     private static readonly Regex CodeLine = new(
-        @"^\s*[-•*]?\s*(?:mã số tiêu chuẩn|mã tiêu chuẩn|mã quy chuẩn|số hiệu tiêu chuẩn|tiêu chuẩn áp dụng)\s*[:：]\s*(?<v>.+)$", Opts);
+        @"^\s*[-•*]?\s*(?:mã số tiêu chuẩn|ma so tieu chuan|mã tiêu chuẩn|ma tieu chuan|mã quy chuẩn|ma quy chuan|số hiệu tiêu chuẩn|so hieu tieu chuan|tiêu chuẩn áp dụng|tieu chuan ap dung)\s*[:：]\s*(?<v>.+)$", Opts);
     private static readonly Regex CodeInline = new(
         @"\b(?:TCVN|QCVN)\s*[\d\-]+(?:\s*[-:]\s*[\d]+)*(?::\d{4})?(?:/[A-ZĐ]+)?", Opts);
     private static readonly Regex AuthorLine = new(
-        @"^\s*[-•*]?\s*(?:đơn vị ban hành|cơ quan ban hành|ban hành bởi|cơ quan thẩm định|tổ chức ban hành|đơn vị biên soạn)\s*[:：]\s*(?<v>.+)$", Opts);
+        @"^\s*[-•*]?\s*(?:đơn vị ban hành|don vi ban hanh|cơ quan ban hành|co quan ban hanh|ban hành bởi|ban hanh boi|cơ quan thẩm định|co quan tham dinh|tổ chức ban hành|to chuc ban hanh|đơn vị biên soạn|don vi bien soan)\s*[:：]\s*(?<v>.+)$", Opts);
     private static readonly Regex VersionLine = new(
-        @"^\s*[-•*]?\s*(?:phiên bản|version|lần ban hành|thời hạn hiệu lực|năm ban hành)\s*[:：]\s*(?<v>.+)$", Opts);
+        @"^\s*[-•*]?\s*(?:phiên bản|phien ban|version|lần ban hành|lan ban hanh|thời hạn hiệu lực|thoi han hieu luc|năm ban hành|nam ban hanh)\s*[:：]\s*(?<v>.+)$", Opts);
     private static readonly Regex EffectiveDateLine = new(
         @"(?:ngày (?:ban hành|có hiệu lực|hiệu lực)|có hiệu lực từ(?: ngày)?)\s*[:：]?\s*(?<v>\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4})", Opts);
     private static readonly Regex GeneralScopePhrase = new(
@@ -76,6 +76,14 @@ public static class VietGapMetadataExtractor
         {
             titleLine = fromName;
             titleIsStrong = true;
+        }
+
+        // Dòng đầu chỉ là câu văn dài (không có dấu hiệu tên tài liệu) mà tên file có nghĩa (từ hai từ trở lên): dùng tên file làm
+        // gợi ý thay vì một câu cắt giữa đoạn.
+        if (titleLine is not null && !titleIsStrong && fromName is not null && fromName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 2
+            && titleLine.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length > 9)
+        {
+            titleLine = null;
         }
 
         DetectedMetadataField title;
@@ -249,6 +257,11 @@ public static class VietGapMetadataExtractor
     private static readonly Regex WebChromeLine = new(
         @"\||^>>|^(?:thứ\s+\S+|chủ nhật)\s*-|tin đăng|lượt xem|\bxem:\s*\d|^bản in$|^tìm kiếm$|^chia sẻ$|^\d+\s*/\s*\d+$", Opts);
 
+    private static readonly HashSet<string> GenericHeadings = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "loi noi dau", "muc luc", "muc dich", "gioi thieu", "loi gioi thieu", "noi dung", "tom tat", "tai lieu tham khao", "phu luc"
+    };
+
     private static (string? Line, bool Strong, int Index) FirstMeaningfulLine(string text)
     {
         string? firstCandidate = null;
@@ -269,6 +282,19 @@ public static class VietGapMetadataExtractor
             if (Regex.IsMatch(line, @"^[^:：]{1,40}[:：]\s*\S")) continue;
             // Mục đánh số ("1. Thời vụ:") là nội dung, không phải tiêu đề.
             if (Regex.IsMatch(line, @"^(?:\d{1,2}|[IVX]{1,4})[.)]\s")) continue;
+            // Tên chương mục chung (lời nói đầu, mục lục...) không phải tên tài liệu.
+            if (GenericHeadings.Contains(VietnameseText.Fold(line).Trim())) continue;
+            // Dòng bắt đầu bằng chữ thường là phần giữa câu bị xuống dòng, không phải tên tài liệu.
+            if (char.IsLower(line[0]) && !Regex.IsMatch(line, @"^(?:viet\s?gap|tcvn|qcvn)", Opts)) continue;
+            // Câu dài nhiều mệnh đề (lời nói đầu, mô tả dự án) bị xuống dòng cũng không phải tên tài liệu.
+            var wordCount = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            // Tên tài liệu in hoa ("QUY CHUẨN KỸ THUẬT CANH TÁC CÀ CHUA ...") không bị coi là câu văn dù dòng dài.
+            var startsInCaps = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(3).All(w => w.Length > 1 && w.Where(char.IsLetter).All(char.IsUpper));
+            if (!startsInCaps && (wordCount > 16 || (wordCount > 9 && line.Contains(','))))
+            {
+                if (firstCandidate is null) { firstCandidate = line; firstIndex = lineStart; }
+                continue;
+            }
             if (line.Length <= 200 && TitleKeywords.IsMatch(line))
             {
                 // Tiêu đề in từ trang web hay bị xuống dòng giữa chừng ("...SX cà" / "chua an toàn"): ghép dòng tiếp theo
