@@ -9,7 +9,11 @@ using SmartFarm.Infrastructure.Persistence;
 
 namespace SmartFarm.Infrastructure.TelemetryAlerts;
 
-public sealed class TelemetryAlertService(SmartFarmDbContext db, TimeProvider clock, IControlService control)
+public sealed class TelemetryAlertService(
+    SmartFarmDbContext db,
+    TimeProvider clock,
+    IControlService control,
+    INotificationService notifications)
     : ITelemetryIngestionService, ITelemetryAlertService
 {
     private static readonly TimeSpan FreshnessWindow = TimeSpan.FromMinutes(5);
@@ -30,13 +34,21 @@ public sealed class TelemetryAlertService(SmartFarmDbContext db, TimeProvider cl
             throw new AuthenticationException("The gateway is not authorized to publish for this device.");
         if (device.ZoneId != envelope.ZoneId)
             throw new RequestValidationException("zoneId", "Device is not assigned to the supplied Zone.");
+        var zoneFarmId = await db.Zones.AsNoTracking()
+            .Where(x => x.Id == envelope.ZoneId)
+            .Select(x => x.Field.FarmId)
+            .SingleOrDefaultAsync(ct);
+        if (zoneFarmId == Guid.Empty || device.FarmId != zoneFarmId)
+            throw new RequestValidationException("deviceId", "Device farm does not match the Farm that owns its assigned Zone.");
         if (device.Status is DeviceStatus.Unassigned or DeviceStatus.Decommissioned || device.DecommissionedAtUtc is not null)
             throw new ResourceConflictException("Device is not active in a Zone.");
 
         var season = await db.PlantingSeasons
+            .Include(x => x.Zone)
             .Include(x => x.AppliedRequirements)
             .SingleOrDefaultAsync(x => x.ZoneId == envelope.ZoneId && x.Status == PlantingSeasonStatus.InProgress, ct)
             ?? throw new ResourceConflictException("Zone has no in-progress Planting Season.");
+        var zone = season.Zone;
         var requirements = season.AppliedRequirements.ToDictionary(x => x.ParameterCode);
         foreach (var reading in envelope.Readings)
         {
@@ -133,6 +145,43 @@ public sealed class TelemetryAlertService(SmartFarmDbContext db, TimeProvider cl
                 state.LastAlertAtUtc = now;
                 state.ConsecutiveViolationCount = 0;
                 alertsCreated++;
+
+                // Notify Farm Owners and Farmers of this zone
+                var targetUsers = await db.AppUsers.AsNoTracking()
+                    .Where(u => u.TenantId == device.Farm.TenantId && (
+                        u.Role == UserRole.FarmOwner ||
+                        (u.Role == UserRole.Farmer && u.ZoneAccesses.Any(za => za.ZoneId == envelope.ZoneId))
+                    ))
+                    .Select(u => new { u.Id, u.Role })
+                    .ToListAsync(ct);
+
+                var zoneName = zone.Name;
+                var paramLabel = input.ParameterCode switch
+                {
+                    EnvironmentalParameterCode.SoilMoisture => "Độ ẩm đất",
+                    EnvironmentalParameterCode.Temperature => "Nhiệt độ không khí",
+                    EnvironmentalParameterCode.AirHumidity => "Độ ẩm không khí",
+                    EnvironmentalParameterCode.LightIntensity => "Ánh sáng quang hợp",
+                    EnvironmentalParameterCode.Ph => "Độ pH",
+                    EnvironmentalParameterCode.Ec => "Dinh dưỡng EC",
+                    _ => input.ParameterCode.ToString()
+                };
+
+                foreach (var target in targetUsers)
+                {
+                    var targetUrl = target.Role == UserRole.Farmer ? "/farmer/alerts" : "/owner/alerts";
+
+                    await notifications.CreateNotificationAsync(new(
+                        UserId: target.Id,
+                        TenantId: device.Farm.TenantId,
+                        Title: $"Cảnh báo {paramLabel} vượt ngưỡng ({zoneName})",
+                        Message: $"{paramLabel} đo được {input.Value}{input.Unit} nằm ngoài phạm vi an toàn [{rule.MinThreshold} - {rule.MaxThreshold}{input.Unit}]. Vui lòng kiểm tra và xử lý.",
+                        Type: NotificationType.Alert,
+                        Severity: rule.Severity,
+                        TargetUrl: targetUrl,
+                        ReferenceId: alert.Id.ToString()
+                    ), ct);
+                }
             }
         }
 
@@ -145,14 +194,14 @@ public sealed class TelemetryAlertService(SmartFarmDbContext db, TimeProvider cl
     public async Task<LatestTelemetryView> LatestAsync(Guid userId, Guid tenantId, Guid zoneId, CancellationToken ct)
     {
         await EnsureZoneAccessAsync(userId, tenantId, zoneId, ct);
-        var rows = await db.TelemetryReadings.AsNoTracking().Where(x => x.ZoneId == zoneId).OrderByDescending(x => x.CapturedAtUtc).ToListAsync(ct);
-        var requirements = await CurrentRequirementsAsync(zoneId, ct);
         var now = clock.GetUtcNow().UtcDateTime;
+        var rows = await db.TelemetryReadings.AsNoTracking().Where(x => x.ZoneId == zoneId && x.CapturedAtUtc <= now).OrderByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.ReceivedAtUtc).ToListAsync(ct);
+        var requirements = await CurrentRequirementsAsync(zoneId, ct);
         var metrics = rows.GroupBy(x => x.ParameterCode).Select(x => x.First()).Select(x =>
         {
             requirements.TryGetValue(x.ParameterCode, out var requirement);
             var status = requirement is null ? "Unknown" : x.Value < requirement.MinValue ? "Below" : x.Value > requirement.MaxValue ? "Above" : "Normal";
-            var fresh = x.ReceivedAtUtc >= now - FreshnessWindow && x.CapturedAtUtc >= now - FreshnessWindow;
+            var fresh = x.CapturedAtUtc >= now - FreshnessWindow;
             return new LatestMetricView(x.ParameterCode, x.Value, x.Unit, x.CapturedAtUtc, x.ReceivedAtUtc, fresh, status);
         }).OrderBy(x => x.ParameterCode).ToList();
         return new(zoneId, rows.FirstOrDefault()?.ReceivedAtUtc, metrics.Any(x => x.IsFresh), metrics);
@@ -285,6 +334,10 @@ public sealed class TelemetryAlertService(SmartFarmDbContext db, TimeProvider cl
     {
         var user = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, ct) ?? throw new AuthorizationException();
         var farm = await db.Farms.AsNoTracking().SingleOrDefaultAsync(x => x.Id == farmId, ct) ?? throw new ResourceNotFoundException("Farm was not found.");
+        if (user.Role == UserRole.PlatformAdmin)
+        {
+            return await db.Zones.AsNoTracking().Where(x => x.Field.FarmId == farmId).Select(x => x.Id).ToListAsync(ct);
+        }
         if (farm.TenantId != tenantId) throw new ResourceNotFoundException("Farm was not found.");
         if (user.TenantId != tenantId || (user.Role != UserRole.FarmOwner && user.Role != UserRole.Farmer)) throw new AuthorizationException();
         var zoneQuery = db.Zones.AsNoTracking().Where(x => x.Field.FarmId == farmId);

@@ -91,17 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('sf:unauthenticated', handleUnauthenticated);
   }, []);
 
-  // Listen for unauthenticated event from API interceptor
-  useEffect(() => {
-    const handleUnauthenticated = () => {
-      setUser(null);
-      localStorage.removeItem('smartfarm_user');
-      localStorage.removeItem('smartfarm_role');
-    };
-    window.addEventListener('sf:unauthenticated', handleUnauthenticated);
-    return () => window.removeEventListener('sf:unauthenticated', handleUnauthenticated);
-  }, []);
-
   // Fetch real farms & zones when logged in
   const refreshFarmsAndZones = async () => {
     setFarmZonesRevision(revision => revision + 1);
