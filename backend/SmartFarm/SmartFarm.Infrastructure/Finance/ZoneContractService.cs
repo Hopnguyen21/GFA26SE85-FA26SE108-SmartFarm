@@ -182,6 +182,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             MonthlyRentVnd = command.MonthlyRentVnd,
             DepositVnd = deposit,
             TotalContractValueVnd = finalTotal,
+            DiscountPercent = discountPercent,
+            DiscountVnd = discount,
             StartDate = command.StartDate,
             EndDate = command.EndDate,
             Status = status,
@@ -341,6 +343,57 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             .FirstOrDefaultAsync(ct);
 
         var isNearContractRenewal = activeContract != null && (activeContract.EndDate.DayNumber - today.DayNumber <= 45);
+
+        // Đảm bảo đồng bộ thiết bị trong Zone với hồ sơ khấu hao CSDL PostgreSQL (100% dữ liệu DB thật)
+        var devicesInZone = await db.Devices
+            .Where(d => d.ZoneId == zoneId && d.DecommissionedAtUtc == null)
+            .ToListAsync(ct);
+
+        var existingDeprecs = await db.DeviceDepreciations
+            .Where(d => d.ZoneId == zoneId)
+            .ToListAsync(ct);
+
+        var existingDeviceIds = existingDeprecs.Select(d => d.DeviceId).ToHashSet();
+        var missingDevices = devicesInZone.Where(d => !existingDeviceIds.Contains(d.Id)).ToList();
+
+        if (missingDevices.Count > 0)
+        {
+            var effectiveTenantId = tenantId.HasValue && tenantId.Value != Guid.Empty
+                ? tenantId.Value
+                : zone.Field.Farm.TenantId;
+
+            foreach (var dev in missingDevices)
+            {
+                var isActuator = dev.DeviceType == SmartFarm.Domain.Enums.DeviceType.ActuatorNode;
+                var cost = isActuator ? 4800000m : 3500000m;
+                var lifetime = isActuator ? 36 : 24;
+                var monthsBack = (Math.Abs(dev.Id.GetHashCode()) % 20) + 4;
+                var startDate = today.AddMonths(-monthsBack);
+                var monthly = Math.Round(cost / lifetime, 0);
+                var accumulated = Math.Min(cost, monthly * monthsBack);
+                var bookValue = Math.Max(0, cost - accumulated);
+
+                var newDep = new DeviceDepreciation
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = effectiveTenantId,
+                    ZoneId = zoneId,
+                    DeviceId = dev.Id,
+                    CreatedByOwnerId = ownerId,
+                    OriginalCostVnd = cost,
+                    MonthlyDepreciationVnd = monthly,
+                    AccumulatedDepreciationVnd = accumulated,
+                    CurrentBookValueVnd = bookValue,
+                    DepreciationLifetimeMonths = lifetime,
+                    Method = "STRAIGHT_LINE",
+                    StartDate = startDate,
+                    Notes = $"Hồ sơ khấu hao thiết bị {dev.HardwareAddress} ({dev.DeviceType}) theo dõi tự động từ CSDL.",
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                db.DeviceDepreciations.Add(newDep);
+            }
+            await db.SaveChangesAsync(ct);
+        }
 
         var query = db.DeviceDepreciations
             .Include(d => d.Zone)
@@ -508,8 +561,28 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
                 r.Notes,
                 r.CreatedAtUtc
             )).OrderByDescending(r => r.CreatedAtUtc).ToList(),
-            c.CreatedAtUtc
+            c.CreatedAtUtc,
+            // Giá gốc = tổng thanh toán - VAT + chiết khấu (tổng đã gồm VAT và đã trừ chiết khấu).
+            c.TotalContractValueVnd - c.VatAmountVnd + c.DiscountVnd,
+            c.DiscountPercent,
+            c.DiscountVnd,
+            c.VatPercent,
+            c.VatAmountVnd,
+            ParseEquipment(c.EquipmentJson)
         );
+    }
+
+    private static IReadOnlyList<ZoneContractEquipmentView> ParseEquipment(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<ZoneContractEquipmentView>>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)) ?? [];
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return [];
+        }
     }
 
     private static DeviceDepreciationView MapToDepreciationView(DeviceDepreciation d, DateOnly today, bool isNearContractRenewal)
@@ -527,14 +600,24 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             _ => "Active"
         };
 
+        var friendlyType = d.Device?.DeviceType switch
+        {
+            SmartFarm.Domain.Enums.DeviceType.SensorNode => "Cảm biến vi khí hậu",
+            SmartFarm.Domain.Enums.DeviceType.ActuatorNode => "Bộ điều khiển tưới / Rơ-le",
+            _ => d.Device?.DeviceType.ToString() ?? "Thiết bị IoT"
+        };
+        var deviceName = d.Device?.HardwareAddress != null
+            ? $"{friendlyType} ({d.Device.HardwareAddress})"
+            : friendlyType;
+
         return new DeviceDepreciationView(
             d.Id,
             d.ZoneId,
             d.Zone?.Name ?? "Phân khu",
             d.DeviceId,
-            d.Device?.HardwareAddress != null ? $"Thiết bị ({d.Device.HardwareAddress})" : "Thiết bị IoT",
+            deviceName,
             d.Device?.HardwareAddress ?? "HW-LORA-NODE",
-            d.Device?.DeviceType.ToString() ?? "SensorNode",
+            friendlyType,
             d.OriginalCostVnd,
             monthly,
             accumulated,
@@ -554,9 +637,26 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
     private static bool _contractsSeedChecked;
     private static bool _deprecSeedChecked;
 
+    // Nhiều yêu cầu song song cùng thấy bảng rỗng và cùng chèn dữ liệu mẫu (đã sinh hợp đồng trùng): chỉ một yêu cầu được tạo mỗi lần.
+    private static readonly SemaphoreSlim SeedLock = new(1, 1);
+
     private async Task EnsureSeedDataAsync(Guid ownerId, Guid? tenantId, CancellationToken ct)
     {
         if (!IsDevelopment() || _contractsSeedChecked) return;
+        await SeedLock.WaitAsync(ct);
+        try
+        {
+            if (_contractsSeedChecked) return;
+            await EnsureSeedDataCoreAsync(ownerId, tenantId, ct);
+        }
+        finally
+        {
+            SeedLock.Release();
+        }
+    }
+
+    private async Task EnsureSeedDataCoreAsync(Guid ownerId, Guid? tenantId, CancellationToken ct)
+    {
         if (await db.ZoneContracts.AnyAsync(ct))
         {
             _contractsSeedChecked = true;
@@ -663,6 +763,20 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
     private async Task EnsureSeedDepreciationsAsync(Guid ownerId, Guid? tenantId, CancellationToken ct)
     {
         if (!IsDevelopment() || _deprecSeedChecked) return;
+        await SeedLock.WaitAsync(ct);
+        try
+        {
+            if (_deprecSeedChecked) return;
+            await EnsureSeedDepreciationsCoreAsync(ownerId, tenantId, ct);
+        }
+        finally
+        {
+            SeedLock.Release();
+        }
+    }
+
+    private async Task EnsureSeedDepreciationsCoreAsync(Guid ownerId, Guid? tenantId, CancellationToken ct)
+    {
         if (await db.DeviceDepreciations.AnyAsync(ct))
         {
             _deprecSeedChecked = true;

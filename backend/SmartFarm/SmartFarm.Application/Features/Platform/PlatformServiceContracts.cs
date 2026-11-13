@@ -51,9 +51,9 @@ public sealed record SignAcceptanceFinalCommand(string SignerFullName, string Pa
 public sealed record ServiceRequestPaymentView(Guid Id, string PaymentStage, decimal Amount, string PaymentMethod, string? TransactionReference, string SignerFullName, string Status, DateTime PaidAtUtc);
 
 // ─── GIS Node Mapping ─────────────────────────────────────────────────────────
-public sealed record NodeLocationInput(Guid DeviceId, decimal Latitude, decimal Longitude, int? BatteryLevel, decimal? Rssi);
+public sealed record NodeLocationInput(Guid DeviceId, decimal Latitude, decimal Longitude, int? BatteryLevel, decimal? Rssi, string? HardwareAddress = null, string? DeviceType = null, string? DeviceName = null);
 public sealed record BulkUpdateNodeLocationsCommand(Guid? ServiceRequestId, IReadOnlyList<NodeLocationInput> Nodes);
-public sealed record DeviceMapLocationView(Guid DeviceId, string HardwareAddress, string DeviceType, decimal? Latitude, decimal? Longitude, int? BatteryLevel, decimal? Rssi, string Status);
+public sealed record DeviceMapLocationView(Guid DeviceId, string HardwareAddress, string DeviceType, decimal? Latitude, decimal? Longitude, int? BatteryLevel, decimal? Rssi, string Status, string? DeviceName = null);
 
 // ─── Farm Wizard Setup ────────────────────────────────────────────────────────
 public sealed record FarmWizardFarmInput(string Name, string? LocationText, decimal? Latitude, decimal? Longitude, decimal? TotalAreaM2, string? TimeZone);
@@ -117,7 +117,7 @@ public sealed record AllGrowthProfileView(Guid ProfileId, string ProfileName, Gu
 public interface IQuotationService
 {
     Task<QuotationView> CreateAsync(Guid technicianId, Guid serviceRequestId, CreateQuotationCommand command, CancellationToken ct);
-    Task<QuotationView> GetAsync(Guid userId, Guid serviceRequestId, CancellationToken ct);
+    Task<QuotationView?> GetAsync(Guid userId, Guid serviceRequestId, CancellationToken ct);
     Task<ServiceRequestPaymentView> SignContractDepositAsync(Guid ownerId, Guid serviceRequestId, SignContractDepositCommand command, CancellationToken ct);
     Task<ServiceRequestPaymentView> SignAcceptanceFinalAsync(Guid ownerId, Guid serviceRequestId, SignAcceptanceFinalCommand command, CancellationToken ct);
 }

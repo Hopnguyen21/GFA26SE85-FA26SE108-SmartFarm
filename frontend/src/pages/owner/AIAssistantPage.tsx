@@ -7,7 +7,8 @@ import {
   XCircle, 
   Sparkles, 
   Sprout, 
-  ShieldAlert, 
+  ShieldAlert,
+  Lock, 
   Cpu, 
   Clock, 
   RefreshCw, 
@@ -396,7 +397,6 @@ const RagSourceCard: React.FC<RagSourceCardProps> = ({ source, index }) => {
                 <BookOpen size={13} className="text-emerald-400" />
                 <span>Trích đoạn tri thức VietGAP:</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">pgvector Cosine</span>
             </div>
 
             {isLoadingContent ? (
@@ -431,9 +431,9 @@ const RagSourceCard: React.FC<RagSourceCardProps> = ({ source, index }) => {
 
           <div className="pt-1.5 flex items-center justify-between border-t border-slate-800 text-[10px] text-slate-400">
             <span>
-              Trạng thái tài liệu: <strong className="text-emerald-400">Đã kiểm định & Áp dụng RAG</strong>
+              Trạng thái tài liệu: <strong className="text-emerald-400">Đã được quản trị viên duyệt</strong>
             </span>
-            {org && <span className="font-medium text-slate-300">Thẩm định: {org}</span>}
+            {org && <span className="font-medium text-slate-300">Đơn vị ban hành: {org}</span>}
           </div>
         </div>
       )}
@@ -464,7 +464,7 @@ const RagSourcesAccordion: React.FC<RagSourcesAccordionProps> = ({ sources }) =>
         </span>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-mono border border-emerald-300 font-bold">
-            RAG Match
+            Nguồn đã duyệt
           </span>
           {isOpen ? <ChevronUp size={14} className="text-emerald-700" /> : <ChevronDown size={14} className="text-emerald-700" />}
         </div>
@@ -1232,8 +1232,8 @@ export const AIAssistantPage: React.FC = () => {
                     <RagSourcesAccordion sources={msg.sources} />
                   )}
 
-                  {/* Log dữ liệu BE gửi cho AI (chỉ hiện cho Admin hoặc chế độ debug) */}
-                  {!isUser && isPrivileged && (msg.contextSnapshotJson || msg.recommendation?.contextSnapshotJson) && (
+                  {/* Log dữ liệu BE gửi cho AI */}
+                  {!isUser && (msg.contextSnapshotJson || msg.recommendation?.contextSnapshotJson) && (
                     <AiPayloadLogViewer snapshotJson={msg.contextSnapshotJson || msg.recommendation?.contextSnapshotJson} />
                   )}
 
@@ -1313,6 +1313,10 @@ export const AIAssistantPage: React.FC = () => {
               <Send size={16} />
             </Button>
           </form>
+          <div className="px-3 py-1 bg-slate-50 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[10.5px] text-slate-500">
+            <Lock size={11} className="text-emerald-600 shrink-0" />
+            <span>Bảo mật dữ liệu: AI chỉ xử lý thông số kỹ thuật Zone & thời tiết vùng. Vui lòng không gửi số điện thoại, thông tin liên hệ hoặc hợp đồng.</span>
+          </div>
         </div>
 
         {/* Right Col: Active Recommendation Cards Inbox */}

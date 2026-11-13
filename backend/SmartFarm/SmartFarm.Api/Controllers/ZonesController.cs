@@ -18,14 +18,14 @@ public sealed class ZonesController(IZoneService zoneService) : ControllerBase
     [Authorize(Roles = "FarmOwner,PlatformAdmin,Farmer,PlatformTechnician")]
     public async Task<ActionResult<IReadOnlyList<ZoneView>>> ListAll(
         [FromQuery] Guid? fieldId, [FromQuery] ZoneStatus? status, CancellationToken cancellationToken) =>
-        Ok(await zoneService.ListAllAsync(User.GetUserId(), User.GetTenantId(), fieldId, status, cancellationToken));
+        Ok(await zoneService.ListAllAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, fieldId, status, cancellationToken));
 
     // API catalog #28
     [HttpGet("api/v1/fields/{fieldId:guid}/zones")]
     [Authorize(Roles = "FarmOwner,PlatformAdmin,Farmer,PlatformTechnician")]
     public async Task<ActionResult<IReadOnlyList<ZoneView>>> List(
         Guid fieldId, [FromQuery] ZoneStatus? status, CancellationToken cancellationToken) =>
-        Ok(await zoneService.ListAsync(User.GetUserId(), User.GetTenantId(), fieldId, status, cancellationToken));
+        Ok(await zoneService.ListAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, fieldId, status, cancellationToken));
 
     // API catalog #29
     [HttpPost("api/v1/fields/{fieldId:guid}/zones")]
@@ -41,7 +41,7 @@ public sealed class ZonesController(IZoneService zoneService) : ControllerBase
     [HttpGet("api/v1/zones/{zoneId:guid}")]
     [Authorize(Roles = "FarmOwner,PlatformAdmin,Farmer,PlatformTechnician")]
     public async Task<ActionResult<ZoneView>> Get(Guid zoneId, CancellationToken cancellationToken) =>
-        Ok(await zoneService.GetAsync(User.GetUserId(), User.GetTenantId(), zoneId, cancellationToken));
+        Ok(await zoneService.GetAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, zoneId, cancellationToken));
 
     // API catalog #31
     [HttpPut("api/v1/zones/{zoneId:guid}")]
@@ -76,6 +76,8 @@ public sealed class UpdateZoneRequest
     [StringLength(50)] public string? ZoneType { get; init; }
     [StringLength(1000)] public string? Notes { get; init; }
     public ZoneStatus? Status { get; init; }
+    // Cây của Zone chỉ được gán khi tạo vụ mùa; ở đây chỉ cho gỡ cây (bị chặn nếu đang có vụ InProgress).
+    public bool ClearCrop { get; init; }
 
-    internal UpdateZoneCommand ToCommand() => new(Name, AreaM2, PolygonGeoJson, ZoneType, Notes, Status);
+    internal UpdateZoneCommand ToCommand() => new(Name, AreaM2, PolygonGeoJson, ZoneType, Notes, Status, null, null, ClearCrop);
 }

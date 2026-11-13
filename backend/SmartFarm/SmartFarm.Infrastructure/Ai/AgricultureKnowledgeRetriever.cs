@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SmartFarm.Infrastructure.Ai.Location;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
 using SmartFarm.Application.Common.Interfaces;
@@ -130,10 +131,12 @@ public sealed class AgricultureKnowledgeRetriever(
         var ids = candidates.Select(c => c.ChunkId).ToList();
         var topics = questionTopics.Count == 0
             ? new Dictionary<Guid, string>()
+            // Chọn cột trước khi tạo từ điển: nếu không EF nạp cả thực thể, kể cả cột embedding (kiểu text khi chưa cài pgvector thì đọc lỗi).
             : await db.AgricultureKnowledgeChunks.AsNoTracking().Where(c => ids.Contains(c.Id))
+                .Select(c => new { c.Id, c.Topic })
                 .ToDictionaryAsync(c => c.Id, c => c.Topic, ct);
 
-        return candidates
+        var ranked = candidates
             .Select(c => (Passage: c, Score: c.SimilarityScore
                 + (topics.TryGetValue(c.ChunkId, out var t) && questionTopics.Contains(t) ? TopicBoost : 0f)
                 + (cropSpecific.Contains(c.DocumentId) ? CropSpecificBoost : 0f)))
@@ -141,9 +144,18 @@ public sealed class AgricultureKnowledgeRetriever(
             .GroupBy(x => x.Passage.DocumentId)
             .SelectMany(g => g.Take(MaxPassagesPerDocument))
             .OrderByDescending(x => x.Score)
-            .Take(topK)
-            .Select(x => x.Passage)
             .ToList();
+
+        var result = new List<KnowledgePassageView>();
+        foreach (var item in ranked)
+        {
+            if (!result.Any(existing => existing.DocumentId == item.Passage.DocumentId && AiPromptBuilder.ArePassagesDuplicates(existing, item.Passage)))
+            {
+                result.Add(item.Passage);
+                if (result.Count >= topK) break;
+            }
+        }
+        return result;
     }
 
     private async Task<IReadOnlyList<KnowledgePassageView>> RetrieveCandidatesAsync(
@@ -155,35 +167,65 @@ public sealed class AgricultureKnowledgeRetriever(
         IReadOnlyList<string>? expansionTerms,
         CancellationToken cancellationToken)
     {
-        // ── 1. Tạo embedding cho câu hỏi ─────────────────────────────────────
-        // Vector của cùng một câu hỏi không đổi: dùng lại để khỏi gọi API embedding mỗi lần.
-        var embeddingKey = "ai_query_embedding_" + question.Trim().ToLowerInvariant();
+        // ── 1. Chuẩn hóa & giảm thiểu dữ liệu câu hỏi trước khi tạo embedding ──
+
+        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+
+        var embeddingKey = "ai_query_embedding_" + sanitizedQuestion.Trim().ToLowerInvariant();
+
         float[]? questionEmbedding = null;
+
         // API embedding vừa lỗi (thường là hết quota): tạm dùng tìm theo từ khóa, không gọi lại ở mọi câu hỏi.
+
         if ((cache is null || !cache.TryGetValue(embeddingKey, out questionEmbedding)) && cache?.TryGetValue(EmbeddingUnavailableKey, out _) != true)
+
         {
-            questionEmbedding = await embeddingProvider.EmbedQueryAsync(question, cancellationToken);
+
+            questionEmbedding = await embeddingProvider.EmbedQueryAsync(sanitizedQuestion, cancellationToken);
+
             if (questionEmbedding is not null) cache?.Set(embeddingKey, questionEmbedding, TimeSpan.FromHours(6));
+
             else cache?.Set(EmbeddingUnavailableKey, true, TimeSpan.FromMinutes(5));
+
         }
+
+
 
         if (questionEmbedding is not null)
+
         {
+
             try
+
             {
-                var vectorResults = await SearchByVectorAsync(question, questionEmbedding, allowedDocumentIds, category, tenantId, topK, cancellationToken);
+
+                var vectorResults = await SearchByVectorAsync(sanitizedQuestion, questionEmbedding, allowedDocumentIds, category, tenantId, topK, cancellationToken);
+
                 if (vectorResults.Count > 0) return vectorResults;
+
             }
+
             catch (Exception ex) when (ex is not OperationCanceledException)
+
             {
+
                 logger.LogWarning(ex, "[RAG] Vector query failed (e.g. pgvector not installed in PostgreSQL). Falling back gracefully to keyword search.");
+
             }
+
         }
 
+
+
         // ── 2. Fallback: keyword scoring khi chưa có embedding hoặc embedding chưa trả kết quả ──
+
         // Vẫn trong cùng phạm vi tài liệu (đúng cây + chung): không nới sang tài liệu của cây khác.
-        logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback for question: {Q}", question[..Math.Min(100, question.Length)]);
-        return await SearchByKeywordsAsync(question, allowedDocumentIds, category, tenantId, topK, expansionTerms, cancellationToken);
+
+        // Ghi log metadata an toàn, tuyệt đối không ghi nội dung câu hỏi ra log.
+
+        logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback (QueryLength: {Length}).", sanitizedQuestion.Length);
+
+        return await SearchByKeywordsAsync(sanitizedQuestion, allowedDocumentIds, category, tenantId, topK, expansionTerms, cancellationToken);
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -459,7 +501,25 @@ public sealed class AgricultureKnowledgeRetriever(
         return hits == 0 ? 0f : Math.Min(0.9f, 0.35f + 0.55f * hits / terms.Count);
     }
 
-    private static float ComputeKeywordScore(string rawQuestion, string[] qWords, string content, string keywords)
+    private static readonly Regex AnySpace = new(@"s+", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Điểm cộng khi các từ chính của câu hỏi đứng liền nhau đúng thứ tự trong đoạn (cụm "quản lý đất" trong đoạn viết về quản lý đất),
+    /// để đoạn đúng chủ đề xếp trên đoạn chỉ chứa rời từng từ "quản lý" và "đất".
+    /// </summary>
+    internal static float PhraseProximityBonus(string[] meaningfulWords, string contentNoMark)
+    {
+        if (meaningfulWords.Length < 2) return 0f;
+        var text = AnySpace.Replace(contentNoMark, " ");
+        var words = meaningfulWords.Select(w => RemoveDiacritics(w).ToLowerInvariant()).ToArray();
+        if (text.Contains(string.Join(' ', words), StringComparison.Ordinal)) return 0.25f;
+        var pairs = 0;
+        for (var i = 0; i + 1 < words.Length; i++)
+            if (text.Contains(words[i] + " " + words[i + 1], StringComparison.Ordinal)) pairs++;
+        return pairs == 0 ? 0f : 0.15f * pairs / (words.Length - 1);
+    }
+
+    internal static float ComputeKeywordScore(string rawQuestion, string[] qWords, string content, string keywords)
     {
         if (qWords.Length == 0) return 0f;
         var contentLower = (content ?? string.Empty).ToLowerInvariant();
@@ -504,7 +564,7 @@ public sealed class AgricultureKnowledgeRetriever(
             phraseBonus += 0.30f;
 
         if (hits == 0 && phraseBonus == 0) return 0f;
-        var baseScore = (hits / meaningfulWords.Length) * 0.70f + phraseBonus;
+        var baseScore = (hits / meaningfulWords.Length) * 0.70f + phraseBonus + (hits > 0 ? PhraseProximityBonus(meaningfulWords, contentNoMark) : 0f);
         return Math.Min(1.0f, Math.Max(0f, baseScore));
     }
 

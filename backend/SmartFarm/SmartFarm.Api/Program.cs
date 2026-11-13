@@ -102,14 +102,59 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var db = scope.ServiceProvider.GetRequiredService<SmartFarmDbContext>();
+
+    const int maxRetries = 5;
+    for (var attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            logger.LogInformation("⏳ [AutoMigration] Đang kiểm tra trạng thái Database migration (lần thử {Attempt}/{MaxRetries})...", attempt, maxRetries);
+            var pendingMigrations = (await db.Database.GetPendingMigrationsAsync()).ToList();
+            if (pendingMigrations.Count > 0)
+            {
+                logger.LogInformation("🚀 [AutoMigration] Phát hiện {Count} migration đang chờ cập nhật: {Migrations}",
+                    pendingMigrations.Count, string.Join(", ", pendingMigrations));
+                await db.Database.MigrateAsync();
+                logger.LogInformation("✅ [AutoMigration] Đã tự động cập nhật Database thành công!");
+            }
+            else
+            {
+                logger.LogInformation("✅ [AutoMigration] Database đã ở phiên bản mới nhất (0 migration pending).");
+            }
+            break;
+        }
+        catch (Exception ex)
+        {
+            if (attempt == maxRetries)
+            {
+                logger.LogError(ex, "❌ [AutoMigration] Lỗi: Không thể tự động migration database sau {MaxRetries} lần thử.", maxRetries);
+            }
+            else
+            {
+                logger.LogWarning(ex, "⚠️ [AutoMigration] Chưa kết nối được Database (lần thử {Attempt}/{MaxRetries}). Đợi 3 giây thử lại...", attempt, maxRetries);
+                await Task.Delay(3000);
+            }
+        }
+    }
+
     try
     {
-        var db = scope.ServiceProvider.GetRequiredService<SmartFarmDbContext>();
-        await db.Database.MigrateAsync();
+        var docService = scope.ServiceProvider.GetRequiredService<AgricultureDocumentService>();
+        await docService.SeedVietGapKnowledgeAsync();
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Auto-migration failed on startup");
+        logger.LogWarning(ex, "Knowledge base seeding encountered an issue during startup");
+    }
+
+    try
+    {
+        await SmartFarm.Infrastructure.Persistence.DataIntegrityHealer.HealAsync(db, logger, app.Configuration, app.Environment.IsDevelopment());
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Data integrity auto-healing encountered an issue during startup");
     }
 
     try

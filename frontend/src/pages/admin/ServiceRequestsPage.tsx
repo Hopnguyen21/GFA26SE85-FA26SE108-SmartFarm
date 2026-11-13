@@ -1,8 +1,9 @@
+import { NO_CROP_LABEL, zoneCropLabel, zoneStageLabel } from '../../utils/zoneCrop';
 import React, { useState, useEffect } from 'react';
 import { ServiceRequest } from '../../types';
 import { StatusBadge, Button, Input, Modal } from '../../components/ui/BaseUI';
 import { supportService, userService } from '../../services';
-import { useAuth } from '../../app/providers/AuthContext';
+import { useAuth } from '@/app/providers/AuthContext';
 import {
   ClipboardList, UserCheck, Wrench, Building2, Cpu, CheckCircle2,
   Clock, AlertCircle, ArrowUpRight, Search, Filter, ShieldCheck, User, Plus, CheckSquare
@@ -43,7 +44,7 @@ export const ServiceRequestsPage: React.FC = () => {
     title: '',
     description: '',
     priority: 'HIGH' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
-    assignedOwnerName: 'Lê Văn An (Owner Trang trại Đà Lạt)',
+    assignedOwnerName: 'Chủ Trang Trại (Owner)',
     assignedTechnicianName: 'Trần Minh Trí (Kỹ thuật viên IoT)',
   });
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -114,7 +115,7 @@ export const ServiceRequestsPage: React.FC = () => {
       title: '',
       description: '',
       priority: 'HIGH',
-      assignedOwnerName: 'Lê Văn An (Owner Trang trại Đà Lạt)',
+      assignedOwnerName: 'Chủ Trang Trại (Owner)',
       assignedTechnicianName: 'Trần Minh Trí (Kỹ thuật viên IoT)',
     });
     setSuccessMsg(`Đã khởi tạo thành công Yêu cầu [${newRequest.title}] thay cho Owner!`);
@@ -350,7 +351,7 @@ export const ServiceRequestsPage: React.FC = () => {
               className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-[#119653]"
             >
               {zones.map((z: any) => (
-                <option key={z.zoneId} value={z.zoneId}>{z.name} ({z.currentCrop || 'Chưa gán vụ'})</option>
+                <option key={z.zoneId} value={z.zoneId}>{z.name} ({zoneCropLabel(z)})</option>
               ))}
             </select>
           </div>

@@ -4,12 +4,10 @@ import L from 'leaflet';
 import { ServiceRequest, SensorNode } from '../../types';
 import { 
   MapPin, Cpu, Radio, Zap, CheckCircle2, Plus, Info, Layers, 
-  RefreshCw, Maximize2, Minimize2, Move, Trash2, Crosshair, Database, 
-  Sparkles, Check, Droplets, BatteryCharging, Wifi
+  RefreshCw, Maximize2, Move, Trash2, Crosshair, Edit3, Save 
 } from 'lucide-react';
 import { Button } from '../ui/BaseUI';
-import { supportService, zoneService, fieldService } from '../../services';
-import { extractPolygonPoints, calculatePolygonAreaM2, toGeoJsonPolygon } from '../maps/GISLocationPicker';
+import { supportService, deviceService } from '../../services';
 
 interface ZoneNodeMapperModalProps {
   isOpen: boolean;
@@ -112,9 +110,9 @@ const createNodePinIcon = (code: string, isSelected: boolean) => {
         <div style="
           position: absolute;
           top: -22px;
-          background: #0f172a;
-          color: #34d399;
-          font-size: 9px;
+          background: #119653;
+          color: #ffffff;
+          font-size: 10px;
           font-weight: 700;
           font-family: monospace;
           padding: 1px 6px;
@@ -229,10 +227,10 @@ const DraggableNodeMarker: React.FC<{
       eventHandlers={eventHandlers}
     >
       <Popup>
-        <div className="p-2 space-y-2 text-slate-800 text-xs min-w-[220px]">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+        <div className="p-1.5 space-y-2 text-slate-800 text-xs min-w-[200px]">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-1">
             <span className="font-bold text-[#119653] flex items-center gap-1 font-mono">
-              <Cpu size={14} /> #{index + 1} {node.nodeCode}
+              <Cpu size={13} /> #{index + 1} {node.nodeCode}
             </span>
             <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">
               {node.status}
@@ -376,129 +374,54 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
   const [fitKey, setFitKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentZoneData, setCurrentZoneData] = useState<any>(null);
 
-  // Exact PostGIS Polygon Coordinates for Zone (as shown in Image 2)
-  const [zonePolygon, setZonePolygon] = useState<[number, number][]>([
-    [11.9416, 108.4578],
-    [11.9416, 108.4595],
-    [11.9395, 108.4595],
-    [11.9395, 108.4578],
-  ]);
+  // Zone Boundary Polygon Coordinates (Da Lat Greenhouse 01)
+  const zonePolygonCoords: [number, number][] = [
+    [11.9408, 108.4578],
+    [11.9408, 108.4590],
+    [11.9400, 108.4590],
+    [11.9400, 108.4578],
+  ];
 
-  // Parent Field Polygon (dashed blue outline enclosing Zone)
-  const [parentFieldPolygon, setParentFieldPolygon] = useState<[number, number][]>([
-    [11.9425, 108.4565],
-    [11.9425, 108.4608],
-    [11.9385, 108.4608],
-    [11.9385, 108.4565],
-  ]);
-
-  // Existing nodes in this zone (with real GIS coordinates)
+  // Existing nodes in this zone / request (with real GIS coordinates)
   const [nodes, setNodes] = useState<SensorNode[]>([]);
 
-  // Unassigned devices waiting to be pinned inside Zone
+  // Unassigned devices ready to be pinned on GIS Map
   const [unassignedDevices, setUnassignedDevices] = useState<UnassignedDevice[]>([]);
+
   const [selectedDevice, setSelectedDevice] = useState<UnassignedDevice | null>(null);
   const [activePinNode, setActivePinNode] = useState<SensorNode | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  // Fetch real Zone, Parent Field, and Mapped Nodes
+  // Fetch real mapped devices from backend when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    const fetchZoneGISData = async () => {
+    const fetchZoneNodes = async () => {
       try {
         setIsLoading(true);
         const zoneId = request.zoneId || '32000000-0000-0000-0000-000000000001';
-
-        // 1. Fetch Zone details from backend
-        let loadedZonePts: [number, number][] = [];
-        try {
-          const z = await zoneService.getZoneById(zoneId).catch(() => null);
-          if (z) {
-            setCurrentZoneData(z);
-            const rawBoundary = z.boundaryGeoJson || (z as any).polygonGeoJson || (z as any).boundary;
-            const pts = extractPolygonPoints(rawBoundary);
-            if (pts && pts.length >= 3) {
-              loadedZonePts = pts;
-              setZonePolygon(pts);
-              const avgLat = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
-              const avgLng = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
-              const newCenter: [number, number] = [parseFloat(avgLat.toFixed(6)), parseFloat(avgLng.toFixed(6))];
-              setCenter(newCenter);
-
-              // Auto construct parent field boundary enclosing the zone if not explicitly loaded
-              setParentFieldPolygon([
-                [parseFloat((avgLat + 0.0016).toFixed(6)), parseFloat((avgLng - 0.0022).toFixed(6))],
-                [parseFloat((avgLat + 0.0016).toFixed(6)), parseFloat((avgLng + 0.0022).toFixed(6))],
-                [parseFloat((avgLat - 0.0016).toFixed(6)), parseFloat((avgLng + 0.0022).toFixed(6))],
-                [parseFloat((avgLat - 0.0016).toFixed(6)), parseFloat((avgLng - 0.0022).toFixed(6))],
-              ]);
-            }
-
-            // If fieldId exists, fetch parent Field polygon
-            if (z.fieldId) {
-              const field = await fieldService.getFieldById(z.fieldId).catch(() => null);
-              if (field) {
-                const fPts = extractPolygonPoints(field.boundaryGeoJson || (field as any).boundary);
-                if (fPts && fPts.length >= 3) {
-                  setParentFieldPolygon(fPts);
-                }
-              }
-            }
-          }
-        } catch (zoneErr) {
-          console.warn('Could not fetch zone GIS boundary:', zoneErr);
-        }
-
-        // 2. Expand contract hardware items
-        let contractItems = (selectedHardwareItems && selectedHardwareItems.length > 0)
-          ? selectedHardwareItems
-          : (request.contractDetails?.items && request.contractDetails.items.length > 0)
-            ? request.contractDetails.items
-            : null;
-
-        if (!contractItems && request.serviceRequestId) {
-          const qRes = await supportService.getQuotation(request.serviceRequestId).catch(() => null);
-          if (qRes && Array.isArray(qRes.items) && qRes.items.length > 0) {
-            contractItems = qRes.items;
-          }
-        }
-
-        const expanded = expandContractDevices(contractItems || DEFAULT_CONTRACT_ITEMS);
-
-        // 3. Fetch nodes mapped in this Zone from backend
-        const locs = await supportService.getMappedNodes(zoneId).catch(() => []);
-        let loadedNodes: SensorNode[] = [];
-
+        const locs = await supportService.getMappedNodes(zoneId);
         if (Array.isArray(locs) && locs.length > 0) {
-          loadedNodes = locs.map((loc: any, idx: number) => {
+          const loadedNodes: SensorNode[] = locs.map((loc: any, idx: number) => {
             const hasLat = typeof loc.latitude === 'number' && loc.latitude > 0;
             const hasLng = typeof loc.longitude === 'number' && loc.longitude > 0;
-
-            const matchedContract = expanded[idx] || null;
-            const nodeCode = matchedContract?.code || loc.hardwareAddress || `NODE-0${idx + 1}`;
-            const name = matchedContract?.name || loc.deviceName || `Node Thiết bị #${idx + 1}`;
-            const serialNumber = loc.hardwareAddress || matchedContract?.mac || `24:DC:C3:00:00:${String(idx + 1).padStart(2, '0')}`;
-
             return {
               nodeId: loc.deviceId || `loaded-node-${idx}-${Date.now()}`,
               farmId: request.farmId || '30000000-0000-0000-0000-000000000001',
               zoneId: zoneId,
-              zoneName: request.zoneName || currentZoneData?.name || 'Nhà màng Z01',
-              name: name,
-              nodeCode: nodeCode,
-              serialNumber: serialNumber,
-              latitude: hasLat ? loc.latitude : center[0] + ((idx % 4) - 1.5) * 0.0003,
-              longitude: hasLng ? loc.longitude : center[1] + (Math.floor(idx / 4) - 0.5) * 0.0004,
+              zoneName: request.zoneName || 'Nhà màng Z01',
+              name: `${loc.deviceType === 'ActuatorNode' ? 'Cụm Van/Bơm' : 'Node Cảm biến'} - ${loc.hardwareAddress}`,
+              nodeCode: loc.hardwareAddress || `NODE-0${idx + 1}`,
+              serialNumber: loc.hardwareAddress,
+              latitude: hasLat ? loc.latitude : 11.9403 + (idx * 0.0003),
+              longitude: hasLng ? loc.longitude : 108.4581 + (idx * 0.0004),
               status: (loc.status?.toUpperCase() || 'ONLINE') as any,
               firmwareVersion: 'v2.4.1',
-              batteryLevel: loc.batteryLevel ?? undefined,
-              rssi: loc.rssi ?? undefined,
+              batteryLevel: loc.batteryLevel ?? 95,
+              rssi: loc.rssi ?? -70,
               lastSeenAt: 'Trực tuyến',
-              sensorsCount: (loc.deviceType === 'SensorNode' || nodeCode.includes('SN')) ? 2 : 0,
-              actuatorsCount: (loc.deviceType === 'ActuatorNode' || nodeCode.includes('VALVE') || nodeCode.includes('ACT')) ? 1 : 0,
+              sensorsCount: loc.deviceType === 'SensorNode' ? 2 : 0,
+              actuatorsCount: loc.deviceType === 'ActuatorNode' ? 1 : 0,
             };
           });
           setNodes(loadedNodes);
@@ -506,30 +429,40 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
           setNodes([]);
         }
 
-        // INTELLIGENT UNASSIGNED LIST:
-        // If loadedNodes already has 8 nodes (matching expanded), 0 remain to be pinned!
-        if (loadedNodes.length >= expanded.length) {
-          setUnassignedDevices([]);
-          setSelectedDevice(null);
-        } else if (loadedNodes.length > 0) {
-          const remaining = expanded.slice(loadedNodes.length);
-          setUnassignedDevices(remaining);
-          setSelectedDevice(remaining[0] || null);
+        // Fetch spare parts to populate unassigned list
+        const spareParts = await supportService.getTechnicianSpareParts().catch(() => []);
+        if (Array.isArray(spareParts) && spareParts.length > 0) {
+          const unassigned: UnassignedDevice[] = spareParts.map((sp: any, idx: number) => ({
+            deviceId: sp.id || `spare-${idx}-${Date.now()}`,
+            code: sp.code || `SP-${idx + 1}`,
+            name: sp.name || 'Vật tư dự phòng',
+            type: (sp.category === 'VALVE' || sp.category === 'PUMP' ? 'VALVE' : sp.category === 'GATEWAY' ? 'GATEWAY' : 'SOIL_SENSOR'),
+            mac: sp.macAddress || sp.serialNumber || `24:DC:C3:00:11:${String(idx).padStart(2, '0')}`,
+          }));
+          setUnassignedDevices(unassigned);
+          setSelectedDevice(unassigned[0] || null);
         } else {
-          setUnassignedDevices(expanded);
-          setSelectedDevice(expanded[0] || null);
+          // Fallback dummy items with unique IDs so technician can always test placing nodes
+          const fallbackItems: UnassignedDevice[] = [
+            { deviceId: `unassigned-gw-${Date.now()}-1`, code: 'GW-ESP32-NEW', name: 'Gateway LoRa Central ESP32-S3', type: 'GATEWAY', mac: '24:DC:C3:88:99:A1' },
+            { deviceId: `unassigned-sensor-${Date.now()}-2`, code: 'SN-NPK-EC-03', name: 'Node Cảm biến NPK & Độ dẫn điện EC', type: 'SOIL_SENSOR', mac: '24:DC:C3:11:22:33' },
+            { deviceId: `unassigned-actuator-${Date.now()}-3`, code: 'ACT-VALVE-V2', name: 'Node Cụm Van Điện từ Phun sương V2', type: 'VALVE', mac: '24:DC:C3:44:55:66' },
+          ];
+          setUnassignedDevices(fallbackItems);
+          setSelectedDevice(fallbackItems[0]);
         }
-
-        setFitKey(k => k + 1);
       } catch (err) {
-        console.error('Error fetching zone GIS data:', err);
+        console.error('Error fetching zone mapped nodes:', err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchZoneGISData();
-  }, [isOpen, request.zoneId, request.serviceRequestId, selectedHardwareItems]);
+    fetchZoneNodes();
+  }, [isOpen, request.zoneId]);
+
+  // Existing nodes in this zone (with real GIS coordinates)
+  const [nodes, setNodes] = useState<SensorNode[]>([]);
 
   const getTileConfig = () => {
     switch (mapType) {
@@ -607,7 +540,7 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
       nodeId: selectedDevice.deviceId || `mapped-node-${Date.now()}`,
       farmId: request.farmId || '30000000-0000-0000-0000-000000000001',
       zoneId: request.zoneId || '32000000-0000-0000-0000-000000000001',
-      zoneName: request.zoneName || currentZoneData?.name || 'Nhà màng Z01',
+      zoneName: request.zoneName || 'Nhà màng Z01',
       name: selectedDevice.name,
       nodeCode: selectedDevice.code,
       serialNumber: selectedDevice.mac,
@@ -637,7 +570,7 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
     if (activePinNode && activePinNode.nodeId === nodeId) {
       setActivePinNode(prev => prev ? { ...prev, latitude: newLat, longitude: newLng } : null);
     }
-    setSuccessToast(`Đã di chuyển Node đến tọa độ mới: (${newLat}, ${newLng})`);
+    setSuccessToast(`Đã dịch chuyển Node đến tọa độ mới: (${newLat}, ${newLng})`);
     setTimeout(() => setSuccessToast(null), 2500);
   };
 
@@ -663,29 +596,6 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const zoneId = request.zoneId || currentZoneData?.id || currentZoneData?.zoneId || '32000000-0000-0000-0000-000000000001';
-
-      // 1. If polygon was adjusted, save updated boundary to Zone entity
-      if (zonePolygon.length >= 3 && zoneId && currentZoneData) {
-        try {
-          const geoJson = toGeoJsonPolygon(zonePolygon);
-          const computedArea = Math.max(1, Math.round(calculatePolygonAreaM2(zonePolygon) || Number(currentZoneData.areaM2) || 100));
-          await zoneService.updateZone(zoneId, {
-            name: currentZoneData.name,
-            areaM2: computedArea,
-            polygonGeoJson: geoJson,
-          });
-        } catch (zErr) {
-          console.warn('Could not update zone GIS boundary:', zErr);
-        }
-      }
-
-      // 2. Persist mapped nodes to database
-      if (zoneId) {
-        await supportService.updateMappedNodes(zoneId, nodes, request.serviceRequestId);
-      }
-
-      // 3. Callback if provided
       if (onSaveMapping) {
         await onSaveMapping(nodes, nodes.length);
       }
@@ -707,23 +617,22 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200 ${isFullscreen ? 'p-0' : ''}`}>
       <div className={`w-full ${isFullscreen ? 'h-full max-w-none rounded-none' : 'max-w-6xl rounded-2xl max-h-[95vh]'} bg-white border border-slate-200 shadow-2xl overflow-hidden flex flex-col`}>
         {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-[#119653] via-emerald-600 to-teal-700 text-white flex items-center justify-between shrink-0 border-b border-emerald-400/40 shadow-sm">
+        <div className="p-4 bg-gradient-to-r from-[#119653] via-emerald-600 to-emerald-500 text-white flex items-center justify-between shrink-0 border-b border-emerald-400/40">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-800/40 border border-emerald-300/40 rounded-xl text-white shadow-inner">
-              <MapPin size={22} className="text-emerald-200" />
+            <div className="p-2.5 bg-emerald-800/30 border border-emerald-300/40 rounded-xl text-white backdrop-blur-xs">
+              <MapPin size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase ${
-                  isMaintenance ? 'bg-amber-400/30 text-amber-100 border border-amber-300/40' : 'bg-emerald-800/40 text-emerald-100 border border-emerald-300/40'
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  isMaintenance ? 'bg-amber-400/30 text-amber-100 border border-amber-300/40' : 'bg-emerald-800/30 text-emerald-100 border border-emerald-300/40'
                 }`}>
                   {isMaintenance ? 'BẢO TRÌ & THAY THẾ NODE' : 'LẮP ĐẶT MỚI & CHẤM VỊ TRÍ GIS'}
                 </span>
-                <span className="text-xs text-emerald-100/90 font-mono">Request #{request.serviceRequestId}</span>
+                <span className="text-xs text-emerald-100 font-mono">Request #{request.serviceRequestId}</span>
               </div>
-              <h2 className="text-base font-bold text-white mt-0.5 flex items-center gap-2 flex-wrap">
-                <span>🚀 Thực địa Chấm Node Phân khu (Zone):</span>
-                <span className="text-emerald-200 underline underline-offset-4 font-extrabold">{zoneDisplayName}</span>
+              <h2 className="text-base font-bold text-white mt-0.5">
+                Chấm Node & Sửa Biểu đồ GIS Phân khu: <span className="text-emerald-300">{request.zoneName || 'Nhà màng Z01'}</span>
               </h2>
               <p className="text-[11px] text-emerald-100/90 mt-0.5">
                 Nông trại: <strong>{request.farmName}</strong> • Ranh giới GIS Phân khu (Zone) màu xanh lá. Chấm thiết bị vào đúng ranh giới của Zone.
@@ -737,26 +646,29 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
 
         {/* Success Toast */}
         {successToast && (
-          <div className="p-2.5 bg-emerald-600 text-white text-xs font-bold text-center flex items-center justify-center gap-2 animate-in slide-in-from-top-2 shrink-0">
+          <div className="p-2.5 bg-emerald-600 text-white text-xs font-bold text-center flex items-center justify-center gap-2 animate-in fade-in shrink-0">
             <CheckCircle2 size={16} /> {successToast}
           </div>
         )}
 
         {/* Content Body */}
         <div className="grid grid-cols-1 lg:grid-cols-4 flex-1 overflow-hidden">
-          {/* Left Panel: Unassigned Devices / Equipment List */}
-          <div className="lg:col-span-1 p-4 bg-slate-50 border-r border-slate-200 overflow-y-auto space-y-4 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <Cpu size={14} className="text-[#119653]" /> 
-                  {unassignedDevices.length === 0 ? 'Tất cả Node Đã Chấm' : `Thiết bị Chờ Chấm (${unassignedDevices.length})`}
-                </h3>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  unassignedDevices.length === 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
-                }`}>
-                  {nodes.length} / {nodes.length + unassignedDevices.length} Đã Xong
-                </span>
+          {/* Left Panel: Unassigned Equipment List */}
+          <div className="lg:col-span-1 p-4 bg-slate-50 border-r border-slate-200 overflow-y-auto space-y-4">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Cpu size={14} className="text-[#119653]" /> Thiết bị Chờ Chấm Node ({unassignedDevices.length})
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Chọn thiết bị bên dưới, sau đó nhấp vào vị trí bất kỳ trên bản đồ GIS để định vị Node.
+              </p>
+            </div>
+
+            {unassignedDevices.length === 0 ? (
+              <div className="p-4 text-center bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs">
+                <CheckCircle2 size={24} className="mx-auto text-emerald-600 mb-1" />
+                <span className="font-bold">Đã chấm hết thiết bị!</span>
+                <p className="text-[11px] text-emerald-700 mt-1">Tất cả vật tư đã được chuyển đổi thành các Node định vị trên bản đồ GIS.</p>
               </div>
 
               {/* Status Banner when all nodes are mapped */}
@@ -821,12 +733,12 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
                 <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
                   {nodes.map((n, i) => (
                     <div
-                      key={n.nodeId}
-                      onClick={() => setActivePinNode(n)}
-                      className={`p-2 rounded-lg border text-xs cursor-pointer flex items-center justify-between gap-2 transition-all ${
-                        activePinNode?.nodeId === n.nodeId
-                          ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-300'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      key={dev.deviceId}
+                      onClick={() => setSelectedDevice(dev)}
+                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400'
+                          : 'bg-white border-slate-200 text-slate-800 hover:border-emerald-500'
                       }`}
                     >
                       <div className="min-w-0">
@@ -836,17 +748,39 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
                         </div>
                         <p className="text-[10px] text-slate-500 truncate mt-0.5">{n.name}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUnmapNode(n);
-                        }}
-                        title="Gỡ Node này ra khỏi sơ đồ để chấm lại"
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <h4 className="font-bold text-xs mt-1.5">{dev.name}</h4>
+                      <p className={`text-[10px] font-mono mt-1 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                        MAC: {dev.mac}
+                      </p>
+                      {isSelected && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (navigator.geolocation) {
+                              navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                  const lat = parseFloat(pos.coords.latitude.toFixed(6));
+                                  const lng = parseFloat(pos.coords.longitude.toFixed(6));
+                                  handleMapClick(lat, lng);
+                                },
+                                () => {
+                                  const simLat = 11.9400 + Math.random() * 0.0008;
+                                  const simLng = 108.4578 + Math.random() * 0.0012;
+                                  handleMapClick(parseFloat(simLat.toFixed(6)), parseFloat(simLng.toFixed(6)));
+                                }
+                              );
+                            } else {
+                              const simLat = 11.9400 + Math.random() * 0.0008;
+                              const simLng = 108.4578 + Math.random() * 0.0012;
+                              handleMapClick(parseFloat(simLat.toFixed(6)), parseFloat(simLng.toFixed(6)));
+                            }
+                          }}
+                          className="mt-2 w-full py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-lg text-[10px] flex items-center justify-center gap-1 transition-colors"
+                        >
+                          <Crosshair size={12} /> Lấy GPS điện thoại để chấm Node
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -856,260 +790,219 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
             {/* Instruction Tip */}
             <div className="mt-4 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-[11px] text-emerald-950 space-y-1">
               <strong className="flex items-center gap-1 text-emerald-800">
-                <Info size={13} /> Thao tác trên Bản đồ Zone:
+                <Info size={13} /> Thao tác Sửa Biểu đồ GIS:
               </strong>
-              <p className="text-emerald-900/90 leading-relaxed text-[10.5px]">
-                • <strong>Chấm Node:</strong> Chọn thiết bị bên trái rồi nhấp vào vị trí bất kỳ bên trong Zone (đa giác xanh lá).<br />
-                • <strong>Kéo ghim:</strong> Kéo trực tiếp ghim Node hoặc ghim ranh giới (#1, #2...) để căn chỉnh.
+              <p className="text-emerald-800/90 leading-relaxed">
+                1. <strong>Thêm Node mới:</strong> Chọn vật tư bên trái rồi bấm lên bản đồ.<br />
+                2. <strong>Di chuyển Node:</strong> Kéo thả trực tiếp ghim trên bản đồ.<br />
+                3. <strong>Sửa tọa độ:</strong> Nhấp vào Node để sửa trực tiếp vĩ độ/kinh độ hoặc bấm "Lấy GPS thực địa".<br />
+                4. Bấm <strong>"Lưu Sơ đồ GIS"</strong> để đồng bộ xuống backend.
               </p>
             </div>
           </div>
 
-          {/* Center Main: GIS MAP CARD (Matching Image 2 exactly) */}
-          <div className="lg:col-span-3 p-4 bg-slate-100 flex flex-col justify-between overflow-y-auto space-y-3">
-            {/* GIS Map Card matching Image 2 */}
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-sm">
-                    <MapPin size={16} className="text-[#119653]" /> Vị trí GIS Map của Zone này
-                  </h4>
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      <Database size={11} /> PostgreSQL PostGIS (SRID 4326)
-                    </span>
-                    <span>• {zonePolygon.length} tọa độ đỉnh</span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-slate-500 font-mono">
-                  Phân khu: <strong className="text-slate-800">{zoneDisplayName}</strong>
-                </div>
-              </div>
-
-              {/* Map Interactive Frame */}
-              <div className="relative w-full h-[360px] rounded-xl border border-slate-300 overflow-hidden shadow-inner select-none">
-                {/* In-Map Top-Left Realtime Badge (as in Image 2) */}
-                <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-800 shadow-md space-y-1">
-                  <div className="flex items-center gap-2 font-medium">
-                    <Crosshair size={14} className="text-[#119653]" />
-                    <span>Tọa độ tâm: <strong className="font-mono text-slate-900">{center[0].toFixed(4)}, {center[1].toFixed(4)}</strong></span>
-                  </div>
-                  {zonePolygon.length > 0 && (
-                    <div className="flex items-center justify-between text-[11px] text-slate-600 border-t border-slate-100 pt-1 gap-3">
-                      <span>Ranh giới: <strong className="text-emerald-700">{zonePolygon.length} đỉnh</strong></span>
-                      <span>Diện tích: <strong className="text-[#119653] font-bold">{areaM2.toLocaleString()} m² ({areaHa} ha)</strong></span>
-                    </div>
-                  )}
-                </div>
-
-                {/* In-Map Top-Right Controls Overlay (as in Image 2) */}
-                <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                    className="bg-[#119653] hover:bg-[#0e8046] text-white px-2.5 py-1 rounded-lg border border-emerald-400 shadow-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                    <span>{isFullscreen ? 'Thu nhỏ' : 'Mở rộng Map'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFitKey(k => k + 1)}
-                    className="bg-white/95 hover:bg-slate-100 text-slate-800 px-2 py-1 rounded-lg border border-slate-200 shadow-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <Maximize2 size={13} className="text-emerald-600" />
-                    <span>Căn Zoom</span>
-                  </button>
-
-                  <div className="bg-white/95 backdrop-blur-md p-1 rounded-lg border border-slate-200 text-xs flex items-center gap-1 shadow-md">
-                    <button
-                      type="button"
-                      onClick={() => setMapType('osm')}
-                      className={`px-2 py-1 rounded transition-colors ${mapType === 'osm' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
-                    >
-                      OSM
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMapType('street')}
-                      className={`px-2 py-1 rounded transition-colors ${mapType === 'street' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
-                    >
-                      Đường phố
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMapType('satellite')}
-                      className={`px-2 py-1 rounded transition-colors ${mapType === 'satellite' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
-                    >
-                      Vệ tinh
-                    </button>
-                  </div>
-                </div>
-
-                {/* In-Map Bottom-Left Legend Overlay (as in Image 2) */}
-                <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] text-slate-700 shadow-md flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded border border-dashed border-[#0284c7] bg-[#0284c7]/20" /> Phân khu mẹ (Lô đất)
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-[#10b981]/50 border border-[#10b981]" /> Hiện tại (ZONE)
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" /> Node Đã Định Vị ({nodes.length})
-                  </div>
-                </div>
-
-                {/* Leaflet GIS Map */}
-                <MapContainer
-                  center={center}
-                  zoom={17}
-                  scrollWheelZoom={true}
-                  zoomControl={true}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    key={mapType}
-                    attribution={currentTile.attribution}
-                    url={currentTile.url}
-                    maxZoom={19}
-                  />
-
-                  <MapEventsAndFitter
-                    onMapClick={handleMapClick}
-                    fitKey={fitKey}
-                    polygon={zonePolygon}
-                    center={center}
-                  />
-
-                  {/* Center Marker C */}
-                  <Marker
-                    position={center}
-                    icon={createCenterPinIcon()}
-                    draggable={true}
-                    eventHandlers={centerEventHandlers}
-                  >
-                    <Popup>
-                      <div className="text-xs font-semibold text-slate-900">
-                        Tâm điểm Phân khu (Zone)
-                        <p className="text-[10px] text-emerald-700 font-normal mt-1">Kéo ghim để di chuyển toàn bộ Zone</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-
-                  {/* Parent Field Polygon (Dashed Blue Border as in Image 2) */}
-                  {parentFieldPolygon && parentFieldPolygon.length >= 3 && (
-                    <Polygon
-                      positions={parentFieldPolygon}
-                      pathOptions={{ color: '#0284c7', fillColor: '#0284c7', fillOpacity: 0.1, weight: 2, dashArray: '4, 4' }}
-                    />
-                  )}
-
-                  {/* Current Zone Polygon (Solid Green as in Image 2) */}
-                  {zonePolygon && zonePolygon.length >= 3 && (
-                    <Polygon
-                      positions={zonePolygon}
-                      pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.35, weight: 3 }}
-                    />
-                  )}
-
-                  {/* Numbered Vertices Pins (#1, #2, #3, #4) as in Image 2 */}
-                  {zonePolygon.map((pt, idx) => (
-                    <DraggableVertexMarker
-                      key={`vertex-${idx}-${pt[0]}-${pt[1]}`}
-                      position={pt}
-                      index={idx}
-                      onDragEnd={handleDragVertex}
-                    />
-                  ))}
-
-                  {/* Placed Nodes Markers */}
-                  {nodes.map((node, index) => (
-                    <DraggableNodeMarker
-                      key={node.nodeId}
-                      node={node}
-                      index={index}
-                      isSelected={activePinNode?.nodeId === node.nodeId}
-                      onSelect={setActivePinNode}
-                      onDragEnd={handleDragNodeEnd}
-                      onUnmap={handleUnmapNode}
-                    />
-                  ))}
-                </MapContainer>
-              </div>
-
-              {/* Notice below map matching Image 2 */}
-              <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-[11px] text-emerald-950 flex items-start gap-2">
-                <Move size={15} className="text-emerald-700 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  <strong>Vẽ ranh giới GIS & Chấm Node:</strong> Bạn có thể kéo thả trực tiếp (Drag & Drop) các ghim ranh giới <strong>#1, #2, #3...</strong> và tâm điểm <strong>C</strong> trên bản đồ để tinh chỉnh vị trí Phân khu. Nhấp chuột vào trong Zone để chấm Node vào thực địa.
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2: Connected Nodes & Telemetry list (Matching Image 2 directly below GIS Map) */}
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs sm:text-sm">
-                  <Cpu size={16} className="text-[#119653]" /> Thông tin Node Cảm biến & Vi khí hậu Trả về (Live Telemetry)
-                </h4>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200">
-                  {nodes.length} Node kết nối
+          {/* Center Main: Interactive Leaflet GIS Map Canvas */}
+          <div className="lg:col-span-3 p-4 bg-slate-100 flex flex-col justify-between overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                  <Layers size={15} className="text-[#119653]" /> Bản đồ GIS Định vị Phân khu (Interactive Leaflet Map)
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono font-bold border border-emerald-300">
+                  {nodes.length} Node Đã Định Vị
                 </span>
               </div>
-
-              {nodes.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400 italic bg-slate-50 rounded-xl border border-slate-100">
-                  Chưa có Node nào được chấm trong Zone này. Chọn thiết bị bên trái rồi nhấp vào bản đồ để chấm.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[140px] overflow-y-auto pr-1">
-                  {nodes.map(n => (
-                    <div
-                      key={n.nodeId}
-                      onClick={() => setActivePinNode(n)}
-                      className="p-2.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 rounded-xl text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          <span className="font-bold text-slate-900 font-mono text-[11px] truncate">{n.nodeCode}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 font-mono truncate mt-0.5">MAC: {n.serialNumber}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-mono">
-                          {typeof n.batteryLevel === 'number' ? `${n.batteryLevel}%` : 'Pin: —'}
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
-                          ONLINE
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <span className="text-[11px] text-slate-500 italic">
+                {selectedDevice ? `👉 Đang chọn [${selectedDevice.code}]. Nhấp lên bản đồ để chấm Node!` : 'Kéo thả ghim để di chuyển hoặc nhấp chọn để sửa tọa độ'}
+              </span>
             </div>
+
+            {/* Canvas Interactive Container */}
+            <div className="relative w-full h-[380px] rounded-2xl border border-slate-300 overflow-hidden shadow-inner select-none">
+              {/* Map Controls Overlay */}
+              <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFitKey(k => k + 1)}
+                  title="Căn vừa ranh giới Node (Fit Zoom)"
+                  className="bg-white/95 hover:bg-slate-100 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 shadow-md text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                >
+                  <Maximize2 size={13} className="text-emerald-600" />
+                  <span>Căn Zoom</span>
+                </button>
+
+                <div className="bg-white/95 backdrop-blur-md p-1 rounded-lg border border-slate-200 text-xs flex items-center gap-1 shadow-md">
+                  <button
+                    type="button"
+                    onClick={() => setMapType('osm')}
+                    className={`px-2 py-1 rounded transition-colors ${mapType === 'osm' ? 'bg-[#119653] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    OSM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapType('street')}
+                    className={`px-2 py-1 rounded transition-colors ${mapType === 'street' ? 'bg-[#119653] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    Đường phố
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapType('satellite')}
+                    className={`px-2 py-1 rounded transition-colors ${mapType === 'satellite' ? 'bg-[#119653] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    Vệ tinh
+                  </button>
+                </div>
+              </div>
+
+              {/* Legend Overlay */}
+              <div className="absolute bottom-3 left-3 z-[1000] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] text-slate-700 shadow-xs flex items-center gap-3">
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Node Cảm biến</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-amber-500" /> Gateway</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-sky-500/30 border border-sky-600 border-dashed" /> Ranh giới Nhà màng</div>
+              </div>
+
+              {/* Leaflet GIS Map */}
+              <MapContainer
+                center={center}
+                zoom={17}
+                scrollWheelZoom={true}
+                zoomControl={true}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  key={mapType}
+                  attribution={currentTile.attribution}
+                  url={currentTile.url}
+                  maxZoom={19}
+                />
+
+                <MapEventsAndFitter
+                  onMapClick={handleMapClick}
+                  fitKey={fitKey}
+                  nodes={nodes}
+                  center={center}
+                />
+
+                {/* Zone Boundary Polygon */}
+                <Polygon
+                  positions={zonePolygonCoords}
+                  pathOptions={{ color: '#0284c7', fillColor: '#0284c7', fillOpacity: 0.15, weight: 2, dashArray: '4, 4' }}
+                />
+
+                {/* Placed Nodes Markers (Draggable & Clickable) */}
+                {nodes.map((node, index) => (
+                  <DraggableNodeMarker
+                    key={node.nodeId}
+                    node={node}
+                    index={index}
+                    isSelected={activePinNode?.nodeId === node.nodeId}
+                    onSelect={setActivePinNode}
+                    onDragEnd={handleDragNodeEnd}
+                    onUnmap={handleUnmapNode}
+                  />
+                ))}
+              </MapContainer>
+            </div>
+
+            {/* Selected Node Details & Manual GIS Coordinate Editor */}
+            {activePinNode ? (
+              <div className="mt-3 p-3 bg-white border border-slate-200 rounded-xl shadow-xs text-xs space-y-2 animate-in fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900">{activePinNode.name}</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono text-[10px] font-bold">
+                      {activePinNode.nodeCode}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      MAC: {activePinNode.serialNumber} • Pin: {activePinNode.batteryLevel}% • RSSI: {activePinNode.rssi}dBm
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleUnmapNode(activePinNode)}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-bold hover:underline px-2 py-1 flex items-center gap-1"
+                    >
+                      <Trash2 size={12} /> Gỡ Node
+                    </button>
+                    <Button size="sm" variant="outline" onClick={() => setActivePinNode(null)}>
+                      Đóng
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Edit GIS Coordinates Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 block">Vĩ độ (Latitude):</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={activePinNode.latitude}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                          handleDragNodeEnd(activePinNode.nodeId, val, activePinNode.longitude);
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 block">Kinh độ (Longitude):</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={activePinNode.longitude}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                          handleDragNodeEnd(activePinNode.nodeId, activePinNode.latitude, val);
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono text-xs text-slate-900 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                              const lat = parseFloat(pos.coords.latitude.toFixed(6));
+                              const lng = parseFloat(pos.coords.longitude.toFixed(6));
+                              handleDragNodeEnd(activePinNode.nodeId, lat, lng);
+                            },
+                            () => {
+                              const simLat = parseFloat((11.9404 + (Math.random() - 0.5) * 0.0006).toFixed(6));
+                              const simLng = parseFloat((108.4583 + (Math.random() - 0.5) * 0.0008).toFixed(6));
+                              handleDragNodeEnd(activePinNode.nodeId, simLat, simLng);
+                            }
+                          );
+                        }
+                      }}
+                      className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center justify-center gap-1 shadow-xs transition-colors"
+                    >
+                      <Crosshair size={13} /> Cập nhật GPS Hiện trường
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 p-2.5 bg-white border border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-500">
+                💡 <span className="font-semibold text-slate-700">Mẹo điều chỉnh:</span> Bạn có thể nhấp chọn bất kỳ ghim Node nào trên bản đồ để sửa tọa độ GPS chính xác hoặc kéo thả trực tiếp.
+              </div>
+            )}
           </div>
         </div>
 
         {/* Footer Actions */}
         <div className="p-4 bg-slate-900 border-t border-slate-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div className="text-xs text-slate-300 flex items-center gap-2">
-            <span>Tổng số Node định vị trong Phân khu:</span>
-            <strong className="text-emerald-400 font-mono text-sm bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-              {nodes.length} Nodes
-            </strong>
-            {unassignedDevices.length === 0 ? (
-              <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 size={13} /> (Đã định vị đủ 100% thiết bị Hợp đồng)
-              </span>
-            ) : (
-              <span className="text-[11px] text-amber-400 font-medium">
-                (Còn {unassignedDevices.length} thiết bị chờ chấm)
-              </span>
-            )}
+          <div className="text-xs text-slate-300">
+            Tổng số Node định vị trong Phân khu: <strong className="text-emerald-400 font-mono text-sm">{nodes.length} Nodes</strong>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={onClose} className="text-slate-300 hover:text-white">
@@ -1118,7 +1011,7 @@ export const ZoneNodeMapperModal: React.FC<ZoneNodeMapperModalProps> = ({
             <Button 
               onClick={handleSave} 
               disabled={isSaving}
-              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold shadow-md px-5"
+              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold shadow-md"
             >
               {isSaving ? (
                 <>

@@ -1,14 +1,10 @@
 using System;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using SmartFarm.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace SmartFarm.Infrastructure.Persistence.Migrations
 {
-    [DbContext(typeof(SmartFarmDbContext))]
-    [Migration("20261021183000_AddFarmingSeasons")]
     /// <inheritdoc />
     public partial class AddFarmingSeasons : Migration
     {
@@ -35,9 +31,9 @@ namespace SmartFarm.Infrastructure.Persistence.Migrations
                 BEGIN
                     IF NOT EXISTS (
                         SELECT 1 FROM information_schema.columns 
-                        WHERE lower(table_name) = 'planting_seasons' AND lower(column_name) = 'farmingseasonid'
+                        WHERE table_name = 'PlantingSeasons' AND column_name = 'FarmingSeasonId'
                     ) THEN
-                        ALTER TABLE ""planting_seasons"" ADD COLUMN IF NOT EXISTS ""FarmingSeasonId"" uuid NULL;
+                        ALTER TABLE ""PlantingSeasons"" ADD COLUMN ""FarmingSeasonId"" uuid NULL;
                     END IF;
                 END $$;
             ");

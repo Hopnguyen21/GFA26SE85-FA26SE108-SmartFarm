@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using SmartFarm.Infrastructure.Ai.Location;
 using Microsoft.Extensions.Options;
 
 namespace SmartFarm.Infrastructure.Ai.Knowledge;
@@ -14,6 +15,8 @@ public sealed class GeminiEmbeddingOptions
     public int Dimensions { get; set; } = 768;
     public int MaxRetries { get; set; } = 3;
     public double RetryBaseDelaySeconds { get; set; } = 0.1;
+    /// <summary>Khoảng cách tối thiểu giữa hai lệnh gọi embedding (mili giây); 0 = không giãn nhịp (dùng cho test).</summary>
+    public int PaceMilliseconds { get; set; } = 650;
 }
 
 /// <summary>
@@ -53,7 +56,7 @@ public sealed class GeminiEmbeddingProvider
         GenerateEmbeddingAsync(text, ct);
 
     public Task<float[]> GenerateQueryEmbeddingAsync(string text, CancellationToken ct = default) =>
-        EmbedStrictAsync(text, "RETRIEVAL_QUERY", ct);
+        EmbedStrictAsync(AiPrivacySanitizer.SanitizeUserQuestion(text), "RETRIEVAL_QUERY", ct, maxRateWaitSeconds: 0);
 
     public async Task<float[]?> EmbedDocumentAsync(string text, CancellationToken ct = default)
     {
@@ -67,7 +70,7 @@ public sealed class GeminiEmbeddingProvider
 
     public async Task<float[]?> EmbedQueryAsync(string text, CancellationToken ct = default)
     {
-        try { return await EmbedStrictAsync(text, "RETRIEVAL_QUERY", ct); }
+        try { return await EmbedStrictAsync(AiPrivacySanitizer.SanitizeUserQuestion(text), "RETRIEVAL_QUERY", ct, maxRateWaitSeconds: 0); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "[Embedding] Failed to embed query with model '{Model}'. Falling back to keyword search.", settings.Model);
@@ -75,7 +78,40 @@ public sealed class GeminiEmbeddingProvider
         }
     }
 
-    private async Task<float[]> EmbedStrictAsync(string text, string taskType, CancellationToken ct)
+    // Giãn nhịp các lệnh gọi (~90 lần/phút, dưới mức 100 lần/phút của gói miễn phí) để không tự gây lỗi 429 theo phút khi nạp hàng trăm đoạn.
+    private static readonly SemaphoreSlim PaceLock = new(1, 1);
+    private static DateTime nextSlotUtc = DateTime.MinValue;
+
+    private async Task PaceAsync(CancellationToken ct)
+    {
+        if (settings.PaceMilliseconds <= 0) return;
+        var MinInterval = TimeSpan.FromMilliseconds(settings.PaceMilliseconds);
+        await PaceLock.WaitAsync(ct);
+        try
+        {
+            var now = DateTime.UtcNow;
+            var wait = nextSlotUtc - now;
+            if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
+            nextSlotUtc = (wait > TimeSpan.Zero ? nextSlotUtc : now) + MinInterval;
+        }
+        finally { PaceLock.Release(); }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex RetryIn = new(
+        @"retry in ([0-9]+(?:\.[0-9]+)?)s|""retryDelay""\s*:\s*""([0-9]+(?:\.[0-9]+)?)s""",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled, TimeSpan.FromMilliseconds(100));
+
+    /// <summary>Thời gian Google yêu cầu chờ trong thông báo 429 ("Please retry in 12.3s" hoặc retryDelay); null nếu không nêu.</summary>
+    internal static TimeSpan? ParseRetryDelay(string body)
+    {
+        var m = RetryIn.Match(body ?? string.Empty);
+        if (!m.Success) return null;
+        var raw = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+        return double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+            ? TimeSpan.FromSeconds(seconds) : null;
+    }
+
+    private async Task<float[]> EmbedStrictAsync(string text, string taskType, CancellationToken ct, int maxRateWaitSeconds = 70)
     {
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
             throw new InvalidOperationException("Gemini API key is not configured for embedding.");
@@ -99,6 +135,7 @@ public sealed class GeminiEmbeddingProvider
         var maxRetries = Math.Max(1, settings.MaxRetries);
         for (int attempt = 0; attempt < maxRetries; attempt++)
         {
+            await PaceAsync(ct);
             using var req = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
                 Content = JsonContent.Create(requestBody, options: JsonOpts)
@@ -149,7 +186,7 @@ public sealed class GeminiEmbeddingProvider
                 if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 {
                     var errorBody = await response.Content.ReadAsStringAsync(cts.Token);
-                    throw new HttpRequestException($"Gemini embedding API returned 400 Bad Request: {errorBody}", null, System.Net.HttpStatusCode.BadRequest);
+                    throw new HttpRequestException("Gemini embedding API returned 400 Bad Request.", null, System.Net.HttpStatusCode.BadRequest);
                 }
 
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
@@ -160,15 +197,28 @@ public sealed class GeminiEmbeddingProvider
                     {
                         quotaBlockedUntilUtc = DateTime.UtcNow + QuotaCooldown;
                         logger.LogWarning("[Embedding] Daily quota exceeded; embedding paused for {Minutes} minutes.", QuotaCooldown.TotalMinutes);
-                        throw new HttpRequestException($"Gemini embedding daily quota exceeded (429): {quotaBody}", null, response.StatusCode);
+                        throw new HttpRequestException("Gemini embedding daily quota exceeded (429).", null, response.StatusCode);
                     }
+
+                    // Giới hạn theo phút: chờ đúng thời gian Google yêu cầu rồi thử lại (nạp tài liệu); câu hỏi người dùng không chờ, và việc gọi
+                    // lại ngay sau vài trăm mili giây chỉ đốt thêm lượt gọi. Chờ quá lâu thì tạm ngừng mọi lệnh gọi trong thời gian đó.
+                    // Không có gợi ý thời gian chờ: dùng lại nhịp lùi dần như các lỗi tạm thời khác.
+                    var wait = ParseRetryDelay(quotaBody) ?? TimeSpan.FromSeconds(settings.RetryBaseDelaySeconds * Math.Pow(2, attempt));
+                    if (wait.TotalSeconds <= maxRateWaitSeconds && attempt < maxRetries - 1)
+                    {
+                        logger.LogInformation("[Embedding] Per-minute limit; waiting {Seconds:0.#}s before retrying.", wait.TotalSeconds);
+                        await Task.Delay(wait + TimeSpan.FromSeconds(1), ct);
+                        continue;
+                    }
+                    quotaBlockedUntilUtc = DateTime.UtcNow + TimeSpan.FromSeconds(Math.Clamp(wait.TotalSeconds, 5, 120));
+                    throw new HttpRequestException($"Gemini embedding rate limited (429); retry in {wait.TotalSeconds:0.#}s.", null, response.StatusCode);
                 }
 
                 var isRetryable = response.StatusCode == System.Net.HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500;
                 if (!isRetryable || attempt >= maxRetries - 1)
                 {
                     var errorBody = await response.Content.ReadAsStringAsync(cts.Token);
-                    throw new HttpRequestException($"Gemini embedding request failed with status {(int)response.StatusCode}: {errorBody}", null, response.StatusCode);
+                    throw new HttpRequestException($"Gemini embedding request failed with status {(int)response.StatusCode}.", null, response.StatusCode);
                 }
 
                 var delay = TimeSpan.FromSeconds(settings.RetryBaseDelaySeconds * Math.Pow(2, attempt));

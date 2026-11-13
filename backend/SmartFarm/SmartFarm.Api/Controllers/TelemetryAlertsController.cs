@@ -15,6 +15,9 @@ public sealed class TelemetryController(ITelemetryAlertService service) : Contro
     [HttpGet("api/v1/zones/{zoneId:guid}/telemetry/latest")]
     public async Task<ActionResult<LatestTelemetryView>> Latest(Guid zoneId, CancellationToken ct) => Ok(await service.LatestAsync(User.GetUserId(), User.GetTenantId(), zoneId, ct));
 
+    [HttpGet("api/v1/zones/{zoneId:guid}/telemetry/latest-by-device")]
+    public async Task<ActionResult<ZoneDeviceTelemetryView>> LatestByDevice(Guid zoneId, CancellationToken ct) => Ok(await service.LatestByDeviceAsync(User.GetUserId(), User.GetTenantId(), zoneId, ct));
+
     // API catalog #70
     [HttpGet("api/v1/zones/{zoneId:guid}/telemetry/history")]
     public async Task<ActionResult<TelemetryHistoryView>> History(Guid zoneId, [FromQuery] EnvironmentalParameterCode parameterCode, [FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, [FromQuery] string interval = "15m", CancellationToken ct = default) => Ok(await service.HistoryAsync(User.GetUserId(), User.GetTenantId(), zoneId, parameterCode, fromUtc, toUtc, interval, ct));
@@ -45,28 +48,28 @@ public sealed class AlertRulesController(ITelemetryAlertService service) : Contr
     public async Task<IActionResult> Archive(Guid zoneId, Guid ruleId, CancellationToken ct) { await service.ArchiveRuleAsync(User.GetUserId(), User.GetTenantId(), zoneId, ruleId, ct); return NoContent(); }
 }
 
-[ApiController, Authorize(Roles = "FarmOwner,Farmer")]
+[ApiController, Authorize(Roles = "FarmOwner,Farmer,PlatformAdmin")]
 public sealed class AlertsController(ITelemetryAlertService service) : ControllerBase
 {
     // API catalog #72
     [HttpGet("api/v1/farms/{farmId:guid}/alerts")]
-    public async Task<ActionResult<IReadOnlyList<AlertView>>> Farm(Guid farmId, [FromQuery] AlertStatus? status, [FromQuery] AlertSeverity? severity, CancellationToken ct) => Ok(await service.ListFarmAlertsAsync(User.GetUserId(), User.GetTenantId(), farmId, status, severity, ct));
+    public async Task<ActionResult<IReadOnlyList<AlertView>>> Farm(Guid farmId, [FromQuery] AlertStatus? status, [FromQuery] AlertSeverity? severity, CancellationToken ct) => Ok(await service.ListFarmAlertsAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, farmId, status, severity, ct));
 
     // API catalog #73
     [HttpGet("api/v1/zones/{zoneId:guid}/alerts")]
-    public async Task<ActionResult<IReadOnlyList<AlertView>>> Zone(Guid zoneId, [FromQuery] AlertStatus? status, CancellationToken ct) => Ok(await service.ListZoneAlertsAsync(User.GetUserId(), User.GetTenantId(), zoneId, status, ct));
+    public async Task<ActionResult<IReadOnlyList<AlertView>>> Zone(Guid zoneId, [FromQuery] AlertStatus? status, CancellationToken ct) => Ok(await service.ListZoneAlertsAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, zoneId, status, ct));
 
     // API catalog #74
     [HttpGet("api/v1/alerts/{alertId:guid}")]
-    public async Task<ActionResult<AlertView>> Get(Guid alertId, CancellationToken ct) => Ok(await service.GetAlertAsync(User.GetUserId(), User.GetTenantId(), alertId, ct));
+    public async Task<ActionResult<AlertView>> Get(Guid alertId, CancellationToken ct) => Ok(await service.GetAlertAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, alertId, ct));
 
     // API catalog #75, normalized as acknowledge-only by TELEMETRY_ALERT_CONTRACT_V1.md
     [HttpPut("api/v1/alerts/{alertId:guid}/acknowledge")]
-    public async Task<ActionResult<AlertView>> Acknowledge(Guid alertId, AcknowledgeAlertRequest request, CancellationToken ct) => Ok(await service.AcknowledgeAsync(User.GetUserId(), User.GetTenantId(), alertId, request.Notes, ct));
+    public async Task<ActionResult<AlertView>> Acknowledge(Guid alertId, AcknowledgeAlertRequest request, CancellationToken ct) => Ok(await service.AcknowledgeAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, alertId, request.Notes, ct));
 
     // Contract extension ALERT-V1-01
     [HttpPut("api/v1/alerts/{alertId:guid}/resolve")]
-    public async Task<ActionResult<AlertView>> Resolve(Guid alertId, ResolveAlertRequest request, CancellationToken ct) => Ok(await service.ResolveAsync(User.GetUserId(), User.GetTenantId(), alertId, new(request.ActionTaken, request.Notes), ct));
+    public async Task<ActionResult<AlertView>> Resolve(Guid alertId, ResolveAlertRequest request, CancellationToken ct) => Ok(await service.ResolveAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, alertId, new(request.ActionTaken, request.Notes), ct));
 }
 
 public sealed class AlertRuleRequest

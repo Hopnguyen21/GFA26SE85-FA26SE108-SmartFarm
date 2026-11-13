@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CropRangeBand } from '../../components/ui/BaseUI';
-import { Activity, Clock, CheckCircle, Sliders, ArrowRight } from 'lucide-react';
+import { Activity, Clock, CheckCircle, Sliders, ArrowRight, RefreshCw, Sprout } from 'lucide-react';
+import { cropService } from '../../services';
 
-const defaultProfile = {
+const fallbackProfile = {
   growthProfileId: 'profile-tomato-std',
   cropId: 'crop-tomato',
   varietyId: 'var-beefsteak',
@@ -27,13 +28,33 @@ const defaultProfile = {
 };
 
 export const GrowthProfilesPage: React.FC = () => {
-  const profile = defaultProfile;
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [activeProfile, setActiveProfile] = useState<any>(fallbackProfile);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    cropService.getAllGrowthProfiles().then((data: any[]) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setProfiles(data);
+        const first = data[0];
+        setActiveProfile({
+          ...fallbackProfile,
+          growthProfileId: first.profileId || first.id || fallbackProfile.growthProfileId,
+          name: first.name || fallbackProfile.name,
+          description: first.description || `Hồ sơ cho cây trồng ${first.cropName || 'chuyên canh'}`,
+        });
+      }
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const profile = activeProfile;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <Activity className="text-[#062326]" size={22} /> Cấu hình Hồ sơ Sinh trưởng & Ngưỡng Vi khí hậu mẫu
+          <Activity className="text-[#119653]" size={22} /> Cấu hình Hồ sơ Sinh trưởng & Ngưỡng Vi khí hậu mẫu
         </h1>
         <p className="text-xs text-slate-600 mt-1">Cơ chế Crop-aware 4 tầng: Cây ➔ Giống ➔ Hồ sơ sinh trưởng ➔ Giai đoạn ➔ Dải ngưỡng vi khí hậu thích ứng.</p>
       </div>
@@ -41,7 +62,7 @@ export const GrowthProfilesPage: React.FC = () => {
       {/* Profile Overview Banner */}
       <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-[#062326] border border-emerald-200">
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
             HỒ SƠ CHUẨN SYSTEM DEFAULT
           </span>
           <h2 className="text-lg font-bold text-slate-900 mt-1">{profile.name}</h2>
@@ -49,21 +70,21 @@ export const GrowthProfilesPage: React.FC = () => {
         </div>
         <div className="text-right">
           <span className="text-xs text-slate-500 block">Tổng thời gian chu kỳ</span>
-          <span className="text-xl font-bold text-[#062326]">90 Ngày</span>
+          <span className="text-xl font-bold text-[#119653]">90 Ngày</span>
         </div>
       </div>
 
       {/* Timeline of Growth Stages */}
       <div className="p-5 bg-white border border-slate-200 rounded-xl shadow-xs space-y-4">
         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-          <Clock size={16} className="text-[#062326]" /> Các giai đoạn sinh trưởng (Growth Stages Timeline)
+          <Clock size={16} className="text-[#119653]" /> Các giai đoạn sinh trưởng (Growth Stages Timeline)
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {profile.stages.map(st => (
+          {profile.stages.map((st: any) => (
             <div key={st.growthStageId} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative">
               <div className="flex items-center justify-between">
-                <span className="w-5 h-5 rounded-full bg-[#062326] text-white text-xs font-bold flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-[#119653] text-white text-xs font-bold flex items-center justify-center">
                   {st.stageOrder}
                 </span>
                 <span className="text-[10px] font-mono font-semibold text-slate-500">{st.durationDays} ngày</span>
@@ -80,7 +101,7 @@ export const GrowthProfilesPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Sliders size={16} className="text-[#062326]" /> Dải ngưỡng Vi khí hậu Giai đoạn: <span className="text-[#062326] font-semibold">Ra hoa (Flowering)</span>
+              <Sliders size={16} className="text-[#119653]" /> Dải ngưỡng Vi khí hậu Giai đoạn: <span className="text-emerald-800 font-semibold">Ra hoa (Flowering)</span>
             </h3>
             <p className="text-xs text-slate-500">Tự động cập nhật vào Alert Engine & Relay Control khi vụ mùa bước sang giai đoạn này.</p>
           </div>

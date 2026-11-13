@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polygon, useMapEvents, useMap }
 import L from 'leaflet';
 import { MapPin, Layers, RefreshCw, Square, Trash2, Crosshair, Maximize2, Minimize2, Move, Search, Compass, Loader2, Plus, Edit3, Clipboard, FileText, Check, AlertCircle, X, List, Info, AlertTriangle } from 'lucide-react';
 import { Button, Modal } from '../ui/BaseUI';
+import { gisProxyService } from '../../services';
 
 // Custom Map Pins
 const createCenterPinIcon = () =>
@@ -10,7 +11,7 @@ const createCenterPinIcon = () =>
     className: 'custom-center-pin-wrapper',
     html: `
       <div style="
-        background-color: #062326;
+        background-color: #119653;
         width: 26px;
         height: 26px;
         border-radius: 50%;
@@ -44,8 +45,8 @@ const createVertexPinIcon = (index: number, isOutside?: boolean) =>
         <div style="
           position: absolute;
           top: -20px;
-          background: ${isOutside ? '#dc2626' : '#062326'};
-          color: ${isOutside ? '#fecaca' : '#34d399'};
+          background: ${isOutside ? '#dc2626' : '#119653'};
+          color: ${isOutside ? '#fecaca' : '#ffffff'};
           font-size: 10px;
           font-weight: 700;
           font-family: monospace;
@@ -61,6 +62,46 @@ const createVertexPinIcon = (index: number, isOutside?: boolean) =>
     iconAnchor: [10, 10],
   });
 
+const createDevicePinIcon = (name: string, isActuator?: boolean, isOnline?: boolean) =>
+  L.divIcon({
+    className: 'custom-device-pin-wrapper',
+    html: `
+      <div style="position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+        <div style="
+          background: ${isActuator ? '#0284c7' : '#059669'};
+          color: white;
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          border: 2px solid white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+        ">
+          ${isActuator ? '⚡' : '📡'}
+        </div>
+        <div style="
+          position: absolute;
+          top: -22px;
+          background: #062326;
+          color: ${isOnline ? '#6ee7b7' : '#f87171'};
+          font-size: 9px;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 9999px;
+          border: 1px solid rgba(255,255,255,0.25);
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          pointer-events: none;
+        ">${name}</div>
+      </div>
+    `,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
+
 interface GISLocationPickerProps {
   level: 'FARM' | 'FIELD' | 'ZONE';
   center: [number, number];
@@ -69,6 +110,18 @@ interface GISLocationPickerProps {
   onPolygonChange: (polygon: [number, number][]) => void;
   parentFarmPolygon?: [number, number][];
   parentFieldPolygon?: [number, number][];
+  /** Other existing fields/zones within the same parent to display for context */
+  otherPolygons?: { name: string; polygon: [number, number][]; areaM2?: number }[];
+  /** Optional IoT devices/sensors located within this zone/field to display as pins */
+  deviceMarkers?: {
+    id: string;
+    name: string;
+    code?: string;
+    type?: string;
+    status?: string;
+    batteryLevel?: number;
+    coords: [number, number];
+  }[];
   height?: string;
   readOnly?: boolean;
   hidePolygon?: boolean;
@@ -76,6 +129,8 @@ interface GISLocationPickerProps {
   hideAddressSearch?: boolean;
   /** Called when center drag completes with reverse-geocoded address (Farm only) */
   onAddressChange?: (address: string) => void;
+  /** Reports whether current polygon has validation errors (e.g. outside parent or overlapping other polygons) */
+  onValidationChange?: (isValid: boolean, errorMessage: string | null) => void;
 }
 
 // Preset Coordinates for Instant Vietnam Ag Hubs
@@ -175,6 +230,48 @@ function pointInPolygon(point: [number, number], polygon: [number, number][]): b
   return inside;
 }
 
+// ─── Segment Intersection & Polygon Overlap ──────────────────────────────────
+function doSegmentsIntersect(
+  p1: [number, number],
+  p2: [number, number],
+  p3: [number, number],
+  p4: [number, number]
+): boolean {
+  const ccw = (a: [number, number], b: [number, number], c: [number, number]) => {
+    return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0]);
+  };
+  return ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4);
+}
+
+export function doPolygonsOverlap(polyA: [number, number][], polyB: [number, number][]): boolean {
+  if (polyA.length < 3 || polyB.length < 3) return false;
+
+  // 1. Any vertex of A inside B?
+  for (const pt of polyA) {
+    if (pointInPolygon(pt, polyB)) return true;
+  }
+
+  // 2. Any vertex of B inside A?
+  for (const pt of polyB) {
+    if (pointInPolygon(pt, polyA)) return true;
+  }
+
+  // 3. Any edge of A intersects any edge of B?
+  const nA = polyA.length;
+  const nB = polyB.length;
+  for (let i = 0; i < nA; i++) {
+    const a1 = polyA[i];
+    const a2 = polyA[(i + 1) % nA];
+    for (let j = 0; j < nB; j++) {
+      const b1 = polyB[j];
+      const b2 = polyB[(j + 1) % nB];
+      if (doSegmentsIntersect(a1, a2, b1, b2)) return true;
+    }
+  }
+
+  return false;
+}
+
 function allPointsInsidePolygon(points: [number, number][], boundary: [number, number][]): boolean {
   if (boundary.length < 3) return true;
   return points.every(pt => pointInPolygon(pt, boundary));
@@ -249,7 +346,7 @@ const DraggableVertexMarker: React.FC<{
     >
       <Popup>
         <div className="p-1 space-y-1.5 text-slate-800 text-xs">
-          <div className="font-bold text-[#062326] flex items-center justify-between gap-3">
+          <div className="font-bold text-[#119653] flex items-center justify-between gap-3">
             <span>Đỉnh ranh giới #{index + 1}</span>
             {isOutside ? (
               <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-mono font-bold">
@@ -292,12 +389,15 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
   onPolygonChange,
   parentFarmPolygon,
   parentFieldPolygon,
+  otherPolygons,
+  deviceMarkers,
   height = '420px',
   readOnly = false,
   hidePolygon = false,
   addressSearchQuery = '',
   hideAddressSearch = true,
   onAddressChange,
+  onValidationChange,
 }) => {
   const [mapCenter, setMapCenter] = useState<[number, number]>(center);
   const [mapType, setMapType] = useState<'osm' | 'street' | 'satellite'>('osm');
@@ -350,69 +450,81 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
       return { name: best.name, dist: bestDist };
     };
 
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'vi',
-            'User-Agent': 'SmartFarmApp/1.0 (demo)',
-          },
-        }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data && data.display_name) {
-        const addr = data.address || {};
-        const parts: string[] = [];
-        const street = addr.road || addr.pedestrian || addr.footway || addr.path || addr.neighbourhood;
-        if (street) parts.push(street);
-        const ward = addr.suburb || addr.quarter || addr.hamlet;
-        if (ward) parts.push(ward);
-        const district = addr.city_district || addr.district || addr.county;
-        if (district) parts.push(district);
-        const city = addr.city || addr.town || addr.village || addr.municipality;
-        if (city) parts.push(city);
-        const province = addr.state || addr.region;
-        if (province) parts.push(province);
-
-        if (parts.length >= 2) {
-          cb(parts.join(', '));
-        } else {
-          // Fallback: use first 3 parts of display_name
-          const fallback = data.display_name.split(',').slice(0, 3).map((s: string) => s.trim()).join(', ');
-          cb(fallback || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-        }
-      } else {
-        // No result — use nearest preset name + coords
-        const { name } = nearestPreset();
-        cb(`Gần ${name} (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
-      }
-    } catch (err) {
-      console.warn('Reverse geocoding failed:', err);
-      // Fallback: nearest preset + coordinates
-      const { name, dist } = nearestPreset();
-      if (dist < 50000) {
-        cb(`Gần ${name} (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
-      } else {
-        cb(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-      }
-    } finally {
-      setIsReverseGeocoding(false);
+    try {
+      // Gọi Backend Proxy (bảo vệ quyền riêng tư & vị trí client, không gọi trực tiếp nhà cung cấp bên thứ ba)
+      const proxyRes = await gisProxyService.reverseGeocode(lat, lng);
+      if (proxyRes && proxyRes.displayName) {
+        cb(proxyRes.displayName);
+        return;
+      }
+      const { name } = nearestPreset();
+      cb(`Gần ${name} (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    } catch (err) {
+      console.warn('Reverse geocoding proxy failed:', err);
+      // Fallback an toàn không tiết lộ IP/vị trí: dùng preset hoặc tọa độ
+      const { name, dist } = nearestPreset();
+      if (dist < 50000) {
+        cb(`Gần ${name} (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+      } else {
+        cb(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      }
+    } finally {
+      setIsReverseGeocoding(false);
     }
   }, [level]); // level is stable within a component instance
 
-  // ── Zone boundary check ──────────────────────────────────────────────────────
+  // Stable ref for onValidationChange
+  const onValidationChangeRef = React.useRef(onValidationChange);
+  useEffect(() => { onValidationChangeRef.current = onValidationChange; }, [onValidationChange]);
+
+  // Overlap and boundary check
+  const [overlappingNames, setOverlappingNames] = useState<string[]>([]);
+  const isOverlapping = overlappingNames.length > 0;
+  const isPolygonInvalid = zoneOutsideWarning || isOverlapping;
+
+  // ── Boundary & Overlap check ──────────────────────────────────────────────────
   useEffect(() => {
+    let hasOutside = false;
+    let outsideMsg = '';
+
+    // Check 1: Zone must be inside parentFieldPolygon
     if (level === 'ZONE' && parentFieldPolygon && parentFieldPolygon.length >= 3 && polygon.length > 0) {
       const violations = polygon.map(pt => !pointInPolygon(pt, parentFieldPolygon));
       setZoneViolations(violations);
-      setZoneOutsideWarning(violations.some(Boolean));
+      hasOutside = violations.some(Boolean);
+      setZoneOutsideWarning(hasOutside);
+      if (hasOutside) {
+        outsideMsg = 'Vị trí vượt ra ngoài ranh giới Lô đất!';
+      }
     } else {
       setZoneViolations([]);
       setZoneOutsideWarning(false);
     }
-  }, [level, polygon, parentFieldPolygon]);
+
+    // Check 2: Check overlap with other sibling polygons (Fields or Zones)
+    const overlaps: string[] = [];
+    if (otherPolygons && otherPolygons.length > 0 && polygon.length >= 3) {
+      for (const other of otherPolygons) {
+        if (other.polygon && other.polygon.length >= 3) {
+          if (doPolygonsOverlap(polygon, other.polygon)) {
+            overlaps.push(other.name);
+          }
+        }
+      }
+    }
+    setOverlappingNames(overlaps);
+
+    // Notify parent about validation state
+    if (onValidationChangeRef.current) {
+      if (hasOutside) {
+        onValidationChangeRef.current(false, outsideMsg);
+      } else if (overlaps.length > 0) {
+        onValidationChangeRef.current(false, `Bị trùng lấn lên: ${overlaps.join(', ')}`);
+      } else {
+        onValidationChangeRef.current(true, null);
+      }
+    }
+  }, [level, polygon, parentFieldPolygon, otherPolygons]);
 
   const handleOpenCoordModal = () => {
     if (polygon && polygon.length > 0) {
@@ -601,31 +713,31 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
       return;
     }
 
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=vn&limit=1`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data && data.length > 0) {
-        const lat = parseFloat(data[0].lat);
-        const lon = parseFloat(data[0].lon);
-        if (!isNaN(lat) && !isNaN(lon)) {
-          const newCoords: [number, number] = [parseFloat(lat.toFixed(6)), parseFloat(lon.toFixed(6))];
-          onCenterChange(newCoords);
-          setMapCenter(newCoords);
-          setSearchStatus(`Đã định vị thành công địa chỉ: "${data[0].display_name.split(',')[0]}"!`);
-          setTimeout(() => setSearchStatus(null), 4000);
-        } else {
-          setSearchStatus('Không tìm thấy tọa độ cho địa chỉ này.');
-        }
-      } else {
-        setSearchStatus('Không tìm thấy vị trí. Thử từ khóa ngắn hơn (vd: Đà Lạt, Củ Chi).');
-      }
-    } catch (err) {
-      console.warn('Address geocoding failed', err);
-      setSearchStatus('Lỗi tìm kiếm. Hãy thử chọn các vùng nông nghiệp gợi ý.');
-    } finally {
-      setIsSearching(false);
+    try {
+      // Tìm kiếm qua Backend Proxy (chặn rò rỉ dữ liệu tìm kiếm client tới dịch vụ ngoài)
+      const results = await gisProxyService.searchLocation(q);
+
+      if (results && results.length > 0) {
+        const first = results[0];
+        const lat = Number(first.latitude);
+        const lon = Number(first.longitude);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          const newCoords: [number, number] = [parseFloat(lat.toFixed(6)), parseFloat(lon.toFixed(6))];
+          onCenterChange(newCoords);
+          setMapCenter(newCoords);
+          setSearchStatus(`Đã định vị thành công địa chỉ: "${first.displayName.split(',')[0]}"!`);
+          setTimeout(() => setSearchStatus(null), 4000);
+        } else {
+          setSearchStatus('Không tìm thấy tọa độ cho địa chỉ này.');
+        }
+      } else {
+        setSearchStatus('Không tìm thấy vị trí. Thử từ khóa ngắn hơn (vd: Đà Lạt, Củ Chi).');
+      }
+    } catch (err) {
+      console.warn('Backend geocoding search failed', err);
+      setSearchStatus('Lỗi tìm kiếm. Hãy thử chọn các vùng nông nghiệp gợi ý.');
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -695,8 +807,21 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
         if (marker) {
           const pos = marker.getLatLng();
           const newCenter: [number, number] = [parseFloat(pos.lat.toFixed(6)), parseFloat(pos.lng.toFixed(6))];
+          
+          // If polygon has vertices, shift the entire polygon together with center
+          if (polygon.length > 0) {
+            const deltaLat = newCenter[0] - center[0];
+            const deltaLng = newCenter[1] - center[1];
+            const shiftedPoly = polygon.map(p => [
+              parseFloat((p[0] + deltaLat).toFixed(6)),
+              parseFloat((p[1] + deltaLng).toFixed(6)),
+            ] as [number, number]);
+            onPolygonChange(shiftedPoly);
+          }
+
           onCenterChange(newCenter);
           setMapCenter(newCenter);
+
           // Trigger reverse geocoding for FARM level via stable ref
           if (level === 'FARM') {
             reverseGeocodeRef.current(newCenter[0], newCenter[1]);
@@ -704,7 +829,7 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
         }
       },
     }),
-    [onCenterChange, level]
+    [onCenterChange, onPolygonChange, polygon, center, level]
   );
 
   const calculateAreaM2 = (coords: [number, number][]) => {
@@ -725,7 +850,7 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
   const areaHa = (areaM2 / 10000).toFixed(2);
 
   const getLevelColor = () => {
-    if (level === 'FARM') return { stroke: '#062326', fill: '#062326', label: 'Vị trí Trang trại (Farm)' };
+    if (level === 'FARM') return { stroke: '#119653', fill: '#119653', label: 'Vị trí Trang trại (Farm)' };
     if (level === 'FIELD') return { stroke: '#0284c7', fill: '#0284c7', label: 'Phân khu Lô đất (Field)' };
     return { stroke: '#10b981', fill: '#10b981', label: 'Nhà màng / Khu vực (Zone)' };
   };
@@ -801,6 +926,16 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
         </div>
       )}
 
+      {/* Sibling Polygon Overlap warning banner */}
+      {isOverlapping && (
+        <div className="p-2.5 bg-red-50 border border-red-300 rounded-xl text-red-800 text-xs flex items-center gap-2 animate-in fade-in">
+          <AlertTriangle size={15} className="text-red-600 shrink-0" />
+          <span>
+            <strong>⚠️ Cảnh báo trùng lấn:</strong> Vị trí {level === 'FIELD' ? 'Lô đất' : 'Zone'} đang bị <strong>trùng lấn diện tích</strong> với các phân khu đã có: <strong className="underline text-red-900">{overlappingNames.join(', ')}</strong>! Vui lòng kéo điều chỉnh lại các đỉnh ranh giới để không đè lên nhau.
+          </span>
+        </div>
+      )}
+
       {/* Reverse geocoding indicator */}
       {level === 'FARM' && isReverseGeocoding && (
         <div className="flex items-center gap-1.5 text-xs text-emerald-700 animate-in fade-in">
@@ -848,13 +983,13 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
           {/* Realtime Info Badge */}
           <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-800 shadow-md space-y-1">
             <div className="flex items-center gap-2 font-medium">
-              <Crosshair size={14} className="text-[#062326]" />
+              <Crosshair size={14} className="text-[#119653]" />
               <span>Tọa độ tâm: <strong className="font-mono text-slate-900">{center[0].toFixed(4)}, {center[1].toFixed(4)}</strong></span>
             </div>
             {!isCenterOnly && polygon.length > 0 && (
               <div className="flex items-center justify-between text-[11px] text-slate-600 border-t border-slate-100 pt-1 gap-3">
                 <span>Ranh giới: <strong className="text-emerald-700">{polygon.length} đỉnh</strong></span>
-                <span>Diện tích: <strong className="text-[#062326] font-bold">{areaM2.toLocaleString()} m² ({areaHa} ha)</strong></span>
+                <span>Diện tích: <strong className="text-[#119653] font-bold">{areaM2.toLocaleString()} m² ({areaHa} ha)</strong></span>
               </div>
             )}
             {level === 'FARM' && isReverseGeocoding && (
@@ -872,11 +1007,11 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
                 type="button"
                 onClick={handleOpenCoordModal}
                 title="Nhập điểm ranh giới bằng Tọa độ (Lat, Lng) - Tối thiểu 3 điểm"
-                className="bg-[#062326] hover:bg-emerald-800 text-white px-2.5 py-1 rounded-lg border border-emerald-500/50 shadow-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                className="bg-[#119653] hover:bg-[#0e8046] text-white px-2.5 py-1 rounded-lg border border-emerald-400 shadow-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <MapPin size={13} className="text-emerald-400" />
+                <MapPin size={13} className="text-white" />
                 <span>📍 Nhập Tọa độ (Lat/Lng)</span>
-                <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-1 py-0.5 rounded font-mono">Min 3 điểm</span>
+                <span className="text-[10px] bg-white/20 text-white px-1 py-0.5 rounded font-mono">Min 3 điểm</span>
               </button>
             )}
 
@@ -885,16 +1020,16 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
               type="button"
               onClick={toggleFullscreen}
               title={isFullscreen ? "Thu nhỏ lại như ban đầu (Esc)" : "Mở rộng bản đồ toàn màn hình"}
-              className="bg-[#062326] hover:bg-[#062326]/90 text-white px-2.5 py-1 rounded-lg border border-slate-700 shadow-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="bg-[#119653] hover:bg-[#0e8046] text-white px-2.5 py-1 rounded-lg border border-emerald-400 shadow-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               {isFullscreen ? (
                 <>
-                  <Minimize2 size={13} className="text-amber-400" />
+                  <Minimize2 size={13} className="text-amber-200" />
                   <span>Thu nhỏ</span>
                 </>
               ) : (
                 <>
-                  <Maximize2 size={13} className="text-emerald-400" />
+                  <Maximize2 size={13} className="text-white" />
                   <span>Mở rộng Map</span>
                 </>
               )}
@@ -916,21 +1051,21 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
               <button
                 type="button"
                 onClick={() => setMapType('osm')}
-                className={`px-2 py-1 rounded transition-colors ${mapType === 'osm' ? 'bg-[#062326] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                className={`px-2 py-1 rounded transition-colors ${mapType === 'osm' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
               >
                 OSM
               </button>
               <button
                 type="button"
                 onClick={() => setMapType('street')}
-                className={`px-2 py-1 rounded transition-colors ${mapType === 'street' ? 'bg-[#062326] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                className={`px-2 py-1 rounded transition-colors ${mapType === 'street' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
               >
                 Đường phố
               </button>
               <button
                 type="button"
                 onClick={() => setMapType('satellite')}
-                className={`px-2 py-1 rounded transition-colors ${mapType === 'satellite' ? 'bg-[#062326] text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                className={`px-2 py-1 rounded transition-colors ${mapType === 'satellite' ? 'bg-[#119653] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
               >
                 Vệ tinh
               </button>
@@ -944,12 +1079,27 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
                 <span className="w-3 h-3 rounded bg-sky-500/20 border border-sky-600 border-dashed" /> Phân khu mẹ
               </div>
             )}
+            {otherPolygons && otherPolygons.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-slate-400/30 border border-slate-500 border-dashed" /> Phân khu đã có
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded" style={{ backgroundColor: levelStyle.stroke }} /> Hiện tại ({level})
+              <span className="w-3 h-3 rounded" style={{ backgroundColor: isPolygonInvalid ? '#ef4444' : levelStyle.stroke }} /> Hiện tại ({level})
             </div>
+            {deviceMarkers && deviceMarkers.length > 0 && (
+              <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                <span className="text-[11px]">📡</span> Thiết bị ({deviceMarkers.length})
+              </div>
+            )}
             {level === 'ZONE' && zoneOutsideWarning && (
               <div className="flex items-center gap-1.5 text-red-700 font-bold">
                 <span className="w-3 h-3 rounded bg-red-400" /> Ngoài Lô đất!
+              </div>
+            )}
+            {isOverlapping && (
+              <div className="flex items-center gap-1.5 text-red-700 font-bold">
+                <span className="w-3 h-3 rounded bg-red-500" /> Trùng lấn diện tích!
               </div>
             )}
           </div>
@@ -995,7 +1145,41 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
             </Marker>
 
 
-            {/* Parent Field Polygon */}
+            {/* Parent Farm Polygon (for FIELD level) */}
+            {parentFarmPolygon && parentFarmPolygon.length >= 3 && (
+              <Polygon
+                positions={parentFarmPolygon}
+                pathOptions={{ color: '#119653', fillColor: '#119653', fillOpacity: 0.08, weight: 2.5, dashArray: '6, 6' }}
+              />
+            )}
+
+            {/* Other Existing Sibling Fields/Zones for context */}
+            {otherPolygons && otherPolygons.map((op, oIdx) => (
+              op.polygon && op.polygon.length >= 3 && (
+                <Polygon
+                  key={`other-poly-${oIdx}`}
+                  positions={op.polygon}
+                  pathOptions={{
+                    color: '#64748b',
+                    fillColor: '#94a3b8',
+                    fillOpacity: 0.2,
+                    weight: 1.5,
+                    dashArray: '3, 3',
+                  }}
+                >
+                  <Popup>
+                    <div className="text-xs p-1">
+                      <strong className="text-slate-900 block">{op.name}</strong>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        {op.areaM2 ? `${op.areaM2.toLocaleString()} m²` : 'Đã quy hoạch'}
+                      </span>
+                    </div>
+                  </Popup>
+                </Polygon>
+              )
+            ))}
+
+            {/* Parent Field Polygon (for ZONE level) */}
             {parentFieldPolygon && parentFieldPolygon.length >= 3 && (
               <Polygon
                 positions={parentFieldPolygon}
@@ -1008,11 +1192,11 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
               <Polygon
                 positions={polygon}
                 pathOptions={{
-                  color: zoneOutsideWarning ? '#ef4444' : levelStyle.stroke,
-                  fillColor: zoneOutsideWarning ? '#ef4444' : levelStyle.fill,
-                  fillOpacity: 0.35,
-                  weight: zoneOutsideWarning ? 3 : 3,
-                  dashArray: zoneOutsideWarning ? '5, 5' : undefined,
+                  color: isPolygonInvalid ? '#ef4444' : levelStyle.stroke,
+                  fillColor: isPolygonInvalid ? '#ef4444' : levelStyle.fill,
+                  fillOpacity: isPolygonInvalid ? 0.45 : 0.35,
+                  weight: isPolygonInvalid ? 3.5 : 3,
+                  dashArray: isPolygonInvalid ? '5, 5' : undefined,
                 }}
               />
             )}
@@ -1030,19 +1214,41 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
               />
             ))}
 
-            {/* Live Preview Polygon from modal inputs */}
-            {showCoordModal && previewPolygon && previewPolygon.length >= 3 && (
-              <Polygon
-                positions={previewPolygon}
-                pathOptions={{
-                  color: previewHasViolation ? '#f97316' : '#8b5cf6',
-                  fillColor: previewHasViolation ? '#f97316' : '#8b5cf6',
-                  fillOpacity: 0.25,
-                  weight: 2,
-                  dashArray: '8, 4',
-                }}
-              />
-            )}
+            {/* Connected IoT Device Markers (Sensors & Actuators) */}
+            {deviceMarkers && deviceMarkers.map((dev) => {
+              const isActuator = dev.type === 'ACTUATOR' || dev.code?.includes('ACTUATOR') || dev.name?.includes('ACTUATOR');
+              const isOnline = dev.status === 'ONLINE' || dev.status === 'Online';
+              return (
+                <Marker
+                  key={`dev-marker-${dev.id}`}
+                  position={dev.coords}
+                  icon={createDevicePinIcon(dev.code || dev.name, isActuator, isOnline)}
+                >
+                  <Popup>
+                    <div className="p-1 space-y-1 text-slate-800 min-w-[180px]">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                        <strong className="text-slate-900 text-xs flex items-center gap-1">
+                          {isActuator ? '⚡ Tủ điều khiển Actuator' : '📡 Cảm biến LoRa'}
+                        </strong>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                          {dev.status || 'ONLINE'}
+                        </span>
+                      </div>
+                      <div className="text-xs font-semibold text-[#062326] pt-1">{dev.name}</div>
+                      <div className="text-[11px] text-slate-500 font-mono">Mã: {dev.code || dev.id}</div>
+                      <div className="text-[11px] text-slate-600 font-mono">
+                        GPS: [{dev.coords[0].toFixed(5)}, {dev.coords[1].toFixed(5)}]
+                      </div>
+                      {typeof dev.batteryLevel === 'number' && (
+                        <div className="text-[11px] text-slate-700 flex items-center gap-1 pt-1 border-t border-slate-100">
+                          <span>🔋 Pin:</span> <strong>{dev.batteryLevel}%</strong>
+                        </div>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
           </MapContainer>
         </div>
       </div>
@@ -1095,7 +1301,7 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
               onClick={() => setCoordModeTab('rows')}
               className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors ${
                 coordModeTab === 'rows'
-                  ? 'bg-[#062326] text-white shadow-xs'
+                  ? 'bg-[#119653] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -1106,7 +1312,7 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
               onClick={() => setCoordModeTab('bulk')}
               className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors ${
                 coordModeTab === 'bulk'
-                  ? 'bg-[#062326] text-white shadow-xs'
+                  ? 'bg-[#119653] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -1187,7 +1393,7 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
                             value={row.lat}
                             onChange={e => handleCoordInputChange(idx, 'lat', e.target.value)}
                             placeholder="vd: 11.9419"
-                            className={`w-full bg-white border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-[#062326] ${
+                            className={`w-full bg-white border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-[#119653] ${
                               isViolating ? 'border-red-400' : 'border-slate-300'
                             }`}
                           />
@@ -1199,7 +1405,7 @@ export const GISLocationPicker: React.FC<GISLocationPickerProps> = ({
                             value={row.lng}
                             onChange={e => handleCoordInputChange(idx, 'lng', e.target.value)}
                             placeholder="vd: 108.4563"
-                            className={`w-full bg-white border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-[#062326] ${
+                            className={`w-full bg-white border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-[#119653] ${
                               isViolating ? 'border-red-400' : 'border-slate-300'
                             }`}
                           />
