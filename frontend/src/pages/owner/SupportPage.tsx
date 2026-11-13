@@ -63,6 +63,8 @@ export const SupportPage: React.FC = () => {
 
   // Modal Owner Create Support / Maintenance Request
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTabFilter, setActiveTabFilter] = useState<'ALL' | 'INSTALLATION' | 'MAINTENANCE'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [newReq, setNewReq] = useState({
     farmId: '30000000-0000-0000-0000-000000000001',
     zoneId: '32000000-0000-0000-0000-000000000001',
@@ -190,15 +192,15 @@ export const SupportPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-gradient-to-r from-slate-900 via-[#062326] to-emerald-950 text-white rounded-2xl shadow-md">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-gradient-to-r from-[#119653] via-emerald-600 to-emerald-500 text-white rounded-2xl shadow-md border border-emerald-400/40">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold mb-2 border border-emerald-500/30">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-800/30 text-emerald-100 text-xs font-semibold mb-2 border border-emerald-300/30 backdrop-blur-xs">
             <Headphones size={14} /> Quản lý Yêu cầu • Hợp đồng & Nghiệm thu Công trình
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-white">
             Quản lý Yêu cầu Dịch vụ, Ký Hợp đồng & Nghiệm thu (Owner Portal)
           </h1>
-          <p className="text-xs text-slate-300 mt-1">
+          <p className="text-xs text-emerald-100 mt-1">
             Chủ trang trại nhận Hợp đồng báo giá, ký tên & cọc 30% tiền mặt/chuyển khoản để cho phép Kỹ thuật viên chấm Node, sau đó ký Nghiệm thu và thanh toán 70% còn lại.
           </p>
         </div>
@@ -208,13 +210,13 @@ export const SupportPage: React.FC = () => {
             variant="outline"
             onClick={() => loadRequests()}
             disabled={isLoading}
-            className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs flex items-center gap-1.5"
+            className="bg-white/10 hover:bg-white/20 text-white border-white/30 text-xs flex items-center gap-1.5"
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             <span>Làm mới API</span>
           </Button>
 
-          <Button onClick={() => setIsModalOpen(true)} className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold shrink-0">
+          <Button onClick={() => setIsModalOpen(true)} className="bg-white hover:bg-emerald-50 text-[#119653] font-bold shrink-0 shadow-sm">
             <Plus size={16} className="mr-1.5" /> Gửi Yêu cầu Hỗ trợ Mới
           </Button>
         </div>
@@ -256,9 +258,84 @@ export const SupportPage: React.FC = () => {
         </div>
       )}
 
+      {/* Filter Tabs & Search / Filter Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 border border-slate-200 rounded-2xl shadow-xs">
+        {/* Type Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveTabFilter('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTabFilter === 'ALL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Tất cả ({requests.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTabFilter('INSTALLATION')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTabFilter === 'INSTALLATION'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span>⚡ Lắp đặt mới</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              activeTabFilter === 'INSTALLATION' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {requests.filter(r => r.requestType === 'INSTALLATION' || r.requestType === 'INITIAL_SETUP').length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTabFilter('MAINTENANCE')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTabFilter === 'MAINTENANCE'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span>🛠️ Bảo trì & Thay thế</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              activeTabFilter === 'MAINTENANCE' ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {requests.filter(r => r.requestType === 'MAINTENANCE' || r.requestType === 'REPAIR' || r.requestType === 'REPLACEMENT').length}
+            </span>
+          </button>
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-medium">Trạng thái:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-emerald-600"
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="OPEN">Chờ tiếp nhận (Open)</option>
+            <option value="IN_PROGRESS">Đang xử lý (In Progress)</option>
+            <option value="ACCEPTED_BY_OWNER">Đã nghiệm thu (Accepted)</option>
+            <option value="RESOLVED">Đã hoàn tất (Resolved)</option>
+          </select>
+        </div>
+      </div>
+
       {/* Requests List */}
       <div className="space-y-6">
-        {requests.map(req => {
+        {requests
+          .filter(req => {
+            const isInst = req.requestType === 'INSTALLATION' || req.requestType === 'INITIAL_SETUP';
+            const isMaint = req.requestType === 'MAINTENANCE' || req.requestType === 'REPAIR' || req.requestType === 'REPLACEMENT';
+            if (activeTabFilter === 'INSTALLATION' && !isInst) return false;
+            if (activeTabFilter === 'MAINTENANCE' && !isMaint) return false;
+            if (statusFilter !== 'ALL' && req.status !== statusFilter) return false;
+            return true;
+          })
+          .map(req => {
           const isInstallation = req.requestType === 'INSTALLATION' || req.requestType === 'INITIAL_SETUP';
           const contract = req.contractDetails;
           const isContractSigned = Boolean(contract?.isSignedByOwner && contract?.is30PercentPaid);
@@ -297,7 +374,7 @@ export const SupportPage: React.FC = () => {
 
                   <h3 className="text-base font-bold text-slate-900 mt-1">{req.title}</h3>
                   <p className="text-xs text-slate-500 flex items-center gap-2">
-                    <span className="font-semibold text-[#062326] flex items-center gap-1">
+                    <span className="font-semibold text-emerald-800 flex items-center gap-1">
                       <Building2 size={13} /> {req.farmName} ({req.zoneName})
                     </span>
                     <span>•</span>
@@ -680,7 +757,7 @@ export const SupportPage: React.FC = () => {
             <select
               value={newReq.requestType}
               onChange={e => setNewReq({ ...newReq, requestType: e.target.value as any })}
-              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-bold focus:outline-none focus:border-[#062326]"
+              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-bold focus:outline-none focus:border-[#119653]"
             >
               <option value="INSTALLATION">⚡ Lắp đặt Thiết bị Mới & Chấm Node</option>
               <option value="MAINTENANCE">🛠️ Bảo trì & Thay thế Phần cứng</option>
@@ -692,7 +769,7 @@ export const SupportPage: React.FC = () => {
             <select
               value={newReq.zoneId}
               onChange={e => setNewReq({ ...newReq, zoneId: e.target.value })}
-              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:outline-none focus:border-[#062326]"
+              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 focus:outline-none focus:border-[#119653]"
             >
               {zones.map(z => (
                 <option key={z.zoneId} value={z.zoneId}>{z.name} ({z.currentCrop})</option>
@@ -716,7 +793,7 @@ export const SupportPage: React.FC = () => {
               required
               rows={3}
               placeholder="Nhập chi tiết thông tin hiện trạng phần cứng hoặc khu vực cần triển khai..."
-              className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#062326]"
+              className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#119653]"
               value={newReq.description}
               onChange={e => setNewReq({ ...newReq, description: e.target.value })}
             />
