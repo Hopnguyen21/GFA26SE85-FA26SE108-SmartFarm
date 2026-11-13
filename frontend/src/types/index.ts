@@ -277,7 +277,7 @@ export interface Sensor {
 export interface Actuator {
   actuatorId: string;
   nodeId?: string;
-  farmId: string;
+  farmId?: string;
   zoneId?: string;
   zoneName?: string;
   name: string;
@@ -285,6 +285,8 @@ export interface Actuator {
   actuatorType: 'PUMP' | 'VALVE' | 'FAN' | 'GROW_LIGHT';
   status: 'OFF' | 'ON' | 'ERROR' | 'MAINTENANCE';
   lastStateChangeAt?: string;
+  relayChannel?: number;
+  ratedPowerWatt?: number;
 }
 
 export interface TelemetryReading {
@@ -471,6 +473,8 @@ export interface ContractDetails {
   paid30At?: string;
   payment30Method?: 'CASH' | 'BANK_TRANSFER'; // Tiền mặt hoặc Chuyển khoản
   payment30Ref?: string;
+  notes?: string;
+  contractTerms?: string;
 }
 
 export interface AcceptanceDetails {
@@ -509,6 +513,11 @@ export interface ServiceRequest {
   mappedNodesCount?: number;
   createdAt: string;
   resolution?: string;
+
+  // Trạng thái ký HĐ & thanh toán
+  isContractSigned?: boolean;
+  isDepositPaid?: boolean;
+  isFullyPaid?: boolean;
 
   // Thông tin Hợp đồng & Nghiệm thu
   contractDetails?: ContractDetails;

@@ -580,7 +580,7 @@ export const cropService = {
       return {
         success: true,
         createdSchedulesCount: schedules.length || 3,
-        zoneName: res.data?.zoneName || 'Nhà màng canh tác',
+        zoneName: res.data?.zoneName || 'Zone canh tác',
         schedules: schedules
       };
     } catch (err: any) {
@@ -608,7 +608,7 @@ export const seasonService = {
         plantingSeasonId: s.plantingSeasonId || s.seasonId,
         seasonId: s.plantingSeasonId || s.seasonId,
         cropName: s.cropName || 'Dưa leo Baby VietGAP',
-        zoneName: s.zoneName || 'Demo Greenhouse Zone (Zone 1)',
+        zoneName: s.zoneName || 'Zone Canh tác',
         currentGrowthStageName: s.currentGrowthStageName || 'Ra hoa (Flowering)',
         progressPercent: s.progressPercent ?? 45,
         status: (s.status === 'InProgress' || s.status === 'IN_PROGRESS') ? 'ACTIVE' : (s.status || 'ACTIVE'),
@@ -631,6 +631,35 @@ export const seasonService = {
     }
   ) => {
     const res = await apiClient.post(`/api/v1/zones/${zoneId}/planting-seasons`, data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/zones/{zoneId}/planting-seasons/{seasonId}/yield */
+  recordYield: async (
+    zoneId: string,
+    seasonId: string,
+    data: {
+      actualYieldKg: number;
+      actualEndDate?: string;
+      notes?: string;
+      markCompleted?: boolean;
+    }
+  ) => {
+    const res = await apiClient.put(`/api/v1/zones/${zoneId}/planting-seasons/${seasonId}/yield`, data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/zones/{zoneId}/planting-seasons/{seasonId}/close */
+  closeSeason: async (
+    zoneId: string,
+    seasonId: string,
+    data: {
+      actualEndDate: string;
+      actualYieldKg?: number;
+      notes?: string;
+    }
+  ) => {
+    const res = await apiClient.put(`/api/v1/zones/${zoneId}/planting-seasons/${seasonId}/close`, data);
     return res.data;
   },
 };
@@ -710,43 +739,18 @@ export const deviceService = {
     }
   },
 
-  /** GET /api/v1/zones/{zoneId}/sensors -> derived from zone devices */
+  /** GET /api/v1/zones/{zoneId}/sensors */
   getSensors: async (zoneId?: string) => {
-    try {
-      const devices = await deviceService.getNodes(zoneId);
-      const allSensors = devices.flatMap((d: any) =>
-        (d.sensors || []).map((s: any) => ({
-          ...s,
-          deviceId: d.nodeId || d.deviceId,
-          deviceName: d.name,
-          zoneId: d.zoneId,
-          lastValue: s.lastReading?.value ?? s.currentValue ?? s.value ?? '--',
-          status: d.status || 'ONLINE',
-        }))
-      );
-      return allSensors;
-    } catch {
-      return [];
-    }
+    const targetZone = zoneId || '32000000-0000-0000-0000-000000000001';
+    const res = await apiClient.get(`/api/v1/zones/${targetZone}/sensors`).catch(() => ({ data: [] }));
+    return res.data?.value ?? res.data ?? [];
   },
 
-  /** GET /api/v1/zones/{zoneId}/actuators -> derived from zone devices */
+  /** GET /api/v1/zones/{zoneId}/actuators */
   getActuators: async (zoneId?: string) => {
-    try {
-      const devices = await deviceService.getNodes(zoneId);
-      const allActuators = devices.flatMap((d: any) =>
-        (d.actuators || []).map((a: any) => ({
-          ...a,
-          deviceId: d.nodeId || d.deviceId,
-          deviceName: d.name,
-          zoneId: d.zoneId,
-          status: a.status || d.status || 'ONLINE',
-        }))
-      );
-      return allActuators;
-    } catch {
-      return [];
-    }
+    const targetZone = zoneId || '32000000-0000-0000-0000-000000000001';
+    const res = await apiClient.get(`/api/v1/zones/${targetZone}/actuators`).catch(() => ({ data: [] }));
+    return res.data?.value ?? res.data ?? [];
   },
 
   /** IoT Requirements */
