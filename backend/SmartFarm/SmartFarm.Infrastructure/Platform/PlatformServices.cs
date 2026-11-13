@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SmartFarm.Application.Common.Exceptions;
+using SmartFarm.Application.Features.Finance;
 using SmartFarm.Application.Features.Platform;
 using SmartFarm.Domain.Entities;
 using SmartFarm.Domain.Enums;
@@ -192,8 +193,31 @@ public sealed class QuotationService(SmartFarmDbContext db) : IQuotationService
         return ToView(q);
     }
 
+    // Chủ trang trại chỉ thao tác service request thuộc Tenant của mình (Tenant lấy từ tài khoản, không từ client).
+    private async Task<ServiceRequest> OwnedRequestAsync(Guid ownerId, Guid serviceRequestId, CancellationToken ct)
+    {
+        var owner = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == ownerId && x.Role == UserRole.FarmOwner && x.Status == AccountStatus.Active, ct)
+            ?? throw new AuthorizationException("Only an active Farm Owner may sign.");
+        var sr = await db.ServiceRequests.Include(x => x.Quotations).ThenInclude(q => q.Items)
+            .SingleOrDefaultAsync(x => x.Id == serviceRequestId && x.TenantId == owner.TenantId, ct)
+            ?? throw new ResourceNotFoundException("Service Request not found.");
+        return sr;
+    }
+
     public async Task<QuotationView?> GetAsync(Guid userId, Guid serviceRequestId, CancellationToken ct)
     {
+        var viewer = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId && x.Status == AccountStatus.Active, ct)
+            ?? throw new AuthorizationException();
+        var owning = await db.ServiceRequests.AsNoTracking().SingleOrDefaultAsync(x => x.Id == serviceRequestId, ct)
+            ?? throw new ResourceNotFoundException("Service Request not found.");
+        var visible = viewer.Role switch
+        {
+            UserRole.PlatformAdmin => true,
+            UserRole.PlatformTechnician => owning.AssignedTechnicianId == userId,
+            UserRole.FarmOwner => owning.TenantId == viewer.TenantId,
+            _ => false
+        };
+        if (!visible) throw new ResourceNotFoundException("Service Request not found.");
         var q = await db.ServiceRequestQuotations.Include(x => x.Items).AsNoTracking()
             .OrderByDescending(x => x.CreatedAtUtc)
             .FirstOrDefaultAsync(x => x.ServiceRequestId == serviceRequestId, ct);
@@ -202,12 +226,13 @@ public sealed class QuotationService(SmartFarmDbContext db) : IQuotationService
 
     public async Task<ServiceRequestPaymentView> SignContractDepositAsync(Guid ownerId, Guid serviceRequestId, SignContractDepositCommand command, CancellationToken ct)
     {
-        var sr = await db.ServiceRequests
-            .Include(x => x.Quotations)
-                .ThenInclude(q => q.Items)
-            .FirstOrDefaultAsync(x => x.Id == serviceRequestId, ct)
-            ?? throw new ResourceNotFoundException("Service Request not found.");
+        var sr = await OwnedRequestAsync(ownerId, serviceRequestId, ct);
         var quotation = sr.Quotations.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault() ?? throw new ResourceConflictException("No quotation exists for this Service Request.");
+        // Chỉ ký được báo giá đang chờ chủ trang trại; không ký lặp (mỗi lần ký sinh khoản thanh toán và hợp đồng Zone).
+        if (sr.IsContractSigned || sr.IsDepositPaid || quotation.Status != "SentToOwner")
+            throw new ResourceConflictException("Quotation is not awaiting Owner signature, or the contract was already signed.");
+        if (string.IsNullOrWhiteSpace(command.SignerFullName) || string.IsNullOrWhiteSpace(command.TransactionReference))
+            throw new RequestValidationException("signerFullName", "Signer name and transaction reference are required.");
         var payment = new ServiceRequestPayment
         {
             ServiceRequestId = serviceRequestId, QuotationId = quotation.Id, PaymentStage = "DEPOSIT_30",
@@ -249,6 +274,12 @@ public sealed class QuotationService(SmartFarmDbContext db) : IQuotationService
                     MonthlyRentVnd = Math.Round(quotation.TotalAmount / 12),
                     DepositVnd = quotation.Deposit30Percent,
                     TotalContractValueVnd = quotation.TotalAmount,
+                    VatPercent = quotation.VatPercent,
+                    VatAmountVnd = quotation.VatAmount,
+                    EquipmentJson = quotation.Items is { Count: > 0 }
+                        ? JsonSerializer.Serialize(quotation.Items.Select(i => new ZoneContractEquipmentView(i.HardwareItemCode, i.HardwareItemName, i.Category, i.Unit, i.Quantity, i.UnitPrice)),
+                            new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                        : null,
                     StartDate = today,
                     EndDate = today.AddMonths(12),
                     Status = ZoneContractStatus.Active,
@@ -279,10 +310,17 @@ public sealed class QuotationService(SmartFarmDbContext db) : IQuotationService
 
     public async Task<ServiceRequestPaymentView> SignAcceptanceFinalAsync(Guid ownerId, Guid serviceRequestId, SignAcceptanceFinalCommand command, CancellationToken ct)
     {
-        var sr = await db.ServiceRequests.Include(x => x.Quotations).FirstOrDefaultAsync(x => x.Id == serviceRequestId, ct)
-            ?? throw new ResourceNotFoundException("Service Request not found.");
+        var sr = await OwnedRequestAsync(ownerId, serviceRequestId, ct);
         if (!sr.IsDepositPaid) throw new ResourceConflictException("Deposit must be paid before final acceptance.");
         var quotation = sr.Quotations.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault() ?? throw new ResourceConflictException("No quotation exists.");
+        if (sr.IsAcceptanceSigned || sr.IsFullyPaid || quotation.Status != "SignedByOwner")
+            throw new ResourceConflictException("Acceptance was already signed, or the contract is not in the signed-deposit state.");
+        // Nghiệm thu chỉ khi đợt lắp đặt liên kết đã hoàn tất.
+        var deploymentStatus = await db.DeploymentRequests.AsNoTracking().Where(x => x.Id == sr.DeploymentRequestId).Select(x => (DeploymentRequestStatus?)x.Status).SingleOrDefaultAsync(ct);
+        if (deploymentStatus != DeploymentRequestStatus.Completed)
+            throw new ResourceConflictException("Final acceptance requires the linked deployment request to be Completed.");
+        if (string.IsNullOrWhiteSpace(command.SignerFullName) || string.IsNullOrWhiteSpace(command.TransactionReference))
+            throw new RequestValidationException("signerFullName", "Signer name and transaction reference are required.");
         var payment = new ServiceRequestPayment
         {
             ServiceRequestId = serviceRequestId, QuotationId = quotation.Id, PaymentStage = "FINAL_70",
@@ -656,7 +694,7 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
     public async Task<IReadOnlyList<object>> GetMyTasksAsync(Guid farmerId, CancellationToken ct)
     {
         var caller = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == farmerId, ct);
-        var query = db.FarmTasks.AsNoTracking().Include(x => x.Zone).AsQueryable();
+        var query = db.FarmTasks.AsNoTracking().Include(x => x.Zone).Include(x => x.Assignments).AsQueryable();
 
         if (caller != null && caller.Role != UserRole.Farmer)
         {
@@ -667,7 +705,7 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
         }
         else
         {
-            query = query.Where(x => x.AssignedFarmerId == farmerId && x.Status != FarmTaskStatus.Cancelled);
+            query = query.Where(x => x.Assignments.Any(a => a.FarmerId == farmerId && a.Status != FarmTaskStatus.Cancelled));
         }
 
         var list = await query.OrderBy(x => x.DueAtUtc).ToListAsync(ct);
@@ -676,7 +714,10 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
             TaskId = x.Id,
             Title = x.Title,
             Description = x.Description,
-            Status = x.Status.ToString(),
+            // Farmer thấy trạng thái phân công của chính mình; Owner thấy trạng thái tổng hợp.
+            Status = (caller != null && caller.Role == UserRole.Farmer
+                ? x.Assignments.Where(a => a.FarmerId == farmerId).Select(a => a.Status).FirstOrDefault()
+                : x.Status).ToString(),
             DueDate = x.DueAtUtc,
             DueAtUtc = x.DueAtUtc,
             ZoneName = x.Zone != null ? x.Zone.Name : null,
@@ -686,14 +727,20 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
 
     public async Task CompleteTaskAsync(Guid farmerId, Guid taskId, FarmerCompleteTaskCommand command, CancellationToken ct)
     {
-        var task = await db.FarmTasks.SingleOrDefaultAsync(x => x.Id == taskId && x.AssignedFarmerId == farmerId, ct)
+        var task = await db.FarmTasks.Include(x => x.Assignments).SingleOrDefaultAsync(x => x.Id == taskId && x.Assignments.Any(a => a.FarmerId == farmerId && a.Status != FarmTaskStatus.Cancelled), ct)
             ?? throw new ResourceNotFoundException("Task not found or not assigned to you.");
-        if (task.Status is not (FarmTaskStatus.Pending or FarmTaskStatus.Accepted or FarmTaskStatus.InProgress))
+        var mine = task.Assignments.Single(a => a.FarmerId == farmerId);
+        if (mine.Status is not (FarmTaskStatus.Pending or FarmTaskStatus.Accepted or FarmTaskStatus.InProgress))
             throw new ResourceConflictException("Task cannot be completed in its current state.");
-        var prevStatus = task.Status;
-        task.Status = FarmTaskStatus.CompletedPendingReview;
-        task.Result = command.ResultNotes;
-        task.SubmittedAtUtc = DateTime.UtcNow;
+        var prevStatus = mine.Status;
+        var now = DateTime.UtcNow;
+        // Chỉ phân công của chính Farmer này đổi trạng thái; trạng thái công việc được tổng hợp lại từ mọi phân công.
+        mine.AcceptedAtUtc ??= now; mine.StartedAtUtc ??= now;
+        mine.Status = FarmTaskStatus.CompletedPendingReview;
+        mine.Result = command.ResultNotes;
+        mine.ProgressPercent = 100;
+        mine.SubmittedAtUtc = now;
+        task.Status = SmartFarm.Application.Features.Inventory.FarmTaskAggregate.Compute(task.Assignments);
         var hist = new FarmTaskHistory
         {
             FarmTaskId = task.Id,
@@ -701,6 +748,7 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
             EventType = FarmTaskEventType.Completed,
             FromStatus = prevStatus,
             ToStatus = FarmTaskStatus.CompletedPendingReview,
+            SubjectFarmerId = farmerId,
             Notes = command.ResultNotes
         };
         db.FarmTaskHistory.Add(hist);
@@ -747,28 +795,52 @@ public sealed class ScheduleSyncService(SmartFarmDbContext db) : IScheduleSyncSe
 {
     public async Task<IReadOnlyList<object>> SyncFromCropAsync(Guid ownerId, Guid tenantId, Guid zoneId, Guid cropId, Guid actuatorId, CancellationToken ct)
     {
-        // Find growth profile for crop
-        var profile = await db.GrowthProfiles.Include(x => x.Stages).AsNoTracking()
-            .FirstOrDefaultAsync(x => x.CropId == cropId, ct)
-            ?? await db.GrowthProfiles.Include(x => x.Stages).AsNoTracking().FirstOrDefaultAsync(ct);
-
         var zone = await db.Zones.Include(z => z.Field).ThenInclude(f => f.Farm).SingleOrDefaultAsync(z => z.Id == zoneId, ct)
-            ?? throw new ResourceNotFoundException("Zone not found.");
+            ?? throw new ResourceNotFoundException("Không tìm thấy Khu vực canh tác (Zone).");
 
-        // Find actuator: use provided actuatorId if exists, otherwise pick first actuator in this zone or in the farm
-        var actuator = await db.DeviceActuators.Include(a => a.Device).SingleOrDefaultAsync(x => x.Id == actuatorId, ct);
-        if (actuator is null)
+        var caller = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == ownerId, ct)
+            ?? throw new AuthorizationException();
+        if (caller.Role != UserRole.PlatformAdmin)
         {
-            actuator = await db.DeviceActuators.Include(a => a.Device)
-                .FirstOrDefaultAsync(x => x.Device.ZoneId == zoneId, ct)
-                ?? await db.DeviceActuators.Include(a => a.Device)
-                .FirstOrDefaultAsync(x => x.Device.FarmId == zone.Field.FarmId, ct)
-                ?? await db.DeviceActuators.FirstOrDefaultAsync(ct);
+            // Tenant lấy từ token phải khớp cả tài khoản lẫn chuỗi Farm → Zone; Farmer cần được cấp quyền vào zone.
+            if (tenantId == Guid.Empty || caller.TenantId != tenantId || zone.Field.Farm.TenantId != tenantId)
+                throw new AuthorizationException("Bạn không có quyền truy cập vào Khu vực canh tác này.");
+            if (caller.Role == UserRole.Farmer &&
+                !await db.UserZoneAccesses.AnyAsync(x => x.AppUserId == ownerId && x.ZoneId == zoneId, ct))
+                throw new AuthorizationException("Bạn không có quyền truy cập vào Khu vực canh tác này.");
+        }
+        // PlatformAdmin không thuộc tenant: tra cứu cây/profile theo tenant sở hữu zone.
+        tenantId = zone.Field.Farm.TenantId;
+
+        var crop = await db.Crops.AsNoTracking().SingleOrDefaultAsync(c => c.Id == cropId && (c.TenantId == null || c.TenantId == tenantId), ct)
+            ?? throw new ResourceNotFoundException("Không tìm thấy cây trồng yêu cầu đồng bộ.");
+
+        // Tìm đúng Hồ sơ sinh trưởng của cây trồng này (ưu tiên theo tenant hoặc system profile) - KHÔNG fallback bừa cây khác
+        var profile = await db.GrowthProfiles.Include(x => x.Stages).AsNoTracking()
+            .Where(x => x.CropId == cropId && (x.TenantId == tenantId || (x.TenantId == null && x.IsSystemDefined)))
+            .OrderByDescending(x => x.TenantId == tenantId)
+            .ThenByDescending(x => x.IsDefault)
+            .FirstOrDefaultAsync(ct);
+
+        if (profile is null)
+        {
+            throw new ResourceConflictException($"Chưa cấu hình Hồ sơ sinh trưởng (Growth Profile) cho cây '{crop.Name}'. Vui lòng tạo Profile trước khi đồng bộ lịch tưới.");
         }
 
+        // Tìm thiết bị Actuator: BẮT BUỘC phải nằm trong CHÍNH ZONE ĐÓ - KHÔNG fallback sang Farm khác
+        DeviceActuator? actuator = null;
+        if (actuatorId != Guid.Empty)
+        {
+            actuator = await db.DeviceActuators.Include(a => a.Device)
+                .SingleOrDefaultAsync(x => x.Id == actuatorId && x.Device.ZoneId == zoneId, ct);
+        }
+
+        actuator ??= await db.DeviceActuators.Include(a => a.Device)
+            .FirstOrDefaultAsync(x => x.Device.ZoneId == zoneId, ct);
+
         if (actuator is null)
         {
-            throw new ResourceNotFoundException("No actuator available for this zone or farm.");
+            throw new ResourceConflictException($"Khu vực '{zone.Name}' chưa có thiết bị van hoặc máy bơm tưới (Actuator). Vui lòng cấu hình thiết bị trước khi đồng bộ lịch.");
         }
 
         actuatorId = actuator.Id;
@@ -788,7 +860,7 @@ public sealed class ScheduleSyncService(SmartFarmDbContext db) : IScheduleSyncSe
                 FarmId = zone.Field.FarmId,
                 ZoneId = zoneId,
                 ActuatorId = actuatorId,
-                Name = $"[AutoSync] {profile?.Name ?? "Lịch tưới Chuẩn"} {h:D2}:{m:D2}",
+                Name = $"[AutoSync] {profile.Name} {h:D2}:{m:D2}",
                 CronExpression = $"0 {m} {h} * * *",
                 DurationSeconds = dur * 60,
                 EnableRainDelay = true,
@@ -876,17 +948,38 @@ public sealed class ControlAutomationService(SmartFarmDbContext db) : IControlAu
 
     public async Task<IReadOnlyList<EnvironmentalTargetConfigView>> GetEnvironmentalConfigsAsync(Guid userId, Guid tenantId, Guid? zoneId, CancellationToken ct)
     {
-        var caller = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, ct);
-        var effectiveTenantId = caller?.Role == UserRole.PlatformAdmin ? (caller.TenantId ?? tenantId) : tenantId;
+        var caller = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, ct)
+            ?? throw new AuthorizationException();
+        var effectiveTenantId = (caller.TenantId != null && caller.TenantId != Guid.Empty)
+            ? caller.TenantId.Value
+            : tenantId;
 
         var zonesQuery = db.Zones.Include(z => z.Field).ThenInclude(f => f.Farm).AsNoTracking();
         if (zoneId.HasValue)
         {
             zonesQuery = zonesQuery.Where(z => z.Id == zoneId.Value);
         }
-        else if (caller?.Role != UserRole.PlatformAdmin)
+
+        // Ngoài PlatformAdmin, luôn giới hạn theo tenant/farm của người gọi — kể cả khi truyền zoneId.
+        if (caller.Role != UserRole.PlatformAdmin)
         {
-            zonesQuery = zonesQuery.Where(z => z.Field.Farm.TenantId == effectiveTenantId);
+            if (effectiveTenantId != Guid.Empty)
+            {
+                zonesQuery = zonesQuery.Where(z => z.Field.Farm.TenantId == effectiveTenantId);
+            }
+            else if (caller.FarmId != null && caller.FarmId != Guid.Empty)
+            {
+                zonesQuery = zonesQuery.Where(z => z.Field.FarmId == caller.FarmId.Value);
+            }
+            else
+            {
+                return [];
+            }
+
+            if (caller.Role == UserRole.Farmer)
+            {
+                zonesQuery = zonesQuery.Where(z => db.UserZoneAccesses.Any(a => a.AppUserId == userId && a.ZoneId == z.Id));
+            }
         }
 
         var zones = await zonesQuery.OrderBy(z => z.Name).ToListAsync(ct);

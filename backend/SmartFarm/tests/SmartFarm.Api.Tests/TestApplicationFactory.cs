@@ -23,7 +23,9 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
     internal FakeControlTransport ControlTransport { get; } = new();
     internal FakeRainProvider RainProvider { get; } = new();
     internal FakeAiProvider AiProvider { get; } = new();
+    internal FakeQuestionIntentClassifier IntentClassifier { get; } = new();
     internal FakeAiWeatherProvider AiWeatherProvider { get; } = new();
+    internal FakeDocumentValidator DocumentValidator { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -37,7 +39,8 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Audience"] = "SmartFarm.TestClients",
                 ["Jwt:SigningKey"] = SigningKey,
                 ["Jwt:AccessTokenMinutes"] = "60",
-                ["Jwt:RefreshTokenDays"] = "30"
+                ["Jwt:RefreshTokenDays"] = "30",
+                ["SimulatedIot:Enabled"] = "false"
             });
         });
         builder.ConfigureServices(services =>
@@ -52,11 +55,17 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IActuatorCommandTransport>();
             services.RemoveAll<IRainForecastProvider>();
             services.RemoveAll<IAiAdvisoryProvider>();
+            services.RemoveAll<IQuestionIntentClassifier>();
+            services.AddSingleton<IQuestionIntentClassifier>(IntentClassifier);
             services.RemoveAll<IAiWeatherProvider>();
             services.AddSingleton<IActuatorCommandTransport>(ControlTransport);
             services.AddSingleton<IRainForecastProvider>(RainProvider);
             services.AddSingleton<IAiAdvisoryProvider>(AiProvider);
             services.AddSingleton<IAiWeatherProvider>(AiWeatherProvider);
+            services.RemoveAll<IDocumentSufficiencyValidator>();
+            services.AddSingleton<IDocumentSufficiencyValidator>(DocumentValidator);
+            // Test không bao giờ gọi AI thật (kể cả khi appsettings có key): AI rà soát/OCR coi như chưa cấu hình.
+            services.PostConfigure<SmartFarm.Infrastructure.Ai.GeminiOptions>(o => { o.ApiKey = string.Empty; o.ApiKeys = []; });
         });
     }
 
@@ -126,13 +135,25 @@ internal sealed class FakeAiProvider : IAiAdvisoryProvider
 {
     internal int Calls { get; private set; }
     internal AiProviderRequest? LastRequest { get; private set; }
+    internal bool Throw { get; set; }
     internal AiProviderResult Result { get; set; } = new("FakeAgronomist", "Review conditions", "No automatic action proposed.", 0.9m, [], null);
     public Task<AiProviderResult> GenerateAsync(AiProviderRequest request, CancellationToken cancellationToken)
     {
         Calls++;
         LastRequest = request;
+        if (Throw) throw new InvalidOperationException("AI provider is down.");
         return Task.FromResult(Result);
     }
+}
+
+internal sealed class FakeDocumentValidator : IDocumentSufficiencyValidator
+{
+    internal DocumentSufficiencyResult Result { get; set; } = new(true, "quy chuẩn", [], [], "Đủ thông tin.", "fake");
+    internal bool Unavailable { get; set; }
+    public Task<DocumentSufficiencyResult> ValidateAsync(string text, DocumentValidationContext context, CancellationToken cancellationToken) =>
+        Unavailable
+            ? throw new DocumentVerificationUnavailableException("AI không phản hồi.")
+            : Task.FromResult(Result);
 }
 
 internal sealed class FakeAiWeatherProvider : IAiWeatherProvider

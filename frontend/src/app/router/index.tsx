@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { useAuth } from '../providers/AuthContext';
+import { useAuth } from '@/app/providers/AuthContext';
 import { Shell } from '../../components/layout/Shell';
 import { HomePage } from '../../pages/public/HomePage';
 import { LoginPage } from '../../pages/auth/LoginPage';
@@ -42,6 +42,7 @@ import { SupportPage } from '../../pages/owner/SupportPage';
 import { FarmerHome } from '../../pages/farmer/FarmerHome';
 import { FarmerZonesPage } from '../../pages/farmer/FarmerZonesPage';
 import { FarmerTasksPage } from '../../pages/farmer/FarmerTasksPage';
+import { FarmerInvitationsPage } from '../../pages/farmer/FarmerInvitationsPage';
 import { FarmerIrrigationPage } from '../../pages/farmer/FarmerIrrigationPage';
 import { FarmerAIPage } from '../../pages/farmer/FarmerAIPage';
 
@@ -58,8 +59,8 @@ const landingByRole: Record<UserRole, string> = {
 };
 
 const RequireRole: React.FC<{ allowedRoles: UserRole[]; children: React.ReactElement }> = ({ allowedRoles, children }) => {
-  const { user, role } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const { user, role, isAuthenticated } = useAuth();
+  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
 
   const currentRole = (user.role || role) as UserRole;
   if (!allowedRoles.includes(currentRole)) {
@@ -70,16 +71,16 @@ const RequireRole: React.FC<{ allowedRoles: UserRole[]; children: React.ReactEle
 };
 
 const RoleBasedRedirect: React.FC = () => {
-  const { user, role } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const { user, role, isAuthenticated } = useAuth();
+  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
   const currentRole = (user.role || role) as UserRole;
   return <Navigate to={landingByRole[currentRole] || '/home'} replace />;
 };
 
 const OwnerOnlyAIAssistant = () => {
-  const { user } = useAuth();
-  if (user?.role === 'FARM_OWNER' || user?.role === 'PLATFORM_ADMIN') return <AIAssistantPage />;
-  if (!user) return <Navigate to="/login" replace />;
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+  if (user.role === 'FARM_OWNER') return <AIAssistantPage />;
   return <Navigate to={landingByRole[user.role as UserRole] || '/home'} replace />;
 };
 
@@ -118,6 +119,7 @@ export const router = createBrowserRouter([
       { path: '/admin/users', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><UsersPage /></RequireRole> },
       { path: '/admin/crops', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><CropsPage /></RequireRole> },
       { path: '/admin/vietgap', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><VietGapStandardsPage /></RequireRole> },
+      { path: '/admin/vietgap-standards', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><VietGapStandardsPage /></RequireRole> },
       { path: '/admin/growth-profiles', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><GrowthProfilesPage /></RequireRole> },
       { path: '/admin/devices', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><DevicesPage /></RequireRole> },
       { path: '/admin/system-health', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><SystemHealthPage /></RequireRole> },
@@ -157,8 +159,9 @@ export const router = createBrowserRouter([
       { path: '/farmer/monitoring', element: <RequireRole allowedRoles={['FARMER', 'FARM_OWNER', 'PLATFORM_ADMIN']}><MonitoringRealtime /></RequireRole> },
       { path: '/farmer/alerts', element: <RequireRole allowedRoles={['FARMER', 'FARM_OWNER', 'PLATFORM_ADMIN']}><AlertsPage /></RequireRole> },
       { path: '/farmer/tasks', element: <RequireRole allowedRoles={['FARMER', 'FARM_OWNER', 'PLATFORM_ADMIN']}><FarmerTasksPage /></RequireRole> },
+      { path: '/farmer/invitations', element: <RequireRole allowedRoles={['FARMER']}><FarmerInvitationsPage /></RequireRole> },
       { path: '/farmer/irrigation', element: <RequireRole allowedRoles={['FARMER', 'FARM_OWNER', 'PLATFORM_ADMIN']}><FarmerIrrigationPage /></RequireRole> },
-      { path: '/farmer/ai', element: <RequireRole allowedRoles={['FARMER', 'FARM_OWNER', 'PLATFORM_ADMIN']}><FarmerAIPage /></RequireRole> },
+      { path: '/farmer/ai', element: <RequireRole allowedRoles={['FARMER']}><FarmerAIPage /></RequireRole> },
       { path: '*', element: <RoleBasedRedirect /> },
     ],
   },

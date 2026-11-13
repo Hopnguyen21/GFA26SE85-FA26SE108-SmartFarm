@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../app/providers/AuthContext';
+import { useAuth } from '@/app/providers/AuthContext';
 import { UserRole, Alert } from '../../types';
 import { alertService, supportService, notificationService, NotificationItem, isAuthenticated, zoneContractService } from '../../services';
 import { openMeteoService } from '../../services/openMeteoService';
@@ -61,7 +61,16 @@ export const Topbar: React.FC = () => {
         zoneContractService.getExpiringContracts(undefined, 30).catch(() => []),
       ]);
 
-      const contractNotifs: NotificationItem[] = (expContracts || []).map((c: any) => ({
+      // Deduplicate contracts by contractNumber and only show actively expiring ones (0 to 30 days)
+      const validContracts = Array.from(
+        new Map(
+          (expContracts || [])
+            .filter((c: any) => c.daysRemaining >= 0 && c.daysRemaining <= 30)
+            .map((c: any) => [c.contractNumber || c.contractId, c])
+        ).values()
+      );
+
+      const contractNotifs: NotificationItem[] = validContracts.map((c: any) => ({
         notificationId: `contract-${c.contractId}`,
         userId: user?.userId || '',
         title: `⚠️ Hợp đồng [${c.contractNumber}] sắp hết hạn`,
@@ -224,10 +233,13 @@ export const Topbar: React.FC = () => {
       {/* Right section: Weather, Notifications, Dev Role Switcher, Profile */}
       <div className="flex items-center gap-3">
         {/* Live Weather Widget */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-[#0e8046] border border-[#14a85e] rounded-lg text-xs">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-[#0e8046] border border-[#14a85e] rounded-lg text-xs" title="Thời tiết tham khảo (Demo / Giả lập)">
           <Sun size={15} className="text-amber-300" />
           <div className="flex flex-col">
-            <span className="font-semibold text-white">{weather.temperature}°C Đà Lạt</span>
+            <span className="font-semibold text-white flex items-center gap-1.5">
+              {weather.temperature}°C Đà Lạt
+              <span className="text-[9px] bg-amber-400/30 text-amber-100 px-1 py-0.2 rounded font-normal">Demo</span>
+            </span>
             <span className="text-[10px] text-emerald-100/90 flex items-center gap-1">
               <CloudRain size={10} className="text-sky-200" /> Mưa: {weather.rainProbability}%
             </span>
@@ -344,6 +356,20 @@ export const Topbar: React.FC = () => {
                     <div className="text-center py-6 text-slate-400 text-xs">Không có thông báo nào</div>
                   )
                 )}
+              </div>
+
+              {/* Footer: View All Alerts */}
+              <div className="pt-2.5 mt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Hiển thị {notifications.length} cảnh báo gần nhất</span>
+                <button
+                  onClick={() => {
+                    setShowNotificationMenu(false);
+                    navigate(role === 'FARMER' ? '/farmer/alerts' : '/owner/alerts');
+                  }}
+                  className="text-xs font-semibold text-[#119653] hover:underline flex items-center gap-1 hover:text-[#0c733f] transition-colors"
+                >
+                  Xem tất cả cảnh báo <ExternalLink size={11} />
+                </button>
               </div>
             </div>
           )}

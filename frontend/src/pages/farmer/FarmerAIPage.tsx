@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Send, Loader2, Trash2, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { Bot, Send, Loader2, Trash2, CheckCircle2, Clock, Sparkles, BookOpen, Database, ChevronDown, ChevronUp, RefreshCw, ExternalLink } from 'lucide-react';
 import { Button, Input } from '../../components/ui/BaseUI';
-import { aiService } from '../../services';
-import { useAuth } from '../../app/providers/AuthContext';
+import { aiService, knowledgeService, farmerService } from '../../services';
+import { useAuth } from '@/app/providers/AuthContext';
 
 const cleanTechnicalIds = (text?: string): string => {
   if (!text) return '';
@@ -15,12 +15,172 @@ const cleanTechnicalIds = (text?: string): string => {
     .trim();
 };
 
+const RagSourceCard: React.FC<{ source: any; index: number }> = ({ source, index }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [detailContent, setDetailContent] = useState<string | null>(null);
+  const [chunks, setChunks] = useState<any[]>([]);
+
+  const title = typeof source === 'string' ? source : (source.title || source.name || 'Tài liệu VietGAP');
+  const org = typeof source === 'object' ? (source.organization || source.authorOrganization) : undefined;
+  const category = typeof source === 'object' ? source.category : undefined;
+  const similarity = typeof source === 'object' && source.similarity != null ? Math.round(source.similarity * 100) : undefined;
+  const docId = typeof source === 'object' ? (source.documentId || source.DocumentId) : undefined;
+  const snippet = typeof source === 'object' ? (source.contentSnippet || source.content) : undefined;
+  // Trang và mục của đoạn được trích (SRS 3.4: trích nguồn tới mục liên quan).
+  const location = typeof source === 'object'
+    ? [source.pageNumber ? `Trang ${source.pageNumber}` : null, source.sectionTitle ? `Mục: ${source.sectionTitle}` : null].filter(Boolean).join(' · ')
+    : '';
+
+  // Chỉ hiển thị đoạn trích server gửi kèm câu trả lời: FarmOwner/Farmer không có quyền xem toàn văn tài liệu.
+  const handleToggle = () => setIsExpanded(!isExpanded);
+
+  return (
+    <div className="bg-white rounded-lg border border-emerald-200/90 shadow-2xs overflow-hidden transition-all text-xs">
+      <div 
+        onClick={handleToggle}
+        className="p-2 cursor-pointer hover:bg-emerald-50/50 flex flex-col gap-1"
+      >
+        <div className="flex items-start justify-between gap-1.5 text-[11px]">
+          <span className="font-bold text-slate-800 flex items-center gap-1.5 leading-snug">
+            <span className="text-emerald-700 font-mono">#{index + 1}</span>
+            <span>{title}</span>
+          </span>
+          {similarity != null && (
+            <span className="text-emerald-700 font-mono font-semibold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 shrink-0 text-[9px]">
+              {similarity}% khớp
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-[10px] text-slate-500 flex-wrap gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {location && <span className="font-semibold text-sky-700">{location}</span>}
+            {org && (
+              <span className="font-medium text-slate-700">
+                Thẩm định: <strong className="text-emerald-800">{org}</strong>
+              </span>
+            )}
+            {category && (
+              <span className="bg-slate-100 px-1.5 py-0.2 rounded text-slate-600 font-mono text-[9px]">
+                DM: {category}
+              </span>
+            )}
+          </div>
+          <button 
+            type="button" 
+            className="text-emerald-700 hover:text-emerald-900 font-semibold flex items-center gap-0.5 text-[10px]"
+          >
+            {isExpanded ? (
+              <>Thu gọn <ChevronUp size={11} /></>
+            ) : (
+              <>Xem trích đoạn tri thức <ChevronDown size={11} /></>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="p-2.5 bg-slate-900 text-slate-200 border-t border-emerald-200/60 text-[11px] space-y-2">
+          {/* Vị trí lưu trữ dữ liệu & Database */}
+          <div className="p-2 rounded bg-slate-950/80 border border-slate-800 text-[10px] space-y-1">
+            <div className="flex items-center justify-between text-emerald-400 font-bold text-[10.5px]">
+              <span className="flex items-center gap-1.5">
+                <Database size={12} className="text-emerald-400" />
+                <span>Vị Trí Lưu Trữ Dữ Liệu Trong Hệ Thống:</span>
+              </span>
+              <span className="text-[9px] text-slate-400 font-mono">PostgreSQL pgvector</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-[10px] text-slate-300 font-mono">
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Cơ sở dữ liệu:</span>
+                <span className="text-emerald-300 font-bold">SmartFarmDB01</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Bảng metadata:</span>
+                <span className="text-slate-200">public.agriculture_documents</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Bảng vector chunk:</span>
+                <span className="text-slate-200">public.agriculture_knowledge_chunks</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500">Thuật toán khớp:</span>
+                <span className="text-amber-300 font-bold">Cosine (768 chiều Gemini)</span>
+              </div>
+              {docId && (
+                <div className="col-span-1 md:col-span-2 flex items-center gap-1 text-[9.5px] text-slate-400">
+                  <span className="text-slate-500">Document ID:</span>
+                  <span className="text-slate-300 select-all">{docId}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Nội dung trích xuất từ tài liệu */}
+          <div className="space-y-1">
+            <div className="text-emerald-400 font-bold text-[10.5px] flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <BookOpen size={12} className="text-emerald-400" />
+                <span>Nội Dung Tri Thức RAG Được Cung Cấp Cho AI:</span>
+              </span>
+              <span className="text-[9px] text-slate-400 font-mono">Trích đoạn thực tế</span>
+            </div>
+
+            {isLoadingContent ? (
+              <div className="p-2 rounded-lg bg-slate-950/60 flex items-center gap-1.5 text-slate-400 text-[10px]">
+                <RefreshCw size={11} className="animate-spin text-emerald-400" />
+                Đang nạp trích đoạn tiêu chuẩn từ Database...
+              </div>
+            ) : (snippet || detailContent || chunks.length > 0) ? (
+              <div className="p-2 rounded-lg bg-slate-950/90 border border-slate-800 text-[10.5px] text-slate-200 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-line font-sans">
+                {snippet ? (
+                  snippet
+                ) : chunks.length > 0 ? (
+                  chunks.map((chk, ci) => (
+                    <div key={ci} className="mb-2 pb-2 border-b border-slate-800 last:border-b-0 last:mb-0">
+                      <div className="text-[9.5px] font-bold text-emerald-400 mb-0.5 flex items-center justify-between">
+                        <span>Đoạn #{chk.chunkIndex != null ? chk.chunkIndex + 1 : ci + 1}</span>
+                        {chk.cropTags && <span className="text-slate-400 font-mono">Cây: {chk.cropTags}</span>}
+                      </div>
+                      <div className="text-slate-300">{chk.content}</div>
+                    </div>
+                  ))
+                ) : (
+                  detailContent
+                )}
+              </div>
+            ) : (
+              <div className="p-2 rounded-lg bg-slate-950/60 text-[10px] text-slate-400 italic">
+                Quy trình canh tác VietGAP được đồng bộ trong cơ sở dữ liệu hệ thống.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const FarmerAIPage: React.FC = () => {
   const { zones, selectedZoneId, setSelectedZoneId } = useAuth();
+  const [farmerZones, setFarmerZones] = useState<any[]>([]);
+
+  useEffect(() => {
+    farmerService.getMyZones()
+      .then((res: any) => {
+        if (Array.isArray(res)) setFarmerZones(res);
+      })
+      .catch(() => setFarmerZones([]));
+  }, []);
+
   const zoneId = selectedZoneId || zones[0]?.zoneId || '';
   const currentZone = zones.find(z => z.zoneId === zoneId);
   const zoneName = currentZone?.name || zones[0]?.name || 'Nhà màng';
-  const canControl = (currentZone as any)?.canControl ?? false;
+  
+  // Xác thực quyền canControl thật từ API /farmer/my-zones
+  const assignedFarmerZone = farmerZones.find(z => (z.zoneId || z.id) === zoneId);
+  const canControl = assignedFarmerZone ? !!assignedFarmerZone.canControl : false;
 
   const [aiContext, setAiContext] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([
@@ -223,9 +383,8 @@ export const FarmerAIPage: React.FC = () => {
         {aiContext?.telemetry && aiContext.telemetry.length > 0 && (
           <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto text-[11px] scrollbar-thin">
             {aiContext.telemetry
-              .filter((t: any) => !['ph', 'soilph', 'ec', 'soilec'].includes((t.parameterCode || '').toLowerCase()))
               .sort((a: any, b: any) => {
-                const order = ['temperature', 'soilmoisture', 'airhumidity', 'light', 'lightintensity'];
+                const order = ['temperature', 'soilmoisture', 'airhumidity', 'light', 'lightintensity', 'ph', 'ec'];
                 const idxA = order.indexOf((a.parameterCode || '').toLowerCase());
                 const idxB = order.indexOf((b.parameterCode || '').toLowerCase());
                 return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
@@ -242,7 +401,9 @@ export const FarmerAIPage: React.FC = () => {
                       {t.parameterCode === 'Temperature' ? '🌡️ Nhiệt độ' :
                        t.parameterCode === 'SoilMoisture' ? '🌱 Ẩm đất' :
                        t.parameterCode === 'AirHumidity' ? '💧 Ẩm KK' :
-                       (t.parameterCode === 'Light' || t.parameterCode === 'LightIntensity') ? '☀️ Ánh sáng' : t.parameterCode}:
+                       (t.parameterCode === 'Light' || t.parameterCode === 'LightIntensity') ? '☀️ Ánh sáng' :
+                       (t.parameterCode === 'Ph' || t.parameterCode?.toLowerCase() === 'ph') ? '🧪 Độ pH' :
+                       (t.parameterCode === 'Ec' || t.parameterCode?.toLowerCase() === 'ec') ? '⚡ Dinh dưỡng EC' : t.parameterCode}:
                     </span>
                     <strong className="text-slate-800 font-mono">{formattedValue} {t.unit}</strong>
                     {req && minVal !== undefined && maxVal !== undefined && (
@@ -264,25 +425,25 @@ export const FarmerAIPage: React.FC = () => {
 
         <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
           {messages.map(m => (
-            <div key={m.id} className={`p-3 rounded-lg max-w-[85%] leading-relaxed ${
+            <div key={m.id} className={`p-3.5 rounded-xl max-w-[85%] leading-relaxed shadow-xs transition-all ${
               m.sender === 'USER'
-                ? 'ml-auto bg-[#119653] text-white shadow-xs'
-                : 'bg-slate-50 text-slate-800 border border-slate-200 shadow-xs'
+                ? 'ml-auto bg-[#119653] text-white rounded-br-sm'
+                : 'bg-slate-50 text-slate-800 border border-slate-200 rounded-bl-sm'
             }`}>
-              <div className="whitespace-pre-line">{m.text}</div>
+              <div className="whitespace-pre-line break-words [overflow-wrap:anywhere] text-[13px]">{m.text}</div>
 
-              {/* VietGAP Sources Badge */}
+              {/* Tài liệu & Quy chuẩn trích dẫn từ RAG */}
               {m.sources && m.sources.length > 0 && (
-                <div className="mt-2.5 pt-2 border-t border-slate-200/70 flex flex-wrap gap-1.5 items-center">
-                  <span className="text-[10px] text-slate-400 font-semibold">Căn cứ:</span>
-                  {m.sources.map((s: any, idx: number) => {
-                    const title = typeof s === 'string' ? s : (s.title || s.documentTitle || '');
-                    return (
-                      <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium">
-                        📚 {title}
-                      </span>
-                    );
-                  })}
+                <div className="mt-3 pt-2.5 border-t border-slate-200 space-y-2">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <BookOpen size={11} className="text-emerald-600" />
+                    <span>Tài liệu & Quy chuẩn trích dẫn từ RAG ({m.sources.length} mục):</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {m.sources.map((s: any, idx: number) => (
+                      <RagSourceCard key={idx} source={s} index={idx} />
+                    ))}
+                  </div>
                 </div>
               )}
 

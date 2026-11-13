@@ -61,3 +61,91 @@ are stored as `geometry(Polygon,4326)` with GiST indexes and `ST_IsValid` constr
 contract remains GeoJSON, and an Infrastructure value converter keeps NetTopologySuite out of the
 Domain project. Migration `UsePostGisBoundaries` backfills the new spatial columns from the former
 JSONB values and retains renamed legacy columns for rollback until a later cleanup migration.
+
+# 25. Agriculture documents require source review before AI use (2026-10-29)
+
+Uploaded files are retained in PostgreSQL alongside extracted text so reviewers can download
+the byte-for-byte original while correcting OCR. New uploads and content replacements enter
+`PendingReview`; only `Approved` documents are embedded, returned by RAG, or accepted as a
+Growth Profile source. Existing rows migrate as `Approved` to preserve current behavior. The
+review endpoint saves corrected text/chunks and the decision together. This is a human source
+comparison workflow, not an automated claim that OCR or VietGAP compliance is correct.
+
+# 26. Upload-time sufficiency check, typed requirements and cited extraction (2026-10-29)
+
+Supersedes the "existing rows migrate as `Approved`" part of decision 25: migration
+`ResetUnreviewedDocumentApprovals` returns uploaded rows that no reviewer ever approved
+(`reviewed_at_utc IS NULL`, `file_type <> 'seed'`) to `PendingReview`. Seed rows stay `Approved`.
+
+Uploads now pass a sufficiency check before anything is stored: a fixed checklist, then a Gemini
+assessment. Both must pass; an insufficient document returns `422` with the missing items and an
+unavailable AI returns `503`. Neither stores the document. A document that passes is still saved
+as `PendingReview`. The AI only judges that information is *present*, and a human reviewer
+confirms it is *correct* before RAG use (SRS 4.2.4 "curated and traceable").
+
+Required sections depend on the declared document type, because the SDD and the AI/RAG test plan
+expect thematic documents (irrigation, IPM, nitrate control) in the knowledge base:
+`OfficialStandard` needs a standard code and all seven VietGAP core sections; `TechnicalGuide`
+needs a traceable publisher plus soil, fertiliser, pest and harvest content; `Thematic` needs a
+publisher plus the section matching its `Category`.
+
+At upload the AI also fills a fixed 26-field template plus growth stages. A value is kept only
+when its quotation is found verbatim in the stored text, and numbers must appear in that quotation.
+The page number is computed from `[TRANG n]` markers rather than taken from the AI. Fields without
+a matching quotation are shown as absent from the source; the system does not fill them from model
+knowledge (SRS BR-12).
+
+# 27. Documents are independent RAG sources; Growth Profile is built per crop (2026-10-29)
+
+Supersedes the upload-time sufficiency gate of decision 26, which was already removed from the
+upload path. A document no longer has to contain every VietGAP section. Each document is an
+independent source with metadata: crops, document type, `topics` (several allowed), publisher,
+version and a content hash. Each chunk records page, section and topic. Review requires only a
+traceable source, a standard code for official standards, and content for the topics the document
+declares.
+
+Retrieval combines passages from several approved documents. It boosts the question's topics,
+caps each document at two passages, and cites document, page and section. Approving a document
+with the same title and publisher as an older approved one marks the older one `Superseded`, so
+outdated figures leave RAG. Identical content in the same scope is rejected with `409`.
+
+The Growth Profile draft can gather all approved documents of a crop instead of exactly one, so
+documents covering only harvest, pests or irrigation each contribute. The existing generator still
+requires every stage, duration and threshold to quote the source verbatim. Insufficient cited data
+returns `409` rather than template values (SRS BR-12), and each quotation is attributed to its
+source document.
+
+Cited extraction moved to the background worker so uploads return quickly. Truncated Gemini
+replies are retried. The shared `Gemini:FallbackModels` list replaces per-call model lists after the
+configured `gemini-2.5-flash` began returning 404.
+
+# 28. Document ingestion does not use AI for OCR or Growth Profile generation (2026-10-30)
+
+Supersedes the Gemini OCR and document-to-Growth-Profile behavior described in older
+implementation notes. Upload/update reads text only through local PDF/DOCX/TXT parsers. A
+scanned PDF without a searchable text layer is rejected with instructions to OCR it outside
+SmartFarm. The `draft-growth-profile` endpoint, its web/mobile client methods, and the VietGAP page's
+document-to-Growth-Profile builder are removed. Growth Profiles remain managed through their
+separate crop-growth workflows. Approved sources remain available to RAG-based AI advisory; the separate agricultural-topic
+check remains advisory and does not claim technical or VietGAP compliance.
+
+
+## AI advisory: crop provenance, season facts and knowledge crop (2026-10-31)
+
+- The operational crop/variety (`AiZoneContext.CropName`, `VarietyName`, `CropSource = "zone"`) is the Zone's own `CropId`/`CropVarietyId` (see the Zone crop decision below). A season is used for age, stage, plan and thresholds only when its InProgress crop matches the Zone crop; otherwise `SeasonCropMismatch = true`, `SeasonCropName` names the season crop, and no stage, age or threshold of that season is used or proposed. `CropHint` is only the crop of a Planned season, labelled as planned.
+- `AiSeasonFacts` is computed by the backend and is present whenever an `InProgress` season exists, even if the Growth Profile or stage is missing or belongs to another crop. Elapsed and remaining days use the Farm-local date (`Farm.TimeZone`), not the UTC date. `ExpectedEndDate` is the expected end of the season, never a harvest date (the schema stores no harvest date); stage `DurationDays` and the Profile total are planned durations. A new `harvest` topic is answered deterministically from these facts.
+- Knowledge retrieval uses `KnowledgeCrop`: the crop named in the question (except for irrigation/control questions, which always follow the Zone), then the Zone crop, then the hint. It only selects which approved documents are searched; telemetry, stage and thresholds stay the Zone's. Documents have no Zone relation: scope is Approved + public-or-own-tenant + crop scope.
+- Multi-intent questions keep the data parts: when the knowledge part has no approved passage, or the weather is unavailable, the Zone-data answer is still returned with the gap named. The intent classifier only chooses topics; if it fails the full context goes to the provider.
+
+## Zone current crop is independent of planting seasons (2026-10-31)
+
+- `Zone.CropId`/`CropVarietyId` (nullable FKs to `crops`/`crop_varieties`, `ON DELETE RESTRICT`) hold the crop currently grown. A Zone without a crop is valid and is shown as "Chưa gán cây"; nothing falls back to a default, the Zone name, notes, contracts, or the latest season. `ZoneView` exposes `cropId`, `varietyId`, `cropName`, `varietyName`, `currentCrop` (Zone only), `currentStage` (only when the InProgress season has the same crop), `seasonStatus` (`None`, `InProgress`, `Mismatch`, `PlannedOnly`), `seasonName`, `seasonCropName` and `plannedCrop`.
+- `POST /fields/{id}/zones` and `PUT /zones/{id}` accept `cropId`/`varietyId`; the crop must be a system crop or one of the caller's Tenant, the variety must belong to that crop. On update, omitting `cropId` keeps the crop, `clearCrop: true` removes it. Changing or clearing the crop while an InProgress season has another crop returns 409.
+- `POST /zones/{id}/planting-seasons` takes `setZoneCrop`. If the Zone already has another crop the request is rejected with 409 unless `setZoneCrop` is true (explicit Owner confirmation, applied in the same transaction as the season). A Zone with no crop is only assigned the season crop when `setZoneCrop` is true; otherwise the season is created and the Zone reports `Mismatch` until the Owner assigns a crop. The service never synchronises crops silently. Planned seasons never touch the Zone crop. A season cannot start in the future.
+- Migration `AddZoneCurrentCrop` backfills a Zone only when it has exactly one InProgress season; Completed, Cancelled and Planned seasons, Zone names, notes and contracts are never used. Every other Zone stays NULL and the Owner must pick the crop. The development-only `DataIntegrityHealer` no longer creates seasons or guesses crops.
+
+- Bulk apply (2026-10-31): `POST /api/v1/farming-seasons/{id}/planting-seasons/bulk` (FarmOwner) creates one PlantingSeason per Zone under one FarmingSeason (max 50 Zones, per-Zone dates, per-Zone `setZoneCrop` confirmation). `dryRun` only validates; without `skipInvalid` any invalid Zone means nothing is created, with it only valid Zones are created, always in one serializable transaction that re-validates. A Zone has at most one season per FarmingSeason (also enforced by the single-Zone create, 409), no second InProgress season, and no Planned season of another FarmingSeason. Zones of other tenants get the same "not found" problem as unknown ones. Harvest data stays on each Zone's PlantingSeason (`ActualEndDate`, `ActualYieldKg`); no new table.
+
+- Rule change (2026-10-31): the Zone crop is assigned only by creating a planting season (single or bulk). `POST /fields/{id}/zones` and `PUT /zones/{id}` no longer accept `cropId`/`varietyId` (ignored); `PUT` keeps `clearCrop` (409 while an InProgress season exists). A Zone with no crop gets the season crop automatically; a Zone with another crop needs `setZoneCrop` (per Zone in bulk). The web Zone form no longer has a crop selector.
+
+- Growth profile ownership (2026-10-31): FarmOwner may only copy a system profile (`POST /growth-profiles` with `sourceProfileId`; building one from scratch is refused) and edit that tenant copy (`PUT /growth-profiles/{id}`, `PUT /growth-stages/{id}/requirements`); system profiles stay editable by PlatformAdmin only (an Owner edit of a system stage lands on the tenant copy). Edits never change the thresholds already snapshotted on running seasons; they apply to seasons created afterwards. The season form labels profiles as system or farm-owned. Web: managed inside the Zone detail panel (no separate menu page).

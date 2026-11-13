@@ -15,7 +15,7 @@ import {
   Actuator, ControlExecutionLog, EnvironmentalTargetConfig, 
   ControlSchedule, AutomationRule, Zone, Field, Farm, Crop 
 } from '../../types';
-import { useAuth } from '../../app/providers/AuthContext';
+import { useAuth } from '@/app/providers/AuthContext';
 
 export interface CF3ControlSectionProps {
   scopeLevel: 'FARM' | 'FIELD' | 'ZONE' | 'GLOBAL' | 'FARMER';
@@ -25,6 +25,7 @@ export interface CF3ControlSectionProps {
   title?: string;
   subtitle?: string;
   defaultTab?: 'ALERTS' | 'ACTUATORS' | 'SCHEDULES' | 'ENV_PARAMS' | null;
+  nodes?: any[];
 }
 
 export const CF3ControlSection: React.FC<CF3ControlSectionProps> = ({
@@ -35,6 +36,7 @@ export const CF3ControlSection: React.FC<CF3ControlSectionProps> = ({
   title,
   subtitle,
   defaultTab = null,
+  nodes,
 }) => {
   const { zones: authZones } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'ALERTS' | 'ACTUATORS' | 'SCHEDULES' | 'ENV_PARAMS' | null>(defaultTab);
@@ -574,6 +576,7 @@ export const CF3ControlSection: React.FC<CF3ControlSectionProps> = ({
                   farmId={farmId}
                   fieldId={fieldId}
                   zoneId={zoneId}
+                  nodes={nodes}
                   onNavigateToControl={() => setActiveSubTab('ACTUATORS')}
                 />
               )}

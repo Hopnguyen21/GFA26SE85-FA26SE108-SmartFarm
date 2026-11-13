@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Zone, Field, Farm, ZoneContract } from '../../types';
-import { zoneService, fieldService, farmService, zoneContractService, extractApiError } from '../../services';
+import { NO_CROP_LABEL, zoneCropLabel, zoneStageLabel } from '../../utils/zoneCrop';
+import { Zone, Field, Farm, ZoneContract, Crop } from '../../types';
+import { zoneService, fieldService, farmService, zoneContractService, cropService, extractApiError } from '../../services';
 import { StatusBadge, Button, Modal, Input } from '../../components/ui/BaseUI';
 import { Sprout, Plus, ArrowUpRight, Gauge, Building2, MapPin, Layers, Wrench, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,7 @@ export const ZonesPage: React.FC = () => {
   const [fields, setFields] = useState<Field[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [contracts, setContracts] = useState<ZoneContract[]>([]);
+  const [cropCatalog, setCropCatalog] = useState<Crop[]>([]);
   const [selectedContractForRenew, setSelectedContractForRenew] = useState<ZoneContract | null>(null);
   const [showRenewModal, setShowRenewModal] = useState<boolean>(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -31,7 +33,9 @@ export const ZonesPage: React.FC = () => {
   } | null>(null);
   const [zoneName, setZoneName] = useState('');
   const [description, setDescription] = useState('');
-  const [crop, setCrop] = useState('Cà chua (Tomato)');
+  const [cropSelection, setCropSelection] = useState('');
+  const [varietySelection, setVarietySelection] = useState('');
+  const [varieties, setVarieties] = useState<Array<{ varietyId: string; name: string }>>([]);
   const [center, setCenter] = useState<[number, number]>([11.9408, 108.4582]);
   const [polygon, setPolygon] = useState<[number, number][]>([
     [11.9412, 108.4572],
@@ -43,11 +47,12 @@ export const ZonesPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [zData, fdData, fData, contractsData] = await Promise.all([
+      const [zData, fdData, fData, contractsData, cropData] = await Promise.all([
         zoneService.getZones().catch(() => []),
         fieldService.getFields().catch(() => []),
         farmService.getFarms().catch(() => []),
         zoneContractService.getAllContracts().catch(() => []),
+        cropService.getCrops().catch(() => []),
       ]);
       if (Array.isArray(zData)) {
         setZones(zData);
@@ -59,6 +64,7 @@ export const ZonesPage: React.FC = () => {
       }
       if (Array.isArray(fData)) setFarms(fData);
       if (Array.isArray(contractsData)) setContracts(contractsData);
+      if (Array.isArray(cropData)) setCropCatalog(cropData);
     } catch (err) {
       console.error('Failed to load zones data:', err);
     }
@@ -79,6 +85,8 @@ export const ZonesPage: React.FC = () => {
       alert('Tên Zone phải có ít nhất 2 ký tự (theo quy chuẩn hệ thống)!');
       return;
     }
+    // Cây/giống là tùy chọn: để trống nghĩa là Zone chưa gán cây (không có cây mặc định).
+    const chosenCrop = cropCatalog.find(item => item.cropId === cropSelection)?.name || '';
     const fieldId = selectedFieldId || (fields.length > 0 ? fields[0].fieldId : '');
     if (!fieldId) {
       alert('Vui lòng chọn Lô đất (Field) Mẹ!');
@@ -104,7 +112,7 @@ export const ZonesPage: React.FC = () => {
         name: zoneName.trim(),
         areaM2: computedArea,
         zoneType: 'Greenhouse',
-        notes: `${crop || 'Rau màu'}${description ? ` - ${description}` : ''}`,
+        notes: description.trim() || undefined,
         polygonGeoJson: geoJson,
       });
       await loadData();
@@ -112,7 +120,7 @@ export const ZonesPage: React.FC = () => {
       setCreatedZoneSuccessData({
         zoneName: zoneName.trim(),
         areaM2: computedArea,
-        crop: crop || 'Rau màu VietGAP',
+        crop: chosenCrop || NO_CROP_LABEL,
         fieldName: targetField?.name || 'Phân khu Lô đất',
         farmName: farms.find(f => f.farmId === targetField?.farmId)?.name || 'Trang trại',
         pointCount: polygon.length,
@@ -120,6 +128,9 @@ export const ZonesPage: React.FC = () => {
       });
       setZoneName('');
       setDescription('');
+      setCropSelection('');
+      setVarietySelection('');
+      setVarieties([]);
     } catch (err: any) {
       console.error('Lỗi tạo Zone:', err);
       const errorMsg = extractApiError(err) || err.response?.data?.detail || err.message;
@@ -196,15 +207,24 @@ export const ZonesPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span>Cây trồng hiện tại:</span>
                   <strong className="text-[#119653]">
-                    {z.currentCrop || (z.name?.toLowerCase().includes('dua leo') ? 'Dưa leo Baby (Cucumber)' : z.name?.toLowerCase().includes('xa lach') ? 'Xà lách cuộn (Batavia)' : z.name?.toLowerCase().includes('dau tay') ? 'Dâu tây Hana' : 'Dưa leo Baby VietGAP')}
+                    {zoneCropLabel(z)}
                   </strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Giai đoạn sinh trưởng:</span>
                   <strong className="text-sky-700">
-                    {z.currentStage || (z.name?.toLowerCase().includes('xa lach') ? 'Phát triển búp cuộn' : 'Nuôi trái & Thu hoạch')}
+                    {zoneStageLabel(z)}
                   </strong>
                 </div>
+                  {(!z.seasonStatus || z.seasonStatus === 'None' || z.seasonStatus === 'PlannedOnly') && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/owner/planting-seasons?zoneId=${z.zoneId}`)}
+                      className="w-full mt-1 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100"
+                    >
+                      + Tạo vụ mùa cho Zone này
+                    </button>
+                  )}
                 <div className="flex justify-between"><span>Diện tích Zone:</span><strong className="text-slate-900">{z.areaM2} m²</strong></div>
               </div>
 
@@ -304,8 +324,8 @@ export const ZonesPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-700 font-bold mb-1">Loại Cây trồng</label>
-              <Input value={crop} onChange={e => setCrop(e.target.value)} placeholder="Cà chua, Ớt ngọt, Dưa leo..." />
+              <label className="block text-slate-700 font-bold mb-1">Cây trồng</label>
+              <p className="text-xs text-slate-600 rounded-lg border border-slate-200 bg-slate-50 p-2">Cây của Zone được gán khi tạo vụ mùa (trang Vụ mùa), không chọn ở đây.</p>
             </div>
             <div>
               <label className="block text-slate-700 font-bold mb-1">Mô tả Zone</label>
