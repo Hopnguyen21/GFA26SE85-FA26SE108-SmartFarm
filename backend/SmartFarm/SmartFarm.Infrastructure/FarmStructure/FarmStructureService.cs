@@ -11,6 +11,7 @@ using SmartFarm.Domain.Entities;
 using SmartFarm.Domain.Enums;
 using SmartFarm.Infrastructure.Identity;
 using SmartFarm.Infrastructure.Persistence;
+using SmartFarm.Infrastructure.Persistence.Configurations;
 
 namespace SmartFarm.Infrastructure.FarmStructure;
 
@@ -25,7 +26,7 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
         await EnsureOwnerScopeAsync(ownerUserId, tenantId, cancellationToken);
         var caller = await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == ownerUserId, cancellationToken);
         var query = dbContext.Farms.AsNoTracking();
-        if (caller?.Role != UserRole.PlatformAdmin)
+        if (caller?.Role != UserRole.PlatformAdmin && caller?.Role != UserRole.PlatformTechnician)
         {
             query = query.Where(x => x.TenantId == tenantId);
         }
@@ -173,8 +174,13 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
         Guid ownerUserId, Guid tenantId, Guid? farmId, CancellationToken cancellationToken)
     {
         await EnsureOwnerScopeAsync(ownerUserId, tenantId, cancellationToken);
+        var caller = await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == ownerUserId, cancellationToken);
         var query = dbContext.Fields.AsNoTracking().Include(x => x.Zones).Include(x => x.Farm)
-            .Where(x => x.Farm.TenantId == tenantId && x.ArchivedAtUtc == null);
+            .Where(x => x.ArchivedAtUtc == null);
+        if (caller?.Role != UserRole.PlatformAdmin && caller?.Role != UserRole.PlatformTechnician)
+        {
+            query = query.Where(x => x.Farm.TenantId == tenantId);
+        }
         if (farmId.HasValue) query = query.Where(x => x.FarmId == farmId.Value);
         var fields = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
         return fields.Select(x => ToFieldDetail(x, x.Zones.Where(z => z.Status != ZoneStatus.Archived).Select(z => new ZoneSummaryView(z.Id, z.FieldId, z.Name, z.AreaM2, z.ZoneType, z.Status)).ToList())).ToList();
@@ -199,7 +205,7 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
             .SumAsync(x => (decimal?)x.AreaM2, cancellationToken) ?? 0;
         if (allocated + command.AreaM2 > farm.TotalAreaM2)
         {
-            farm.TotalAreaM2 = Math.Max(farm.TotalAreaM2, allocated + command.AreaM2);
+            throw new RequestValidationException(nameof(command.AreaM2), "Total active Field area exceeds the Farm area.");
         }
         if (await dbContext.Fields.AnyAsync(x => x.FarmId == farmId && x.Name.ToUpper() == name.ToUpper(), cancellationToken))
         {
@@ -285,8 +291,13 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
         Guid ownerUserId, Guid tenantId, Guid? fieldId, ZoneStatus? status, CancellationToken cancellationToken)
     {
         await EnsureOwnerScopeAsync(ownerUserId, tenantId, cancellationToken);
+        var caller = await dbContext.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == ownerUserId, cancellationToken);
         var query = dbContext.Zones.AsNoTracking().Include(x => x.Field).ThenInclude(f => f.Farm)
-            .Where(x => x.Field.Farm.TenantId == tenantId && x.ArchivedAtUtc == null);
+            .Where(x => x.ArchivedAtUtc == null);
+        if (caller?.Role != UserRole.PlatformAdmin && caller?.Role != UserRole.PlatformTechnician)
+        {
+            query = query.Where(x => x.Field.Farm.TenantId == tenantId);
+        }
         if (fieldId.HasValue) query = query.Where(x => x.FieldId == fieldId.Value);
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
         var zones = await query.OrderBy(x => x.Name).ToListAsync(cancellationToken);
@@ -316,6 +327,32 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
         {
             throw new ResourceConflictException("A Zone with this name already exists in the Field.");
         }
+
+        // Validate boundary does not overlap with existing active zones in the same field
+        var newGeom = GeoJsonPolygonValueConverter.Parse(boundary);
+        var existingZones = await dbContext.Zones.AsNoTracking()
+            .Where(x => x.FieldId == fieldId && x.Status != ZoneStatus.Archived && x.BoundaryGeoJson != null)
+            .Select(x => new { x.Id, x.Name, x.BoundaryGeoJson })
+            .ToListAsync(cancellationToken);
+
+        foreach (var ez in existingZones)
+        {
+            if (ez.BoundaryGeoJson == null) continue;
+            var ezGeom = GeoJsonPolygonValueConverter.Parse(ez.BoundaryGeoJson);
+            if (newGeom.Intersects(ezGeom))
+            {
+                var intersection = newGeom.Intersection(ezGeom);
+                // Check if the intersection is a 2D surface (overlap), not just touching boundaries
+                if (intersection is NetTopologySuite.Geometries.Polygon or NetTopologySuite.Geometries.MultiPolygon)
+                {
+                    if (intersection.Area > 0.00000001) // Area > ~0.1 m2 in degrees
+                    {
+                        throw new ResourceConflictException($"Vùng ranh giới mới bị chồng lấn (đè) lên khu vực '{ez.Name}'. Vui lòng chỉnh sửa lại tọa độ ranh giới.");
+                    }
+                }
+            }
+        }
+
         var zone = (command with { Name = name, ZoneType = zoneType, Notes = NormalizeOptional(command.Notes, 1000) })
             .ToEntity(fieldId, boundary);
         field.AvailableAreaM2 -= zone.AreaM2;
@@ -355,12 +392,17 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
         {
             throw new ResourceConflictException("An archived Zone cannot be updated.");
         }
+        var changesArea = command.AreaM2.HasValue && command.AreaM2.Value != zone.AreaM2;
+        var changesBoundary = boundary is not null && !JsonEquivalent(boundary, zone.BoundaryGeoJson);
+        if (zone.Status == ZoneStatus.Operating && (changesArea || changesBoundary))
+        {
+            throw new ResourceConflictException("An Operating Zone cannot change area or boundary.");
+        }
         var requestedArea = command.AreaM2 ?? zone.AreaM2;
         var capacity = zone.Field.AvailableAreaM2 + zone.AreaM2;
         if (requestedArea > capacity)
         {
-            zone.Field.AreaM2 = Math.Max(zone.Field.AreaM2, zone.Field.AreaM2 + (requestedArea - capacity));
-            capacity = zone.Field.AvailableAreaM2 + zone.AreaM2;
+            throw new RequestValidationException(nameof(command.AreaM2), "Zone area exceeds the Field available area.");
         }
         var name = NormalizeRequired(command.Name, nameof(command.Name), 200);
         if (await dbContext.Zones.AnyAsync(
@@ -368,7 +410,34 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
         {
             throw new ResourceConflictException("A Zone with this name already exists in the Field.");
         }
-        zone.Field.AvailableAreaM2 = Math.Max(0, capacity - requestedArea);
+
+        if (boundary is not null)
+        {
+            var updatedGeom = GeoJsonPolygonValueConverter.Parse(boundary);
+            var otherZones = await dbContext.Zones.AsNoTracking()
+                .Where(x => x.FieldId == zone.FieldId && x.Id != zoneId && x.Status != ZoneStatus.Archived && x.BoundaryGeoJson != null)
+                .Select(x => new { x.Id, x.Name, x.BoundaryGeoJson })
+                .ToListAsync(cancellationToken);
+
+            foreach (var oz in otherZones)
+            {
+                if (oz.BoundaryGeoJson == null) continue;
+                var ozGeom = GeoJsonPolygonValueConverter.Parse(oz.BoundaryGeoJson);
+                if (updatedGeom.Intersects(ozGeom))
+                {
+                    var intersection = updatedGeom.Intersection(ozGeom);
+                    if (intersection is NetTopologySuite.Geometries.Polygon or NetTopologySuite.Geometries.MultiPolygon)
+                    {
+                        if (intersection.Area > 0.00000001)
+                        {
+                            throw new ResourceConflictException($"Vùng ranh giới cập nhật bị chồng lấn (đè) lên khu vực '{oz.Name}'. Vui lòng chỉnh sửa lại tọa độ ranh giới.");
+                        }
+                    }
+                }
+            }
+        }
+
+        zone.Field.AvailableAreaM2 = capacity - requestedArea;
         (command with
         {
             Name = name,
@@ -407,7 +476,7 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
             throw new AuthorizationException("The user account is inactive or not found.");
         }
 
-        if (user.Role == UserRole.PlatformAdmin)
+        if (user.Role == UserRole.PlatformAdmin || user.Role == UserRole.PlatformTechnician)
         {
             return;
         }
@@ -417,7 +486,7 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
             return;
         }
 
-        if ((user.Role == UserRole.Farmer || user.Role == UserRole.PlatformTechnician) && user.TenantId == tenantId)
+        if (user.Role == UserRole.Farmer && user.TenantId == tenantId)
         {
             return;
         }
@@ -431,7 +500,7 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
 
     private async Task<Field> GetFieldEntityAsync(Guid tenantId, Guid fieldId, bool tracking, CancellationToken cancellationToken)
     {
-        var query = dbContext.Fields.Include(x => x.Farm).Where(x => x.Id == fieldId && x.Farm.TenantId == tenantId);
+        var query = dbContext.Fields.Include(x => x.Farm).Where(x => x.Id == fieldId && (tenantId == Guid.Empty || x.Farm.TenantId == tenantId));
         if (!tracking) query = query.AsNoTracking();
         return await query.SingleOrDefaultAsync(cancellationToken)
             ?? throw new ResourceNotFoundException("Field was not found in the current Tenant.");
@@ -440,7 +509,7 @@ internal sealed class FarmStructureService(SmartFarmDbContext dbContext, TimePro
     private async Task<Zone> GetZoneEntityAsync(Guid tenantId, Guid zoneId, bool tracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Zones.Include(x => x.Field).ThenInclude(x => x.Farm)
-            .Where(x => x.Id == zoneId && x.Field.Farm.TenantId == tenantId);
+            .Where(x => x.Id == zoneId && (tenantId == Guid.Empty || x.Field.Farm.TenantId == tenantId));
         if (!tracking) query = query.AsNoTracking();
         return await query.SingleOrDefaultAsync(cancellationToken)
             ?? throw new ResourceNotFoundException("Zone was not found in the current Tenant.");
