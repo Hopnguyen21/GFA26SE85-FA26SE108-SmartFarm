@@ -7,13 +7,14 @@ using SmartFarm.Infrastructure.Persistence;
 namespace SmartFarm.Api.HostedServices;
 
 /// <summary>
-/// Background Service giả lập thiết bị IoT (Virtual IoT Node Simulator).
-/// Tự động sinh dữ liệu cảm biến ngẫu nhiên theo chu kỳ (Nhiệt độ, Độ ẩm đất, Độ ẩm không khí, Ánh sáng, pH, EC)
-/// giúp hệ thống SmartFarm luôn có telemetry thực tế và biểu đồ/cảnh báo hoạt động liên tục.
+/// Generates synthetic sensor telemetry for local development demonstrations only.
+/// This worker is disabled outside the Development host environment and requires
+/// SimulatedIot:Enabled=true. Generated readings are not measurements from hardware.
 /// </summary>
 public sealed class SimulatedIotTelemetryWorker(
     IServiceScopeFactory scopes,
     IConfiguration configuration,
+    IHostEnvironment hostEnvironment,
     ILogger<SimulatedIotTelemetryWorker> logger) : BackgroundService
 {
     private static readonly Random Rnd = new();
@@ -21,6 +22,12 @@ public sealed class SimulatedIotTelemetryWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!hostEnvironment.IsDevelopment())
+        {
+            logger.LogInformation("Simulated IoT Telemetry Worker is disabled outside Development.");
+            return;
+        }
+
         var isEnabled = configuration.GetValue<bool>("SimulatedIot:Enabled", false);
         if (!isEnabled)
         {
@@ -28,7 +35,7 @@ public sealed class SimulatedIotTelemetryWorker(
             return;
         }
 
-        var intervalSeconds = configuration.GetValue<int>("SimulatedIot:IntervalSeconds", 300);
+        var intervalSeconds = configuration.GetValue<int>("SimulatedIot:IntervalSeconds", 90);
         if (intervalSeconds < 10) intervalSeconds = 10;
 
         logger.LogInformation("Simulated IoT Telemetry Worker started (Interval: {Interval} seconds).", intervalSeconds);
@@ -458,7 +465,17 @@ public sealed class SimulatedIotTelemetryWorker(
                                 CreatedAtUtc = now
                             });
                         }
-                        if (openAlerts.Count > 0) await db.SaveChangesAsync(ct);
+                        if (openAlerts.Count > 0)
+                        {
+                            try { await db.SaveChangesAsync(ct); }
+                            catch (DbUpdateConcurrencyException)
+                            {
+                                foreach (var oa in openAlerts)
+                                {
+                                    db.Entry(oa).State = EntityState.Detached;
+                                }
+                            }
+                        }
                         continue;
                     }
 
@@ -474,7 +491,58 @@ public sealed class SimulatedIotTelemetryWorker(
                         continue;
                     }
 
-                    // Tạo bản ghi Cảnh báo Alert mới
+                    // Xác định mùa vụ và giai đoạn sinh trưởng hợp lệ trước khi tạo cảnh báo
+                    var effectiveSeason = currentSeason;
+                    if (effectiveSeason == null || effectiveSeason.CurrentGrowthStageId == Guid.Empty)
+                    {
+                        effectiveSeason = await db.PlantingSeasons.FirstOrDefaultAsync(s => s.ZoneId == zone.Id && s.CurrentGrowthStageId != Guid.Empty, ct);
+                    }
+                    if (effectiveSeason == null || effectiveSeason.CurrentGrowthStageId == Guid.Empty)
+                    {
+                        // Zone chưa có mùa vụ hoặc giai đoạn sinh trưởng để liên kết khóa ngoại
+                        continue;
+                    }
+
+                    var effectiveGrowthStageId = customRule?.GrowthStageId ?? effectiveSeason.CurrentGrowthStageId;
+                    if (effectiveGrowthStageId == Guid.Empty)
+                    {
+                        continue;
+                    }
+
+                    // Tìm 1 alert rule có sẵn trong DB hoặc tạo alert rule đại diện hợp lệ
+                    Guid ruleId;
+                    if (customRule != null)
+                    {
+                        ruleId = customRule.Id;
+                    }
+                    else
+                    {
+                        var defaultRule = await db.AlertRules.FirstOrDefaultAsync(r => r.ZoneId == zone.Id && r.GrowthStageId == effectiveGrowthStageId, ct);
+                        if (defaultRule != null)
+                        {
+                            ruleId = defaultRule.Id;
+                        }
+                        else
+                        {
+                            var newRule = new AlertRule
+                            {
+                                Id = Guid.NewGuid(),
+                                ZoneId = zone.Id,
+                                GrowthStageId = effectiveGrowthStageId,
+                                ParameterCode = cfg.Param,
+                                MinThreshold = min,
+                                MaxThreshold = max,
+                                Severity = sev,
+                                CooldownMinutes = 15,
+                                IsActive = true,
+                                CreatedAtUtc = now
+                            };
+                            db.AlertRules.Add(newRule);
+                            ruleId = newRule.Id;
+                        }
+                    }
+
+                    // Tạo bản ghi Cảnh báo Alert mới với đầy đủ FK hợp lệ
                     var alert = new Alert
                     {
                         Id = Guid.NewGuid(),
@@ -482,9 +550,9 @@ public sealed class SimulatedIotTelemetryWorker(
                         FarmId = farm.Id,
                         ZoneId = zone.Id,
                         DeviceId = reading.DeviceId,
-                        AlertRuleId = customRule?.Id ?? Guid.Empty,
-                        PlantingSeasonId = currentSeason?.Id ?? Guid.Empty,
-                        GrowthStageId = customRule?.GrowthStageId ?? currentSeason?.CurrentGrowthStageId ?? Guid.Empty,
+                        AlertRuleId = ruleId,
+                        PlantingSeasonId = effectiveSeason.Id,
+                        GrowthStageId = effectiveGrowthStageId,
                         ParameterCode = cfg.Param,
                         ObservedValue = reading.Value,
                         MinThreshold = min,
@@ -504,47 +572,18 @@ public sealed class SimulatedIotTelemetryWorker(
                         CreatedAtUtc = now
                     });
 
-                    // Nếu AlertRuleId là Guid.Empty thì không gán để tránh lỗi FK
-                    if (customRule == null)
-                    {
-                        // Tìm 1 alert rule có sẵn trong DB hoặc tạo alert rule đại diện
-                        var defaultRule = await db.AlertRules.FirstOrDefaultAsync(r => r.ZoneId == zone.Id, ct);
-                        if (defaultRule != null) alert.AlertRuleId = defaultRule.Id;
-                        else
-                        {
-                            var newRule = new AlertRule
-                            {
-                                Id = Guid.NewGuid(),
-                                ZoneId = zone.Id,
-                                GrowthStageId = currentSeason?.CurrentGrowthStageId ?? Guid.Empty,
-                                ParameterCode = cfg.Param,
-                                MinThreshold = min,
-                                MaxThreshold = max,
-                                Severity = sev,
-                                CooldownMinutes = 15,
-                                IsActive = true,
-                                CreatedAtUtc = now
-                            };
-                            db.AlertRules.Add(newRule);
-                            alert.AlertRuleId = newRule.Id;
-                        }
-                    }
-
-                    // Tương tự cho PlantingSeasonId và GrowthStageId
-                    if (alert.PlantingSeasonId == Guid.Empty)
-                    {
-                        var anySeason = await db.PlantingSeasons.FirstOrDefaultAsync(s => s.ZoneId == zone.Id, ct);
-                        if (anySeason != null)
-                        {
-                            alert.PlantingSeasonId = anySeason.Id;
-                            alert.GrowthStageId = anySeason.CurrentGrowthStageId;
-                        }
-                    }
-
                     if (alert.PlantingSeasonId != Guid.Empty && alert.GrowthStageId != Guid.Empty)
                     {
-                        db.Alerts.Add(alert);
-                        await db.SaveChangesAsync(ct);
+                        try
+                        {
+                            db.Alerts.Add(alert);
+                            await db.SaveChangesAsync(ct);
+                        }
+                        catch (DbUpdateConcurrencyException)
+                        {
+                            db.Entry(alert).State = EntityState.Detached;
+                            continue;
+                        }
 
                         // Gửi Notification cho cả Owner và Farmer phụ trách (chỉ sau khi lưu alert thành công)
                         var targets = await db.AppUsers.AsNoTracking()

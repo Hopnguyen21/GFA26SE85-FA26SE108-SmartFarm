@@ -17,6 +17,7 @@ public sealed class AiAdvisoryService(
     IAiAdvisoryProvider provider,
     IAiWeatherProvider weatherProvider,
     IControlService controlService,
+    IAgricultureKnowledgeRetriever knowledgeRetriever,
     IOptions<AiOptions> options,
     Microsoft.Extensions.Logging.ILogger<AiAdvisoryService> logger,
     TimeProvider clock) : IAiAdvisoryService
@@ -25,8 +26,8 @@ public sealed class AiAdvisoryService(
 
     public async Task<AiZoneContext> GetContextAsync(Guid ownerId, Guid tenantId, Guid zoneId, CancellationToken cancellationToken)
     {
-        var zone = await EnsureOwnerZoneAsync(ownerId, tenantId, zoneId, cancellationToken);
-        return await BuildContextAsync(zone, cancellationToken);
+        var (zone, role) = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, requireControl: false, cancellationToken);
+        return await BuildContextAsync(zone, includeFarmStructure: role == UserRole.FarmOwner, cancellationToken);
     }
 
     public Task<AiRecommendationView> AskAsync(Guid ownerId, Guid tenantId, Guid zoneId, AskAiCommand command, CancellationToken cancellationToken) =>
@@ -34,12 +35,15 @@ public sealed class AiAdvisoryService(
 
     public async Task<AiDecisionResult> DecideAsync(Guid ownerId, Guid tenantId, Guid zoneId, DecideRecommendationCommand command, CancellationToken cancellationToken)
     {
-        await EnsureOwnerZoneAsync(ownerId, tenantId, zoneId, cancellationToken);
+        var (_, role) = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, requireControl: true, cancellationToken);
         var recommendation = await db.AiRecommendations
             .Include(x => x.ConsultationRequest)
             .Include(x => x.Decisions)
             .SingleOrDefaultAsync(x => x.Id == command.RecommendationId && x.ZoneId == zoneId && x.TenantId == tenantId, cancellationToken)
             ?? throw new ResourceNotFoundException("AI recommendation was not found in this Zone.");
+
+        if (role == UserRole.Farmer && recommendation.ConsultationRequest.RequestedByUserId != ownerId)
+            throw new AuthorizationException("Farmer chỉ được quyết định khuyến nghị do chính mình yêu cầu.");
 
         if (recommendation.Decisions.Count > 0)
             throw new ResourceConflictException("This recommendation already has an Owner decision.");
@@ -109,11 +113,19 @@ public sealed class AiAdvisoryService(
 
     public async Task<AiHistoryView> GetHistoryAsync(Guid ownerId, Guid tenantId, Guid zoneId, CancellationToken cancellationToken)
     {
-        await EnsureOwnerZoneAsync(ownerId, tenantId, zoneId, cancellationToken);
+        var (zone, role) = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, requireControl: false, cancellationToken);
         var from = clock.GetUtcNow().UtcDateTime.AddDays(-30);
-        var rows = await db.AiRecommendations.AsNoTracking()
+        var query = db.AiRecommendations.AsNoTracking()
             .Include(x => x.ConsultationRequest)
-            .Where(x => x.TenantId == tenantId && x.ZoneId == zoneId && x.CreatedAtUtc >= from && x.ConsultationRequest.HiddenAtUtc == null)
+            .Where(x => x.TenantId == tenantId && x.ZoneId == zoneId && x.CreatedAtUtc >= from && x.ConsultationRequest.HiddenAtUtc == null);
+
+        // Nông dân chỉ thấy lịch sử câu hỏi do chính mình gửi, không lộ câu hỏi của chủ trại hoặc nông dân khác
+        if (role == UserRole.Farmer)
+        {
+            query = query.Where(x => x.ConsultationRequest.RequestedByUserId == ownerId);
+        }
+
+        var rows = await query
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
         return new AiHistoryView(zoneId, rows.Select(ToView).ToList());
@@ -121,9 +133,17 @@ public sealed class AiAdvisoryService(
 
     public async Task HideHistoryAsync(Guid ownerId, Guid tenantId, Guid zoneId, CancellationToken cancellationToken)
     {
-        await EnsureOwnerZoneAsync(ownerId, tenantId, zoneId, cancellationToken);
+        var (zone, role) = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, requireControl: false, cancellationToken);
         var now = clock.GetUtcNow().UtcDateTime;
-        var rows = await db.AiConsultationRequests.Where(x => x.TenantId == tenantId && x.ZoneId == zoneId && x.HiddenAtUtc == null).ToListAsync(cancellationToken);
+        var query = db.AiConsultationRequests.Where(x => x.TenantId == tenantId && x.ZoneId == zoneId && x.HiddenAtUtc == null);
+
+        // Nông dân chỉ ẩn lịch sử của chính mình, không xóa lịch sử của người khác
+        if (role == UserRole.Farmer)
+        {
+            query = query.Where(x => x.RequestedByUserId == ownerId);
+        }
+
+        var rows = await query.ToListAsync(cancellationToken);
         foreach (var row in rows) row.HiddenAtUtc = now;
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -132,13 +152,13 @@ public sealed class AiAdvisoryService(
     {
         var question = Required(command.Question, "question", 2000, 3);
         RejectPromptInjection(question);
-        var zone = await EnsureOwnerZoneAsync(ownerId, tenantId, zoneId, cancellationToken);
+        var (zone, role) = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, requireControl: false, cancellationToken);
         if (checkRateLimit) await EnsureRateLimitAsync(ownerId, zoneId, cancellationToken);
         if (command.ParentRecommendationId.HasValue && !await db.AiRecommendations.AnyAsync(x => x.Id == command.ParentRecommendationId && x.ZoneId == zoneId && x.TenantId == tenantId, cancellationToken))
             throw new ResourceNotFoundException("Parent recommendation was not found in this Zone.");
 
         var now = clock.GetUtcNow().UtcDateTime;
-        var context = await BuildContextAsync(zone, cancellationToken);
+        var context = await BuildContextAsync(zone, includeFarmStructure: role == UserRole.FarmOwner, cancellationToken);
         var request = new AiConsultationRequest
         {
             TenantId = tenantId,
@@ -155,7 +175,12 @@ public sealed class AiAdvisoryService(
         await db.SaveChangesAsync(cancellationToken);
 
         AiRecommendation recommendation;
-        if (!context.IsSufficientForAdvice)
+        var requiresRealtimeData = IsRealtimeTelemetryOrControlQuestion(question);
+        var missingRequiredData = requiresRealtimeData
+            ? !context.IsSufficientForAdvice
+            : (context.MissingData.Contains("active planting season") || context.MissingData.Contains("crop"));
+
+        if (missingRequiredData)
         {
             var missingDetails = string.Join(", ", context.MissingData);
             recommendation = CreateLimited(request, context, AiRecommendationStatus.InsufficientData,
@@ -171,8 +196,63 @@ public sealed class AiAdvisoryService(
                 // Keep historical readings visible in the persisted/context API response,
                 // but never give stale measurements to the model as decision context.
                 var providerContext = context with { Telemetry = context.Telemetry.Where(x => x.IsFresh).ToList() };
-                var result = await provider.GenerateAsync(new AiProviderRequest(question, providerContext), cancellationToken);
+
+                // ── RAG: Tìm tài liệu nông học liên quan đến câu hỏi ──────────────
+                IReadOnlyList<KnowledgePassageView>? passages = null;
+                try
+                {
+                    passages = await knowledgeRetriever.RetrievePassagesAsync(
+                        question,
+                        cropName: context.CropName,
+                        category: null,      // Không lọc theo danh mục để tối đa tài liệu
+                        tenantId: tenantId,
+                        topK: 4,
+                        cancellationToken);
+
+                    if (passages.Count > 0)
+                        logger.LogInformation("[RAG] Retrieved {Count} knowledge passages for question.", passages.Count);
+                    else
+                        logger.LogDebug("[RAG] No relevant passages found.");
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning(ex, "[RAG] Knowledge retrieval failed, proceeding without RAG context.");
+                }
+
+                var providerRequest = new AiProviderRequest(question, providerContext, passages);
+                var promptText = AiPromptBuilder.Build(providerRequest);
+                var result = await provider.GenerateAsync(
+                    providerRequest,
+                    cancellationToken);
                 recommendation = await FromProviderAsync(request, context, result, now, cancellationToken);
+
+                var sources = (result.CitedPassageIndexes ?? [])
+                    .Distinct()
+                    .Where(i => passages is not null && i >= 1 && i <= passages.Count)
+                    .Select(i => passages![i - 1])
+                    .GroupBy(p => p.DocumentId).Select(g => g.OrderByDescending(p => p.SimilarityScore).First())
+                    .Select(p => new AiSourceView(p.DocumentId, p.DocumentTitle, p.AuthorOrganization, p.Category, p.SimilarityScore))
+                    .ToList();
+
+                // Fallback nếu model không trích dẫn số thứ tự nhưng có passage liên quan cao
+                if (sources.Count == 0 && passages is { Count: > 0 })
+                {
+                    sources = passages
+                        .Where(p => p.SimilarityScore >= 0.70f)
+                        .GroupBy(p => p.DocumentId)
+                        .Select(g => g.OrderByDescending(p => p.SimilarityScore).First())
+                        .Select(p => new AiSourceView(p.DocumentId, p.DocumentTitle, p.AuthorOrganization, p.Category, p.SimilarityScore))
+                        .ToList();
+                }
+
+                recommendation.SourcesJson = JsonSerializer.Serialize(sources);
+                request.ContextSnapshotJson = JsonSerializer.Serialize(new 
+                { 
+                    Question = question,
+                    Context = providerContext,
+                    Passages = passages?.Select(p => new { p.ChunkId, p.DocumentId, p.DocumentTitle, p.Category, p.SimilarityScore }).ToList(),
+                    Sources = sources.Select(s => s.Title).ToList() 
+                });
                 request.ProviderName = Optional(result.ProviderName, 100) ?? "Unknown";
                 request.Status = recommendation.Status == AiRecommendationStatus.Ready ? AiConsultationStatus.Completed : AiConsultationStatus.Limited;
             }
@@ -204,14 +284,19 @@ public sealed class AiAdvisoryService(
         ActuatorCommandAction? action = null;
         int? duration = null;
 
-        if (result.ProposedControlAction is not null && status == AiRecommendationStatus.Ready)
+        var validatedAction = AiOutputValidator.ValidateAction(result, context, settings.MinimumConfidence);
+        if (result.ProposedControlAction is not null && validatedAction is null && status == AiRecommendationStatus.Ready)
+        {
+            limitations.Add("Đề xuất điều khiển chưa đạt điều kiện an toàn hoặc thiếu dữ liệu cảm biến mới.");
+        }
+        else if (validatedAction is not null && status == AiRecommendationStatus.Ready)
         {
             var actuator = await db.DeviceActuators.AsNoTracking().Include(x => x.Device)
-                .SingleOrDefaultAsync(x => x.Id == result.ProposedControlAction.ActuatorId && x.Device.ZoneId == request.ZoneId, cancellationToken);
+                .SingleOrDefaultAsync(x => x.Id == validatedAction.ActuatorId && x.Device.ZoneId == request.ZoneId, cancellationToken);
             var maxDuration = actuator is null ? 0 : Math.Min(1800, actuator.MaxDurationMinutes * 60);
             if (actuator is null || actuator.Device.Status != DeviceStatus.Online || actuator.Device.DecommissionedAtUtc is not null ||
-                !Enum.IsDefined(result.ProposedControlAction.Action) || result.ProposedControlAction.DurationSeconds < 1 ||
-                result.ProposedControlAction.DurationSeconds > maxDuration)
+                !Enum.IsDefined(validatedAction.Action) || validatedAction.DurationSeconds < 1 ||
+                validatedAction.DurationSeconds > maxDuration)
             {
                 status = AiRecommendationStatus.InvalidProviderOutput;
                 limitations.Add("The provider proposed an unavailable actuator, unsupported action, or duration that is not valid for this Zone.");
@@ -222,7 +307,7 @@ public sealed class AiAdvisoryService(
                                        actuator.ActuatorType.Contains("water", StringComparison.OrdinalIgnoreCase) ||
                                        actuator.ActuatorType.Contains("irrigation", StringComparison.OrdinalIgnoreCase);
                 var hasFreshSoilMoisture = context.Telemetry.Any(x => x.ParameterCode == EnvironmentalParameterCode.SoilMoisture && x.IsFresh);
-                if (isIrrigationPump && result.ProposedControlAction.Action == ActuatorCommandAction.TurnOn && !hasFreshSoilMoisture)
+                if (isIrrigationPump && validatedAction.Action == ActuatorCommandAction.TurnOn && !hasFreshSoilMoisture)
                 {
                     status = AiRecommendationStatus.InsufficientData;
                     limitations.Add("A current soil-moisture reading is required before recommending irrigation.");
@@ -231,10 +316,19 @@ public sealed class AiAdvisoryService(
                 {
                     actionable = true;
                     actuatorId = actuator.Id;
-                    action = result.ProposedControlAction.Action;
-                    duration = result.ProposedControlAction.DurationSeconds;
+                    action = validatedAction.Action;
+                    duration = validatedAction.DurationSeconds;
                 }
             }
+        }
+
+        if (!context.IsSufficientForAdvice)
+        {
+            actionable = false;
+            actuatorId = null;
+            action = null;
+            duration = null;
+            limitations.Add("Không khả dụng đề xuất điều khiển thiết bị tự động do thiếu dữ liệu cảm biến thời gian thực hoặc dự báo thời tiết.");
         }
 
         if (status == AiRecommendationStatus.LowConfidence)
@@ -248,8 +342,8 @@ public sealed class AiAdvisoryService(
             FarmId = request.FarmId,
             ZoneId = request.ZoneId,
             GrowthStageId = context.GrowthStageId,
-            Summary = Required(result.Summary, "provider.summary", 500, 1),
-            Details = Required(result.Details, "provider.details", 4000, 1),
+            Summary = Truncate(result.Summary, 500),
+            Details = Truncate(result.Details, 4000),
             Limitations = JoinLimitations(limitations),
             Confidence = confidence,
             Status = status,
@@ -261,24 +355,24 @@ public sealed class AiAdvisoryService(
         };
     }
 
-    private async Task<AiZoneContext> BuildContextAsync(Zone zone, CancellationToken cancellationToken)
+    private async Task<AiZoneContext> BuildContextAsync(Zone zone, bool includeFarmStructure, CancellationToken cancellationToken)
     {
         var now = clock.GetUtcNow().UtcDateTime;
         var season = await db.PlantingSeasons.AsNoTracking()
             .Include(x => x.Crop).Include(x => x.Variety).Include(x => x.GrowthProfile).Include(x => x.CurrentGrowthStage).Include(x => x.AppliedRequirements)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(x => x.ZoneId == zone.Id && x.Status == PlantingSeasonStatus.InProgress, cancellationToken);
-        var telemetry = new List<AiTelemetryContextItem>();
-        foreach (var parameterCode in Enum.GetValues<EnvironmentalParameterCode>())
+        var latestReadings = await db.TelemetryReadings.AsNoTracking()
+            .Where(x => x.ZoneId == zone.Id && x.CapturedAtUtc <= now)
+            .GroupBy(x => x.ParameterCode)
+            .Select(g => g.OrderByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.ReceivedAtUtc).First())
+            .ToListAsync(cancellationToken);
+
+        var telemetry = latestReadings.Select(reading =>
         {
-            var reading = await db.TelemetryReadings.AsNoTracking()
-                .Where(x => x.ZoneId == zone.Id && x.ParameterCode == parameterCode && x.CapturedAtUtc <= now)
-                .OrderByDescending(x => x.CapturedAtUtc)
-                .ThenByDescending(x => x.ReceivedAtUtc)
-                .FirstOrDefaultAsync(cancellationToken);
-            if (reading is null) continue;
             var isFresh = reading.CapturedAtUtc >= now.AddMinutes(-settings.TelemetryFreshnessMinutes) && reading.CapturedAtUtc <= now;
-            telemetry.Add(new AiTelemetryContextItem(reading.ParameterCode, reading.Value, reading.Unit, reading.CapturedAtUtc, isFresh));
-        }
+            return new AiTelemetryContextItem(reading.ParameterCode, reading.Value, reading.Unit, reading.CapturedAtUtc, isFresh);
+        }).ToList();
         var actuators = await db.DeviceActuators.AsNoTracking().Include(x => x.Device)
             .Where(x => x.Device.ZoneId == zone.Id && x.Device.DecommissionedAtUtc == null)
             .Select(x => new AiActuatorContextItem(x.Id, x.ActuatorType, Math.Min(1800, x.MaxDurationMinutes * 60), x.Device.Status == DeviceStatus.Online))
@@ -322,19 +416,58 @@ public sealed class AiAdvisoryService(
             return new AiUpcomingScheduleContextItem(x.Name, x.NextRunAtUtc, formatted, x.DurationSeconds, minutesUntil);
         }).ToList();
 
+        // ─── Private Farm Structure: chỉ đưa vào context khi người gọi là FarmOwner ──
+        // Bảo mật: Nông dân (Farmer) không được truy cập cấu trúc toàn bộ các farm/field/zone khác
+        AiFarmStructureContext? farmStructure = null;
+        if (includeFarmStructure)
+        {
+            var tenantId = zone.Field.Farm.TenantId;
+            var today = DateOnly.FromDateTime(now);
+            var farmFields = await db.Fields.AsNoTracking()
+                .Include(f => f.Farm)
+                .Include(f => f.Zones)
+                    .ThenInclude(z => z.PlantingSeasons.Where(s => s.Status == PlantingSeasonStatus.InProgress))
+                        .ThenInclude(s => s.Crop)
+                .Include(f => f.Zones)
+                    .ThenInclude(z => z.PlantingSeasons.Where(s => s.Status == PlantingSeasonStatus.InProgress))
+                        .ThenInclude(s => s.CurrentGrowthStage)
+                .Where(f => f.Farm.TenantId == tenantId && f.Farm.ArchivedAtUtc == null && f.ArchivedAtUtc == null)
+                .ToListAsync(cancellationToken);
+
+            var fieldItems = farmFields.Select(f =>
+            {
+                var zoneItems = f.Zones.Where(z => z.ArchivedAtUtc == null).Select(z =>
+                {
+                    var activeSeason = z.PlantingSeasons.FirstOrDefault(s => s.Status == PlantingSeasonStatus.InProgress);
+                    return new AiZoneStructureItem(
+                        z.Id, z.Name, z.AreaM2, z.ZoneType, z.Status.ToString(),
+                        activeSeason?.Crop?.Name,
+                        activeSeason?.CurrentGrowthStage?.Name,
+                        activeSeason is null ? null : Math.Max(0, today.DayNumber - activeSeason.StartDate.DayNumber));
+                }).ToList();
+                return new AiFieldStructureItem(f.Id, $"{f.Farm.Name} - {f.Name}", f.AreaM2, zoneItems);
+            }).ToList();
+
+            var totalTenantArea = await db.Farms.AsNoTracking().Where(f => f.TenantId == tenantId && f.ArchivedAtUtc == null).SumAsync(f => f.TotalAreaM2, cancellationToken);
+            farmStructure = new AiFarmStructureContext(
+                zone.Field.FarmId, zone.Field.Farm.Name, totalTenantArea > 0 ? totalTenantArea : zone.Field.Farm.TotalAreaM2, fieldItems);
+        }
+
         return new AiZoneContext(
             zone.Field.FarmId, zone.Field.Farm.Name, zone.Field.Farm.TimeZone, zone.FieldId, zone.Field.Name, zone.Id, zone.Name, zone.AreaM2,
-            season?.Id, season?.Crop.Name, season?.Variety?.Name, season?.GrowthProfileId, season?.GrowthProfile.Name,
+            season?.Id, season?.Crop?.Name, season?.Variety?.Name, season?.GrowthProfileId, season?.GrowthProfile?.Name,
             season is null ? null : Math.Max(0, DateOnly.FromDateTime(now).DayNumber - season.StartDate.DayNumber),
-            season?.CurrentGrowthStageId, season?.CurrentGrowthStage.Name,
+            season?.CurrentGrowthStageId, season?.CurrentGrowthStage?.Name,
             season?.AppliedRequirements.Select(x => new AiRequirementContextItem(x.ParameterCode, x.MinValue, x.MaxValue, x.TargetValue, x.Unit)).ToList() ?? [],
             telemetry,
             actuators,
             upcomingSchedules,
             new AiWeatherContext(weather.Available, weather.Summary, weather.RainProbabilityNext6HoursMaxPercent, weather.TemperatureCelsius, weather.ObservedAtUtc, weather.Limitation),
             missing,
-            missing.Count == 0);
+            missing.Count == 0,
+            farmStructure);
     }
+
 
     private AiRecommendation CreateLimited(AiConsultationRequest request, AiZoneContext context, AiRecommendationStatus status, string summary, string details, IEnumerable<string> limitations, DateTime now) => new()
     {
@@ -354,13 +487,37 @@ public sealed class AiAdvisoryService(
         throw new RateLimitExceededException("AI consultation rate limit exceeded for this Zone.", Math.Max(1, (int)Math.Ceiling((retryAt - now).TotalSeconds)));
     }
 
-    private async Task<Zone> EnsureOwnerZoneAsync(Guid ownerId, Guid tenantId, Guid zoneId, CancellationToken cancellationToken)
+    private async Task<(Zone Zone, UserRole Role)> EnsureZoneAccessAsync(Guid userId, Guid tenantId, Guid zoneId, bool requireControl, CancellationToken cancellationToken)
     {
-        var owner = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == ownerId, cancellationToken) ?? throw new AuthorizationException();
-        if (owner.Role != UserRole.FarmOwner || owner.TenantId != tenantId) throw new AuthorizationException("Only the Farm Owner can use AI advisory decisions.");
-        return await db.Zones.AsNoTracking().Include(x => x.Field).ThenInclude(x => x.Farm)
+        var user = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
+            ?? throw new AuthorizationException();
+
+        if (user.TenantId != tenantId)
+            throw new AuthorizationException("User does not belong to the requested Tenant.");
+
+        if (user.Role == UserRole.FarmOwner)
+        {
+            // FarmOwner has full access to all zones in their tenant
+        }
+        else if (user.Role == UserRole.Farmer)
+        {
+            var access = await db.UserZoneAccesses.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.AppUserId == userId && x.ZoneId == zoneId, cancellationToken);
+            if (access is null)
+                throw new AuthorizationException("Farmer does not have access to this Zone.");
+            if (requireControl && !access.CanControl)
+                throw new AuthorizationException("Farmer does not have permission to control actuators in this Zone.");
+        }
+        else
+        {
+            throw new AuthorizationException("Only Farm Owners and assigned Farmers can use AI advisory services.");
+        }
+
+        var zone = await db.Zones.AsNoTracking().Include(x => x.Field).ThenInclude(x => x.Farm)
             .SingleOrDefaultAsync(x => x.Id == zoneId && x.Field.Farm.TenantId == tenantId, cancellationToken)
             ?? throw new ResourceNotFoundException("Zone was not found in the current Tenant.");
+
+        return (zone, user.Role);
     }
 
     private async Task EnsureStageIsCurrentAsync(AiRecommendation recommendation, CancellationToken cancellationToken)
@@ -458,7 +615,19 @@ public sealed class AiAdvisoryService(
     private static void RejectPromptInjection(string question)
     {
         var normalized = question.ToLowerInvariant();
-        string[] blocked = ["ignore previous instructions", "ignore all instructions", "system prompt", "developer message", "bỏ qua hướng dẫn trước"];
+        string[] blocked = [
+            "ignore previous instructions", 
+            "ignore all instructions", 
+            "system prompt", 
+            "developer message", 
+            "bỏ qua hướng dẫn trước",
+            "bỏ qua quy tắc",
+            "bỏ qua các chỉ thị",
+            "tiết lộ prompt",
+            "tiết lộ system prompt",
+            "bỏ qua luật an toàn",
+            "bỏ qua mệnh lệnh trước"
+        ];
         if (question.IndexOf('\0') >= 0 || blocked.Any(normalized.Contains))
             throw new RequestValidationException("question", "Question contains instruction-manipulation content and was not sent to the AI provider.");
     }
@@ -469,6 +638,13 @@ public sealed class AiAdvisoryService(
         if (string.IsNullOrWhiteSpace(result) || result.Length < min || result.Length > max)
             throw new RequestValidationException(field, $"{field} must contain between {min} and {max} characters.");
         return result;
+    }
+
+    private static string Truncate(string? value, int max)
+    {
+        var result = value?.Trim();
+        if (string.IsNullOrWhiteSpace(result)) return string.Empty;
+        return result.Length <= max ? result : result[..max];
     }
 
     private static string? Optional(string? value, int max)
@@ -486,6 +662,53 @@ public sealed class AiAdvisoryService(
         return value.Length <= 2000 ? value : value[..2000];
     }
     private static IReadOnlyList<string> ParseLimitations(string? value) => string.IsNullOrWhiteSpace(value) ? [] : value.Split(" | ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    private static AiRecommendationView ToView(AiRecommendation x) => new(x.Id, x.ConsultationRequestId, x.ZoneId, x.ConsultationRequest.Question, x.Summary, x.Details, ParseLimitations(x.Limitations), x.Confidence, x.Status, x.IsActionable, x.ValidUntilUtc, x.ProposedActuatorId, x.ProposedAction, x.ProposedDurationSeconds, x.CreatedAtUtc);
+    private static IReadOnlyList<AiSourceView> ParseSources(string? sourcesJson, string? legacySnapshotJson)
+    {
+        if (!string.IsNullOrWhiteSpace(sourcesJson) && sourcesJson != "[]")
+        {
+            try
+            {
+                var list = JsonSerializer.Deserialize<List<AiSourceView>>(sourcesJson, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                if (list is { Count: > 0 }) return list;
+            }
+            catch { }
+        }
+
+        if (!string.IsNullOrWhiteSpace(legacySnapshotJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(legacySnapshotJson);
+                if (doc.RootElement.TryGetProperty("Sources", out var sProp) && sProp.ValueKind == JsonValueKind.Array)
+                {
+                    return sProp.EnumerateArray()
+                        .Select(e => e.GetString())
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Select(s => new AiSourceView(Guid.Empty, s!, null, "VietGAP", 0.9f))
+                        .ToList();
+                }
+            }
+            catch { }
+        }
+
+        return [];
+    }
+
+    private static bool IsRealtimeTelemetryOrControlQuestion(string question)
+    {
+        var q = question.ToLowerInvariant();
+        return q.Contains("hiện tại") || q.Contains("bây giờ") || q.Contains("hôm nay") ||
+               q.Contains("thế nào") || q.Contains("bao nhiêu") || q.Contains("đo được") ||
+               q.Contains("tưới không") || q.Contains("có nên tưới") || q.Contains("bật") ||
+               q.Contains("tắt") || q.Contains("điều khiển") || q.Contains("thời tiết");
+    }
+
+    private static AiRecommendationView ToView(AiRecommendation x) => new(
+        x.Id, x.ConsultationRequestId, x.ZoneId, x.ConsultationRequest?.Question ?? string.Empty,
+        x.Summary, x.Details, ParseLimitations(x.Limitations), x.Confidence,
+        x.Status, x.IsActionable, x.ValidUntilUtc, x.ProposedActuatorId,
+        x.ProposedAction, x.ProposedDurationSeconds, x.CreatedAtUtc,
+        ParseSources(x.SourcesJson, x.ConsultationRequest?.ContextSnapshotJson),
+        null); // Không rò rỉ prompt XML nội bộ và system instruction cho client
     private static AiDecisionView ToView(AiRecommendationDecision x) => new(x.Id, x.RecommendationId, x.DecisionType, x.Reason, x.CreatedAtUtc, x.ActuatorCommandId, x.FollowUpConsultationId);
 }
