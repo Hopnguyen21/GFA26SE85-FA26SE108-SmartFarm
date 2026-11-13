@@ -113,6 +113,8 @@ public static class DependencyInjection
         services.AddScoped<IFarmerService, FarmerService>();
         services.AddScoped<IScheduleSyncService, ScheduleSyncService>();
         services.AddScoped<IControlAutomationService, ControlAutomationService>();
+        services.AddScoped<INotificationService, SmartFarm.Infrastructure.Notifications.NotificationService>();
+        services.AddScoped<IZoneContractService, ZoneContractService>();
 
         return services;
     }

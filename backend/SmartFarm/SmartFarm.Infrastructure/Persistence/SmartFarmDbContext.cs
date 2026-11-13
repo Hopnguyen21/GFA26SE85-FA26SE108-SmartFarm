@@ -19,6 +19,7 @@ public sealed class SmartFarmDbContext(DbContextOptions<SmartFarmDbContext> opti
     public DbSet<GrowthStage> GrowthStages => Set<GrowthStage>();
     public DbSet<EnvironmentalRequirement> EnvironmentalRequirements => Set<EnvironmentalRequirement>();
     public DbSet<PlantingSeason> PlantingSeasons => Set<PlantingSeason>();
+    public DbSet<FarmingSeason> FarmingSeasons => Set<FarmingSeason>();
     public DbSet<SeasonAppliedRequirement> SeasonAppliedRequirements => Set<SeasonAppliedRequirement>();
     public DbSet<SeasonStageTransition> SeasonStageTransitions => Set<SeasonStageTransition>();
     public DbSet<DeviceModelDefinition> DeviceModelDefinitions => Set<DeviceModelDefinition>();
@@ -57,6 +58,7 @@ public sealed class SmartFarmDbContext(DbContextOptions<SmartFarmDbContext> opti
     public DbSet<FinanceTransaction> FinanceTransactions => Set<FinanceTransaction>();
     public DbSet<ServiceRequestHistory> ServiceRequestHistories => Set<ServiceRequestHistory>();
     public DbSet<DeviceReplacement> DeviceReplacements => Set<DeviceReplacement>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     // New platform-level entities
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
@@ -64,6 +66,9 @@ public sealed class SmartFarmDbContext(DbContextOptions<SmartFarmDbContext> opti
     public DbSet<ServiceRequestQuotation> ServiceRequestQuotations => Set<ServiceRequestQuotation>();
     public DbSet<ServiceRequestQuotationItem> ServiceRequestQuotationItems => Set<ServiceRequestQuotationItem>();
     public DbSet<ServiceRequestPayment> ServiceRequestPayments => Set<ServiceRequestPayment>();
+    public DbSet<ZoneContract> ZoneContracts => Set<ZoneContract>();
+    public DbSet<ZoneContractRenewal> ZoneContractRenewals => Set<ZoneContractRenewal>();
+    public DbSet<DeviceDepreciation> DeviceDepreciations => Set<DeviceDepreciation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
