@@ -22,8 +22,8 @@ public sealed class PlatformFeaturesController(
     [HttpGet("api/v1/audit-logs")]
     [Authorize(Roles = "PlatformAdmin")]
     public async Task<ActionResult<AuditLogPagedResult>> GetAuditLogs(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1,
+        [FromQuery, Range(1, 100)] int pageSize = 50,
         [FromQuery] string? search = null,
         [FromQuery] string? action = null,
         [FromQuery] string? entity = null,
@@ -61,7 +61,7 @@ public sealed class PlatformFeaturesController(
 
     // ─── 4. Platform Hardware Items (Central Catalog & Inventory) ─────────────
     [HttpGet("api/v1/platform/hardware-items")]
-    [Authorize(Roles = "PlatformAdmin,PlatformTechnician")]
+    [Authorize(Roles = "PlatformAdmin,PlatformTechnician,FarmOwner")]
     public async Task<ActionResult<IReadOnlyList<PlatformHardwareItemView>>> ListHardwareItems(CancellationToken ct)
     {
         return Ok(await adminService.ListHardwareItemsAsync(ct));
@@ -96,7 +96,7 @@ public sealed class PlatformFeaturesController(
     }
 
     // ─── 5. Global Growth Profiles ────────────────────────────────────────────
-    [HttpGet("api/v1/growth-profiles")]
+    [HttpGet("api/v1/platform/growth-profiles")]
     [Authorize(Roles = "PlatformAdmin,FarmOwner")]
     public async Task<ActionResult<IReadOnlyList<AllGrowthProfileView>>> GetAllGrowthProfiles(
         [FromQuery] bool? isSystemDefined = null,
