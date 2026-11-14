@@ -138,8 +138,7 @@ public sealed record AiZoneContext(
     // Lịch tưới của Zone trong vài ngày tới (khác UpcomingSchedules chỉ gồm 12 giờ tới cho việc tránh tưới trùng); chỉ nạp khi được hỏi.
     [property: JsonIgnore] IReadOnlyList<AiUpcomingScheduleContextItem>? SchedulesAhead = null,
     string? LocationLevel = null,
-    string? GeneralRegion = null,
-    string? ClimateRegion = null);
+    string? GeneralRegion = null);
 
 
 public sealed record AiProposedControlAction(Guid ActuatorId, ActuatorCommandAction Action, int DurationSeconds);

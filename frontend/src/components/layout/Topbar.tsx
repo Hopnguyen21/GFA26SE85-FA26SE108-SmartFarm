@@ -58,7 +58,7 @@ export const Topbar: React.FC = () => {
       const [list, count, expContracts] = await Promise.all([
         notificationService.getNotifications(undefined, 1, 15).catch(() => []),
         notificationService.getUnreadCount().catch(() => 0),
-        role !== 'FARMER' ? zoneContractService.getExpiringContracts(undefined, 30).catch(() => []) : Promise.resolve([]),
+        zoneContractService.getExpiringContracts(undefined, 30).catch(() => []),
       ]);
 
       // Deduplicate contracts by contractNumber and only show actively expiring ones (0 to 30 days)

@@ -51,6 +51,5 @@ public interface IAgricultureKnowledgeRetriever
         int topK,
         bool generalOnlyWhenCropUnknown,
         CancellationToken cancellationToken,
-        IReadOnlyList<string>? expansionTerms = null,
-        string? climateRegion = null);
+        IReadOnlyList<string>? expansionTerms = null);
 }

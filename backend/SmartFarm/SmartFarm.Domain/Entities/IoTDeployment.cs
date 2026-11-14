@@ -92,6 +92,12 @@ public sealed class Gateway : AuditableEntity
     public string ClientCertificateFingerprint { get; set; } = string.Empty;
     public GatewayStatus Status { get; set; } = GatewayStatus.Provisioned;
     public DateTime? LastSeenAtUtc { get; set; }
+    public int TelemetryIntervalSec { get; set; } = 60;
+    public int SamplesPerInterval { get; set; } = 1;
+    public string AntennaDirection { get; set; } = "Omnidirectional";
+    public string? InstallationLocation { get; set; }
+    public string ConfiguredNodeIdsCsv { get; set; } = string.Empty;
+    public DateTime? ConfiguredAtUtc { get; set; }
     public ICollection<Device> Devices { get; } = new List<Device>();
 }
 
@@ -126,6 +132,8 @@ public sealed class Device : AuditableEntity
     public int? BatteryLevel { get; set; }
     public decimal? Rssi { get; set; }
     public DateTime? DecommissionedAtUtc { get; set; }
+    public DateTime? LastSeenAtUtc { get; set; }
+    public int? HeartbeatIntervalSeconds { get; set; }
     public ICollection<DeviceSensor> Sensors { get; } = new List<DeviceSensor>();
     public ICollection<DeviceActuator> Actuators { get; } = new List<DeviceActuator>();
     public ICollection<DeviceAssignmentHistory> AssignmentHistory { get; } = new List<DeviceAssignmentHistory>();

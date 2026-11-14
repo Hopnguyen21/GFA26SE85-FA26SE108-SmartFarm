@@ -549,14 +549,14 @@ export interface ContractDetails {
   totalAmount: number;          // Tổng hợp đồng (VNĐ)
   deposit30Percent: number;     // Tiền cọc 30% khi ký Hợp đồng (VNĐ)
   remaining70Percent: number;   // Tiền 70% còn lại khi Nghiệm thu (VNĐ)
-
+  
   // Trạng thái gửi & ký Hợp đồng
   isContractSent: boolean;
   contractSentAt?: string;
   isSignedByOwner: boolean;
   signedAtByOwner?: string;
   ownerSignatureName?: string;
-
+  
   // Thanh toán cọc 30%
   is30PercentPaid: boolean;
   paid30At?: string;
@@ -578,9 +578,6 @@ export interface AcceptanceDetails {
 }
 
 export interface ServiceRequest {
-  deploymentStatus?: string;
-  quotationStatus?: string;
-  deploymentLinkInvalid?: boolean;
   serviceRequestId: string;
   deploymentRequestId?: string;
   tenantId: string;
@@ -598,7 +595,7 @@ export interface ServiceRequest {
   title: string;
   description: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  status: 'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'DIAGNOSED' | 'WORK_COMPLETED' | 'VERIFIED' | 'RESOLVED' | 'CLOSED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'CONTRACT_SENT' | 'CONTRACT_SIGNED_30PAID' | 'ACCEPTED_BY_OWNER' | 'RESOLVED' | 'CLOSED';
   requestType: 'INSTALLATION' | 'MAINTENANCE' | 'REPAIR' | 'REPLACEMENT' | 'INITIAL_SETUP';
   isAcceptedByOwner?: boolean;
   acceptedAtByOwner?: string;
@@ -672,9 +669,6 @@ export interface ZoneContract {
   notes?: string;
   signedAtUtc?: string;
   renewals?: ZoneContractRenewal[];
-  contractPackageId?: string;
-  contractPackageName?: string;
-  isCustomPackage?: boolean;
   createdAtUtc?: string;
 }
 
@@ -959,98 +953,5 @@ export interface AiRecommendationView {
   sources?: AiSource[];
   contextSnapshotJson?: string;
 }
-
-// ─── Module 1: Phiếu Xuất Kho (Stock Out) ───────────────────────────────────
-export type StockOutStatus = 'Draft' | 'Pending' | 'Approved' | 'Completed' | 'Cancelled' | number;
-
-export interface StockOutDetail {
-  id: string;
-  stockOutId: string;
-  inventoryItemId: string;
-  itemName: string;
-  unit: string;
-  quantity: number;
-  currentStock: number;
-  notes?: string;
-}
-
-export interface StockOut {
-  id: string;
-  tenantId: string;
-  farmId: string;
-  farmName: string;
-  zoneId?: string;
-  zoneName?: string;
-  stockOutCode: string;
-  status: StockOutStatus;
-  statusText: string;
-  createdByUserId: string;
-  createdByName: string;
-  approvedByUserId?: string;
-  approvedByName?: string;
-  completedAtUtc?: string;
-  notes?: string;
-  createdAtUtc: string;
-  details: StockOutDetail[];
-}
-
-// ─── Module 2: Hóa Đơn Độc Lập (Bill / Invoices) ────────────────────────────
-export type BillStatus = 'Draft' | 'Issued' | 'PartiallyPaid' | 'Paid' | 'Overdue' | 'Cancelled' | number;
-
-export interface Bill {
-  id: string;
-  tenantId: string;
-  billCode: string;
-  contractId: string;
-  contractNumber: string;
-  customerTenantId?: string;
-  lesseeName: string;
-  amount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  status: BillStatus;
-  statusText: string;
-  issueDate: string;
-  dueDate: string;
-  paidDate?: string;
-  paymentMethod?: string;
-  notes?: string;
-  createdByUserId: string;
-  createdByName: string;
-  createdAtUtc: string;
-  updatedAtUtc?: string;
-}
-
-// ─── Module 3: Gói Hợp Đồng (Contract Packages) ─────────────────────────────
-export type PackageStatus = 'Active' | 'Inactive' | number;
-
-export interface ContractPackage {
-  id: string;
-  packageName: string;
-  description?: string;
-  durationMonths: number;
-  maxZones: number;
-  price: number;
-  currency: string;
-  status: PackageStatus;
-  statusText: string;
-  createdByUserId: string;
-  createdByName: string;
-  createdAtUtc: string;
-  updatedAtUtc?: string;
-  isCustom?: boolean;
-  customerName?: string;
-  contractId?: string;
-}
-
-export interface CustomPackageRequest {
-  packageName: string;
-  description?: string;
-  durationMonths: number;
-  maxZones: number;
-  price: number;
-  currency?: string;
-}
-
 
 
