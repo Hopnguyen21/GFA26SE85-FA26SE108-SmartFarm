@@ -7,7 +7,8 @@ import {
   XCircle, 
   Sparkles, 
   Sprout, 
-  ShieldAlert, 
+  ShieldAlert,
+  Lock, 
   Cpu, 
   Clock, 
   RefreshCw, 
@@ -327,6 +328,8 @@ const RagSourceCard: React.FC<RagSourceCardProps> = ({ source, index }) => {
   const title = typeof source === 'string' ? source : (source.title || source.name || 'Tài liệu VietGAP');
   const org = typeof source === 'object' ? (source.organization || source.authorOrganization) : undefined;
   const category = typeof source === 'object' ? source.category : undefined;
+  const version = typeof source === 'object' ? (source.version || source.Version) : undefined;
+  const standardCode = typeof source === 'object' ? (source.standardCode || source.StandardCode) : undefined;
   const similarity = typeof source === 'object' && source.similarity != null ? Math.round(source.similarity * 100) : undefined;
   const docId = typeof source === 'object' ? (source.documentId || source.DocumentId) : undefined;
   const snippet = typeof source === 'object' ? (source.contentSnippet || source.content) : undefined;
@@ -345,8 +348,18 @@ const RagSourceCard: React.FC<RagSourceCardProps> = ({ source, index }) => {
         className="p-3 cursor-pointer hover:bg-emerald-50/60 flex flex-col gap-2 transition-colors"
       >
         <div className="flex items-start justify-between gap-3 text-xs md:text-sm">
-          <span className="font-bold text-slate-800 flex items-center gap-2 leading-snug">
+          <span className="font-bold text-slate-800 flex items-center gap-2 leading-snug flex-wrap">
             <span className="text-emerald-700 font-mono font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">#{index + 1}</span>
+            {standardCode && (
+              <span className="text-blue-800 font-mono font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 text-xs">
+                {standardCode}
+              </span>
+            )}
+            {version && (
+              <span className="text-cyan-800 font-mono font-bold bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200 text-xs">
+                {version}
+              </span>
+            )}
             <span className="text-slate-900">{title}</span>
           </span>
           {similarity != null && (
@@ -1231,8 +1244,8 @@ export const AIAssistantPage: React.FC = () => {
                     <RagSourcesAccordion sources={msg.sources} />
                   )}
 
-                  {/* Log dữ liệu BE gửi cho AI (chỉ hiện cho Admin hoặc chế độ debug) */}
-                  {!isUser && isPrivileged && (msg.contextSnapshotJson || msg.recommendation?.contextSnapshotJson) && (
+                  {/* Log dữ liệu BE gửi cho AI */}
+                  {!isUser && (msg.contextSnapshotJson || msg.recommendation?.contextSnapshotJson) && (
                     <AiPayloadLogViewer snapshotJson={msg.contextSnapshotJson || msg.recommendation?.contextSnapshotJson} />
                   )}
 
@@ -1312,6 +1325,10 @@ export const AIAssistantPage: React.FC = () => {
               <Send size={16} />
             </Button>
           </form>
+          <div className="px-3 py-1 bg-slate-50 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[10.5px] text-slate-500">
+            <Lock size={11} className="text-emerald-600 shrink-0" />
+            <span>Bảo mật dữ liệu: AI chỉ xử lý thông số kỹ thuật Zone & thời tiết vùng. Vui lòng không gửi số điện thoại, thông tin liên hệ hoặc hợp đồng.</span>
+          </div>
         </div>
 
         {/* Right Col: Active Recommendation Cards Inbox */}

@@ -50,7 +50,7 @@ class ZoneContractModel {
   final double totalContractValueVnd;
   final String startDate;
   final String endDate;
-  final String status; // 'Active', 'Expired', 'Renewed', 'Terminated'
+  final String status; // Active, ExpiringSoon, Expired, Terminated, Renewed
   final String statusText;
   final int daysRemaining;
   final String lesseeName;
@@ -111,8 +111,12 @@ class ZoneContractModel {
   /// Thiết bị kèm theo hợp đồng (từ báo giá lắp đặt của Zone).
   final List<ZoneContractEquipmentModel> equipment;
 
-  bool get isActive => status.toLowerCase() == 'active' || status == '0';
-  bool get isExpiringSoon => daysRemaining >= 0 && daysRemaining <= 30;
+  /// Còn hiệu lực: backend có cả Active và ExpiringSoon (còn ≤ 30 ngày), cả hai đều là hợp đồng đang chạy.
+  bool get isActive => status == 'Active' || status == 'ExpiringSoon';
+
+  /// Sắp hết hạn: chỉ tính hợp đồng đang chạy còn 0–30 ngày (không tính đã tái ký / chấm dứt / hết hạn).
+  bool get isExpiringSoon =>
+      isActive && daysRemaining >= 0 && daysRemaining <= 30;
 
   factory ZoneContractModel.fromJson(Map<String, dynamic> json) {
     var rawRenewals = json['renewals'];
@@ -126,16 +130,21 @@ class ZoneContractModel {
     }
 
     final rawStatus = json['status']?.toString() ?? 'Active';
-    String displayStatus = rawStatus;
-    if (rawStatus == '0' || rawStatus.toLowerCase() == 'active') {
-      displayStatus = 'Active';
-    } else if (rawStatus == '1' || rawStatus.toLowerCase() == 'expired') {
-      displayStatus = 'Expired';
-    } else if (rawStatus == '2' || rawStatus.toLowerCase() == 'renewed') {
-      displayStatus = 'Renewed';
-    } else if (rawStatus == '3' || rawStatus.toLowerCase() == 'terminated') {
-      displayStatus = 'Terminated';
-    }
+    // Enum backend: Active=0, ExpiringSoon=1, Expired=2, Terminated=3, Renewed=4 (API trả chuỗi; số chỉ để dự phòng).
+    const byIndex = [
+      'Active',
+      'ExpiringSoon',
+      'Expired',
+      'Terminated',
+      'Renewed',
+    ];
+    final idx = int.tryParse(rawStatus);
+    final displayStatus = idx != null && idx >= 0 && idx < byIndex.length
+        ? byIndex[idx]
+        : byIndex.firstWhere(
+            (s) => s.toLowerCase() == rawStatus.toLowerCase(),
+            orElse: () => rawStatus,
+          );
 
     return ZoneContractModel(
       id: json['id']?.toString() ?? '',
@@ -341,4 +350,55 @@ class ExpiringContractAlertModel {
           (json['totalContractValueVnd'] as num?)?.toDouble() ?? 0.0,
     );
   }
+}
+
+/// Tham số nghiệp vụ do Admin cấu hình (tỷ lệ cọc, ngưỡng mưa, giảm giá); app chỉ hiển thị/ước tính theo giá trị server.
+class BusinessParameters {
+  final double depositPercent;
+  final double rainGuardThresholdPercent;
+  final double repeatPurchaseDiscountPercent;
+  final double renewalDiscountPercent;
+
+  const BusinessParameters({
+    required this.depositPercent,
+    required this.rainGuardThresholdPercent,
+    required this.repeatPurchaseDiscountPercent,
+    required this.renewalDiscountPercent,
+  });
+
+  /// Chỉ dùng khi chưa tải xong hoặc server không trả lời; khớp giá trị mặc định ở backend.
+  static const fallback = BusinessParameters(
+    depositPercent: 30,
+    rainGuardThresholdPercent: 70,
+    repeatPurchaseDiscountPercent: 15,
+    renewalDiscountPercent: 10,
+  );
+
+  /// Giá trị hiện hành dùng cho nhãn / tính nhanh ở các nơi không giữ store API (logic thuần); [BusinessParametersStore.refresh] cập nhật.
+  static BusinessParameters active = fallback;
+
+  factory BusinessParameters.fromJson(Map<String, dynamic> json) =>
+      BusinessParameters(
+        depositPercent:
+            (json['depositPercent'] as num?)?.toDouble() ??
+            fallback.depositPercent,
+        rainGuardThresholdPercent:
+            (json['rainGuardThresholdPercent'] as num?)?.toDouble() ??
+            fallback.rainGuardThresholdPercent,
+        repeatPurchaseDiscountPercent:
+            (json['repeatPurchaseDiscountPercent'] as num?)?.toDouble() ??
+            fallback.repeatPurchaseDiscountPercent,
+        renewalDiscountPercent:
+            (json['renewalDiscountPercent'] as num?)?.toDouble() ??
+            fallback.renewalDiscountPercent,
+      );
+
+  /// Phần trăm còn lại sau tạm ứng (nghiệm thu).
+  double get remainingPercent => 100 - depositPercent;
+
+  /// "30" thay vì "30.0"; giữ phần lẻ nếu có ("32.5").
+  static String fmt(double v) =>
+      v == v.roundToDouble() ? v.round().toString() : v.toString();
+  String get depositLabel => '${fmt(depositPercent)}%';
+  String get remainingLabel => '${fmt(remainingPercent)}%';
 }

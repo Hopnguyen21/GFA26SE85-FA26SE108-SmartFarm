@@ -24,8 +24,10 @@ public sealed class AgricultureKnowledgeRetriever(
     SmartFarmDbContext db,
     GeminiEmbeddingProvider embeddingProvider,
     ILogger<AgricultureKnowledgeRetriever> logger,
-    IMemoryCache? cache = null) : IAgricultureKnowledgeRetriever
+    IMemoryCache? cache = null,
+    TimeProvider? clock = null) : IAgricultureKnowledgeRetriever
 {
+    private DateTime NowUtc => (clock ?? TimeProvider.System).GetUtcNow().UtcDateTime;
     // Ngưỡng similarity tối thiểu (cosine similarity, 0-1)
     // Cosine distance trong pgvector = 1 - cosine_similarity
     // Ngưỡng distance < 0.60 ≈ similarity > 0.40
@@ -73,13 +75,14 @@ public sealed class AgricultureKnowledgeRetriever(
         int topK,
         bool generalOnlyWhenCropUnknown,
         CancellationToken cancellationToken,
-        IReadOnlyList<string>? expansionTerms = null)
+        IReadOnlyList<string>? expansionTerms = null,
+        string? climateRegion = null)
     {
         if (string.IsNullOrWhiteSpace(question)) return [];
         question = question.Normalize(NormalizationForm.FormC).Trim();
         if (topK <= 0) topK = 5;
 
-        var scope = await ResolveDocumentScopeAsync(cropName, tenantId, generalOnlyWhenCropUnknown, cancellationToken);
+        var scope = await ResolveDocumentScopeAsync(cropName, tenantId, generalOnlyWhenCropUnknown, cancellationToken, climateRegion);
         if (scope.Allowed is { Count: 0 }) return [];
 
         // Lấy dư ứng viên rồi mới chọn: ưu tiên chủ đề câu hỏi, tài liệu đúng cây, và giới hạn số đoạn mỗi tài liệu.
@@ -89,14 +92,24 @@ public sealed class AgricultureKnowledgeRetriever(
         return await WithVersionsAsync(selected, cancellationToken);
     }
 
-    // Phiên bản tài liệu đi kèm đoạn để AI chỉ so sánh phiên bản khi metadata thật sự có.
+    // Phiên bản tài liệu và mã hiệu quy chuẩn đi kèm đoạn để AI trích dẫn chuẩn xác nguồn.
     private async Task<IReadOnlyList<KnowledgePassageView>> WithVersionsAsync(IReadOnlyList<KnowledgePassageView> passages, CancellationToken ct)
     {
         if (passages.Count == 0) return passages;
         var ids = passages.Select(p => p.DocumentId).Distinct().ToList();
-        var versions = await db.AgricultureDocuments.AsNoTracking().Where(d => ids.Contains(d.Id))
-            .ToDictionaryAsync(d => d.Id, d => d.Version, ct);
-        return passages.Select(p => versions.TryGetValue(p.DocumentId, out var v) && !string.IsNullOrWhiteSpace(v) ? p with { Version = v } : p).ToList();
+        var docs = await db.AgricultureDocuments.AsNoTracking().Where(d => ids.Contains(d.Id))
+            .Select(d => new { d.Id, d.Version, d.StandardCode })
+            .ToDictionaryAsync(d => d.Id, ct);
+        return passages.Select(p => {
+            if (docs.TryGetValue(p.DocumentId, out var d))
+            {
+                var updated = p;
+                if (!string.IsNullOrWhiteSpace(d.Version)) updated = updated with { Version = d.Version };
+                if (!string.IsNullOrWhiteSpace(d.StandardCode)) updated = updated with { StandardCode = d.StandardCode };
+                return updated;
+            }
+            return p;
+        }).ToList();
     }
 
     /// <summary>
@@ -105,19 +118,27 @@ public sealed class AgricultureKnowledgeRetriever(
     /// mở rộng sang tài liệu chuyên biệt của cây khác. Không có cây: mọi tài liệu, hoặc chỉ tài liệu chung nếu yêu cầu.
     /// </summary>
     private async Task<(HashSet<Guid>? Allowed, HashSet<Guid> CropSpecific)> ResolveDocumentScopeAsync(
-        string? cropName, Guid? tenantId, bool generalOnlyWhenCropUnknown, CancellationToken ct)
+        string? cropName, Guid? tenantId, bool generalOnlyWhenCropUnknown, CancellationToken ct, string? climateRegion = null)
     {
         var hasCrop = !string.IsNullOrWhiteSpace(cropName);
-        if (!hasCrop && !generalOnlyWhenCropUnknown) return (null, []);
+        var nowUtc = NowUtc;
 
         var docs = await db.AgricultureDocuments.AsNoTracking()
             .Where(d => d.ReviewStatus == SmartFarm.Domain.Entities.AgricultureDocumentReviewStatus.Approved)
+            .Where(d => d.SupersededByDocumentId == null)
+            .Where(d => d.EffectiveDate == null || d.EffectiveDate <= nowUtc)
+            .Where(d => d.ExpirationDate == null || d.ExpirationDate > nowUtc)
             .Where(d => d.IsPublic || d.TenantId == tenantId)
-            .Select(d => new { d.Id, d.CropScope })
+            .Select(d => new { d.Id, d.CropScope, d.RegionScope })
             .ToListAsync(ct);
+        // Tài liệu ghi rõ vùng khí hậu khác vùng của nông trại thì không dùng (cùng cây, khác vùng, khác ngưỡng).
+        docs = docs.Where(d => SmartFarm.Infrastructure.Ai.Location.ClimateRegionMapper.Matches(d.RegionScope, climateRegion)).ToList();
 
         var general = docs.Where(d => string.IsNullOrWhiteSpace(d.CropScope)).Select(d => d.Id);
-        if (!hasCrop) return (general.ToHashSet(), []);
+        if (!hasCrop)
+        {
+            return (generalOnlyWhenCropUnknown ? general.ToHashSet() : docs.Select(d => d.Id).ToHashSet(), []);
+        }
 
         var specific = docs.Where(d => CropNames.ScopeIncludes(d.CropScope, cropName!)).Select(d => d.Id).ToHashSet();
         return (specific.Concat(general).ToHashSet(), specific);
@@ -167,64 +188,35 @@ public sealed class AgricultureKnowledgeRetriever(
         IReadOnlyList<string>? expansionTerms,
         CancellationToken cancellationToken)
     {
-        // ── 1. Chuẩn hóa & giảm thiểu dữ liệu câu hỏi trước khi tạo embedding ──
-
-        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
-
-        var embeddingKey = "ai_query_embedding_" + sanitizedQuestion.Trim().ToLowerInvariant();
-
-        float[]? questionEmbedding = null;
-
-        // API embedding vừa lỗi (thường là hết quota): tạm dùng tìm theo từ khóa, không gọi lại ở mọi câu hỏi.
-
-        if ((cache is null || !cache.TryGetValue(embeddingKey, out questionEmbedding)) && cache?.TryGetValue(EmbeddingUnavailableKey, out _) != true)
-
-        {
-
-            questionEmbedding = await embeddingProvider.EmbedQueryAsync(sanitizedQuestion, cancellationToken);
-
-            if (questionEmbedding is not null) cache?.Set(embeddingKey, questionEmbedding, TimeSpan.FromHours(6));
-
-            else cache?.Set(EmbeddingUnavailableKey, true, TimeSpan.FromMinutes(5));
-
-        }
-
-
-
-        if (questionEmbedding is not null)
-
-        {
-
-            try
-
-            {
-
-                var vectorResults = await SearchByVectorAsync(sanitizedQuestion, questionEmbedding, allowedDocumentIds, category, tenantId, topK, cancellationToken);
-
-                if (vectorResults.Count > 0) return vectorResults;
-
-            }
-
-            catch (Exception ex) when (ex is not OperationCanceledException)
-
-            {
-
-                logger.LogWarning(ex, "[RAG] Vector query failed (e.g. pgvector not installed in PostgreSQL). Falling back gracefully to keyword search.");
-
-            }
-
-        }
-
-
-
-        // ── 2. Fallback: keyword scoring khi chưa có embedding hoặc embedding chưa trả kết quả ──
-
-        // Vẫn trong cùng phạm vi tài liệu (đúng cây + chung): không nới sang tài liệu của cây khác.
-
-        // Ghi log metadata an toàn, tuyệt đối không ghi nội dung câu hỏi ra log.
-
-        logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback (QueryLength: {Length}).", sanitizedQuestion.Length);
-
+        // ── 1. Chuẩn hóa & giảm thiểu dữ liệu câu hỏi trước khi tạo embedding ──
+        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+        var embeddingKey = "ai_query_embedding_" + sanitizedQuestion.Trim().ToLowerInvariant();
+        float[]? questionEmbedding = null;
+        // API embedding vừa lỗi (thường là hết quota): tạm dùng tìm theo từ khóa, không gọi lại ở mọi câu hỏi.
+        if ((cache is null || !cache.TryGetValue(embeddingKey, out questionEmbedding)) && cache?.TryGetValue(EmbeddingUnavailableKey, out _) != true)
+        {
+            questionEmbedding = await embeddingProvider.EmbedQueryAsync(sanitizedQuestion, cancellationToken);
+            if (questionEmbedding is not null) cache?.Set(embeddingKey, questionEmbedding, TimeSpan.FromHours(6));
+            else cache?.Set(EmbeddingUnavailableKey, true, TimeSpan.FromMinutes(5));
+        }
+
+        if (questionEmbedding is not null)
+        {
+            try
+            {
+                var vectorResults = await SearchByVectorAsync(sanitizedQuestion, questionEmbedding, allowedDocumentIds, category, tenantId, topK, cancellationToken);
+                if (vectorResults.Count > 0) return vectorResults;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "[RAG] Vector query failed (e.g. pgvector not installed in PostgreSQL). Falling back gracefully to keyword search.");
+            }
+        }
+
+        // ── 2. Fallback: keyword scoring khi chưa có embedding hoặc embedding chưa trả kết quả ──
+        // Vẫn trong cùng phạm vi tài liệu (đúng cây + chung): không nới sang tài liệu của cây khác.
+        // Ghi log metadata an toàn, tuyệt đối không ghi nội dung câu hỏi ra log.
+        logger.LogDebug("[RAG] Vector search empty or unavailable, using keyword fallback (QueryLength: {Length}).", sanitizedQuestion.Length);
         return await SearchByKeywordsAsync(sanitizedQuestion, allowedDocumentIds, category, tenantId, topK, expansionTerms, cancellationToken);
     }
 
@@ -244,11 +236,15 @@ public sealed class AgricultureKnowledgeRetriever(
         try
         {
             var queryVector = new Vector(questionEmbeddingValues);
+            var nowUtc = NowUtc;
             var query = db.AgricultureKnowledgeChunks
                 .AsNoTracking()
                 .Include(c => c.Document)
                 .Where(c => c.Embedding != null)
                 .Where(c => c.Document.ReviewStatus == SmartFarm.Domain.Entities.AgricultureDocumentReviewStatus.Approved)
+                .Where(c => c.Document.SupersededByDocumentId == null)
+                .Where(c => c.Document.EffectiveDate == null || c.Document.EffectiveDate <= nowUtc)
+                .Where(c => c.Document.ExpirationDate == null || c.Document.ExpirationDate > nowUtc)
                 .Where(c => c.Document.IsPublic || c.Document.TenantId == tenantId);
 
             // Chỉ tài liệu trong phạm vi được phép (đúng cây + áp dụng chung), so theo tên cây chuẩn hóa.
@@ -308,14 +304,25 @@ public sealed class AgricultureKnowledgeRetriever(
         if (conn.State != ConnectionState.Open)
             await conn.OpenAsync(ct);
 
+        var nowUtc = NowUtc;
         // Pre-filter tại tầng SQL bằng điều kiện crop và category để không tải toàn bộ chunk vào RAM
         var sqlBuilder = new StringBuilder(@"
             SELECT c.id, c.document_id, d.title, d.author_organization, d.category, c.content, c.crop_tags, c.embedding::text, c.page_number, c.section_title
             FROM agriculture_knowledge_chunks c
             JOIN agriculture_documents d ON c.document_id = d.id
-            WHERE c.embedding IS NOT NULL AND d.review_status = 'Approved' AND (d.is_public = TRUE OR d.tenant_id = @tenantId)");
+            WHERE c.embedding IS NOT NULL 
+              AND d.review_status = 'Approved' 
+              AND d.superseded_by_document_id IS NULL
+              AND (d.effective_date IS NULL OR d.effective_date <= @nowUtc)
+              AND (d.expiration_date IS NULL OR d.expiration_date > @nowUtc)
+              AND (d.is_public = TRUE OR d.tenant_id = @tenantId)");
 
         using var cmd = conn.CreateCommand();
+        var pNow = cmd.CreateParameter();
+        pNow.ParameterName = "@nowUtc";
+        pNow.Value = nowUtc;
+        cmd.Parameters.Add(pNow);
+
         var pTenant = cmd.CreateParameter();
         pTenant.ParameterName = "@tenantId";
         pTenant.Value = tenantId ?? Guid.Empty;
@@ -419,10 +426,14 @@ public sealed class AgricultureKnowledgeRetriever(
         IReadOnlyList<string>? expansionTerms,
         CancellationToken ct)
     {
+        var nowUtc = NowUtc;
         var query = db.AgricultureKnowledgeChunks
             .AsNoTracking()
             .Include(c => c.Document)
             .Where(c => c.Document.ReviewStatus == SmartFarm.Domain.Entities.AgricultureDocumentReviewStatus.Approved)
+            .Where(c => c.Document.SupersededByDocumentId == null)
+            .Where(c => c.Document.EffectiveDate == null || c.Document.EffectiveDate <= nowUtc)
+            .Where(c => c.Document.ExpirationDate == null || c.Document.ExpirationDate > nowUtc)
             .Where(c => c.Document.IsPublic || c.Document.TenantId == tenantId);
 
         // Chỉ tài liệu trong phạm vi được phép (đúng cây + áp dụng chung), so theo tên cây chuẩn hóa.

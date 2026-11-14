@@ -200,7 +200,7 @@ class _RenewSheetState extends State<_RenewSheet> {
             const SizedBox(height: 8),
             Text(
               'Gia hạn $months tháng đến ${_dmy.format(_newEnd)} · thành tiền trước chiết khấu ${_vnd.format(raw)}.'
-              '${_discountType == 'AUTO' ? ' Backend tự giảm 15% (ký lại trong 60 ngày) hoặc 10%.' : ''}',
+              '${_discountType == 'AUTO' ? ' Backend tự giảm ${BusinessParameters.fmt(BusinessParametersStore.current.repeatPurchaseDiscountPercent)}% (ký lại trong 60 ngày) hoặc ${BusinessParameters.fmt(BusinessParametersStore.current.renewalDiscountPercent)}%.' : ''}',
               style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
             ),
             const SizedBox(height: 10),

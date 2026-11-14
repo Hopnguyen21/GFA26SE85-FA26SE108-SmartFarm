@@ -334,22 +334,6 @@ class _DeploymentRequestDetailScreenState
                       ),
                     ),
                 ],
-                const Divider(height: 24),
-                const Text(
-                  'Lịch sử quyết định',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                for (final h in r.history)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      '${h.decisionType}: ${deploymentStatusLabels[h.fromStatus] ?? h.fromStatus} → ${deploymentStatusLabels[h.toStatus] ?? h.toStatus}',
-                    ),
-                    subtitle: Text(
-                      '${h.decidedAtUtc}${h.notes == null ? '' : '\n${h.notes}'}',
-                    ),
-                  ),
               ],
             ),
     );

@@ -26,6 +26,9 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
   @override
   void initState() {
     super.initState();
+    BusinessParametersStore.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
     _reload();
   }
 
@@ -137,9 +140,12 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
   );
 
   Widget _statusBanner(ZoneContractModel c) {
-    final expired = c.daysRemaining < 0 || c.status == 'Expired';
-    final soon = !expired && c.daysRemaining <= 30;
-    final color = expired
+    final ended = c.status == 'Renewed' || c.status == 'Terminated';
+    final expired = !ended && (c.daysRemaining < 0 || c.status == 'Expired');
+    final soon = !ended && !expired && c.daysRemaining <= 30;
+    final color = ended
+        ? const Color(0xFF64748B)
+        : expired
         ? const Color(0xFFE11D48)
         : soon
         ? const Color(0xFFD97706)
@@ -151,7 +157,11 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
         : soon
         ? 'Sắp hết hạn'
         : 'Còn hiệu lực';
-    final message = expired
+    final message = ended
+        ? (c.status == 'Renewed'
+              ? 'Hợp đồng này đã được tái ký / gia hạn bằng hợp đồng khác, không còn là hợp đồng hiện hành.'
+              : 'Hợp đồng này đã được thanh lý / chấm dứt.')
+        : expired
         ? 'Hợp đồng này đã hết hạn hiệu lực. Cần gia hạn hoặc thanh lý/tái ký mới.'
         : soon
         ? 'Hợp đồng sắp hết hạn trong ${c.daysRemaining} ngày tới. Khuyến nghị gia hạn ngay!'
@@ -282,48 +292,31 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
     ),
   );
 
-  Widget _renewalTile(ZoneContractModel c, int i, ZoneContractRenewalModel r) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _row(
-              'Lần ${c.renewals.length - i}: gia hạn đến ${_d(r.newEndDate)}',
-              '+${_vnd.format(r.renewalValueVnd)}',
-              bold: true,
-              color: const Color(0xFF065F46),
-            ),
-            if (r.newMonthlyRentVnd != null)
-              _row('Giá trị mới', _vnd.format(r.newMonthlyRentVnd)),
-            Text(
-              (r.notes ?? '').isNotEmpty
-                  ? r.notes!
-                  : 'Gia hạn thời gian sử dụng',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
-            ),
-            Text(
-              _d(r.createdAt),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-            ),
-          ],
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     final c = _c;
     final total = c.totalContractValueVnd;
-    final deposit = c.depositVnd > 0 ? c.depositVnd : total * 0.3;
+    final bp = BusinessParametersStore.current;
+    final deposit = c.depositVnd > 0
+        ? c.depositVnd
+        : total * bp.depositPercent / 100;
     final remaining = (total - deposit).clamp(0, double.infinity).toDouble();
     final totalDevices = c.equipment.fold<int>(0, (s, e) => s + e.quantity);
-    final vatPercent = c.vatPercent > 0 ? c.vatPercent : 8;
+    // Tỷ lệ cọc và VAT của HỢP ĐỒNG NÀY lấy theo số đã chốt khi ký, không theo cấu hình Platform hiện hành (đổi cấu hình chỉ áp cho hợp đồng chưa cọc).
+    final depPct = total > 0 && c.depositVnd > 0
+        ? double.parse((c.depositVnd / total * 100).toStringAsFixed(2))
+        : bp.depositPercent;
+    final depLabel = '${BusinessParameters.fmt(depPct)}%';
+    final remLabel =
+        '${BusinessParameters.fmt(double.parse((100 - depPct).toStringAsFixed(2)))}%';
+    final netBeforeVat = total - c.vatAmountVnd;
+    final double? vatPercent = c.vatPercent > 0
+        ? c.vatPercent
+        : (c.vatAmountVnd > 0 && netBeforeVat > 0
+              ? double.parse(
+                  (c.vatAmountVnd / netBeforeVat * 100).toStringAsFixed(2),
+                )
+              : null);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -439,7 +432,9 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                       color: const Color(0xFF059669),
                     ),
                   _row(
-                    '3. Thuế VAT ($vatPercent%)',
+                    vatPercent == null
+                        ? '3. Thuế VAT'
+                        : '3. Thuế VAT (${BusinessParameters.fmt(vatPercent)}%)',
                     c.vatAmountVnd > 0
                         ? _vnd.format(c.vatAmountVnd)
                         : 'Đã bao gồm trong tổng gói',
@@ -448,7 +443,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     const Color(0xFFFFFBEB),
                     const Color(0xFFFDE68A),
                     _row(
-                      '4. Tạm ứng 30% khi ký',
+                      '4. Tạm ứng $depLabel khi ký',
                       _vnd.format(deposit),
                       bold: true,
                       color: const Color(0xFF78350F),
@@ -458,7 +453,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     const Color(0xFFF8FAFC),
                     const Color(0xFFE2E8F0),
                     _row(
-                      '5. Còn lại khi nghiệm thu (70%)',
+                      '5. Còn lại khi nghiệm thu ($remLabel)',
                       _vnd.format(remaining),
                       bold: true,
                     ),
@@ -506,23 +501,6 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                       ),
                     ),
                 ]),
-              _card(
-                Icons.history,
-                'Lịch sử các lần gia hạn (${c.renewals.length})',
-                [
-                  if (c.renewals.isEmpty)
-                    const Text(
-                      'Chưa có lần gia hạn nào cho hợp đồng này.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontStyle: FontStyle.italic,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  for (final (i, r) in c.renewals.indexed)
-                    _renewalTile(c, i, r),
-                ],
-              ),
             ],
           ),
         ),

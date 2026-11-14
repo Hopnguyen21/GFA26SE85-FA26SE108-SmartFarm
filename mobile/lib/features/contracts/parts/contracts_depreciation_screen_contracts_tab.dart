@@ -35,15 +35,19 @@ extension _ContractsDepreciationScreenStateContractsTab
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFBAE6FD)),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 16, color: Color(0xFF0369A1)),
-                SizedBox(width: 8),
+                const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Color(0xFF0369A1),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Hợp đồng của từng Zone (đang hiệu lực và đã kết thúc). Cọc 30% / nghiệm thu 70% của báo giá lắp đặt nằm ở "Yêu cầu & Hợp đồng".',
-                    style: TextStyle(
+                    'Hợp đồng của từng Zone (đang hiệu lực và đã kết thúc). Cọc ${BusinessParametersStore.current.depositLabel} / nghiệm thu ${BusinessParametersStore.current.remainingLabel} của báo giá lắp đặt nằm ở "Yêu cầu & Hợp đồng".',
+                    style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF0369A1),
                       height: 1.4,
@@ -72,7 +76,8 @@ extension _ContractsDepreciationScreenStateContractsTab
                   value: currencyFormat.format(totalDeposit),
                   icon: Icons.savings_outlined,
                   iconColor: const Color(0xFF0284C7),
-                  subText: 'Đặt cọc 30% giá trị hợp đồng',
+                  subText:
+                      'Đặt cọc ${BusinessParametersStore.current.depositLabel} giá trị hợp đồng',
                 ),
               ),
             ],

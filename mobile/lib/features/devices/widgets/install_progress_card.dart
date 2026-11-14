@@ -156,8 +156,16 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
         return [primary('Ghi nhận khảo sát địa điểm', () => _survey(d))];
       case 'Surveyed':
         return [
-          // Không có nút "Xác nhận kế hoạch" ở đây: bước tiếp theo là tạo/gửi hợp đồng; xác nhận kế hoạch (nếu cần để
-          // cấp phát) làm trong chi tiết triển khai, mở từ màn Gắn Node.
+          // Theo cam kết (BM04, WF-01): KTV khảo sát → xác nhận kế hoạch → lập báo giá, rồi Owner mới cọc.
+          if (d.latestSurveyFeasible)
+            primary(
+              'Xác nhận kế hoạch',
+              () => _guarded(
+                'Xác nhận kế hoạch',
+                'Xác nhận kế hoạch thiết bị đã khảo sát. Bước tiếp theo là lập và gửi báo giá / hợp đồng cho Owner.',
+                () => DeploymentApi.confirmDeploymentPlan(d.requestId),
+              ),
+            ),
           if (!d.latestSurveyFeasible)
             const Text(
               'Khảo sát ghi nhận KHÔNG khả thi (lý do đã lưu). Không thể xác nhận kế hoạch hay tạo hợp đồng. '

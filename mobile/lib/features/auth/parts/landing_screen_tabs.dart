@@ -95,7 +95,7 @@ extension _LandingScreenStateTabs on _LandingScreenState {
           badgeText: 'E-Contract 2 Pha',
           badgeColor: const Color(0xFFD97706),
           description:
-              'Quy trình triển khai 2 pha minh bạch: Tạm ứng 30% khi ký hợp đồng khảo sát, thanh toán 70% sau khi ký biên bản nghiệm thu vận hành trơn tru.',
+              'Quy trình triển khai 2 pha minh bạch: Tạm ứng ${BusinessParameters.active.depositLabel} khi ký hợp đồng khảo sát, thanh toán ${BusinessParameters.active.remainingLabel} sau khi ký biên bản nghiệm thu vận hành trơn tru.',
           feature1: 'Ký số trực tiếp trên điện thoại',
           feature2: 'Bảo hành phần cứng Gateway LoRa 24 tháng',
           actionText: 'Yêu cầu Báo giá & Khảo sát',

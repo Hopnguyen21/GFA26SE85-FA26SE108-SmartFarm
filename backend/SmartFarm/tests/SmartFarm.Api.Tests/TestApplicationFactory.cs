@@ -92,8 +92,20 @@ internal sealed class TestApplicationFactory : WebApplicationFactory<Program>
         var tenantBUser = CreateUser("farmer-b@example.com", "Tenant B Farmer", UserRole.Farmer, tenantB, farmB);
         var admin = CreateUser("admin@example.com", "Platform Admin", UserRole.PlatformAdmin, null, null);
         var technician = CreateUser("technician@example.com", "Platform Technician", UserRole.PlatformTechnician, null, null);
+        var techSoilSensor = new PlatformHardwareItem
+        {
+            Code = "SoilMoisture",
+            Name = "Soil Moisture Sensor",
+            Category = "Sensor",
+            QuantityInStock = 10,
+            Status = "Available",
+            AssignedTechnician = technician,
+            // Gợi ý thiết bị chỉ chọn model CÓ TRONG KHO: mặt hàng phải liên kết model đo môi trường mẫu (IoTSeed.EnvironmentalNodeModelId) và có giá.
+            DeviceModelDefinitionId = Guid.Parse("20000000-0000-0000-0000-000000000001"),
+            UnitPrice = 250_000m
+        };
 
-        dbContext.AddRange(tenantA, tenantB, farmA, farmB, fieldA, fieldB, zoneA, zoneB, ownerA, ownerB, farmer, tenantBUser, admin, technician);
+        dbContext.AddRange(tenantA, tenantB, farmA, farmB, fieldA, fieldB, zoneA, zoneB, ownerA, ownerB, farmer, tenantBUser, admin, technician, techSoilSensor);
         await dbContext.SaveChangesAsync();
         return new SeedData(ownerA.Id, ownerB.Id, farmer.Id, tenantBUser.Id, farmA.Id, farmB.Id,
             fieldA.Id, fieldB.Id, zoneA.Id, zoneB.Id, technician.Id);

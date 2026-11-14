@@ -2,13 +2,17 @@
 // Replaces all mock data imports from ./mocks/mockData
 
 import { apiClient, setTokens, clearTokens, extractApiError } from './api';
-import type { 
-  FarmingSeason, 
-  PlantingSeason, 
-  CropVariety, 
-  AgricultureDocumentSummary, 
-  AgricultureDocumentDetail, 
-  KnowledgePassage 
+import type {
+  ServiceRequest,
+  FarmingSeason,
+  PlantingSeason,
+  CropVariety,
+  AgricultureDocumentSummary,
+  AgricultureDocumentDetail,
+  DocumentVersionView,
+  DocumentPreviewResult,
+  DocumentUpdateResult,
+  KnowledgePassage
 } from '../types';
 
 // ─── Re-export api utilities ─────────────────────────────────────────────────
@@ -95,6 +99,12 @@ export const farmInvitationService = {
 };
 
 export const userService = {
+  /** PUT /api/v1/users/me */
+  updateProfile: async (data: { fullName: string; phone?: string | null }) => {
+    const res = await apiClient.put('/api/v1/users/me', data);
+    return res.data;
+  },
+
   /** GET /api/v1/users/me */
   getMe: async () => {
     const res = await apiClient.get('/api/v1/users/me');
@@ -231,10 +241,18 @@ export const tenantService = {
     return res.data;
   },
 
-  /** Alias: createTenant */
+  /** Alias: createTenant (Admin creates tenant via /api/v1/tenants; fallback /register) */
   createTenant: async (data: any) => {
-    const res = await apiClient.post('/api/v1/tenants/register', data);
-    return res.data;
+    try {
+      const res = await apiClient.post('/api/v1/tenants', data);
+      return res.data;
+    } catch (e: any) {
+      if (e?.response?.status === 404 || e?.response?.status === 405) {
+        const fallback = await apiClient.post('/api/v1/tenants/register', data);
+        return fallback.data;
+      }
+      throw e;
+    }
   },
 };
 
@@ -1411,6 +1429,7 @@ export const knowledgeService = {
     contentText: string; approve: boolean; reviewNotes?: string;
     // Chỉnh metadata sau khi đối chiếu file gốc; bỏ trống = giữ giá trị hệ thống đã nhận diện.
     title?: string; cropScope?: string; authorOrganization?: string; version?: string;
+    standardCode?: string; issuedDate?: string; effectiveDate?: string;
     documentType?: string; confirmGeneralScope?: boolean;
   }) => {
     const res = await apiClient.post(`/api/v1/ai/knowledge/documents/${documentId}/review`, data, { timeout: 180_000 });
@@ -1432,10 +1451,10 @@ export const knowledgeService = {
   /** GET /api/v1/ai/knowledge/search */
   search: async (query: string, cropName?: string, topK: number = 5) => {
     const res = await apiClient.get('/api/v1/ai/knowledge/search', {
-      params: { 
-        query: query.trim(), 
-        cropName: cropName?.trim() || undefined, 
-        topK 
+      params: {
+        query: query.trim(),
+        cropName: cropName?.trim() || undefined,
+        topK
       },
     });
     const list = res.data?.value ?? res.data ?? [];
@@ -1452,11 +1471,31 @@ export const knowledgeService = {
   },
 
   /** PUT /api/v1/ai/knowledge/documents/{documentId} */
-  updateDocument: async (documentId: string, formData: FormData) => {
+  updateDocument: async (documentId: string, formData: FormData): Promise<DocumentUpdateResult> => {
     const res = await apiClient.put(`/api/v1/ai/knowledge/documents/${documentId}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return res.data;
+    return res.data as DocumentUpdateResult;
+  },
+
+  /** POST /api/v1/ai/knowledge/documents/preview */
+  previewDocument: async (formData: FormData): Promise<DocumentPreviewResult> => {
+    const res = await apiClient.post('/api/v1/ai/knowledge/documents/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data as DocumentPreviewResult;
+  },
+
+  /** GET /api/v1/ai/knowledge/documents/{documentId}/versions */
+  getDocumentVersions: async (documentId: string): Promise<DocumentVersionView[]> => {
+    const res = await apiClient.get(`/api/v1/ai/knowledge/documents/${documentId}/versions`);
+    return (res.data ?? []) as DocumentVersionView[];
+  },
+
+  /** POST /api/v1/ai/knowledge/documents/{documentId}/archive */
+  archiveDocument: async (documentId: string, reason?: string) => {
+    const res = await apiClient.post(`/api/v1/ai/knowledge/documents/${documentId}/archive`, { reason });
+    return res.data as { message: string };
   },
 
   /** DELETE /api/v1/ai/knowledge/documents/{documentId} */
@@ -1534,16 +1573,19 @@ export const supportService = {
     const rawList: any[] = res.data?.value ?? res.data ?? [];
     if (!Array.isArray(rawList)) return [];
 
-    // Lookup zones & farms map to enrich accurate names
+    // Lookup zones, farms & users map to enrich accurate names
     let allZonesMap: Record<string, any> = {};
     let allFarmsMap: Record<string, any> = {};
+    let allUsersMap: Record<string, any> = {};
     try {
-      const [zRes, fRes] = await Promise.all([
+      const [zRes, fRes, uRes] = await Promise.all([
         apiClient.get('/api/v1/zones').catch(() => null),
         apiClient.get('/api/v1/farms').catch(() => null),
+        apiClient.get('/api/v1/users').catch(() => null),
       ]);
       const zList = zRes?.data?.value ?? zRes?.data ?? [];
       const fList = fRes?.data?.value ?? fRes?.data ?? [];
+      const uList = uRes?.data?.value ?? uRes?.data ?? [];
       if (Array.isArray(zList)) {
         zList.forEach((z: any) => {
           const zid = z.zoneId || z.id;
@@ -1556,19 +1598,40 @@ export const supportService = {
           if (fid) allFarmsMap[fid] = f;
         });
       }
+      if (Array.isArray(uList)) {
+        uList.forEach((u: any) => {
+          const uid = u.userId || u.id;
+          if (uid) allUsersMap[uid] = u;
+        });
+      }
     } catch { }
 
     // Parallel lookup for quotation & zone devices
+    const viewer = await apiClient.get('/api/v1/users/me').then(r => r.data).catch(() => null);
+    const deploymentPrefix = viewer?.role === 'PlatformTechnician'
+      ? '/api/v1/platform/deployment-requests/'
+      : viewer?.role === 'FarmOwner' ? '/api/v1/deployment-requests/' : null;
     const enriched = await Promise.all(
       rawList.map(async (sr: any) => {
         const id = sr.id || sr.serviceRequestId;
         let contractDetails: any = null;
         let acceptanceDetails: any = null;
-        let mappedNodesCount = 4;
+        let mappedNodesCount: number | undefined;
+        let quotationStatus: string | undefined;
+        let deploymentStatus: string | undefined;
+        let deploymentLinkInvalid = false;
+        if (sr.deploymentRequestId && deploymentPrefix) {
+          try {
+            const { data: deployment } = await apiClient.get(deploymentPrefix + sr.deploymentRequestId);
+            deploymentLinkInvalid = deployment.farmId !== sr.farmId || deployment.zoneId !== sr.zoneId;
+            if (!deploymentLinkInvalid) deploymentStatus = deployment.status;
+          } catch { /* Unavailable deployment must not imply completion. */ }
+        }
 
         try {
           const qRes = await apiClient.get(`/api/v1/service-requests/${id}/quotation`);
           const q = qRes.data;
+          quotationStatus = q?.status;
           if (q && q.id) {
             const isSigned = Boolean(sr.isContractSigned || q.status === 'SignedByOwner' || q.status === 'DepositPaid' || q.status === 'Completed');
             const isDepositPaid = Boolean(sr.isDepositPaid || q.status === 'SignedByOwner' || q.status === 'DepositPaid' || q.status === 'Completed');
@@ -1625,28 +1688,15 @@ export const supportService = {
           try {
             const locRes = await apiClient.get(`/api/v1/zones/${sr.zoneId}/devices/map-locations`);
             const locs = locRes.data?.value ?? locRes.data ?? [];
-            if (Array.isArray(locs) && locs.length > 0) {
+            if (Array.isArray(locs)) {
               mappedNodesCount = locs.length;
             }
           } catch { }
         }
 
-        const isAccepted = Boolean(acceptanceDetails?.isAcceptanceSigned || sr.status === 'Closed' || sr.status === 'Resolved');
-        const isContractSigned = Boolean(contractDetails?.isSignedByOwner && contractDetails?.is30PercentPaid);
-
-        let derivedStatus: 'OPEN' | 'IN_PROGRESS' | 'CONTRACT_SENT' | 'CONTRACT_SIGNED_30PAID' | 'ACCEPTED_BY_OWNER' | 'RESOLVED' | 'CLOSED' = 'OPEN';
-        if (isAccepted) {
-          derivedStatus = 'ACCEPTED_BY_OWNER';
-        } else if (isContractSigned) {
-          derivedStatus = 'CONTRACT_SIGNED_30PAID';
-        } else if (contractDetails) {
-          derivedStatus = 'CONTRACT_SENT';
-        } else if (sr.status === 'Assigned' || sr.status === 'InProgress') {
-          derivedStatus = 'IN_PROGRESS';
-        } else if (sr.status === 'Closed') {
-          derivedStatus = 'CLOSED';
-        }
-
+        const isAccepted = Boolean(acceptanceDetails?.isAcceptanceSigned);
+        const derivedStatus = String(sr.status ?? 'Open')
+          .replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase() as ServiceRequest['status'];
         // Resolve accurate zone name & farm name
         const zoneObj = sr.zoneId ? allZonesMap[sr.zoneId] : null;
         const farmObj = sr.farmId ? allFarmsMap[sr.farmId] : (zoneObj?.farmId ? allFarmsMap[zoneObj.farmId] : null);
@@ -1667,12 +1717,29 @@ export const supportService = {
           }
         }
 
-        const resolvedZoneName = zoneObj?.name 
+        const resolvedZoneName = zoneObj?.name
           || (extractedZone ? (extractedZone.toLowerCase().startsWith('nhà màng') ? extractedZone : `Nhà màng "${extractedZone}"`) : '')
-          || sr.zoneName 
+          || sr.zoneName
           || (zoneObj ? `Zone ${zoneObj.name}` : 'Nhà màng');
 
         const resolvedFarmName = farmObj?.name || sr.farmName || 'Trang trại Nông nghiệp Công nghệ cao';
+
+        const techId = sr.assignedTechnicianId || sr.assignedTechnician;
+        let resolvedTechName: string | undefined = undefined;
+        if (techId) {
+          const matchedTech = allUsersMap[techId];
+          if (matchedTech) {
+            resolvedTechName = matchedTech.fullName || matchedTech.name || matchedTech.email;
+          } else if (sr.assignedTechnicianName && sr.assignedTechnicianName !== 'Trần Minh Trí (Kỹ thuật viên IoT)') {
+            resolvedTechName = sr.assignedTechnicianName;
+          } else {
+            resolvedTechName = 'Kỹ thuật viên Platform';
+          }
+        }
+
+        const creatorId = sr.history?.[0]?.actorUserId;
+        const creator = creatorId ? allUsersMap[creatorId] : null;
+        const resolvedRequestedBy = creator?.fullName || farmObj?.ownerName || sr.requestedBy || 'Chủ trang trại (Owner)';
 
         return {
           serviceRequestId: id,
@@ -1688,9 +1755,13 @@ export const supportService = {
           description: sr.description || 'Yêu cầu kiểm tra và bảo dưỡng phần cứng tại nông trang.',
           priority: sr.priority || 'HIGH',
           status: derivedStatus,
-          requestType: (sr.failureCode === 'NEW_INSTALL' ? 'INSTALLATION' : 'MAINTENANCE') as 'INSTALLATION' | 'MAINTENANCE',
-          requestedBy: 'Lê Văn An (Owner)',
-          assignedTechnicianName: 'Trần Minh Trí (Kỹ thuật viên IoT)',
+          deploymentStatus,
+          quotationStatus,
+          deploymentLinkInvalid,
+          requestType: (['NEW_INSTALL', 'INSTALLATION'].includes(String(sr.failureCode ?? '').toUpperCase()) ? 'INSTALLATION' : 'MAINTENANCE') as 'INSTALLATION' | 'MAINTENANCE',
+          requestedBy: resolvedRequestedBy,
+          assignedTechnician: techId || undefined,
+          assignedTechnicianName: resolvedTechName,
           createdAt: sr.createdAtUtc || sr.createdAt || new Date().toISOString(),
           mappedNodesCount,
           isAcceptedByOwner: isAccepted,
@@ -2239,6 +2310,42 @@ export interface ResourceUsageReport { total: number; unit: string; countedComma
 export interface FarmOverviewReport { activeSeasonCount: number; onlineDeviceCount: number; alertsLast7Days: number; openAlertCount: number; openTaskCount: number; zoneCount: number }
 export interface TaskReport { total: number; approved: number; failed: number; overdue: number; completionRatePercent: number }
 
+export const gisProxyService = {
+
+  /** POST /api/v1/gis/reverse-geocode (dùng POST để bảo vệ tọa độ không bị ghi vào reverse proxy access logs) */
+
+  reverseGeocode: async (latitude: number, longitude: number) => {
+
+    const res = await apiClient.post('/api/v1/gis/reverse-geocode', {
+
+      latitude,
+
+      longitude
+
+    });
+
+    return res.data;
+
+  },
+
+
+
+  /** POST /api/v1/gis/search-location (dùng POST để địa chỉ tìm kiếm không bị ghi vào reverse proxy access logs) */
+
+  searchLocation: async (query: string) => {
+
+    const res = await apiClient.post('/api/v1/gis/search-location', {
+
+      query
+
+    });
+
+    return res.data ?? [];
+
+  },
+
+};
+
 export const reportService = {
   /** GET /api/v1/farms/{farmId}/report/overview */
   getOverview: async (farmId: string): Promise<FarmOverviewReport> => (await apiClient.get(`/api/v1/farms/${farmId}/report/overview`)).data,
@@ -2248,4 +2355,299 @@ export const reportService = {
   getElectricity: async (farmId: string, range: ReportRange): Promise<ResourceUsageReport> => (await apiClient.get(`/api/v1/farms/${farmId}/report/electricity`, { params: range })).data,
   /** GET /api/v1/farms/{farmId}/report/tasks */
   getTasks: async (farmId: string, range: ReportRange): Promise<TaskReport> => (await apiClient.get(`/api/v1/farms/${farmId}/report/tasks`, { params: range })).data,
+
+  /** Helper tải file từ URL dạng blob */
+  exportFromUrl: async (url: string, params?: ReportRange | Record<string, any>, fallbackName = 'SmartFarm_Report.xlsx'): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await apiClient.get(url, {
+      params,
+      responseType: 'blob'
+    });
+    const disposition = res.headers['content-disposition'] || res.headers['Content-Disposition'];
+    let fileName = fallbackName;
+    if (disposition) {
+      const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      if (utfMatch && utfMatch[1]) {
+        fileName = decodeURIComponent(utfMatch[1]);
+      } else {
+        const asciiMatch = disposition.match(/filename="?([^";]+)"?/i);
+        if (asciiMatch && asciiMatch[1]) {
+          fileName = asciiMatch[1];
+        }
+      }
+    }
+    return { blob: res.data, fileName };
+  },
+
+  /** GET /api/v1/farms/{farmId}/report/excel - Xuất báo cáo tổng hợp tài nguyên & vận hành ra file .xlsx */
+  exportExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/excel`, range, `SmartFarm_Report_Resource_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/overview/excel - Báo cáo tổng quan nông trại */
+  exportOverviewExcel: async (farmId: string) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/overview/excel`, undefined, `SmartFarm_Report_TongQuan_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/water-usage/excel - Báo cáo tiêu thụ nước */
+  exportWaterExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/water-usage/excel`, range, `SmartFarm_Report_Nuoc_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/electricity/excel - Báo cáo điện năng */
+  exportElectricityExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/electricity/excel`, range, `SmartFarm_Report_Dien_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/inventory/excel - Báo cáo kho & vật tư */
+  exportInventoryExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/inventory/excel`, range, `SmartFarm_Report_TonKho_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/tasks/excel - Báo cáo phân công công việc */
+  exportTasksExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/tasks/excel`, range, `SmartFarm_Report_CongViec_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/maintenance/excel - Báo cáo bảo trì thiết bị */
+  exportMaintenanceExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/maintenance/excel`, range, `SmartFarm_Report_BaoTri_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/zones/{zoneId}/report/season-summary/excel - Báo cáo tổng kết vụ mùa theo khu vực */
+  exportSeasonSummaryExcel: async (zoneId: string) =>
+    reportService.exportFromUrl(`/api/v1/zones/${zoneId}/report/season-summary/excel`, undefined, `SmartFarm_Report_VuMua_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** Helper tải trực tiếp file blob xuống trình duyệt */
+  downloadBlob: (blob: Blob, fileName: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+};
+
+
+// NEW MODULE: STOCK OUT SERVICE (PHIẾU XUẤT KHO)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const stockOutService = {
+  /** GET /api/v1/farms/{farmId}/stock-outs */
+  getList: async (farmId: string, status?: string) => {
+    const res = await apiClient.get(`/api/v1/farms/${farmId}/stock-outs`, {
+      params: status ? { status } : undefined,
+    });
+    return res.data;
+  },
+
+  /** GET /api/v1/farms/{farmId}/stock-outs/{id} */
+  getById: async (farmId: string, id: string) => {
+    const res = await apiClient.get(`/api/v1/farms/${farmId}/stock-outs/${id}`);
+    return res.data;
+  },
+
+  /** POST /api/v1/farms/{farmId}/stock-outs */
+  create: async (farmId: string, data: { zoneId?: string; notes?: string; details: { inventoryItemId: string; quantity: number; notes?: string }[] }) => {
+    const res = await apiClient.post(`/api/v1/farms/${farmId}/stock-outs`, data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/farms/{farmId}/stock-outs/{id} */
+  update: async (farmId: string, id: string, data: { zoneId?: string; notes?: string; details: { inventoryItemId: string; quantity: number; notes?: string }[] }) => {
+    const res = await apiClient.put(`/api/v1/farms/${farmId}/stock-outs/${id}`, data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/farms/{farmId}/stock-outs/{id}/status */
+  updateStatus: async (farmId: string, id: string, status: string | number, notes?: string) => {
+    const res = await apiClient.put(`/api/v1/farms/${farmId}/stock-outs/${id}/status`, { status, notes });
+    return res.data;
+  },
+
+  /** DELETE /api/v1/farms/{farmId}/stock-outs/{id} */
+  delete: async (farmId: string, id: string) => {
+    const res = await apiClient.delete(`/api/v1/farms/${farmId}/stock-outs/${id}`);
+    return res.data;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW MODULE: BILL SERVICE (HÓA ĐƠN ĐỘC LẬP)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const billService = {
+  /** GET /api/v1/bills */
+  getAll: async (params?: { contractId?: string; status?: string; fromDate?: string; toDate?: string }) => {
+    const res = await apiClient.get('/api/v1/bills', { params });
+    return res.data;
+  },
+
+  /** GET /api/v1/bills/{id} */
+  getById: async (id: string) => {
+    const res = await apiClient.get(`/api/v1/bills/${id}`);
+    return res.data;
+  },
+
+  /** GET /api/v1/contracts/{contractId}/bills */
+  getByContract: async (contractId: string) => {
+    const res = await apiClient.get(`/api/v1/contracts/${contractId}/bills`);
+    return res.data;
+  },
+
+  /** POST /api/v1/bills (tạo từ contract) */
+  createFromContract: async (data: { contractId: string; amount?: number; dueDate: string; paymentMethod?: string; notes?: string }) => {
+    const res = await apiClient.post('/api/v1/bills', data);
+    return res.data;
+  },
+
+  /** POST /api/v1/bills/{id}/payments */
+  recordPayment: async (id: string, data: { paymentAmount: number; paymentMethod?: string; notes?: string }) => {
+    const res = await apiClient.post(`/api/v1/bills/${id}/payments`, data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/bills/{id}/status */
+  updateStatus: async (id: string, status: string | number, notes?: string) => {
+    const res = await apiClient.put(`/api/v1/bills/${id}/status`, { status, notes });
+    return res.data;
+  },
+
+  /** PUT /api/v1/bills/{id} */
+  update: async (id: string, data: { amount: number; dueDate: string; paymentMethod?: string; notes?: string }) => {
+    const res = await apiClient.put(`/api/v1/bills/${id}`, data);
+    return res.data;
+  },
+
+  /** DELETE /api/v1/bills/{id} */
+  delete: async (id: string) => {
+    const res = await apiClient.delete(`/api/v1/bills/${id}`);
+    return res.data;
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW MODULE: CONTRACT PACKAGE SERVICE (GÓI HỢP ĐỒNG)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const contractPackageService = {
+  /** GET /api/v1/contract-packages */
+  getAll: async (activeOnly?: boolean, isCustom: boolean = false) => {
+    const res = await apiClient.get('/api/v1/contract-packages', {
+      params: {
+        ...(activeOnly !== undefined ? { activeOnly } : {}),
+        isCustom
+      },
+    });
+    return res.data;
+  },
+
+  /** GET /api/v1/contract-packages/{id} */
+  getById: async (id: string) => {
+    const res = await apiClient.get(`/api/v1/contract-packages/${id}`);
+    return res.data;
+  },
+
+  /** POST /api/v1/contract-packages */
+  create: async (data: { packageName: string; description?: string; durationMonths: number; maxZones: number; price: number; currency?: string }) => {
+    const res = await apiClient.post('/api/v1/contract-packages', data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/contract-packages/{id} */
+  update: async (id: string, data: { packageName: string; description?: string; durationMonths: number; maxZones: number; price: number; currency?: string; status?: string | number }) => {
+    const res = await apiClient.put(`/api/v1/contract-packages/${id}`, data);
+    return res.data;
+  },
+
+  /** PATCH /api/v1/contract-packages/{id}/toggle-status */
+  toggleStatus: async (id: string) => {
+    const res = await apiClient.patch(`/api/v1/contract-packages/${id}/toggle-status`);
+    return res.data;
+  },
+
+  /** DELETE /api/v1/contract-packages/{id} */
+  delete: async (id: string) => {
+    const res = await apiClient.delete(`/api/v1/contract-packages/${id}`);
+    return res.data;
+  },
+};
+
+
+export interface BackupMetadataView {
+  fileName: string;
+  sizeBytes: number;
+  createdAtUtc: string;
+  totalRecords: number;
+  checksumSha256: string;
+  createdByEmail: string;
+  formatVersion?: string;
+  supportedScope?: string;
+  tableRecordCounts?: Record<string, number>;
+}
+
+export interface CreateBackupResult {
+  fileName: string;
+  sizeBytes: number;
+  createdAtUtc: string;
+  totalRecords: number;
+  checksumSha256: string;
+  message?: string;
+  tableRecordCounts?: Record<string, number>;
+}
+
+export interface VerifyBackupResult {
+  fileName: string;
+  isValid: boolean;
+  checksumSha256: string;
+  checksumVerified: boolean;
+  formatVersion: string;
+  totalRecords: number;
+  tableRecordCounts: Record<string, number>;
+  missingRequiredTables: string[];
+  warnings: string[];
+  message: string;
+  verifiedAtUtc: string;
+}
+
+export interface RestoreBackupResult {
+  fileName: string;
+  success: boolean;
+  isDryRunOnly: boolean;
+  message: string;
+  restoredAtUtc: string;
+  restoredRecords: number;
+  restoredTables: string[];
+  preRestoreBackupFileName?: string | null;
+  checksumSha256?: string;
+}
+
+export interface BackupSystemStatusView {
+  allowLiveRestore: boolean;
+  retentionDays: number;
+  maxBackups: number;
+  maxBackupFileSizeBytes: number;
+  maxUncompressedSizeBytes: number;
+  storageDirectory: string;
+  totalBackupsAvailable: number;
+}
+
+export const backupService = {
+  /** GET /api/v1/platform/backups (PlatformAdmin) */
+  list: async (): Promise<BackupMetadataView[]> => (await apiClient.get('/api/v1/platform/backups')).data,
+
+  /** GET /api/v1/platform/backups/status (PlatformAdmin) */
+  getStatus: async (): Promise<BackupSystemStatusView> => (await apiClient.get('/api/v1/platform/backups/status')).data,
+
+  /** POST /api/v1/platform/backups (PlatformAdmin) */
+  create: async (): Promise<CreateBackupResult> => (await apiClient.post('/api/v1/platform/backups')).data,
+
+  /** GET /api/v1/platform/backups/{fileName}/download (PlatformAdmin) */
+  download: async (fileName: string) => {
+    const { blob } = await reportService.exportFromUrl(`/api/v1/platform/backups/${encodeURIComponent(fileName)}/download`, undefined, fileName);
+    reportService.downloadBlob(blob, fileName);
+  },
+
+  /** POST /api/v1/platform/backups/{fileName}/verify (PlatformAdmin) */
+  verify: async (fileName: string): Promise<VerifyBackupResult> =>
+    (await apiClient.post(`/api/v1/platform/backups/${encodeURIComponent(fileName)}/verify`)).data,
+
+  /** POST /api/v1/platform/backups/{fileName}/restore (PlatformAdmin) */
+  restore: async (fileName: string, confirm: boolean, overwriteConfirmation: string): Promise<RestoreBackupResult> =>
+    (await apiClient.post(`/api/v1/platform/backups/${encodeURIComponent(fileName)}/restore`, { confirm, overwriteConfirmation })).data,
 };

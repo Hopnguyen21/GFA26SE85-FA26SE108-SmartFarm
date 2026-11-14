@@ -3,6 +3,10 @@
 library;
 
 import '../../core/models/iot_deployment.dart';
+import '../../core/models/models.dart' show BusinessParameters;
+
+String get _dep => BusinessParameters.active.depositLabel;
+String get _rem => BusinessParameters.active.remainingLabel;
 
 enum NodeKind { gateway, sensor, actuator }
 
@@ -185,7 +189,7 @@ List<String> completionBlockers({
 const depositConfirmedQuotationStatuses = {'SignedByOwner', 'DepositPaid'};
 
 /// Phiếu dịch vụ đã kết thúc.
-const terminalServiceStatuses = {'Closed', 'Resolved'};
+const terminalServiceStatuses = {'Closed', 'Resolved', 'Cancelled'};
 
 /// Triển khai đã kết thúc (hoàn tất, hủy, hoặc chuyển bảo trì): không gắn thêm Node dù đã cọc.
 const terminalDeploymentStatuses = {
@@ -253,11 +257,13 @@ NodePlacementGate checkNodePlacement({
   required String? quotationStatus,
   required String? deploymentStatus,
   required bool linkValid,
+  String? depositLabel,
+  String? remainingLabel,
 }) {
   if (serviceStatus == null || !quotationLoaded) {
-    return const NodePlacementGate.deny(
+    return NodePlacementGate.deny(
       NodePlacementBlock.unknown,
-      'Chưa xác nhận được hợp đồng và khoản cọc 30% từ backend. Hãy tải lại.',
+      'Chưa xác nhận được hợp đồng và khoản cọc $_dep từ backend. Hãy tải lại.',
     );
   }
   if (terminalServiceStatuses.contains(serviceStatus) ||
@@ -268,9 +274,9 @@ NodePlacementGate checkNodePlacement({
     );
   }
   if (!depositConfirmedQuotationStatuses.contains(quotationStatus)) {
-    return const NodePlacementGate.deny(
+    return NodePlacementGate.deny(
       NodePlacementBlock.unpaid,
-      'Chờ Owner ký hợp đồng và thanh toán cọc 30% (backend chưa xác nhận) mới gắn Node.',
+      'Chờ Owner ký hợp đồng và thanh toán cọc $_dep (backend chưa xác nhận) mới gắn Node.',
     );
   }
   if (!linkValid || deploymentStatus == null) {
@@ -283,7 +289,7 @@ NodePlacementGate checkNodePlacement({
     return NodePlacementGate.deny(
       NodePlacementBlock.deploymentFinished,
       deploymentStatus == 'Completed'
-          ? 'Đã hoàn tất lắp đặt. Owner thanh toán 70% và nghiệm thu ở bước tiếp theo; không thể gắn thêm Node.'
+          ? 'Đã hoàn tất lắp đặt. Owner thanh toán $_rem và nghiệm thu ở bước tiếp theo; không thể gắn thêm Node.'
           : 'Triển khai đã ${deploymentStatus == 'Cancelled' ? 'bị hủy' : 'chuyển sang bảo trì'}, không thể gắn thêm Node.',
     );
   }

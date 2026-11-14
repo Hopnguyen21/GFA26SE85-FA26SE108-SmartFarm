@@ -30,6 +30,7 @@ const Map<String, String> serviceStatusLabels = {
   'Verified': 'Đã kiểm tra kết nối',
   'Resolved': 'Đã giải quyết',
   'Closed': 'Đã đóng',
+  'Cancelled': 'Đã hủy',
 };
 const _statusByIndex = [
   'Open',
@@ -40,6 +41,7 @@ const _statusByIndex = [
   'Verified',
   'Resolved',
   'Closed',
+  'Cancelled',
 ];
 const _resolutionByIndex = ['Maintenance', 'Repair', 'Replacement'];
 
@@ -91,6 +93,9 @@ class _TechnicianMaintenanceScreenState
   final Map<String, int> _nodesByZone = {};
   final Map<String, String?> _quoteStatusById = {};
   final Map<String, double> _quoteTotalById = {};
+  // Nhãn tỷ lệ cọc/còn lại của CHÍNH hợp đồng đó (đã chốt khi cọc), không theo cấu hình hiện hành.
+  final Map<String, String> _quoteDepById = {};
+  final Map<String, String> _quoteRemById = {};
   final Map<String, String> _depStatusById =
       {}; // chỉ khi liên kết đúng Farm/Zone
 
@@ -115,6 +120,11 @@ class _TechnicianMaintenanceScreenState
       _error = null;
     });
     try {
+      unawaited(
+        BusinessParametersStore.refresh().then((_) {
+          if (mounted) setState(() {});
+        }),
+      );
       final list = await SupportApi.getServiceRequests();
       if (mounted) setState(() => _items = list);
       unawaited(_loadExtras(list));
@@ -144,12 +154,21 @@ class _TechnicianMaintenanceScreenState
       } catch (_) {}
     }
 
-    Future<void> quote(String id) async {
+    Future<void> quote(Map<String, dynamic> r) async {
+      final id = '${r['id']}';
       try {
         final q = await SupportApi.getQuotation(id);
-        _quoteStatusById[id] = q?.status;
-        if (q != null) _quoteTotalById[id] = q.totalAmount;
-      } catch (_) {}
+        _quoteStatusById[id] = effectiveQuotationStatus(q?.status, r);
+        if (q != null) {
+          _quoteTotalById[id] = q.totalAmount;
+          _quoteDepById[id] = q.depositLabel;
+          _quoteRemById[id] = q.remainingLabel;
+        }
+      } catch (_) {
+        // Đọc báo giá lỗi: nếu phiếu có cờ đã cọc/nghiệm thu thì vẫn biết, ngược lại để trống (không đoán).
+        final f = effectiveQuotationStatus(null, r);
+        if (f != null) _quoteStatusById[id] = f;
+      }
     }
 
     // Trạng thái triển khai gắn kèm, chỉ nhận khi cùng Farm/Zone với phiếu (giống cảnh báo liên kết sai trên web).
@@ -171,7 +190,7 @@ class _TechnicianMaintenanceScreenState
     await Future.wait([
       for (final z in zoneIds) nodes(z),
       for (final r in installs)
-        if ('${r['id'] ?? ''}'.isNotEmpty) quote('${r['id']}'),
+        if ('${r['id'] ?? ''}'.isNotEmpty) quote(r),
       for (final r in installs)
         if ('${r['id'] ?? ''}'.isNotEmpty) deployment(r),
     ]);
@@ -515,7 +534,10 @@ class _TechnicianMaintenanceScreenState
                         !closed &&
                         _quoteStatusById.containsKey(id))
                       _badge(
-                        contractStageLabel(_quoteStatusById[id]),
+                        contractStageLabel(
+                          _quoteStatusById[id],
+                          depositLabel: _quoteDepById[id],
+                        ),
                         _stageColor(_quoteStatusById[id]),
                       ),
                     if (!installation && '${r['failureCode'] ?? ''}'.isNotEmpty)
@@ -585,7 +607,7 @@ class _TechnicianMaintenanceScreenState
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Việc tiếp theo: ${installNextAction(serviceStatus: status, quotationStatus: _quoteStatusById[id], deploymentStatus: _depStatusById[id], closed: closed)}',
+                            'Việc tiếp theo: ${installNextAction(serviceStatus: status, quotationStatus: _quoteStatusById[id], deploymentStatus: _depStatusById[id], closed: closed, depositLabel: _quoteDepById[id], remainingLabel: _quoteRemById[id])}',
                             style: const TextStyle(
                               fontSize: 13.5,
                               height: 1.3,
@@ -624,6 +646,8 @@ class _ServiceRequestDetailScreenState
   String?
   _depStatus; // trạng thái triển khai gắn kèm (null: chưa đọc được hoặc liên kết sai)
   String? _quoteStatus; // trạng thái báo giá (null: chưa có hoặc chưa tải được)
+  String? _quoteDep; // nhãn tỷ lệ cọc của báo giá này
+  String? _quoteRem;
   bool _quoteKnown = false;
   int? _nodes; // số node đã chấm trên bản đồ của Zone (null: không tải được)
 
@@ -639,6 +663,11 @@ class _ServiceRequestDetailScreenState
       _error = null;
     });
     try {
+      unawaited(
+        BusinessParametersStore.refresh().then((_) {
+          if (mounted) setState(() {});
+        }),
+      );
       final r = await SupportApi.getServiceRequest(widget.requestId);
       if (mounted) setState(() => _req = r);
       unawaited(_loadExtras(r));
@@ -662,14 +691,22 @@ class _ServiceRequestDetailScreenState
     }
     final zoneId = '${r['zoneId'] ?? ''}';
     String? quote;
+    String? depLabel;
+    String? remLabel;
     var known = false;
     int? nodes;
     await Future.wait([
       () async {
         try {
-          quote = (await SupportApi.getQuotation(widget.requestId))?.status;
+          final qo = await SupportApi.getQuotation(widget.requestId);
+          quote = effectiveQuotationStatus(qo?.status, r);
+          depLabel = qo?.depositLabel;
+          remLabel = qo?.remainingLabel;
           known = true;
-        } catch (_) {}
+        } catch (_) {
+          quote = effectiveQuotationStatus(null, r);
+          known = quote != null;
+        }
       }(),
       () async {
         if (zoneId.isEmpty) return;
@@ -681,6 +718,8 @@ class _ServiceRequestDetailScreenState
     if (!mounted) return;
     setState(() {
       _quoteStatus = quote;
+      _quoteDep = depLabel;
+      _quoteRem = remLabel;
       _quoteKnown = known;
       _nodes = nodes;
     });
@@ -718,6 +757,8 @@ class _ServiceRequestDetailScreenState
       serviceStatus: serviceStatusOf(r),
       quotationLoaded: quotationLoaded ?? _quoteKnown,
       quotationStatus: quotationStatus ?? _quoteStatus,
+      depositLabel: _quoteDep,
+      remainingLabel: _quoteRem,
       deploymentStatus: _depStatus,
       linkValid:
           _depStatus != null &&
@@ -732,9 +773,15 @@ class _ServiceRequestDetailScreenState
     String? freshStatus;
     var fresh = false;
     try {
-      freshStatus = (await SupportApi.getQuotation(widget.requestId))?.status;
+      freshStatus = effectiveQuotationStatus(
+        (await SupportApi.getQuotation(widget.requestId))?.status,
+        r,
+      );
       fresh = true;
-    } catch (_) {}
+    } catch (_) {
+      freshStatus = effectiveQuotationStatus(null, r);
+      fresh = freshStatus != null;
+    }
     if (!mounted) return;
     setState(() {
       _quoteStatus = freshStatus;
@@ -804,6 +851,60 @@ class _ServiceRequestDetailScreenState
             style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13),
           ),
         ),
+      // Đã cọc 30%: kế hoạch đã xác nhận (trước cọc) thì "Bắt đầu lắp đặt" để sang Đang lắp đặt; nếu chưa xác nhận kế hoạch thì xác nhận rồi bắt đầu luôn.
+      if (!finished &&
+          gate.allowed &&
+          (_depStatus == 'Surveyed' || _depStatus == 'PlanConfirmed'))
+        FilledButton.icon(
+          onPressed: _busy ? null : () => _confirmPlan(r),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0F766E),
+            foregroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.fact_check_outlined, size: 18),
+          label: Text(
+            _depStatus == 'PlanConfirmed'
+                ? 'Bắt đầu lắp đặt'
+                : 'Xác nhận kế hoạch',
+          ),
+        ),
+      // Hoàn tất lắp đặt: chỉ khi backend báo triển khai đang "Đang lắp đặt" (backend còn kiểm tra thiết bị đã gán Zone + kết nối thành công).
+      if (!finished && gate.allowed && _depStatus == 'Installing')
+        FilledButton.icon(
+          onPressed: _busy ? null : () => _completeInstall(r),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF059669),
+            foregroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.task_alt, size: 18),
+          label: const Text('Hoàn tất lắp đặt'),
+        )
+      else if (!finished &&
+          gate.allowed &&
+          _depStatus != null &&
+          _depStatus != 'Completed')
+        Chip(
+          backgroundColor: const Color(0xFF1E293B),
+          side: const BorderSide(color: Color(0xFF64748B)),
+          avatar: const Icon(
+            Icons.lock_outline,
+            size: 16,
+            color: Colors.white70,
+          ),
+          label: Text(
+            'Hoàn tất lắp đặt: cần ở trạng thái Đang lắp đặt (hiện: ${deploymentStatusLabels[_depStatus] ?? _depStatus})',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        )
+      else if (_depStatus == 'Completed')
+        const Chip(
+          backgroundColor: Color(0xFF064E3B),
+          avatar: Icon(Icons.check_circle, size: 16, color: Color(0xFF6EE7B7)),
+          label: Text(
+            'Đã hoàn tất lắp đặt, chờ Owner nghiệm thu',
+            style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 12),
+          ),
+        ),
       // Xem Node đã chấm và tình trạng: chỉ xem nên dùng được ở mọi giai đoạn, kể cả khi đã hoàn tất.
       OutlinedButton.icon(
         onPressed: () => _openPlacedNodes(r),
@@ -815,6 +916,90 @@ class _ServiceRequestDetailScreenState
         label: const Text('Xem Node'),
       ),
     ];
+  }
+
+  /// "Xác nhận kế hoạch" (đã cọc 30%): Đã khảo sát → xác nhận kế hoạch → bắt đầu lắp đặt, để thành "Đang lắp đặt".
+  /// Backend kiểm tra từng bước (khảo sát khả thi, kế hoạch hợp lệ, Owner đã cọc) và báo lý do nếu chưa đủ.
+  Future<void> _confirmPlan(Map<String, dynamic> r) async {
+    final depId = '${r['deploymentRequestId'] ?? ''}';
+    if (depId.isEmpty || _busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          _depStatus == 'PlanConfirmed'
+              ? 'Bắt đầu lắp đặt?'
+              : 'Xác nhận kế hoạch?',
+        ),
+        content: const Text(
+          'Chuyển triển khai sang Đang lắp đặt để bắt đầu gắn Node (Owner đã cọc 30%).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      if (_depStatus == 'Surveyed') {
+        final c = await DeploymentApi.confirmDeploymentPlan(depId);
+        if (mounted) setState(() => _depStatus = c.status);
+      }
+      final dep = await DeploymentApi.startDeploymentInstallation(depId);
+      if (!mounted) return;
+      setState(() => _depStatus = dep.status);
+      _snack('Đã xác nhận kế hoạch, triển khai chuyển sang Đang lắp đặt.');
+    } catch (e) {
+      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Bấm "Hoàn tất lắp đặt": xác nhận rồi gọi backend; backend từ chối (thiết bị chưa gán Zone / chưa kiểm tra kết nối) thì hiện nguyên lý do.
+  Future<void> _completeInstall(Map<String, dynamic> r) async {
+    final depId = '${r['deploymentRequestId'] ?? ''}';
+    if (depId.isEmpty || _busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hoàn tất lắp đặt?'),
+        content: const Text(
+          'Sau khi hoàn tất, Owner sẽ thấy mục nghiệm thu và thanh toán 70%. Backend chỉ chấp nhận khi mọi thiết bị theo kế hoạch đã gán Zone và có lần kiểm tra kết nối thành công mới nhất.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hoàn tất'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final dep = await DeploymentApi.completeDeploymentRequest(depId);
+      if (!mounted) return;
+      setState(() => _depStatus = dep.status);
+      _snack('Đã hoàn tất lắp đặt. Owner có thể nghiệm thu và thanh toán 70%.');
+      unawaited(_loadExtras(r));
+    } catch (e) {
+      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   /// Mở màn xem các Node đã chấm trong Zone của phiếu và tình trạng của chúng (chỉ xem).
@@ -1221,8 +1406,6 @@ class _ServiceRequestDetailScreenState
   Widget _body(Map<String, dynamic> r) {
     final st = serviceStatusOf(r);
     final res = resolutionOf(r);
-    final history =
-        (r['history'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
     final isInstall = serviceKindOf(r) == ServiceKind.installation;
     final depId = '${r['deploymentRequestId'] ?? ''}';
     final actions = <Widget>[];
@@ -1281,6 +1464,8 @@ class _ServiceRequestDetailScreenState
                       quotationStatus: _quoteStatus,
                       deploymentStatus: _depStatus,
                       closed: isClosedStatus(serviceStatusOf(r)),
+                      depositLabel: _quoteDep,
+                      remainingLabel: _quoteRem,
                     )
                   : null,
               extraActions: _fieldButtons(r),
@@ -1332,27 +1517,6 @@ class _ServiceRequestDetailScreenState
             )
           else
             Wrap(spacing: 8, runSpacing: 8, children: actions),
-          const Divider(height: 32),
-          const Text(
-            'Lịch sử xử lý',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          if (history.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('Chưa có lịch sử.'),
-            ),
-          for (final h in history)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                '${h['eventType']} → ${enumName(h['toStatus'], _statusByIndex)}',
-              ),
-              subtitle: Text(
-                '${h['createdAtUtc'] ?? ''}${(h['notes'] ?? '').toString().isEmpty ? '' : '\n${h['notes']}'}',
-              ),
-            ),
         ],
       ),
     );
@@ -1433,7 +1597,7 @@ class _ServiceRequestDetailScreenState
                 ),
                 if (isInstall && _quoteKnown)
                   _pill(
-                    'Hợp đồng: ${contractStageLabel(_quoteStatus)}',
+                    'Hợp đồng: ${contractStageLabel(_quoteStatus, depositLabel: _quoteDep)}',
                     _stageColor(_quoteStatus),
                   ),
                 if (res.isNotEmpty)

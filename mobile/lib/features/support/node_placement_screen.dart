@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/models/iot_deployment.dart';
-import '../../core/models/models.dart' show ZoneModel;
+import '../../core/models/models.dart' show BusinessParameters, ZoneModel;
 import '../../core/services/api_service.dart';
 import '../../core/services/gps_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import 'map_zoom_controls.dart';
 import 'node_placement_logic.dart';
+import 'service_board_logic.dart' show effectiveQuotationStatus;
 import 'placed_nodes_screen.dart';
 import 'technician_maintenance_screen.dart' show serviceStatusOf;
 
@@ -128,7 +129,9 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         _gate = checkNodePlacement(
           serviceStatus: serviceStatusOf(sr),
           quotationLoaded: true,
-          quotationStatus: quotation?.status,
+          quotationStatus: effectiveQuotationStatus(quotation?.status, sr),
+          depositLabel: quotation?.depositLabel,
+          remainingLabel: quotation?.remainingLabel,
           deploymentStatus: dep.status,
           linkValid:
               sameArgs &&
@@ -355,8 +358,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hoàn tất lắp đặt?'),
-        content: const Text(
-          'Triển khai sẽ chuyển sang Hoàn tất và Owner được thanh toán 70% để nghiệm thu. Backend sẽ kiểm tra lại số lượng thiết bị và kết quả kết nối.',
+        content: Text(
+          'Triển khai sẽ chuyển sang Hoàn tất và Owner được thanh toán ${BusinessParameters.active.remainingLabel} để nghiệm thu. Backend sẽ kiểm tra lại số lượng thiết bị và kết quả kết nối.',
         ),
         actions: [
           TextButton(
@@ -375,7 +378,9 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     try {
       await DeploymentApi.completeDeploymentRequest(widget.deploymentRequestId);
       await _load();
-      _snack('Đã hoàn tất lắp đặt. Owner có thể thanh toán 70% và nghiệm thu.');
+      _snack(
+        'Đã hoàn tất lắp đặt. Owner có thể thanh toán ${BusinessParameters.active.remainingLabel} và nghiệm thu.',
+      );
     } catch (e) {
       _snack('Chưa hoàn tất được: ${friendlyError(e)}', error: true);
     } finally {
@@ -1455,7 +1460,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         const SizedBox(height: 8),
         if (completed)
           _notice(
-            'Đã hoàn tất lắp đặt. Owner thanh toán 70% và nghiệm thu ở bước tiếp theo.',
+            'Đã hoàn tất lắp đặt. Owner thanh toán ${BusinessParameters.active.remainingLabel} và nghiệm thu ở bước tiếp theo.',
             good: true,
           )
         else if (blockers.isEmpty)
@@ -2165,7 +2170,9 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     // Lỗi tải hoặc chưa xác nhận được từ backend: khoá, không dùng dữ liệu/quyền cũ.
     if (_gate == null || _deployment == null) {
       return AppErrorState(
-        message: _error ?? 'Chưa xác nhận được hợp đồng và cọc 30% từ backend.',
+        message:
+            _error ??
+            'Chưa xác nhận được hợp đồng và cọc ${BusinessParameters.active.depositLabel} từ backend.',
         onRetry: _load,
       );
     }

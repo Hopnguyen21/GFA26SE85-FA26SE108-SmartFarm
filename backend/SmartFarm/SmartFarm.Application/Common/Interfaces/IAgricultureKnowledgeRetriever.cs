@@ -13,7 +13,8 @@ public sealed record KnowledgePassageView(
     float SimilarityScore,
     int? PageNumber = null,
     string? SectionTitle = null,
-    string? Version = null);
+    string? Version = null,
+    string? StandardCode = null);
 
 /// <summary>
 /// Tìm kiếm các đoạn tài liệu nông học phù hợp nhất với câu hỏi
@@ -49,5 +50,7 @@ public interface IAgricultureKnowledgeRetriever
         Guid? tenantId,
         int topK,
         bool generalOnlyWhenCropUnknown,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? expansionTerms = null,
+        string? climateRegion = null);
 }

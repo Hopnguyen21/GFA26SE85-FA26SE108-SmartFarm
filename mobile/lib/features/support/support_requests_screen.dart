@@ -369,14 +369,24 @@ class OwnerRequestInfo {
   final bool known;
   final Quotation? quote;
   final String? depStatus;
-  const OwnerRequestInfo({this.known = false, this.quote, this.depStatus});
+
+  /// Trạng thái báo giá hiệu lực = báo giá kết hợp cờ cọc/nghiệm thu trên phiếu (xem [effectiveQuotationStatus]).
+  final String? status;
+  const OwnerRequestInfo({
+    this.known = false,
+    this.quote,
+    this.depStatus,
+    this.status,
+  });
 
   ({String text, bool needsAction})? get next => !known
       ? null
       : ownerNextAction(
-          quotationStatus: quote?.status,
+          quotationStatus: status ?? quote?.status,
           deploymentStatus: depStatus,
           closed: false,
+          depositLabel: quote?.depositLabel,
+          remainingLabel: quote?.remainingLabel,
         );
 }
 
@@ -403,7 +413,12 @@ Future<OwnerRequestInfo> loadOwnerRequestInfo(Map<String, dynamic> r) async {
       if (d.zoneId == '${r['zoneId']}') dep = d.status;
     } catch (_) {}
   }
-  return OwnerRequestInfo(known: true, quote: q, depStatus: dep);
+  return OwnerRequestInfo(
+    known: true,
+    quote: q,
+    depStatus: dep,
+    status: effectiveQuotationStatus(q?.status, r),
+  );
 }
 
 /// Mở chi tiết phiếu của Owner: mô tả, chẩn đoán, hợp đồng (ký + cọc 30%, nghiệm thu + 70%) và lịch sử.
@@ -414,52 +429,39 @@ Future<void> showServiceRequestDetail(
   VoidCallback? onChanged,
   ZoneModel? zone,
 }) async {
-  final history =
-      (r['history'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => DraggableScrollableSheet(
-      expand: false,
-      builder: (context, controller) => ListView(
-        controller: controller,
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            kServiceFailureCodes[r['failureCode']] ?? '${r['failureCode']}',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text('${r['description'] ?? ''}'),
-          if (r['diagnosis'] != null) ...[
-            const SizedBox(height: 10),
-            Text('Chẩn đoán: ${r['diagnosis']}'),
-          ],
-          if (r['workPerformed'] != null) ...[
-            const SizedBox(height: 6),
-            Text('Đã xử lý: ${r['workPerformed']}'),
-          ],
-          const Divider(height: 24),
-          QuotationPanel(
-            serviceRequestId: '${r['id']}',
-            deploymentRequestId: r['deploymentRequestId']?.toString(),
-            zone: zone,
-            farmName: zone?.farmName,
-            zoneName: zone?.name,
-            onChanged: onChanged,
-          ),
-          const Divider(height: 24),
-          const Text('Lịch sử', style: TextStyle(fontWeight: FontWeight.bold)),
-          for (final h in history)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text('${h['toStatus']}'),
-              subtitle: Text(
-                '${h['createdAtUtc'] ?? ''}${h['notes'] == null ? '' : '\n${h['notes']}'}',
-              ),
+  await Navigator.push<void>(
+    context,
+    MaterialPageRoute(
+      builder: (context) => Scaffold(
+        appBar: AppBar(title: const Text('Hợp đồng & thanh toán')),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              kServiceFailureCodes[r['failureCode']] ?? '${r['failureCode']}',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
-        ],
+            const SizedBox(height: 6),
+            Text('${r['description'] ?? ''}'),
+            if (r['diagnosis'] != null) ...[
+              const SizedBox(height: 10),
+              Text('Chẩn đoán: ${r['diagnosis']}'),
+            ],
+            if (r['workPerformed'] != null) ...[
+              const SizedBox(height: 6),
+              Text('Đã xử lý: ${r['workPerformed']}'),
+            ],
+            const Divider(height: 24),
+            QuotationPanel(
+              serviceRequestId: '${r['id']}',
+              deploymentRequestId: r['deploymentRequestId']?.toString(),
+              zone: zone,
+              farmName: zone?.farmName,
+              zoneName: zone?.name,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -560,7 +562,10 @@ class _OwnerRequestCardState extends State<OwnerRequestCard> {
                   ),
                   if (_info.known)
                     _badge(
-                      contractStageLabel(q?.status),
+                      contractStageLabel(
+                        _info.status ?? q?.status,
+                        depositLabel: q?.depositLabel,
+                      ),
                       const Color(0xFF475569),
                     ),
                 ],
@@ -597,7 +602,7 @@ class _OwnerRequestCardState extends State<OwnerRequestCard> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Tổng HĐ: ${formatMoney(q.totalAmount)} · Cọc 30%: ${formatMoney(q.deposit30)}',
+                    'Tổng HĐ: ${formatMoney(q.totalAmount)} · Cọc ${q.depositLabel}: ${formatMoney(q.deposit30)}',
                     style: const TextStyle(fontSize: 13, color: Colors.black54),
                   ),
                 ),
@@ -800,10 +805,18 @@ class _QuotationPanelState extends State<QuotationPanel> {
   Quotation? _quotation;
   bool _loading = true;
   bool _busy = false;
+  int? _nodeCount;
+  String? _ownerName;
   String? _error;
   ServicePayment? _lastPayment;
   String?
   _deploymentStatus; // trạng thái yêu cầu triển khai liên kết, lấy từ backend
+
+  /// Nhãn tỷ lệ theo CHÍNH báo giá này (đã chốt khi cọc), không theo cấu hình hiện hành.
+  String get _dep =>
+      _quotation?.depositLabel ?? BusinessParameters.active.depositLabel;
+  String get _rem =>
+      _quotation?.remainingLabel ?? BusinessParameters.active.remainingLabel;
 
   bool get _isOwner =>
       ApiService.appRole == AppRole.farmOwner ||
@@ -849,6 +862,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
       _error = null;
     });
     try {
+      await BusinessParametersStore.refresh(); // tỷ lệ cọc do Admin cấu hình (không đoán 30%)
       final q = await SupportApi.getQuotation(widget.serviceRequestId);
       String? depStatus;
       final depId = widget.deploymentRequestId;
@@ -867,10 +881,37 @@ class _QuotationPanelState extends State<QuotationPanel> {
           }
         } catch (_) {}
       }
+      String? ownerName;
+      if (_isOwner) {
+        try {
+          final me = await AccountApi.getMe();
+          final n = '${me?['fullName'] ?? ''}'.trim();
+          if (n.isNotEmpty) ownerName = n;
+        } catch (_) {}
+      }
+      int? nodes;
+      if (_isOwner) {
+        try {
+          var zoneId = widget.zone?.zoneId ?? '';
+          if (zoneId.isEmpty) {
+            zoneId =
+                '${(await SupportApi.getServiceRequest(widget.serviceRequestId))['zoneId'] ?? ''}';
+          }
+          if (zoneId.isNotEmpty) {
+            nodes = (await FarmApi.getDeviceMapLocations(zoneId)).length;
+          }
+        } catch (_) {}
+      }
       if (mounted) {
         setState(() {
           _quotation = q;
           _deploymentStatus = depStatus;
+          _nodeCount = nodes;
+          if (ownerName != null) {
+            _ownerName = ownerName;
+            if (_signer30.text == 'Chủ Trang Trại') _signer30.text = ownerName;
+            if (_signer70.text == 'Chủ Trang Trại') _signer70.text = ownerName;
+          }
         });
       }
     } catch (e) {
@@ -890,10 +931,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
     return '$b đ';
   }
 
-  static const _statusText = <String, String>{
+  Map<String, String> get _statusText => <String, String>{
     'SentToOwner': 'Chờ chủ trang trại ký hợp đồng',
-    'SignedByOwner': 'Đã ký hợp đồng, đã ghi nhận cọc 30%',
-    'Completed': 'Đã thanh toán đủ (70%) và đã nghiệm thu',
+    'SignedByOwner': 'Đã ký hợp đồng, đã ghi nhận cọc $_dep',
+    'Completed': 'Đã thanh toán đủ ($_rem) và đã nghiệm thu',
   };
 
   void _snack(String message) => ScaffoldMessenger.of(
@@ -958,8 +999,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
         _receipt70 = payment;
       }
       _okMessage = deposit
-          ? 'Đã ký hợp đồng và ghi nhận thanh toán tạm ứng 30%. Kỹ thuật viên có thể vào thực địa lắp đặt.'
-          : 'Đã ký nghiệm thu và ghi nhận thanh toán 70%. Hợp đồng hoàn tất 100%.';
+          ? 'Đã ký hợp đồng và ghi nhận thanh toán tạm ứng $_dep. Kỹ thuật viên có thể vào thực địa lắp đặt.'
+          : 'Đã ký nghiệm thu và ghi nhận thanh toán $_rem. Hợp đồng hoàn tất 100%.';
       await _load();
       widget.onChanged?.call();
       if (mounted) await _showReceipt(payment);
@@ -1011,8 +1052,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
               row(
                 'Giai đoạn',
                 deposit
-                    ? 'Tạm ứng 30% khi ký hợp đồng'
-                    : 'Thanh toán 70% khi nghiệm thu',
+                    ? 'Tạm ứng $_dep khi ký hợp đồng'
+                    : 'Thanh toán $_rem khi nghiệm thu',
               ),
               row('Số tiền', _money(p.amount), strong: true),
               row(
@@ -1050,48 +1091,53 @@ class _QuotationPanelState extends State<QuotationPanel> {
     );
   }
 
-  Widget _sectionCard(Color c, String title, List<Widget> children) =>
-      Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: c.withValues(alpha: 0.5)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14.5,
-                color: c,
-              ),
+  Widget _sectionCard(
+    Color c,
+    String title,
+    List<Widget> children, {
+    String? badge,
+  }) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: c.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: c.withValues(alpha: 0.5)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (badge == null)
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 14.5,
+              color: c,
             ),
-            const SizedBox(height: 8),
-            ...children,
-          ],
-        ),
-      );
+          )
+        else
+          _sectionHeader(title, badge, const Color(0xFF64748B)),
+        const SizedBox(height: 8),
+        ...children,
+      ],
+    ),
+  );
 
   Widget _paymentForm({
     required TextEditingController signer,
     required String method,
     required ValueChanged<String> onMethod,
     required String transferNote,
+    String signerLabel = 'Họ tên người ký',
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       TextField(
         controller: signer,
         textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(
-          labelText: 'Họ tên người ký',
-          isDense: true,
-        ),
+        decoration: InputDecoration(labelText: signerLabel, isDense: true),
       ),
       const SizedBox(height: 10),
       SegmentedButton<String>(
@@ -1149,159 +1195,494 @@ class _QuotationPanelState extends State<QuotationPanel> {
           ),
         );
 
-  static const _terms = [
+  List<String> get _terms => [
     'Điều 1. Phạm vi: nhà thầu cung cấp và lắp đặt thiết bị IoT theo danh mục hợp đồng.',
-    'Điều 2. Thanh toán: tạm ứng 30% khi ký hợp đồng, 70% còn lại khi nghiệm thu.',
+    'Điều 2. Thanh toán: tạm ứng $_dep khi ký hợp đồng, $_rem còn lại khi nghiệm thu.',
     'Điều 3. Bảo hành theo điều khoản ghi trong hợp đồng.',
     'Điều 4. Hợp đồng có hiệu lực khi Chủ trang trại ký và thanh toán tạm ứng.',
   ];
 
-  /// Mục 1 như web: ký hợp đồng + thanh toán tạm ứng 30%.
-  Widget _ownerDepositSection(Quotation q) {
-    final paid = q.status != 'SentToOwner';
-    final ok = const Color(0xFF059669);
-    if (paid) {
-      return _sectionCard(
-        ok,
-        '1. Hợp đồng Báo giá Thiết bị & Thanh toán Tạm ứng 30%',
-        [
+  /// Tiêu đề từng mục kèm nhãn trạng thái bên phải, như web.
+  Widget _sectionHeader(String title, String badge, Color badgeColor) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: badgeColor,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          badge,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    ],
+  );
+
+  /// Khối "đã hoàn tất" như web: tiêu đề + nhãn khóa, bảng chi tiết giao dịch, nút khóa, dòng thông báo.
+  /// Chi tiết giao dịch chỉ có khi vừa ký trong phiên này (backend không có API đọc lại khoản thanh toán), còn lại hiện "—".
+  Widget _doneCard({
+    required String title,
+    required String lockChip,
+    required String signerLabel,
+    required String amountLabel,
+    required double amount,
+    required String timeLabel,
+    required ServicePayment? receipt,
+    required String lockedButton,
+    required String footer,
+  }) {
+    const green = Color(0xFF059669);
+    Widget cell(String l, String v, {bool strong = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'Đã ký hợp đồng và thanh toán tạm ứng 30% (${_money(q.deposit30)}). Hợp đồng đã khóa.',
-            style: TextStyle(fontWeight: FontWeight.w700, color: ok),
+            l,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
-          _receiptButton(_receipt30),
-          if (_okMessage != null && q.status == 'SignedByOwner')
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(_okMessage!, style: const TextStyle(fontSize: 13)),
+          Text(
+            v,
+            style: TextStyle(
+              fontSize: strong ? 14 : 13,
+              fontWeight: FontWeight.w800,
+              color: strong ? green : null,
             ),
+          ),
         ],
-      );
-    }
-    final amber = const Color(0xFFD97706);
-    return _sectionCard(
-      amber,
-      '1. Hợp đồng Báo giá Thiết bị & Thanh toán Tạm ứng 30%',
-      [
-        Text(
-          'SỐ TIỀN TẠM ỨNG 30% CẦN THANH TOÁN TẠI ĐÂY: ${_money(q.deposit30)}',
-          style: TextStyle(fontWeight: FontWeight.w800, color: amber),
-        ),
-        const SizedBox(height: 8),
-        _paymentForm(
-          signer: _signer30,
-          method: _method30,
-          onMethod: (m) => _method30 = m,
-          transferNote:
-              'COC30 #${widget.serviceRequestId.length > 8 ? widget.serviceRequestId.substring(0, 8).toUpperCase() : widget.serviceRequestId.toUpperCase()}',
-        ),
-        const SizedBox(height: 8),
-        for (final t in _terms)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Text(
-              t,
-              style: const TextStyle(fontSize: 12.5, height: 1.35),
+      ),
+    );
+    final method = receipt == null
+        ? '—'
+        : receipt.paymentMethod == 'CASH'
+        ? 'Tiền mặt'
+        : 'Chuyển khoản (VietQR)';
+    final when = DateTime.tryParse(receipt?.paidAtUtc ?? '');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF34D399), width: 1.6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle, color: green, size: 20),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: Color(0xFF065F46),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA7F3D0),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock, size: 13, color: Color(0xFF064E3B)),
+                    const SizedBox(width: 4),
+                    Text(
+                      lockChip,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF064E3B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFA7F3D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                cell(signerLabel, receipt?.signerFullName ?? _ownerName ?? '—'),
+                cell(amountLabel, _money(amount), strong: true),
+                cell('Phương thức thanh toán', method),
+                cell(
+                  timeLabel,
+                  receipt == null
+                      ? '—'
+                      : '${receipt.transactionReference ?? '—'}${when == null ? '' : ' (${formatContractDate(when)})'}',
+                ),
+              ],
             ),
           ),
-        Material(
-          type: MaterialType.transparency,
-          child: CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            dense: true,
-            value: _agreed,
-            onChanged: (v) => setState(() => _agreed = v ?? false),
-            title: const Text(
-              'Tôi đã đọc và đồng ý với các điều khoản hợp đồng.',
-              style: TextStyle(fontSize: 13.5),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock, size: 16, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    lockedButton,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        if (!_agreed)
-          const Text(
-            'Vui lòng tích đồng ý điều khoản để mở khóa nút ký hợp đồng.',
-            style: TextStyle(fontSize: 12.5, color: Color(0xFF92400E)),
-          ),
-        _errorBox(),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: _busy || !_agreed ? null : () => _sign(deposit: true),
-            child: Text(
-              'KÝ HỢP ĐỒNG & THANH TOÁN 30% CỌC (${_money(q.deposit30)})',
-              textAlign: TextAlign.center,
+          const SizedBox(height: 8),
+          Text(
+            footer,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF064E3B),
+              height: 1.35,
             ),
           ),
-        ),
-      ],
+          _receiptButton(receipt),
+        ],
+      ),
     );
   }
 
-  /// Mục 2 như web: nghiệm thu + thanh toán 70% còn lại.
-  Widget _ownerFinalSection(Quotation q) {
-    const title = '2. Biên bản Nghiệm thu Công trình & Thanh toán 70% còn lại';
-    if (q.status == 'SentToOwner') {
-      return _sectionCard(const Color(0xFF64748B), title, [
+  /// Mục 1 như web: ký hợp đồng + thanh toán tạm ứng 30%.
+  Widget _ownerDepositSection(Quotation q) {
+    final title = '1. Hợp đồng Báo giá Thiết bị & Thanh toán Tạm ứng $_dep';
+    final paid = q.status != 'SentToOwner';
+    if (paid) {
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader(title, 'Đã ký & cọc $_dep', const Color(0xFF059669)),
+            const SizedBox(height: 8),
+            _doneCard(
+              title: 'ĐÃ KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC THÀNH CÔNG',
+              lockChip: 'Đã khóa thao tác',
+              signerLabel: 'Đại diện ký:',
+              amountLabel: 'Số tiền tạm ứng $_dep:',
+              amount: q.deposit30,
+              timeLabel: 'Mã GD / Thời gian:',
+              receipt: _receipt30,
+              lockedButton:
+                  'ĐÃ KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC (NÚT ĐÃ KHÓA HOÀN TOÀN)',
+              footer:
+                  'Kỹ thuật viên hiện đã được mở khóa quyền Vào Zone Chấm Node (Node Mapper) trên bản đồ!',
+            ),
+          ],
+        ),
+      );
+    }
+    final amber = const Color(0xFFD97706);
+    return _sectionCard(amber, title, [
+      Text(
+        'SỐ TIỀN TẠM ỨNG $_dep CẦN THANH TOÁN TẠI ĐÂY: ${_money(q.deposit30)}',
+        style: TextStyle(fontWeight: FontWeight.w800, color: amber),
+      ),
+      const SizedBox(height: 8),
+      _paymentForm(
+        signer: _signer30,
+        method: _method30,
+        onMethod: (m) => _method30 = m,
+        transferNote: 'COC30 #$_shortId',
+      ),
+      const SizedBox(height: 8),
+      for (final t in _terms)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 3),
+          child: Text(t, style: const TextStyle(fontSize: 12.5, height: 1.35)),
+        ),
+      Material(
+        type: MaterialType.transparency,
+        child: CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+          value: _agreed,
+          onChanged: (v) => setState(() => _agreed = v ?? false),
+          title: const Text(
+            'Tôi đã đọc và đồng ý với các điều khoản hợp đồng.',
+            style: TextStyle(fontSize: 13.5),
+          ),
+        ),
+      ),
+      if (!_agreed)
         const Text(
-          'Đang khóa: cần ký hợp đồng và thanh toán tạm ứng 30% trước.',
-          style: TextStyle(fontSize: 13.5),
+          'Vui lòng tích đồng ý điều khoản để mở khóa nút ký hợp đồng.',
+          style: TextStyle(fontSize: 12.5, color: Color(0xFF92400E)),
         ),
-      ]);
-    }
-    if (q.status == 'Completed') {
-      return _sectionCard(const Color(0xFF059669), title, [
-        Text(
-          'Đã nghiệm thu và thanh toán 70% (${_money(q.remaining70)}). Hợp đồng hoàn tất 100%.',
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF059669),
-          ),
-        ),
-        _receiptButton(_receipt70),
-        if (_okMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(_okMessage!, style: const TextStyle(fontSize: 13)),
-          ),
-      ]);
-    }
-    final ready = _deploymentStatus == 'Completed';
-    const c = Color(0xFF059669);
-    return _sectionCard(c, title, [
-      if (!ready)
-        Text(
-          'Đang chờ kỹ thuật viên hoàn tất lắp đặt và chấm node (hiện: ${deploymentStatusLabels[_deploymentStatus ?? ''] ?? 'chưa xác định'}). Chỉ nghiệm thu được khi đợt lắp đặt đã hoàn tất.',
-          style: const TextStyle(fontSize: 13.5, color: Color(0xFFD97706)),
-        ),
-      if (ready) ...[
-        Text(
-          'SỐ TIỀN 70% CÒN LẠI: ${_money(q.remaining70)}',
-          style: const TextStyle(fontWeight: FontWeight.w800, color: c),
-        ),
-        const SizedBox(height: 8),
-        _paymentForm(
-          signer: _signer70,
-          method: _method70,
-          onMethod: (m) => _method70 = m,
-          transferNote:
-              'NT70 #${widget.serviceRequestId.length > 8 ? widget.serviceRequestId.substring(0, 8).toUpperCase() : widget.serviceRequestId.toUpperCase()}',
-        ),
-        _errorBox(),
-        const SizedBox(height: 8),
-      ],
+      _errorBox(),
+      const SizedBox(height: 8),
       SizedBox(
         width: double.infinity,
         child: FilledButton(
-          onPressed: _busy || !ready ? null : () => _sign(deposit: false),
+          onPressed: _busy || !_agreed ? null : () => _sign(deposit: true),
           child: Text(
-            'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN 70% CÒN LẠI (${_money(q.remaining70)})',
+            'KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC (${_money(q.deposit30)})',
             textAlign: TextAlign.center,
           ),
         ),
       ),
     ]);
+  }
+
+  String get _shortId => widget.serviceRequestId.length > 8
+      ? widget.serviceRequestId.substring(0, 8).toUpperCase()
+      : widget.serviceRequestId.toUpperCase();
+
+  /// Mục 2 như web: nghiệm thu + thanh toán 70% còn lại.
+  Widget _ownerFinalSection(Quotation q) {
+    // Chỉ hiện khi kỹ thuật viên đã bấm "Hoàn tất lắp đặt" (backend: triển khai Completed) hoặc đã nghiệm thu xong.
+    if (q.status != 'Completed' && _deploymentStatus != 'Completed') {
+      return const SizedBox.shrink();
+    }
+    final title =
+        '2. Biên bản Nghiệm thu Công trình & Thanh toán $_rem còn lại';
+    const green = Color(0xFF059669);
+    if (q.status == 'Completed') {
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader(
+              title,
+              'Đã Nghiệm thu 100%',
+              const Color(0xFF047857),
+            ),
+            const SizedBox(height: 8),
+            _doneCard(
+              title: 'ĐÃ KÝ NGHIỆM THU & QUYẾT TOÁN 100% CÔNG TRÌNH',
+              lockChip: 'Đã khóa hoàn tất',
+              signerLabel: 'Đại diện nghiệm thu:',
+              amountLabel: 'Số tiền thanh toán $_rem:',
+              amount: q.remaining70,
+              timeLabel: 'Mã GD / Thời gian nghiệm thu:',
+              receipt: _receipt70,
+              lockedButton:
+                  'ĐÃ HOÀN TẤT NGHIỆM THU & THANH TOÁN 100% (NÚT ĐÃ KHÓA HOÀN TOÀN)',
+              footer:
+                  'Đã thanh toán đầy đủ 100% giá trị hợp đồng (${_money(q.totalAmount)}). Thiết bị đã chuyển sang trạng thái Vận hành chính thức!',
+            ),
+          ],
+        ),
+      );
+    }
+    final signed = q.status != 'SentToOwner';
+    return _sectionCard(green, title, [
+      if (!signed)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            'Bước này bị khóa. Cần ký Hợp đồng & thanh toán $_dep cọc tại Bước 1 trước khi nghiệm thu.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        )
+      else
+        ..._finalForm(q),
+    ], badge: signed ? 'Chờ Nghiệm Thu' : 'Khóa Nghiệm thu');
+  }
+
+  /// Form nghiệm thu khi đã cọc: tiến độ chấm node, số tiền 70%, người ký, phương thức, cảnh báo triển khai, nút ký.
+  List<Widget> _finalForm(Quotation q) {
+    final ready = _deploymentStatus == 'Completed';
+    const green = Color(0xFF059669);
+    return [
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF34D399), width: 1.6),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text(
+                  'Tiến độ chấm Node thực địa:',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${_nodeCount ?? 'Chưa tải'} Nodes đã chấm trên GIS Map',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      color: Color(0xFF064E3B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'SỐ TIỀN $_rem CÒN LẠI CẦN THANH TOÁN KHI NGHIỆM THU:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _money(q.remaining70),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: Color(0xFF064E3B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _paymentForm(
+              signer: _signer70,
+              method: _method70,
+              onMethod: (m) => _method70 = m,
+              transferNote: 'NT70 #$_shortId',
+              signerLabel: 'Họ tên Người ký Biên bản Nghiệm thu *',
+            ),
+            if (!ready)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 18,
+                      color: Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Tiến độ triển khai hiện tại: ${deploymentStatusLabels[_deploymentStatus ?? ''] ?? 'chưa xác định'}. Biên bản nghiệm thu sẽ mở sau khi Kỹ thuật viên hoàn tất lắp đặt & đo kiểm tra kết nối thiết bị.',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF78350F),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            _errorBox(),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: green,
+                  disabledBackgroundColor: const Color(0xFFCBD5E1),
+                ),
+                onPressed: _busy || !ready ? null : () => _sign(deposit: false),
+                child: Text(
+                  _busy
+                      ? 'Đang xác nhận Ký Nghiệm thu & Ghi nhận $_rem...'
+                      : 'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN $_rem CÒN LẠI (${_money(q.remaining70)})',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   /// Khung tóm tắt hợp đồng như web: mã, số thiết bị, tổng, cọc 30% và trạng thái khóa.
@@ -1325,14 +1706,14 @@ class _QuotationPanelState extends State<QuotationPanel> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Tổng HĐ: ${_money(q.totalAmount)} • Cọc 30%: ${_money(q.deposit30)}',
+            'Tổng HĐ: ${_money(q.totalAmount)} • Cọc $_dep: ${_money(q.deposit30)}',
             style: const TextStyle(fontSize: 13),
           ),
           const SizedBox(height: 4),
           Text(
             signed
-                ? 'Owner đã ký và cọc 30% (khóa sửa)'
-                : 'Chờ Owner ký và thanh toán 30%',
+                ? 'Owner đã ký và cọc $_dep (khóa sửa)'
+                : 'Chờ Owner ký và thanh toán $_dep',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -1340,10 +1721,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
             ),
           ),
           if (q.status == 'Completed')
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 2),
               child: Text(
-                'Owner đã ký nghiệm thu và thanh toán 70% (hoàn tất 100%)',
+                'Owner đã ký nghiệm thu và thanh toán $_rem (hoàn tất 100%)',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1458,10 +1839,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
             ),
           ],
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 4, bottom: 8),
           child: Text(
-            'Cọc 30% và nghiệm thu 70% thuộc báo giá lắp đặt thiết bị của yêu cầu này, không liên quan hợp đồng của Zone.',
+            'Cọc $_dep và nghiệm thu $_rem thuộc báo giá lắp đặt thiết bị của yêu cầu này, không liên quan hợp đồng của Zone.',
             style: TextStyle(
               fontSize: 12.5,
               color: Color(0xFF64748B),
@@ -1553,6 +1934,25 @@ class _QuotationPanelState extends State<QuotationPanel> {
         ],
         const SizedBox(height: 10),
         if (_isOwner && q != null) ...[
+          if (_okMessage != null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
+              ),
+              child: Text(
+                _okMessage!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF065F46),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           _ownerDepositSection(q),
           _ownerFinalSection(q),
         ],
@@ -1739,10 +2139,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
           const SizedBox(height: 8),
           Row(
             children: [
-              pay('Cọc 30% khi ký', q.deposit30, const Color(0xFFD97706)),
+              pay('Cọc $_dep khi ký', q.deposit30, const Color(0xFFD97706)),
               const SizedBox(width: 8),
               pay(
-                'Còn lại 70% khi nghiệm thu',
+                'Còn lại $_rem khi nghiệm thu',
                 q.remaining70,
                 const Color(0xFF0284C7),
               ),

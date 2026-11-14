@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using SmartFarm.Api.Middleware;
 using SmartFarm.Api.Extensions;
 using SmartFarm.Application;
+using SmartFarm.Application.Common.Interfaces;
 using SmartFarm.Infrastructure;
 using System.Text.Json.Serialization;
 using SmartFarm.Api.HostedServices;
@@ -32,6 +33,8 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<MqttBrokerHost>();
+builder.Services.AddSingleton<IActuatorCommandTransport>(sp => sp.GetRequiredService<MqttBrokerHost>());
 builder.Services.AddSmartFarmAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddRateLimiter(options =>
 {
@@ -74,6 +77,9 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddHostedService<ControlAutomationWorker>();
+builder.Services.AddHostedService<MqttBrokerHost>(sp => sp.GetRequiredService<MqttBrokerHost>());
+builder.Services.AddHostedService<GatewayLivenessWorker>();
+builder.Services.AddHostedService<DeviceLivenessWorker>();
 builder.Services.AddHostedService<SimulatedIotTelemetryWorker>();
 builder.Services.AddHostedService<KnowledgeEmbeddingWorker>();
 
@@ -150,26 +156,6 @@ if (!app.Environment.IsEnvironment("Testing"))
 
     try
     {
-        await SmartFarm.Infrastructure.Persistence.DataIntegrityHealer.HealAsync(db, logger, app.Configuration, app.Environment.IsDevelopment());
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Data integrity auto-healing encountered an issue during startup");
-    }
-
-    try
-    {
-        var docService = scope.ServiceProvider.GetRequiredService<AgricultureDocumentService>();
-        await docService.SeedVietGapKnowledgeAsync();
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Knowledge base seeding encountered an issue during startup");
-    }
-
-    try
-    {
-        var db = scope.ServiceProvider.GetRequiredService<SmartFarmDbContext>();
         await SmartFarm.Infrastructure.Persistence.DataIntegrityHealer.HealAsync(db, logger, app.Configuration, app.Environment.IsDevelopment());
     }
     catch (Exception ex)

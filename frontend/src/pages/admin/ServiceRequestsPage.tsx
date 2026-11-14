@@ -1,3 +1,4 @@
+import { ServiceRequestStatus, serviceStatusLabels } from '../../components/ui/ServiceRequestStatus';
 import { NO_CROP_LABEL, zoneCropLabel, zoneStageLabel } from '../../utils/zoneCrop';
 import React, { useState, useEffect } from 'react';
 import { ServiceRequest } from '../../types';
@@ -33,6 +34,9 @@ export const ServiceRequestsPage: React.FC = () => {
 
   useEffect(() => {
     loadRequests();
+    const refresh = () => { void loadRequests(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, []);
 
   // Modal Admin Create Request on behalf of Owner
@@ -45,13 +49,13 @@ export const ServiceRequestsPage: React.FC = () => {
     description: '',
     priority: 'HIGH' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
     assignedOwnerName: 'Chủ Trang Trại (Owner)',
-    assignedTechnicianName: 'Trần Minh Trí (Kỹ thuật viên IoT)',
+    assignedTechnicianName: '',
   });
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const filteredRequests = (requests || []).filter(r => {
     if (!r) return false;
-    const matchesFilter = activeFilter === 'ALL' ? true : r.status === activeFilter;
+    const matchesFilter = activeFilter === 'ALL' ? true : (activeFilter === 'IN_PROGRESS' ? ['ASSIGNED', 'IN_PROGRESS', 'DIAGNOSED', 'WORK_COMPLETED', 'VERIFIED'].includes(r.status) : activeFilter === 'RESOLVED' ? ['RESOLVED', 'CLOSED'].includes(r.status) : r.status === activeFilter);
     const query = String(searchTerm || '').toLowerCase().trim();
     const matchesSearch = !query ||
       String(r.title || '').toLowerCase().includes(query) ||
@@ -61,28 +65,20 @@ export const ServiceRequestsPage: React.FC = () => {
   });
 
   const handleAssignTechnician = async (requestId: string) => {
-    const techId = assignedTechMap[requestId] || technicians[0]?.userId;
+    const request = requests.find(r => r.serviceRequestId === requestId);
+    const techId = assignedTechMap[requestId] || request?.assignedTechnician || technicians[0]?.userId;
     const tech = technicians.find(t => t.userId === techId);
-    const techName = tech?.fullName || 'Trần Minh Trí (Kỹ thuật viên IoT)';
+    if (!tech?.userId) { alert('Chọn kỹ thuật viên trước khi phân công.'); return; }
+    const techName = tech.fullName || 'Kỹ thuật viên';
     try {
       if (tech?.userId) {
         await supportService.assignServiceRequest(requestId, tech.userId, `Admin phân công cho ${techName}`);
       }
       await loadRequests();
       setSuccessMsg(`Đã phân công công việc cho ${techName} thành công!`);
-    } catch {
-      setRequests(prev => prev.map(req => {
-        if (req.serviceRequestId === requestId) {
-          return {
-            ...req,
-            status: 'IN_PROGRESS',
-            assignedTechnician: techId || 'user-tech',
-            assignedTechnicianName: techName,
-          };
-        }
-        return req;
-      }));
-      setSuccessMsg(`Đã phân công công việc cho ${techName} thành công!`);
+    } catch (error: any) {
+      setSuccessMsg(null);
+      alert(error?.response?.data?.detail || error?.response?.data?.message || 'Phân công thất bại. Vui lòng thử lại.');
     }
     setTimeout(() => setSuccessMsg(null), 3000);
   };
@@ -116,14 +112,14 @@ export const ServiceRequestsPage: React.FC = () => {
       description: '',
       priority: 'HIGH',
       assignedOwnerName: 'Chủ Trang Trại (Owner)',
-      assignedTechnicianName: 'Trần Minh Trí (Kỹ thuật viên IoT)',
+      assignedTechnicianName: '',
     });
     setSuccessMsg(`Đã khởi tạo thành công Yêu cầu [${newRequest.title}] thay cho Owner!`);
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   const pendingCount = requests.filter(r => r.status === 'OPEN').length;
-  const inProgressCount = requests.filter(r => r.status === 'IN_PROGRESS').length;
+  const inProgressCount = requests.filter(r => ['ASSIGNED', 'IN_PROGRESS', 'DIAGNOSED', 'WORK_COMPLETED', 'VERIFIED'].includes(r.status)).length;
   const resolvedCount = requests.filter(r => r.status === 'RESOLVED' || r.status === 'CLOSED').length;
 
   return (
@@ -222,7 +218,7 @@ export const ServiceRequestsPage: React.FC = () => {
                       }`}>
                         {isInstallation ? '⚡ YÊU CẦU LẮP ĐẶT MỚI' : '🛠️ YÊU CẦU BẢO TRÌ & REPAIR'}
                       </span>
-                      <StatusBadge status={req.status} label={isPending ? 'CHỜ ADMIN PHÂN CÔNG' : req.status} />
+                      <ServiceRequestStatus request={req} />
                       {req.isAcceptedByOwner ? (
                         <span className="px-2 py-0.5 rounded bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1">
                           <CheckSquare size={11} /> OWNER ĐÃ NGHIỆM THU
@@ -260,7 +256,7 @@ export const ServiceRequestsPage: React.FC = () => {
                 {/* Admin Assignment Control Panel */}
                 <div className="p-3.5 bg-slate-900 text-white rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2">
-                    <Wrench size={16} className="text-emerald-400 shrink-0" />
+                    <Wrench size={16} className={req.assignedTechnicianName ? "text-emerald-400 shrink-0" : "text-amber-400 shrink-0"} />
                     <div>
                       <span className="text-slate-400 block text-[10px] uppercase font-bold">Trạng thái Phân công Kỹ thuật viên</span>
                       {req.assignedTechnicianName ? (
@@ -268,23 +264,26 @@ export const ServiceRequestsPage: React.FC = () => {
                           <CheckCircle2 size={14} /> Đã phân công: {req.assignedTechnicianName}
                         </strong>
                       ) : (
-                        <span className="text-amber-400 font-bold">Chưa có Kỹ thuật viên tiếp nhận</span>
+                        <span className="text-amber-400 font-bold flex items-center gap-1">
+                          <Clock size={14} /> Chưa có Kỹ thuật viên tiếp nhận
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  {isPending && (
+                  {['OPEN', 'ASSIGNED'].includes(req.status) && (
                     <div className="flex items-center gap-2">
                       <select
+                        value={assignedTechMap[req.serviceRequestId] || req.assignedTechnician || technicians[0]?.userId || ''}
                         onChange={e => setAssignedTechMap({ ...assignedTechMap, [req.serviceRequestId]: e.target.value })}
-                        className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg p-1.5 focus:outline-none"
+                        className="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg p-1.5 focus:outline-none cursor-pointer"
                       >
                         {technicians.map(t => (
                           <option key={t.userId} value={t.userId}>{t.fullName}</option>
                         ))}
                       </select>
                       <Button size="sm" onClick={() => handleAssignTechnician(req.serviceRequestId)} className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold">
-                        <UserCheck size={14} className="mr-1" /> Phân công ngay
+                        <UserCheck size={14} className="mr-1" /> {req.assignedTechnicianName ? 'Đổi Kỹ thuật viên' : 'Phân công ngay'}
                       </Button>
                     </div>
                   )}

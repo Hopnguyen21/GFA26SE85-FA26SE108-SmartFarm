@@ -8,11 +8,15 @@ class InstallFlowStepper extends StatelessWidget {
   final String? quotationStatus;
   final String? deploymentStatus;
   final bool closed;
+  final String? depositLabel;
+  final String? remainingLabel;
   const InstallFlowStepper({
     super.key,
     required this.quotationStatus,
     required this.deploymentStatus,
     required this.closed,
+    this.depositLabel,
+    this.remainingLabel,
   });
 
   @override
@@ -21,6 +25,8 @@ class InstallFlowStepper extends StatelessWidget {
       quotationStatus: quotationStatus,
       deploymentStatus: deploymentStatus,
       closed: closed,
+      depositLabel: depositLabel,
+      remainingLabel: remainingLabel,
     );
     return Semantics(
       container: true,

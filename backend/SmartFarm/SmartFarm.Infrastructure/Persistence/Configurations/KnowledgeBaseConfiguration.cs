@@ -24,6 +24,7 @@ internal sealed class AgricultureDocumentConfiguration : IEntityTypeConfiguratio
         b.Property(x => x.AuthorOrganization).HasColumnName("author_organization").HasMaxLength(200);
         b.Property(x => x.Category).HasColumnName("category").HasMaxLength(50).HasDefaultValue("general");
         b.Property(x => x.CropScope).HasColumnName("crop_scope").HasMaxLength(500).HasDefaultValue(string.Empty);
+        b.Property(x => x.RegionScope).HasColumnName("region_scope").HasMaxLength(200).HasDefaultValue(string.Empty);
         b.Property(x => x.Version).HasColumnName("version").HasMaxLength(50);
         b.Property(x => x.IsPublic).HasColumnName("is_public").HasDefaultValue(true);
         b.Property(x => x.ReviewStatus).HasColumnName("review_status")
@@ -42,8 +43,14 @@ internal sealed class AgricultureDocumentConfiguration : IEntityTypeConfiguratio
         b.Property(x => x.ContentHash).HasColumnName("content_hash").HasMaxLength(64);
         b.Property(x => x.ChunkerVersion).HasColumnName("chunker_version").HasDefaultValue(0);
         b.Property(x => x.Topics).HasColumnName("topics").HasMaxLength(300).HasDefaultValue(string.Empty);
+        b.Property(x => x.StandardCode).HasColumnName("standard_code").HasMaxLength(100);
+        b.Property(x => x.IssuedDate).HasColumnName("issued_date");
+        b.Property(x => x.EffectiveDate).HasColumnName("effective_date");
+        b.Property(x => x.ExpirationDate).HasColumnName("expiration_date");
+        b.Property(x => x.PreviousVersionId).HasColumnName("previous_version_id");
         b.Property(x => x.SupersededByDocumentId).HasColumnName("superseded_by_document_id");
         b.HasIndex(x => x.ContentHash);
+        b.HasIndex(x => x.PreviousVersionId);
         b.Property(x => x.TenantId).HasColumnName("tenant_id");
 
         b.HasIndex(x => x.Category);

@@ -2,6 +2,12 @@
 /// Dữ liệu là JSON của `GET /service-requests` (ServiceRequestView) cộng báo giá/bản đồ tải thêm.
 library;
 
+import '../../core/models/models.dart' show BusinessParameters;
+
+/// Nhãn tỷ lệ tạm ứng / còn lại theo tham số Admin cấu hình (mặc định 30% / 70%).
+String get _dep => BusinessParameters.active.depositLabel;
+String get _rem => BusinessParameters.active.remainingLabel;
+
 /// Mã lỗi của yêu cầu lắp đặt: `INSTALLATION` do luồng triển khai IoT tạo, `NEW_INSTALL` do cổng dịch vụ tạo.
 const installationFailureCodes = {'INSTALLATION', 'NEW_INSTALL'};
 
@@ -25,7 +31,8 @@ enum ServiceFilter {
 }
 
 /// Yêu cầu đã giải quyết/đóng: kỹ thuật viên không còn việc phải làm.
-bool isClosedStatus(String status) => status == 'Closed';
+bool isClosedStatus(String status) =>
+    status == 'Closed' || status == 'Cancelled';
 
 /// Đã sửa/lắp xong và kiểm tra, đang chờ kỹ thuật viên đóng yêu cầu.
 bool isReadyToClose(String status) => status == 'Verified';
@@ -54,7 +61,7 @@ int serviceUrgency(String status) => switch (status) {
   'WorkCompleted' => 4,
   'Verified' => 5,
   'Resolved' => 6,
-  'Closed' => 8,
+  'Closed' || 'Cancelled' => 8,
   _ => 7,
 };
 
@@ -84,12 +91,16 @@ String serviceTitle(Map<String, dynamic> r) {
 
 /// Giai đoạn báo giá/hợp đồng của yêu cầu lắp đặt, theo trạng thái báo giá backend
 /// (SentToOwner → SignedByOwner → Completed). null = chưa có báo giá.
-String contractStageLabel(String? quotationStatus) => switch (quotationStatus) {
-  null || '' || 'Draft' => 'Chưa tạo hợp đồng',
-  'Completed' => 'Đã nghiệm thu 100%',
-  'SignedByOwner' || 'DepositPaid' => 'Đã thanh toán 30% cọc',
-  _ => 'Đã gửi HĐ · chờ Owner cọc 30%',
-};
+/// [depositLabel]: nhãn tỷ lệ cọc của CHÍNH hợp đồng đó (đã chốt); bỏ trống thì theo cấu hình hiện hành.
+String contractStageLabel(String? quotationStatus, {String? depositLabel}) {
+  final dep = depositLabel ?? _dep;
+  return switch (quotationStatus) {
+    null || '' || 'Draft' => 'Chưa tạo hợp đồng',
+    'Completed' => 'Đã nghiệm thu 100%',
+    'SignedByOwner' || 'DepositPaid' => 'Đã thanh toán $dep cọc',
+    _ => 'Đã gửi HĐ · chờ Owner cọc $dep',
+  };
+}
 
 /// Lọc theo bộ lọc (null = tất cả) và từ khoá (bỏ trống = không lọc), rồi sắp theo mức khẩn;
 /// cùng mức thì giữ thứ tự gốc (máy chủ trả mới nhất trước). [nameOf] cho tên Zone/trang trại để tìm kiếm.
@@ -132,7 +143,11 @@ String installNextAction({
   required String? quotationStatus,
   required String? deploymentStatus,
   required bool closed,
+  String? depositLabel,
+  String? remainingLabel,
 }) {
+  final depLbl = depositLabel ?? _dep;
+  final remLbl = remainingLabel ?? _rem;
   if (closed) return 'Đã đóng công việc';
   final dep = deploymentStatus;
   if (dep == 'Cancelled') return 'Yêu cầu đã bị hủy';
@@ -141,7 +156,7 @@ String installNextAction({
   }
   if (quotationStatus == 'Completed') return 'Đóng công việc';
   if (dep == 'Completed') {
-    return 'Chờ Owner thanh toán 70% và nghiệm thu';
+    return 'Chờ Owner thanh toán $remLbl và nghiệm thu';
   }
   final signed =
       quotationStatus == 'SignedByOwner' || quotationStatus == 'DepositPaid';
@@ -152,10 +167,11 @@ String installNextAction({
       quotationStatus != null &&
       quotationStatus.isNotEmpty &&
       quotationStatus != 'Draft';
-  if (hasQuote) return 'Chờ Owner thanh toán cọc 30%';
+  if (hasQuote) return 'Chờ Owner thanh toán cọc $depLbl';
   return switch (dep) {
     'Accepted' => 'Khảo sát',
-    'Surveyed' || 'PlanConfirmed' => 'Tạo và gửi hợp đồng',
+    'Surveyed' => 'Xác nhận kế hoạch',
+    'PlanConfirmed' => 'Tạo và gửi hợp đồng',
     'Installing' => 'Gắn Node, lưu vị trí, ghi kết nối rồi hoàn tất',
     _ => 'Tiếp nhận',
   };
@@ -166,12 +182,16 @@ String installNextAction({
   required String? quotationStatus,
   required String? deploymentStatus,
   required bool closed,
+  String? depositLabel,
+  String? remainingLabel,
 }) {
+  final dep = depositLabel ?? _dep;
+  final rem = remainingLabel ?? _rem;
   if (closed) return (text: 'Đã đóng', needsAction: false);
   switch (quotationStatus) {
     case 'SentToOwner':
       return (
-        text: 'Cần bạn: ký hợp đồng và thanh toán cọc 30%',
+        text: 'Cần bạn: ký hợp đồng và thanh toán cọc $dep',
         needsAction: true,
       );
     case 'Completed':
@@ -180,11 +200,11 @@ String installNextAction({
     case 'DepositPaid':
       return deploymentStatus == 'Completed'
           ? (
-              text: 'Cần bạn: ký nghiệm thu và thanh toán 70%',
+              text: 'Cần bạn: ký nghiệm thu và thanh toán $rem',
               needsAction: true,
             )
           : (
-              text: 'Đã cọc 30%, chờ kỹ thuật viên lắp đặt và hoàn tất',
+              text: 'Đã cọc $dep, chờ kỹ thuật viên lắp đặt và hoàn tất',
               needsAction: false,
             );
     default:
@@ -205,7 +225,11 @@ List<({String label, FlowStepState state})> installFlowSteps({
   required String? quotationStatus,
   required String? deploymentStatus,
   required bool closed,
+  String? depositLabel,
+  String? remainingLabel,
 }) {
+  final dep = depositLabel ?? _dep;
+  final rem = remainingLabel ?? _rem;
   final hasQuote =
       quotationStatus != null &&
       quotationStatus.isNotEmpty &&
@@ -225,14 +249,33 @@ List<({String label, FlowStepState state})> installFlowSteps({
 
   return [
     (label: 'Báo giá & hợp đồng', state: pick(done: hasQuote, ready: true)),
-    (label: 'Owner ký & cọc 30%', state: pick(done: signed, ready: hasQuote)),
+    (label: 'Owner ký & cọc $dep', state: pick(done: signed, ready: hasQuote)),
     (
       label: 'Thi công & chấm node',
       state: pick(done: built || accepted, ready: signed),
     ),
     (
-      label: 'Nghiệm thu 70%',
+      label: 'Nghiệm thu $rem',
       state: pick(done: accepted, ready: built || accepted),
     ),
   ];
+}
+
+/// Trạng thái báo giá "hiệu lực" kết hợp cờ trên phiếu dịch vụ (`isContractSigned`, `isDepositPaid`, `isAcceptanceSigned`,
+/// `isFullyPaid` do backend trả cùng phiếu). Cờ chỉ chuyển false → true nên là bằng chứng bền: đọc báo giá lỗi hay báo giá
+/// chưa kịp cập nhật vẫn biết đã cọc / đã nghiệm thu. Không có cờ nào bật thì giữ nguyên trạng thái báo giá.
+String? effectiveQuotationStatus(
+  String? quotationStatus,
+  Map<String, dynamic>? serviceRequest,
+) {
+  final r = serviceRequest;
+  if (r != null) {
+    if (r['isFullyPaid'] == true || r['isAcceptanceSigned'] == true) {
+      return 'Completed';
+    }
+    if (r['isDepositPaid'] == true || r['isContractSigned'] == true) {
+      return quotationStatus == 'Completed' ? 'Completed' : 'SignedByOwner';
+    }
+  }
+  return quotationStatus;
 }

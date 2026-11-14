@@ -85,7 +85,8 @@ extension _HomeScreenEcosystem on HomeScreen {
               iconBg: const Color(0xFFD97706),
               iconColor: Colors.white,
               title: 'Hợp Đồng Điện Tử',
-              subtitle: 'Cọc 30% - Nghiệm thu 70%',
+              subtitle:
+                  'Cọc ${BusinessParameters.active.depositLabel} - Nghiệm thu ${BusinessParameters.active.remainingLabel}',
             ),
           ],
         ),

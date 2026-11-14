@@ -132,7 +132,7 @@ public sealed class ContractSigningTests
     public async Task Final_acceptance_requires_signed_deposit_and_completed_deployment_and_is_single_use()
     {
         using var f = new TestApplicationFactory(); using var c = f.CreateClient();
-        var x = await SetupAsync(f, c, DeploymentRequestStatus.Installing);
+        var x = await SetupAsync(f, c, DeploymentRequestStatus.PlanConfirmed);
         await Login(c, "owner-a@example.com");
         Assert.Equal(HttpStatusCode.Conflict, (await Final(c, x.ServiceRequestId)).StatusCode); // chưa ký cọc
         (await Deposit(c, x.ServiceRequestId)).EnsureSuccessStatusCode();
@@ -145,6 +145,11 @@ public sealed class ContractSigningTests
         }
         (await Final(c, x.ServiceRequestId)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Conflict, (await Final(c, x.ServiceRequestId)).StatusCode);
+        // Nghiệm thu xong thì phiếu lắp đặt được đóng và có lịch sử (không kẹt ở Assigned).
+        var closed = await Read<ServiceRequestView>(await c.GetAsync($"/api/v1/service-requests/{x.ServiceRequestId}"));
+        Assert.Equal(ServiceRequestStatus.Closed, closed.Status);
+        Assert.NotNull(closed.ClosedAtUtc);
+        Assert.Contains(closed.History, h => h.ToStatus == ServiceRequestStatus.Closed);
     }
 
     [Fact]
