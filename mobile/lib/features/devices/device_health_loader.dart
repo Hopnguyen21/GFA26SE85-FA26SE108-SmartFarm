@@ -19,7 +19,9 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
       // Chỉ yêu cầu đang lắp đặt hoặc đã chuyển bảo trì mới có thiết bị và còn được backend cho đọc trang trại;
       // yêu cầu chưa tiếp nhận hay đã hoàn tất thì trang trại không đọc được (404).
       if (r.farmId.isEmpty ||
-          (r.status != 'Installing' && r.status != 'MaintenanceRequired')) {
+          (r.status != 'Installing' &&
+              r.status != 'MaintenanceRequired' &&
+              r.status != 'Completed')) {
         continue;
       }
       farmIds.add(r.farmId);

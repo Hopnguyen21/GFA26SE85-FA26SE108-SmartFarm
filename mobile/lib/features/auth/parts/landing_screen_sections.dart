@@ -31,7 +31,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
           const SizedBox(width: 6),
           const Expanded(
             child: Text(
-              'Chuẩn VietGAP & Trợ lý AI Gemini Nông học',
+              'Khởi tạo Nông trang số hóa chuẩn VietGAP & Tích hợp Trợ lý AI Gemini Nông học chuyên sâu.',
               style: TextStyle(
                 color: Color(0xFFD1FAE5),
                 fontSize: 10.5,
@@ -78,7 +78,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Trạm Gateway & Cảm Biến Bền Bỉ',
+          'Trạm Gateway & Cảm biến Bền bỉ Ngoài trời',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w900,
@@ -87,7 +87,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Thiết kế chuẩn kháng nước IP67, pin mặt trời và sóng LoRa xuyên tán lá 2.5km.',
+          'Được thiết kế chuyên biệt cho điều kiện nông nghiệp Việt Nam chịu được nắng mưa nhiệt đới gió mùa, chuẩn kháng nước IP67 và pin năng lượng mặt trời.',
           style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
         ),
         const SizedBox(height: 12),
@@ -95,25 +95,25 @@ extension _LandingScreenStateSections on _LandingScreenState {
         // 3 Thẻ thiết bị phần cứng
         _buildHardwareCard(
           icon: Icons.cell_tower,
-          title: 'Gateway ESP32-S3 LoRa Dual Antenna',
+          title: 'Central LoRa Gateway ESP32-S3 Dual Antenna',
           desc:
-              'Kết nối đến 128 sensor node trong bán kính 2.5km không cần kéo dây mạng.',
+              'Kết nối đến 128 sensor node thực địa trong bán kính 2.5km không cần kéo dây mạng.',
           color: const Color(0xFF059669),
         ),
         const SizedBox(height: 8),
         _buildHardwareCard(
           icon: Icons.grass,
-          title: 'Đầu dò Đất RS485 Modbus 3-in-1',
+          title: 'Đầu dò Đất RS485 Modbus 3-trong-1',
           desc:
-              'Đo độ ẩm đất, nhiệt độ đất và độ dẫn điện EC, chống ăn mòn phân bón.',
+              'Đo chính xác độ ẩm đất, nhiệt độ đất và độ dẫn điện EC, chống ăn mòn hóa chất phân bón.',
           color: const Color(0xFF0284C7),
         ),
         const SizedBox(height: 8),
         _buildHardwareCard(
           icon: Icons.wb_sunny_outlined,
-          title: 'Trạm Vi khí hậu SHT30 & Cảm biến Lux',
+          title: 'Trạm Vi khí hậu SHT30 & Ánh sáng Lux',
           desc:
-              'Giám sát vi khí hậu nhà màng liên tục, tự động phát hiện sốc nhiệt.',
+              'Giám sát vi khí hậu nhà màng liên tục, tự động phát hiện sốc nhiệt và nguy cơ nấm bệnh.',
           color: const Color(0xFFD97706),
         ),
         const SizedBox(height: 12),
@@ -205,6 +205,49 @@ extension _LandingScreenStateSections on _LandingScreenState {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.only(top: 10),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0x996EE7B7))),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Cần tư vấn triển khai phần cứng cho nông trang?',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFD1FAE5),
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _showConsultModal(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF065F46),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      child: const Text('Báo giá ngay'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -330,7 +373,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Từ Khảo Sát Đến Nghiệm Thu',
+          'Từ Khảo sát Thực địa đến Thu hoạch Năng suất cao',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w900,
@@ -339,41 +382,41 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Số hóa minh bạch, ký hợp đồng điện tử và nghiệm thu bàn giao 2 pha an tâm.',
+          'Mọi bước triển khai đều được số hóa, minh bạch hợp đồng và bảo đảm kết quả nghiệm thu trước khi bàn giao.',
           style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
         ),
         const SizedBox(height: 12),
 
         _buildStepItem(
           step: '01',
-          title: 'Khảo Sát & Chấm GIS Thực Địa',
+          title: 'Khảo sát & Chấm GIS',
           desc:
-              'Kỹ thuật viên đo đạc ranh giới polygon và chấm tọa độ Gateway & Node trên bản đồ số.',
+              'Kỹ thuật viên đến hiện trường, đo đạc ranh giới và chấm tọa độ các trạm Gateway & Node LoRa trên bản đồ số.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
         _buildStepItem(
           step: '02',
-          title: 'Ký Số & Tạm Ứng ${BusinessParameters.active.depositLabel}',
+          title: 'Ký Số & Tạm ứng ${BusinessParameters.active.depositLabel}',
           desc:
-              'Xuất báo giá chi tiết, Chủ trang trại ký hợp đồng điện tử và tạm ứng ${BusinessParameters.active.depositLabel} triển khai.',
+              'Xuất bảng báo giá chi tiết, Owner ký hợp đồng điện tử và thực hiện thanh toán tạm ứng ${BusinessParameters.active.depositLabel} để triển khai.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
         _buildStepItem(
           step: '03',
-          title: 'Lắp Đặt & Provisioning Thiết Bị',
+          title: 'Lắp đặt & Provisioning',
           desc:
-              'Cấu hình trạm ESP32, kiểm thử kết nối telemetry và hiệu chuẩn cảm biến với đất.',
+              'Kỹ thuật viên cấu hình trạm ESP32, kiểm thử kết nối telemetry và hiệu chuẩn cảm biến với đất thực tế.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
         _buildStepItem(
           step: '04',
           title:
-              'Nghiệm Thu & Vận Hành ${BusinessParameters.active.remainingLabel}',
+              'Nghiệm thu & Vận hành ${BusinessParameters.active.remainingLabel}',
           desc:
-              'Kiểm tra hệ thống tưới tự động ổn định, ký nghiệm thu số và thanh toán ${BusinessParameters.active.remainingLabel} còn lại.',
+              'Chủ trang trại kiểm tra hệ thống tưới tự động hoạt động ổn định, ký biên bản nghiệm thu và thanh toán ${BusinessParameters.active.remainingLabel} còn lại.',
           isHighlight: true,
         ),
       ],
@@ -472,7 +515,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
             border: Border.all(color: const Color(0xFFFDE68A)),
           ),
           child: const Text(
-            'NIỀM TIN TỪ KHÁCH HÀNG & HTX',
+            'NIỀM TIN TỪ CÁC NHÀ VƯỜN & HTX',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,
@@ -482,7 +525,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Đồng Hành Cùng Nông Nghiệp Xanh',
+          'Đồng hành cùng nền Nông nghiệp Bền vững',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w900,
@@ -493,21 +536,21 @@ extension _LandingScreenStateSections on _LandingScreenState {
 
         _buildTestimonialCard(
           quote:
-              'Hệ thống tưới nhỏ giọt kết hợp cảm biến đất LoRa giúp 8ha cà chua của chúng tôi tại Đơn Dương tiết kiệm 40% chi phí nhân công và tăng 22% năng suất.',
+              'Nhờ hệ thống tự động tưới nhỏ giọt kết hợp cảm biến đất LoRa, 8ha cà chua của chúng tôi tại Đơn Dương tiết kiệm được 40% chi phí nhân công và năng suất tăng 22%.',
           author: 'Ông Nguyễn Văn An',
-          role: 'GĐ HTX Nông nghiệp Công nghệ cao Đà Lạt',
+          role: 'Giám đốc HTX Nông nghiệp Công nghệ cao Đà Lạt',
         ),
         const SizedBox(height: 8),
         _buildTestimonialCard(
           quote:
-              'Bản đồ GIS và quy trình hồ sơ sinh trưởng VietGAP rất chuẩn mực. Kỹ thuật viên hỗ trợ tận tình từ khảo sát đến nghiệm thu hợp đồng điện tử.',
+              'Quy trình số hóa bản đồ GIS và hồ sơ sinh trưởng rất chuẩn mực. Kỹ thuật viên hỗ trợ tận tình từ khâu khảo sát đến khi ký nghiệm thu hợp đồng điện tử.',
           author: 'Bà Trần Thị Hoa',
           role: 'Chủ trang trại Dưa lưới Organic Mộc Châu',
         ),
         const SizedBox(height: 8),
         _buildTestimonialCard(
           quote:
-              'Trợ lý AI Nông học Gemini chẩn đoán bệnh lá và lịch tưới cực kỳ chính xác. Hoàn toàn yên tâm quản trị từ xa qua điện thoại.',
+              'Trợ lý AI Nông học Gemini trả lời chẩn đoán bệnh lá và lịch tưới cực kỳ chính xác. Chúng tôi hoàn toàn yên tâm quản lý trang trại từ xa qua điện thoại.',
           author: 'Kỹ sư Lê Minh Tuấn',
           role: 'Quản lý Kỹ thuật Farm Đức Trọng FarmTech',
         ),
@@ -627,7 +670,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
           child: Column(
             children: [
               const Text(
-                'Sẵn sàng bắt đầu mùa vụ mới?',
+                'Sẵn sàng bắt đầu mùa vụ thắng lợi mới?',
                 style: TextStyle(
                   color: Color(0xFFFDE68A),
                   fontSize: 11,
@@ -636,7 +679,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Nâng Tầm Nông Trang Số',
+                'Nâng tầm Nông trang của bạn lên Kỷ nguyên Số ngay hôm nay',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -646,7 +689,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Đăng ký tài khoản miễn phí để trải nghiệm trạm điều khiển IoT và nhận tư vấn khảo sát thực địa.',
+                'Đăng ký tài khoản miễn phí để khám phá trạm điều khiển IoT, lập lịch tưới tự động và nhận tư vấn khảo sát thực địa từ chuyên gia.',
                 style: TextStyle(
                   color: Color(0xFFD1FAE5),
                   fontSize: 11,
@@ -659,19 +702,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => RegisterScreen(
-                              onRegisterSuccess: () {
-                                Navigator.pop(context);
-                                _navigateToLogin(context);
-                              },
-                            ),
-                          ),
-                        );
-                      },
+                      onPressed: () => _openRegister(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFBBF24),
                         foregroundColor: const Color(0xFF062326),
@@ -685,7 +716,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                           fontSize: 12,
                         ),
                       ),
-                      child: const Text('Đăng Ký Ngay'),
+                      child: const Text('Đăng ký ngay'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -704,7 +735,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                           fontSize: 12,
                         ),
                       ),
-                      child: const Text('Đăng Nhập'),
+                      child: const Text('Đăng nhập'),
                     ),
                   ),
                 ],
@@ -713,6 +744,10 @@ extension _LandingScreenStateSections on _LandingScreenState {
           ),
         ),
         const SizedBox(height: 18),
+
+        // Liên kết chân trang như web: Sản phẩm & Giải pháp, Cổng Dịch vụ
+        _buildFooterLinks(context),
+        const SizedBox(height: 12),
 
         // Footer info & Contact
         Container(

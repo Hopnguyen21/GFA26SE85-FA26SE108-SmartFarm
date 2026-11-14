@@ -15,6 +15,7 @@ class ZonePlantingSeasonsScreen extends StatefulWidget {
 class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
   ZoneModel get zone => widget.zone;
   int _version = 0; // đổi để tải lại danh sách sau khi tạo vụ
+  bool _hasRunning = false; // Zone đã có vụ đang canh tác: không tạo thêm vụ
 
   static const _statusVi = {
     'Planned': ('Dự kiến', Color(0xFF0284C7)),
@@ -50,7 +51,7 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
     final canRecordYield = role == 'OWNER' || role == 'FARMER';
     final isOwner = role == 'OWNER';
     return Scaffold(
-      floatingActionButton: isOwner
+      floatingActionButton: isOwner && !_hasRunning
           ? FloatingActionButton.extended(
               backgroundColor: const Color(0xFF062326),
               foregroundColor: Colors.white,
@@ -80,7 +81,16 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
       ),
       body: _AsyncList<List<Map<String, dynamic>>>(
         key: ValueKey('seasons_$_version'),
-        load: () => CropApi.getPlantingSeasons(zoneId: zone.zoneId),
+        load: () async {
+          final list = await CropApi.getPlantingSeasons(zoneId: zone.zoneId);
+          final running = hasRunningSeason(list);
+          if (running != _hasRunning) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _hasRunning = running);
+            });
+          }
+          return list;
+        },
         builder: (context, seasons, reload) {
           if (seasons.isEmpty) {
             return _empty(
@@ -141,7 +151,7 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${s['cropName'] ?? ''}${s['varietyName'] != null ? ' · giống ${s['varietyName']}' : ''}',
+                      '${seasonCropLabel(s, zone.currentCrop)}${s['varietyName'] != null ? ' · giống ${s['varietyName']}' : ''}',
                       style: const TextStyle(fontSize: 12, color: _ink),
                     ),
                     Text(
@@ -211,10 +221,13 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                                   : 'Sửa sản lượng',
                             ),
                             onPressed: () async {
-                              final ok = await showRecordYieldDialog(
+                              final ok = await showHarvestYieldDialog(
                                 context,
-                                zone.zoneId,
-                                s,
+                                zoneId: zone.zoneId,
+                                zoneName: zone.name,
+                                areaM2: zone.areaM2,
+                                cropLabel: seasonCropLabel(s, zone.currentCrop),
+                                season: s,
                               );
                               if (ok == true && context.mounted) {
                                 // Cập nhật dữ liệu Zone (trạng thái vụ/giai đoạn) rồi danh sách vụ.
@@ -236,101 +249,4 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
       ),
     );
   }
-}
-
-/// Hộp thoại ghi sản lượng; trả về true nếu đã lưu thành công.
-Future<bool?> showRecordYieldDialog(
-  BuildContext context,
-  String zoneId,
-  Map<String, dynamic> season,
-) {
-  final kgC = TextEditingController(
-    text: season['actualYieldKg']?.toString() ?? '',
-  );
-  final notesC = TextEditingController();
-  var markCompleted = '${season['status']}' == 'InProgress';
-  var saving = false;
-  return showDialog<bool>(
-    context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setLocal) => AlertDialog(
-        title: Text(
-          'Sản lượng · ${season['name']}',
-          style: const TextStyle(fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: kgC,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Sản lượng thực tế (kg)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: notesC,
-              maxLength: 1000,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú (không bắt buộc)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            if ('${season['status']}' == 'InProgress')
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: markCompleted,
-                onChanged: (v) => setLocal(() => markCompleted = v ?? false),
-                title: const Text(
-                  'Kết thúc vụ (đánh dấu đã thu hoạch)',
-                  style: TextStyle(fontSize: 13),
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: saving ? null : () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: saving
-                ? null
-                : () async {
-                    final kg = double.tryParse(
-                      kgC.text.trim().replaceAll(',', '.'),
-                    );
-                    if (kg == null || kg < 0) {
-                      _toast(ctx, 'Nhập sản lượng là số ≥ 0.', error: true);
-                      return;
-                    }
-                    setLocal(() => saving = true);
-                    try {
-                      await CropApi.recordSeasonYield(
-                        zoneId,
-                        '${season['seasonId'] ?? season['plantingSeasonId']}',
-                        actualYieldKg: kg,
-                        actualEndDate: markCompleted ? DateTime.now() : null,
-                        notes: notesC.text.trim(),
-                        markCompleted: markCompleted,
-                      );
-                      if (ctx.mounted) Navigator.pop(ctx, true);
-                    } catch (e) {
-                      setLocal(() => saving = false);
-                      if (ctx.mounted) _toast(ctx, _err(e), error: true);
-                    }
-                  },
-            child: const Text('Lưu'),
-          ),
-        ],
-      ),
-    ),
-  ).whenComplete(() {
-    kgC.dispose();
-    notesC.dispose();
-  });
 }

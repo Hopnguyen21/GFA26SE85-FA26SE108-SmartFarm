@@ -63,7 +63,9 @@ class _TechnicianGatewayToolsScreenState
 
   Future<void> _reload() async {
     final f = _load();
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
     try {
       await f;
     } catch (_) {}
@@ -509,7 +511,9 @@ class _SparePartsTabState extends State<_SparePartsTab> {
 
   Future<void> _reload() async {
     final f = DeploymentApi.getTechnicianSpareParts();
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
     try {
       await f;
     } catch (_) {}

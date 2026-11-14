@@ -113,6 +113,21 @@ abstract final class TaskApi {
     );
   }
 
+  static Future<List<Map<String, dynamic>>> getStockIns(String farmId) async {
+    try {
+      final resp = await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/farms/$farmId/stock-ins',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final dynamic decoded = jsonDecode(utf8.decode(resp.bodyBytes));
+        if (decoded is List) {
+          return decoded.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   /// POST /farms/{f}/tasks/{t}/assignees (Owner): giao thêm Farmer cho task.
   static Future<TaskModel> addTaskAssignees(
     String farmId,

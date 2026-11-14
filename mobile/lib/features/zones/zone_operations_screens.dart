@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'widgets/zone_crop_plan_edit_panel.dart';
+import 'widgets/record_yield_dialog.dart';
+import 'zone_auto_season.dart' show hasRunningSeason, seasonCropLabel;
 import '../crops/widgets/create_season_sheet.dart';
 import '../irrigation/season_irrigation_calendar_screen.dart';
 import 'widgets/stage_draft_tile.dart'
@@ -60,7 +62,9 @@ class _AsyncListState<T> extends State<_AsyncList<T>> {
   late Future<T> _future = widget.load();
   Future<void> _reload() async {
     final f = widget.load();
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
     await f.catchError((_) => null as T);
   }
 

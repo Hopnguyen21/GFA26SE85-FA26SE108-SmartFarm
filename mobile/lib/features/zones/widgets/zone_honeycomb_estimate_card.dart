@@ -355,8 +355,8 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
       )
       ..writeln(
         '• Node cảm biến: mỗi node phủ một ô lục giác bán kính $radius m (~${est.cellAreaM2.round()} m²). Số node = '
-        'diện tích / ô × $honeycombNodeAreaFactor + phần biên theo chu vi Zone × $honeycombNodePerimeterFactor, làm tròn '
-        'lên → cần ${est.sensors} node (${widget.perimeterM == null ? 'chu vi ước tính theo hình chữ nhật 1:2' : 'chu vi lấy từ ranh giới Zone'}). '
+        'diện tích / ô × $honeycombBoundaryFactor (hệ số bù biên), làm tròn lên, tối thiểu $honeycombMinSensors '
+        '→ cần ${est.sensors} node. '
         'Mỗi node là một bộ hoàn chỉnh; chọn ít loại bộ nhất để đo đủ các thông số của giống cây.',
       );
     b.writeln(

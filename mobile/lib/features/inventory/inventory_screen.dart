@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
+import '../../core/services/api_service.dart';
 import '../../core/widgets/dispose_later.dart';
 
 part 'parts/inventory_screen_card.dart';
@@ -69,6 +70,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.receipt_long_outlined,
+              color: Color(0xFF38BDF8),
+            ),
+            tooltip: 'Phiếu Nhập Kho',
+            onPressed: () => _showStockInsModal(context, provider),
+          ),
           IconButton(
             icon: const Icon(
               Icons.add_circle_outline,

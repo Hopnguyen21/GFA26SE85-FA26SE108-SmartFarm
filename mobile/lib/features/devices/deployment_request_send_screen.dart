@@ -10,6 +10,7 @@ import '../../core/widgets/state_views.dart';
 import '../farms/farm_setup_logic.dart';
 import '../zones/honeycomb_estimate.dart';
 import '../zones/widgets/zone_honeycomb_estimate_card.dart';
+import '../support/support_requests_screen.dart' show SupportRequestsScreen;
 import 'deployment_screens.dart';
 import 'deployment_board_logic.dart';
 import 'widgets/cancel_deployment_dialog.dart';
@@ -40,6 +41,9 @@ class _DeploymentRequestSendScreenState
   IotRequirements? _req;
   List<DeploymentRequest> _zoneRequests = [];
   HoneycombEstimate? _estimate;
+  // Hợp đồng của Zone (null: chưa tải được; xem _contractError).
+  List<ZoneContractModel>? _contracts;
+  String? _contractError;
   bool _loading = true;
   bool _submitting = false;
   bool _needsSeason = false;
@@ -61,6 +65,21 @@ class _DeploymentRequestSendScreenState
   ZoneModel? _zone(FarmProvider p) =>
       p.allZones.where((z) => z.zoneId == widget.zoneId).firstOrNull;
 
+  /// Lý do chưa cho gửi theo hợp đồng của Zone (null = được gửi). Zone CHƯA từng có hợp đồng vẫn gửi được (lần lắp đặt đầu tiên);
+  /// Zone đã có hợp đồng thì phải có ít nhất một hợp đồng còn hạn. Không đọc được hợp đồng thì chặn (không đoán).
+  String? get _contractBlockReason {
+    if (_contractError != null) {
+      return 'Không kiểm tra được hợp đồng của Zone nên chưa cho gửi yêu cầu: $_contractError';
+    }
+    final list = _contracts;
+    if (list == null || list.isEmpty) return null;
+    if (list.any((c) => c.isInEffect())) return null;
+    final latest = [...list]..sort((a, b) => b.endDate.compareTo(a.endDate));
+    final c = latest.first;
+    return 'Hợp đồng ${c.contractNumber} của Zone đã hết hạn (ngày kết thúc ${c.endDate}) hoặc không còn hiệu lực. '
+        'Hãy gia hạn hoặc ký hợp đồng mới rồi quay lại gửi yêu cầu triển khai.';
+  }
+
   DeploymentRequest? get _activeRequest => _zoneRequests
       .where((r) => _activeStatuses.contains(r.status))
       .firstOrNull;
@@ -78,11 +97,24 @@ class _DeploymentRequestSendScreenState
       DeploymentApi.getOwnerDeploymentRequests(
         zoneId: widget.zoneId,
       ).then<Object?>((v) => v).catchError((Object e) => e),
+      ContractApi.getZoneContracts(
+        zoneId: widget.zoneId,
+      ).then<Object?>((v) => v).catchError((Object e) => e),
     ]);
     if (!mounted || seq != _loadSeq) return;
     final req = results[0];
     final requests = results[1];
+    final contracts = results[2];
     setState(() {
+      if (contracts is List<ZoneContractModel>) {
+        _contracts = contracts;
+        _contractError = null;
+      } else {
+        _contracts = null;
+        _contractError = friendlyError(
+          contracts ?? 'Không tải được hợp đồng của Zone.',
+        );
+      }
       _loading = false;
       _needsSeason = false;
       _req = null;
@@ -242,7 +274,8 @@ class _DeploymentRequestSendScreenState
         active == null &&
         _req != null &&
         params.isNotEmpty &&
-        _loadError == null;
+        _loadError == null &&
+        _contractBlockReason == null;
 
     return Column(
       children: [
@@ -295,6 +328,47 @@ class _DeploymentRequestSendScreenState
                           onPressed: _load,
                           child: const Text('Thử lại'),
                         ),
+                      ],
+                    ),
+                  ),
+                if (_contractBlockReason != null)
+                  _section(
+                    'Chưa thể gửi yêu cầu',
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _contractBlockReason!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.warning,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (_contractError != null)
+                          TextButton(
+                            onPressed: _load,
+                            child: const Text('Thử lại'),
+                          )
+                        else
+                          // Hợp đồng đã hết hạn thì không gia hạn được nữa: tạo yêu cầu mới.
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: FilledButton.icon(
+                              onPressed: () => Navigator.push<void>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      SupportRequestsScreen(zone: zone),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                size: 18,
+                              ),
+                              label: const Text('Tạo yêu cầu mới'),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -453,33 +527,36 @@ class _DeploymentRequestSendScreenState
             ),
           ),
         ),
-        SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: canSend ? () => _send(zone, draft) : null,
-                icon: _submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded, size: 18),
-                label: Text(_submitting ? 'Đang gửi…' : 'Xác nhận gửi yêu cầu'),
+        if (_contractBlockReason == null)
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: canSend ? () => _send(zone, draft) : null,
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
+                  label: Text(
+                    _submitting ? 'Đang gửi…' : 'Xác nhận gửi yêu cầu',
+                  ),
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

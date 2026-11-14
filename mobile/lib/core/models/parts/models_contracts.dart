@@ -114,6 +114,22 @@ class ZoneContractModel {
   /// Còn hiệu lực: backend có cả Active và ExpiringSoon (còn ≤ 30 ngày), cả hai đều là hợp đồng đang chạy.
   bool get isActive => status == 'Active' || status == 'ExpiringSoon';
 
+  /// Còn hạn thật sự: đang chạy theo trạng thái VÀ chưa quá ngày kết thúc (không tin riêng trạng thái, vì trạng thái
+  /// do máy chủ cập nhật theo lịch có thể chậm so với ngày hết hạn).
+  bool isInEffect({DateTime? now}) {
+    if (!isActive) return false;
+    final end = DateTime.tryParse(endDate);
+    if (end == null) return daysRemaining >= 0;
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    return !DateTime(end.year, end.month, end.day).isBefore(today);
+  }
+
+  /// Đã hết hạn thực tế: trạng thái Expired, hoặc còn ghi Active/ExpiringSoon nhưng đã quá ngày kết thúc.
+  /// Không gồm hợp đồng đã tái ký (Renewed) hay chấm dứt (Terminated).
+  bool isLapsed({DateTime? now}) =>
+      !isInEffect(now: now) && (status == 'Expired' || isActive);
+
   /// Sắp hết hạn: chỉ tính hợp đồng đang chạy còn 0–30 ngày (không tính đã tái ký / chấm dứt / hết hạn).
   bool get isExpiringSoon =>
       isActive && daysRemaining >= 0 && daysRemaining <= 30;
@@ -399,6 +415,96 @@ class BusinessParameters {
   /// "30" thay vì "30.0"; giữ phần lẻ nếu có ("32.5").
   static String fmt(double v) =>
       v == v.roundToDouble() ? v.round().toString() : v.toString();
-  String get depositLabel => '${fmt(depositPercent)}%';
-  String get remainingLabel => '${fmt(remainingPercent)}%';
+
+  /// Nhãn phần trăm dùng chung ("30%"); [remainingOf] cho phần còn lại sau tạm ứng (làm tròn 2 số lẻ).
+  static String pct(double v) => '${fmt(v)}%';
+  static String remainingOf(double depositPercent) =>
+      pct(double.parse((100 - depositPercent).toStringAsFixed(2)));
+  String get depositLabel => pct(depositPercent);
+  String get remainingLabel => pct(remainingPercent);
+}
+
+/// Hóa đơn thu phí theo hợp đồng Zone.
+class BillModel {
+  final String id;
+  final String billCode;
+  final String contractId;
+  final String contractNumber;
+  final String lesseeName;
+  final double amount;
+  final double paidAmount;
+  final double remainingAmount;
+
+  /// Tên enum của backend: Draft, Issued, PartiallyPaid, Paid, Overdue, Cancelled.
+  final String status;
+  final DateTime? issueDate;
+  final DateTime? dueDate;
+  final DateTime? paidDate;
+  final String? paymentMethod;
+  final String? notes;
+  final String createdByName;
+
+  const BillModel({
+    required this.id,
+    required this.billCode,
+    required this.contractId,
+    required this.contractNumber,
+    required this.lesseeName,
+    required this.amount,
+    required this.paidAmount,
+    required this.remainingAmount,
+    required this.status,
+    this.issueDate,
+    this.dueDate,
+    this.paidDate,
+    this.paymentMethod,
+    this.notes,
+    this.createdByName = '',
+  });
+
+  static const _statusByIndex = [
+    'Draft',
+    'Issued',
+    'PartiallyPaid',
+    'Paid',
+    'Overdue',
+    'Cancelled',
+  ];
+
+  factory BillModel.fromJson(Map<String, dynamic> j) {
+    double d(dynamic v) => (v as num?)?.toDouble() ?? 0;
+    final rawStatus = j['status'];
+    final status = rawStatus is int
+        ? (rawStatus >= 0 && rawStatus < _statusByIndex.length
+              ? _statusByIndex[rawStatus]
+              : 'Draft')
+        : (rawStatus?.toString() ?? 'Draft');
+    return BillModel(
+      id: j['id']?.toString() ?? '',
+      billCode: j['billCode']?.toString() ?? '',
+      contractId: j['contractId']?.toString() ?? '',
+      contractNumber: j['contractNumber']?.toString() ?? '',
+      lesseeName: j['lesseeName']?.toString() ?? '',
+      amount: d(j['amount']),
+      paidAmount: d(j['paidAmount']),
+      remainingAmount: d(j['remainingAmount']),
+      status: status,
+      issueDate: DateTime.tryParse(j['issueDate']?.toString() ?? ''),
+      dueDate: DateTime.tryParse(j['dueDate']?.toString() ?? ''),
+      paidDate: DateTime.tryParse(j['paidDate']?.toString() ?? ''),
+      paymentMethod: j['paymentMethod']?.toString(),
+      notes: j['notes']?.toString(),
+      createdByName: j['createdByName']?.toString() ?? '',
+    );
+  }
+
+  bool get isCancelled => status == 'Cancelled';
+
+  /// Còn nợ và chưa hủy: kỹ thuật viên có thể thu tiền.
+  bool get canCollect =>
+      remainingAmount > 0 && !isCancelled && status != 'Paid';
+
+  /// Backend chỉ cho sửa khi chưa thanh toán đủ; chỉ xóa hóa đơn nháp hoặc đã hủy.
+  bool get canEdit => status != 'Paid' && !isCancelled;
+  bool get canDelete => status == 'Draft' || status == 'Cancelled';
 }

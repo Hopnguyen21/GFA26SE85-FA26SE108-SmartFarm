@@ -17,6 +17,7 @@ import 'widgets/zone_node_summary_card.dart';
 import 'widgets/zone_cultivation_info_card.dart';
 import 'widgets/zone_climate_panel.dart';
 import 'widgets/zone_seasons_section.dart';
+import 'widgets/zone_yield_card.dart';
 import 'widgets/zone_workers_section.dart';
 import 'widgets/zone_contracts_section.dart';
 import 'widgets/zone_support_section.dart';

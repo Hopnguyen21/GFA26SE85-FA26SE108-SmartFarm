@@ -83,6 +83,27 @@ abstract final class CropApi {
     );
   }
 
+  /// POST /api/v1/seasons (Owner): tạo mùa vụ chung mới (vd. Đông Xuân 2027) khi danh sách chưa có.
+  /// Mã mùa vụ để backend tự sinh.
+  static Future<Map<String, dynamic>> createFarmingSeason({
+    required String name,
+    required int year,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? description,
+  }) async {
+    final data = ApiService._decodeOrThrow(
+      await ApiService._postWithAuth('${ApiService.baseUrl}/api/v1/seasons', {
+        'name': name,
+        'year': year,
+        'startDate': ApiService._isoDate(startDate),
+        'endDate': ApiService._isoDate(endDate),
+        'description': ?description,
+      }),
+    );
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
   /// GET /varieties?cropId=: giống cây.
   static Future<List<Map<String, dynamic>>> getVarieties({
     String? cropId,

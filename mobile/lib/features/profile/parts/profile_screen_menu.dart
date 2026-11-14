@@ -139,6 +139,15 @@ extension _ProfileScreenMenu on ProfileScreen {
           ),
         },
         {
+          'icon': Icons.receipt_long_outlined,
+          'label': 'Lịch sử Giao dịch & Hóa đơn',
+          'color': const Color(0xFF0369A1),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BillsScreen()),
+          ),
+        },
+        {
           'icon': Icons.badge_outlined,
           'label': 'Quản lý Nông dân & Phân quyền (Farmer)',
           'color': const Color(0xFF0D9488),
@@ -149,6 +158,15 @@ extension _ProfileScreenMenu on ProfileScreen {
         },
       ],
       if (isTech) ...[
+        {
+          'icon': Icons.receipt_long_outlined,
+          'label': 'Hóa đơn thu phí',
+          'color': const Color(0xFF0369A1),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BillsScreen()),
+          ),
+        },
         {
           'icon': Icons.settings_input_antenna,
           'label': 'Cấu hình Gateway / Node & Kho linh kiện',

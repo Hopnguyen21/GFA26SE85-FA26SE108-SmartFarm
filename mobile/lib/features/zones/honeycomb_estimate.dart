@@ -555,24 +555,22 @@ const double honeycombFixedRadiusM = 25;
 /// Hệ số bù biên cho hình học thực tế không vuông vức (khớp web).
 const double honeycombBoundaryFactor = 1.12;
 
-/// Số node cảm biến = ceil(a·S_zone/S_ô + b·chu_vi/khoảng_cách_node + c). Hệ số khớp từ mô phỏng bài toán phủ kín 70 ca
-/// (14 diện tích × 5 tỉ lệ cạnh, bán kính 25 m): đúng ở đa số ca, thiếu tối đa 1 node ở 2/70 ca. Công thức cũ
-/// (1,12·S_zone/S_ô, tối thiểu 2) thiếu node ở 29/70 ca, có ca thiếu tới 3 node. Đây vẫn là ước tính: kỹ thuật viên
-/// khảo sát xác nhận vị trí thực tế.
-const double honeycombNodeAreaFactor = 1.24;
-const double honeycombNodePerimeterFactor = 0.08;
-const double honeycombNodeOffset = 0.15;
-const int honeycombMinSensors = 1;
+/// Số node cảm biến = max(2, ceil(S_zone / S_ô × 1,12)): ĐÚNG công thức của web (HoneycombEstimator.tsx), không biến thể riêng.
+/// Đây là ước tính tham khảo: kỹ thuật viên khảo sát xác nhận số lượng và vị trí thực tế.
+const int honeycombMinSensors = 2;
 
 /// Mỗi Gateway LoRa phủ tối đa ~15.000 m² nhà màng (khớp web).
 const double honeycombGatewayCoverM2 = 15000;
 
-/// Tỉ lệ van/bơm trên mỗi node cảm biến theo cây trồng (khớp web); cây khác dùng mặc định như cà chua.
+/// Tỉ lệ van/bơm trên mỗi node cảm biến theo cây trồng, khớp CÁCH NHẬN DIỆN của web: tên cây chứa từ đầu của khóa
+/// (Cà chua → "cà", Ớt ngọt → "ớt", Dưa leo → "dưa", Xà lách → "xà", Dâu tây → "dâu"), xét theo thứ tự đó;
+/// cây khác dùng mặc định như cà chua (0,6).
 double honeycombActuatorRatio(String cropName) {
   final c = cropName.toLowerCase();
+  if (c.contains('cà')) return 0.6;
   if (c.contains('ớt')) return 0.5;
-  if (c.contains('dưa leo') || c.contains('dưa chuột')) return 0.7;
-  if (c.contains('xà lách')) return 0.8;
+  if (c.contains('dưa')) return 0.7;
+  if (c.contains('xà')) return 0.8;
   if (c.contains('dâu')) return 0.75;
   return 0.6;
 }
@@ -700,17 +698,11 @@ HoneycombEstimate computeHoneycombEstimate({
   final area = math.max(50.0, areaM2);
   final r = radiusM.clamp(6.0, 30.0).toDouble();
   final cell = 3 * math.sqrt(3) / 2 * r * r;
-  // Chu vi: ưu tiên chu vi thật của ranh giới Zone; không có thì giả định hình chữ nhật 1:2 (thận trọng hơn hình vuông).
-  // Giới hạn trong [đường tròn, 12·√S] để ranh giới sai/lệch không làm số node vô lý.
-  final per = (perimeterM ?? 4.2426 * math.sqrt(area))
-      .clamp(3.545 * math.sqrt(area), 12 * math.sqrt(area))
-      .toDouble();
+  // Số node theo web: số ô lý thuyết × hệ số bù biên 1,12, làm tròn lên, tối thiểu 2. Chu vi Zone [perimeterM] không
+  // còn tham gia (giữ tham số để không đổi chữ ký hàm).
   final sensors = math.max(
     honeycombMinSensors,
-    (honeycombNodeAreaFactor * area / cell +
-            honeycombNodePerimeterFactor * per / (math.sqrt(3) * r) +
-            honeycombNodeOffset)
-        .ceil(),
+    (area / cell * honeycombBoundaryFactor).ceil(),
   );
   final actuators = math.max(1, (sensors * actuatorRatio).ceil());
   final gateways = math.max(1, (area / honeycombGatewayCoverM2).ceil());

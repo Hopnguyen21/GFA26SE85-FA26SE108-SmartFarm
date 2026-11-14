@@ -9,6 +9,8 @@ class AlertModel {
   category; // THRESHOLD_VIOLATION, BOUNDARY_VIOLATION, HARDWARE_FAULT, OFFLINE
   final String time;
   bool isAcknowledged;
+  final String zoneId;
+  final String zoneName;
 
   AlertModel({
     required this.alertId,
@@ -18,6 +20,8 @@ class AlertModel {
     this.category = 'THRESHOLD_VIOLATION',
     required this.time,
     this.isAcknowledged = false,
+    this.zoneId = '',
+    this.zoneName = '',
   });
 
   bool get isBoundaryViolation =>
@@ -63,6 +67,8 @@ class AlertModel {
       isAcknowledged:
           json['acknowledgedAtUtc'] != null ||
           json['status']?.toString() == 'Acknowledged',
+      zoneId: json['zoneId']?.toString() ?? '',
+      zoneName: json['zoneName']?.toString() ?? '',
     );
   }
 }
@@ -106,6 +112,10 @@ class TaskModel {
   final String? zoneId;
   final List<TaskAssignmentModel> assignments;
 
+  /// Hạn chót và ngày tạo gốc (UTC) để tính nhãn "Quá hạn / Hôm nay / Còn N ngày" như web.
+  final DateTime? dueAtUtc;
+  final DateTime? createdAtUtc;
+
   TaskModel({
     required this.taskId,
     required this.title,
@@ -119,6 +129,8 @@ class TaskModel {
     this.status = '',
     this.zoneId,
     this.assignments = const [],
+    this.dueAtUtc,
+    this.createdAtUtc,
   });
 
   factory TaskModel.fromJson(
@@ -157,6 +169,8 @@ class TaskModel {
       assignments: assignments,
       description: json['description']?.toString(),
       isCompleted: isDone,
+      dueAtUtc: due == null ? null : DateTime.tryParse(due),
+      createdAtUtc: DateTime.tryParse(json['createdAtUtc']?.toString() ?? ''),
     );
   }
 }

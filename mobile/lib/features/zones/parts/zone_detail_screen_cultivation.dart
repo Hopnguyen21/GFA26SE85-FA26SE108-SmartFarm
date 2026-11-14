@@ -19,6 +19,12 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
             zone: zone,
             version: _cultivationVersion,
           ),
+          ZoneYieldCard(
+            key: ValueKey('yield_${zone.zoneId}'),
+            zone: zone,
+            version: _cultivationVersion,
+            onChanged: () => _refreshCultivation(provider),
+          ),
           // Vụ trồng của chính Zone này (không cần rời màn hình); thao tác trên từng vụ theo trạng thái.
           ZoneSeasonsSection(
             key: ValueKey('seasons_${zone.zoneId}'),

@@ -40,7 +40,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Gửi Yêu Cầu Thành Công!',
+                          'Gửi thông tin thành công!',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -49,7 +49,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Kỹ thuật viên SmartFarm sẽ liên hệ lại với bạn trong vòng 15 phút để tư vấn khảo sát thực địa.',
+                          'Kỹ thuật viên SmartFarm sẽ gọi lại cho bạn sớm nhất.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12.5,
@@ -80,23 +80,27 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Row(
-                                children: [
-                                  Icon(
-                                    Icons.eco,
-                                    color: Color(0xFF10B981),
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Tư Vấn Khảo Sát Nông Trang',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF062326),
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.eco,
+                                      color: Color(0xFF10B981),
+                                      size: 20,
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Đăng ký Tư vấn & Khảo sát Thực địa',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF062326),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               IconButton(
                                 tooltip: 'Đóng',
@@ -106,7 +110,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                             ],
                           ),
                           const Text(
-                            'Để lại thông tin để kỹ sư phần cứng LoRa liên hệ tư vấn cấu hình thiết bị tối ưu.',
+                            'Kỹ thuật viên sẽ liên hệ trong vòng 15 phút để tư vấn số lượng thiết bị LoRa và giải pháp phù hợp với diện tích trang trại của bạn.',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF64748B),
@@ -117,7 +121,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                             controller: nameController,
                             style: const TextStyle(fontSize: 13),
                             decoration: InputDecoration(
-                              labelText: 'Họ và tên chủ trang trại',
+                              labelText: 'Họ và tên chủ trang trại / đại diện',
                               labelStyle: const TextStyle(fontSize: 12),
                               prefixIcon: const Icon(
                                 Icons.person_outline,
@@ -138,7 +142,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                             keyboardType: TextInputType.phone,
                             style: const TextStyle(fontSize: 13),
                             decoration: InputDecoration(
-                              labelText: 'Số điện thoại (Zalo)',
+                              labelText: 'Số điện thoại liên hệ (Zalo)',
                               labelStyle: const TextStyle(fontSize: 12),
                               prefixIcon: const Icon(
                                 Icons.phone_outlined,
@@ -161,7 +165,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                                   controller: areaController,
                                   style: const TextStyle(fontSize: 13),
                                   decoration: InputDecoration(
-                                    labelText: 'Diện tích (ha/m²)',
+                                    labelText: 'Diện tích trang trại',
                                     labelStyle: const TextStyle(fontSize: 12),
                                     prefixIcon: const Icon(
                                       Icons.landscape_outlined,
@@ -189,7 +193,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                                   items: const [
                                     DropdownMenuItem(
                                       value: 'Lâm Đồng (Đà Lạt)',
-                                      child: Text('Lâm Đồng'),
+                                      child: Text('Lâm Đồng (Đà Lạt)'),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Đắk Lắk',
@@ -201,11 +205,15 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                                     ),
                                     DropdownMenuItem(
                                       value: 'Sơn La',
-                                      child: Text('Sơn La'),
+                                      child: Text('Sơn La (Mộc Châu)'),
                                     ),
                                     DropdownMenuItem(
-                                      value: 'Tỉnh khác',
-                                      child: Text('Khác'),
+                                      value: 'Đồng Nai',
+                                      child: Text('Đồng Nai'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Tỉnh thành khác',
+                                      child: Text('Tỉnh thành khác'),
                                     ),
                                   ],
                                   onChanged: (val) {
@@ -216,7 +224,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                                     }
                                   },
                                   decoration: InputDecoration(
-                                    labelText: 'Khu vực',
+                                    labelText: 'Tỉnh / Thành phố',
                                     labelStyle: const TextStyle(fontSize: 12),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
@@ -245,9 +253,20 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                                 return;
                               }
                               setModalState(() => isSubmitted = true);
+                              // Như web: hiện xác nhận 2,5 giây rồi tự đóng.
+                              Future.delayed(
+                                const Duration(milliseconds: 2500),
+                                () {
+                                  if (ctx.mounted && Navigator.canPop(ctx)) {
+                                    Navigator.pop(ctx);
+                                  }
+                                },
+                              );
                             },
                             icon: const Icon(Icons.send, size: 16),
-                            label: const Text('Gửi Yêu Cầu Khảo Sát'),
+                            label: const Text(
+                              'Xác nhận gửi thông tin khảo sát',
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF062326),
                               foregroundColor: Colors.white,

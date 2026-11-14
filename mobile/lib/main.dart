@@ -222,12 +222,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   ];
 
   // Farmer screens (No AI -> Tasks & Alerts)
-  static const List<Widget> _farmerScreens = [
-    FarmerDashboardScreen(),
-    CropProfilesScreen(),
-    GISMapScreen(),
-    AlertsTasksScreen(),
-    ProfileScreen(),
+  // Trang chủ Nông dân chuyển tab qua callback để các lối tắt (GIS, cảnh báo) dùng đúng thanh điều hướng.
+  List<Widget> get _farmerScreens => [
+    FarmerDashboardScreen(
+      onSelectTab: (i) => setState(() => _currentIndex = i),
+    ),
+    const CropProfilesScreen(),
+    const GISMapScreen(),
+    const AlertsTasksScreen(),
+    const ProfileScreen(),
   ];
 
   @override

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
 
+/// Đăng ký tài khoản. Giống web: đăng ký xong KHÔNG tự đăng nhập mà quay về màn đăng nhập; email đã đăng ký được trả về qua
+/// `Navigator.pop`, để màn đăng nhập hiện thông báo thành công và điền sẵn email.
 class RegisterScreen extends StatefulWidget {
-  final VoidCallback onRegisterSuccess;
-  const RegisterScreen({super.key, required this.onRegisterSuccess});
+  /// Giữ lại để tương thích; không còn được gọi (không tự đăng nhập sau khi đăng ký).
+  final VoidCallback? onRegisterSuccess;
+  const RegisterScreen({super.key, this.onRegisterSuccess});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -73,21 +76,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (res != null && !res.containsKey('error')) {
-        // Tự động đăng nhập sau khi đăng ký thành công
-        final loginRes = await ApiService.login(email, password);
-        if (!mounted) return;
-        if (loginRes != null && !loginRes.containsKey('error')) {
-          widget.onRegisterSuccess();
-          Navigator.pop(context);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Đăng ký thành công! Vui lòng đăng nhập.'),
-              backgroundColor: Color(0xFF059669),
-            ),
-          );
-          Navigator.pop(context);
-        }
+        // Như web: về màn đăng nhập với email đã đăng ký, người dùng tự nhập mật khẩu.
+        Navigator.pop(context, email);
       } else {
         final err = res?['body'] ?? res?['message'] ?? 'Đăng ký thất bại';
         setState(() => _errorMessage = 'Lỗi đăng ký: $err');

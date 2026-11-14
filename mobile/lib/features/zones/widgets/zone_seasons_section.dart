@@ -7,8 +7,10 @@ import '../../../core/utils/profile_name.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../crops/widgets/create_season_sheet.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
-import '../zone_auto_season.dart' show startSeasonForZone;
+import '../zone_auto_season.dart'
+    show hasRunningSeason, seasonCropLabel, startSeasonForZone;
 import '../zone_operations_screens.dart';
+import 'record_yield_dialog.dart';
 import 'change_stage_dialog.dart';
 
 const _ink = Color(0xFF0F172A);
@@ -125,6 +127,8 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _seasons = [];
+
+  bool get _hasRunning => hasRunningSeason(_seasons);
 
   @override
   void initState() {
@@ -261,11 +265,28 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
               padding: const EdgeInsets.only(top: 8),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _loading ? null : _create,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Tạo vụ trồng cho Zone này'),
-                ),
+                child: _hasRunning
+                    ? Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF59E0B)),
+                        ),
+                        child: const Text(
+                          'Zone đã có vụ đang canh tác nên chưa tạo được vụ mới. Hãy ghi sản lượng và kết thúc vụ hiện tại trước.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF92400E),
+                            height: 1.4,
+                          ),
+                        ),
+                      )
+                    : FilledButton.icon(
+                        onPressed: _loading ? null : _create,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Tạo vụ trồng cho Zone này'),
+                      ),
               ),
             ),
         ],
@@ -322,7 +343,11 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
         seasonId != null &&
         profileId != null;
     // Vụ dự kiến chỉ chạy thật sau khi Owner bắt đầu vụ tường minh.
-    final canStart = isOwner && statusCode == 'Planned' && seasonId != null;
+    // Vụ dự kiến chỉ bắt đầu được khi Zone chưa có vụ nào đang canh tác (backend từ chối nếu có).
+    final canStart =
+        isOwner && statusCode == 'Planned' && seasonId != null && !_hasRunning;
+    final startBlocked =
+        isOwner && statusCode == 'Planned' && seasonId != null && _hasRunning;
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
@@ -359,7 +384,7 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
           const SizedBox(height: 4),
           _row(
             'Cây / giống',
-            '${s['cropName'] ?? '—'}${validId(s['varietyName']) != null ? ' · ${s['varietyName']}' : ''}',
+            '${seasonCropLabel(s, widget.zone.currentCrop)}${validId(s['varietyName']) != null ? ' · ${s['varietyName']}' : ''}',
           ),
           // Mùa vụ chung chỉ có ở vụ tạo từ web; mobile hiển thị để đối chiếu, không tạo/sửa.
           if (validId(s['farmingSeasonName']) != null)
@@ -410,6 +435,14 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                         ),
                       ),
               ),
+              if (startBlocked)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Text(
+                    'Zone đang có vụ đang canh tác: thu hoạch hoặc kết thúc vụ đó trước khi bắt đầu vụ này.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                  ),
+                ),
               if (canStart)
                 FilledButton.icon(
                   icon: const Icon(Icons.play_arrow, size: 18),
@@ -450,10 +483,13 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                     yieldKg == null ? 'Ghi sản lượng' : 'Sửa sản lượng',
                   ),
                   onPressed: () async {
-                    final ok = await showRecordYieldDialog(
+                    final ok = await showHarvestYieldDialog(
                       context,
-                      widget.zone.zoneId,
-                      s,
+                      zoneId: widget.zone.zoneId,
+                      zoneName: widget.zone.name,
+                      areaM2: widget.zone.areaM2,
+                      cropLabel: seasonCropLabel(s, widget.zone.currentCrop),
+                      season: s,
                     );
                     if (ok == true) await _changed();
                   },

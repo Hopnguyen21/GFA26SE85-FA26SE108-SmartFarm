@@ -1,36 +1,82 @@
 part of '../ai_screen.dart';
 
+const String _kAiIntro =
+    'Xin chào! Tôi là Trợ lý AI Nông học VietGAP. Tôi có thể hỗ trợ bạn theo dõi vi khí hậu, tưới tiêu và phát hiện sâu bệnh.';
+
 extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
+  ChatMessageModel _intro() => ChatMessageModel(
+    id: 'msg-01',
+    text: _kAiIntro,
+    isUser: false,
+    time: 'Hôm nay',
+  );
+
+  /// Hàng đợi duyệt: các khuyến nghị còn hiệu lực và chưa được quyết định, mới nhất trước (như cột phải trên web).
+  List<AiRecCard> _queueOf(FarmProvider provider) => [
+    for (final m in provider.chatMessages.reversed)
+      if (m.recommendation != null && m.recommendation!.isPending)
+        m.recommendation!,
+  ];
+
+  /// Dựng tin nhắn AI từ phản hồi backend (hỏi mới hoặc lịch sử). Thẻ duyệt chỉ có khi khuyến nghị thực sự có hành động.
+  ChatMessageModel _aiMessage(
+    String id,
+    Map<String, dynamic> h,
+    String time, {
+    bool requireRecommendationId = false,
+  }) {
+    final text = cleanTechnicalIds(
+      h['details']?.toString() ??
+          h['summary']?.toString() ??
+          h['text']?.toString() ??
+          h['answer']?.toString() ??
+          'Mô hình AI Nông học đã ghi nhận yêu cầu.',
+    );
+    final recId = h['recommendationId']?.toString() ?? h['id']?.toString();
+    final hasAction =
+        h['isActionable'] == true &&
+        h['proposedAction'] != null &&
+        (!requireRecommendationId || (recId != null && recId.isNotEmpty));
+    final sources = h['sources'] is List && (h['sources'] as List).isNotEmpty
+        ? h['sources'] as List
+        : null;
+    return ChatMessageModel(
+      id: id,
+      text: text,
+      isUser: false,
+      time: time,
+      recommendation: hasAction ? AiRecCard.fromJson(h) : null,
+      sources: sources,
+      contextSnapshotJson: h['contextSnapshotJson']?.toString(),
+    );
+  }
+
   Future<void> _loadDataForZone(FarmProvider provider, String zoneId) async {
     if (zoneId.isEmpty) return;
+    for (final t in _pollTimers) {
+      t.cancel();
+    }
+    _pollTimers.clear();
     _rebuild(() {
       _isLoadingHistory = true;
       _isLoadingContext = true;
       _aiContext = null;
+      _showQueue = false;
     });
-
-    final defaultIntro = ChatMessageModel(
-      id: 'msg-01',
-      text:
-          'Xin chào! Tôi là Trợ lý Nông học AI SmartFarm, được hỗ trợ bởi Gemini + dữ liệu cảm biến thực tế.\n\nHỏi tôi về độ ẩm, bệnh lá, lịch tưới, hoặc bất kỳ vấn đề nào về cây trồng theo chuẩn VietGAP!',
-      isUser: false,
-      time: _formatTime(DateTime.now()),
-    );
-    provider.setChatMessages([defaultIntro]);
+    // Đổi Zone là bỏ ngay hội thoại và khuyến nghị của Zone cũ.
+    provider.setChatMessages([_intro()]);
 
     try {
       final results = await Future.wait([
         AiApi.getAiContext(zoneId),
         AiApi.getAiHistory(zoneId),
       ]);
-
-      if (!mounted) return;
+      if (!mounted || provider.currentZone.zoneId != zoneId) return;
 
       final ctx = results[0] as Map<String, dynamic>?;
       final history = results[1] as List<Map<String, dynamic>>? ?? [];
 
       if (history.isNotEmpty) {
-        // Sort oldest first
         final sorted = [...history]
           ..sort((a, b) {
             final tA =
@@ -41,24 +87,16 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
                 DateTime(2000);
             return tA.compareTo(tB);
           });
-
-        final List<ChatMessageModel> restored = [defaultIntro];
-        for (int i = 0; i < sorted.length; i++) {
+        final restored = <ChatMessageModel>[_intro()];
+        for (var i = 0; i < sorted.length; i++) {
           final h = sorted[i];
-          final q = h['question']?.toString();
-          final summary = h['summary']?.toString() ?? '';
-          final details = h['details']?.toString();
-          final aiText = details != null && details.isNotEmpty
-              ? details
-              : summary;
-          final timeStr = h['createdAtUtc'] != null
-              ? (DateTime.tryParse(h['createdAtUtc'].toString()) != null
-                    ? _formatTime(
-                        DateTime.parse(h['createdAtUtc'].toString()).toLocal(),
-                      )
-                    : 'Trước')
+          final created = DateTime.tryParse(
+            h['createdAtUtc']?.toString() ?? '',
+          );
+          final timeStr = created != null
+              ? _formatTime(created.toLocal())
               : 'Trước';
-
+          final q = h['question']?.toString();
           if (q != null && q.isNotEmpty) {
             restored.add(
               ChatMessageModel(
@@ -69,49 +107,8 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
               ),
             );
           }
-
-          final isActionable = h['isActionable'] == true;
-          final proposedAction = h['proposedAction']?.toString();
-          final recommendationStatus =
-              h['status']?.toString().toUpperCase() ?? 'READY';
-          final validUntil = DateTime.tryParse(
-            h['validUntilUtc']?.toString() ?? '',
-          );
-          final isExpired =
-              validUntil != null && !validUntil.isAfter(DateTime.now().toUtc());
-          final proposedDur = (h['proposedDurationSeconds'] as num?)?.toInt();
-          String? actionSummary;
-          if (isActionable && proposedAction != null) {
-            final mins = proposedDur != null ? (proposedDur / 60).round() : 0;
-            actionSummary = mins > 0
-                ? 'Bật tưới $mins phút'
-                : 'Kích hoạt: $proposedAction';
-          }
-
-          final sourcesList = (h['sources'] as List<dynamic>?)
-              ?.map(
-                (s) => s is Map ? (s['title']?.toString() ?? '') : s.toString(),
-              )
-              .where((t) => t.isNotEmpty)
-              .toList();
-
-          restored.add(
-            ChatMessageModel(
-              id: 'hist-a-$i',
-              text: aiText,
-              isUser: false,
-              time: timeStr,
-              actionProposal: actionSummary,
-              recommendationId:
-                  h['recommendationId']?.toString() ?? h['id']?.toString(),
-              recommendationStatus: recommendationStatus == 'READY' && isExpired
-                  ? 'EXPIRED'
-                  : recommendationStatus,
-              sources: sourcesList,
-            ),
-          );
+          restored.add(_aiMessage('hist-a-$i', h, timeStr));
         }
-
         provider.setChatMessages(restored);
       }
 
@@ -131,144 +128,174 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
     }
   }
 
+  void _say(FarmProvider provider, String text, {String idPrefix = 'ai'}) {
+    provider.addChatMessage(
+      ChatMessageModel(
+        id: '$idPrefix-${DateTime.now().millisecondsSinceEpoch}',
+        text: text,
+        isUser: false,
+        time: _formatTime(DateTime.now()),
+      ),
+    );
+    _scrollToBottom();
+  }
+
   Future<void> _sendMessage(FarmProvider provider, String text) async {
-    if (text.trim().isEmpty) return;
+    final question = text.trim();
+    if (question.isEmpty || _isTyping) return;
     _controller.clear();
 
     final zone = provider.currentZone;
     if (zone.zoneId.isEmpty) {
-      provider.addChatMessage(
-        ChatMessageModel(
-          id: 'ai-no-zone-${DateTime.now().millisecondsSinceEpoch}',
-          text: 'Tài khoản chưa có Zone được phân quyền để tư vấn AI.',
-          isUser: false,
-          time: _formatTime(DateTime.now()),
-        ),
+      _say(
+        provider,
+        'Tài khoản chưa có Zone được phân quyền để tư vấn AI.',
+        idPrefix: 'ai-no-zone',
       );
       return;
     }
-    // Add user message
     provider.addChatMessage(
       ChatMessageModel(
         id: 'usr-${DateTime.now().millisecondsSinceEpoch}',
-        text: text.trim(),
+        text: question,
         isUser: true,
         time: _formatTime(DateTime.now()),
       ),
     );
     _scrollToBottom();
-
-    // Show typing indicator
     _rebuild(() => _isTyping = true);
 
-    // Call real API
-    final rec = await AiApi.askAi(zoneId: zone.zoneId, prompt: text.trim());
-
+    final res = await AiApi.askAi(zoneId: zone.zoneId, prompt: question);
     if (!mounted) return;
     _rebuild(() => _isTyping = false);
+    // Đã đổi Zone trong lúc chờ: bỏ câu trả lời của Zone cũ.
+    if (provider.currentZone.zoneId != zone.zoneId) return;
 
-    if (rec != null) {
-      // Build AI message text
-      final buf = StringBuffer(rec.rationale);
-      if (rec.riskWarning != null && rec.riskWarning!.isNotEmpty) {
-        buf.write('\n\n⚠️ ${rec.riskWarning}');
-      }
+    final data = res.data;
+    if (data != null) {
       provider.addChatMessage(
-        ChatMessageModel(
-          id: 'ai-${DateTime.now().millisecondsSinceEpoch}',
-          text: buf.toString(),
-          isUser: false,
-          time: _formatTime(DateTime.now()),
-          actionProposal: rec.suggestedActionSummary,
-          recommendationId: rec.recommendationId,
-          recommendationStatus: rec.status,
-          sources: rec.sources,
+        _aiMessage(
+          'ai-${DateTime.now().millisecondsSinceEpoch}',
+          data,
+          _formatTime(DateTime.now()),
+          requireRecommendationId: true,
         ),
       );
     } else {
-      // Offline fallback
-      provider.addChatMessage(
-        ChatMessageModel(
-          id: 'ai-err-${DateTime.now().millisecondsSinceEpoch}',
-          text:
-              'Không thể kết nối AI lúc này. Kiểm tra kết nối mạng hoặc trạng thái máy chủ backend.',
-          isUser: false,
-          time: _formatTime(DateTime.now()),
-        ),
+      _say(
+        provider,
+        res.error ??
+            'Không thể lấy tư vấn AI từ dữ liệu hiện tại. Vui lòng kiểm tra kết nối và thử lại.',
+        idPrefix: 'ai-err',
       );
     }
     _scrollToBottom();
   }
 
-  Future<void> _applyRecommendation(
-    FarmProvider provider,
-    ChatMessageModel msg,
-  ) async {
-    if (msg.recommendationId == null || msg.recommendationId!.isEmpty) return;
-    // Optimistically mark as loading
-    msg.recommendationStatus = 'LOADING';
+  /// Duyệt khuyến nghị: backend kiểm tra an toàn rồi mới tạo lệnh; trạng thái lệnh lấy từ phản hồi và nhật ký thiết bị.
+  Future<void> _approve(FarmProvider provider, AiRecCard rec) async {
+    if (rec.busy) return;
+    final zoneId = provider.currentZone.zoneId;
+    rec.busy = true;
     provider.refreshChatState();
 
     final result = await AiApi.applyAiRecommendation(
-      zoneId: provider.currentZone.zoneId,
-      recommendationId: msg.recommendationId!,
+      zoneId: zoneId,
+      recommendationId: rec.id,
     );
-
     if (!mounted) return;
+    rec.busy = false;
 
     if (result['success'] == true) {
-      final commandStatus = result['commandStatus']?.toString();
-      msg.recommendationStatus = commandStatus?.toUpperCase() ?? 'ACCEPTED';
-      final statusText = switch (commandStatus?.toLowerCase()) {
-        'failed' =>
-          'Lệnh đã được ghi nhận nhưng gửi tới thiết bị thất bại. Hãy kiểm tra kết nối thiết bị.',
-        'pending' => 'Đã duyệt. Lệnh đang chờ gửi tới thiết bị.',
-        'sent' => 'Đã gửi lệnh. Đang chờ thiết bị xác nhận thực thi.',
-        'acknowledged' => 'Thiết bị đã xác nhận lệnh.',
-        'timedout' => 'Thiết bị không xác nhận lệnh trước thời hạn.',
-        'cancelled' => 'Lệnh đã bị hủy.',
-        _ => 'Đã ghi nhận quyết định. Chưa có xác nhận thiết bị thực thi.',
-      };
-      provider.addChatMessage(
-        ChatMessageModel(
-          id: 'sys-${DateTime.now().millisecondsSinceEpoch}',
-          text: statusText,
-          isUser: false,
-          time: _formatTime(DateTime.now()),
-        ),
-      );
-      // Refresh AI context after action execution
-      AiApi.getAiContext(provider.currentZone.zoneId).then((newCtx) {
-        if (mounted && newCtx != null) {
-          _rebuild(() => _aiContext = newCtx);
-        }
-      });
-      _scrollToBottom();
-    } else if (result['blocked'] == true) {
-      msg.recommendationStatus = 'REJECTED';
-      final reason = result['message'] ?? 'Không đủ điều kiện an toàn';
-      provider.addChatMessage(
-        ChatMessageModel(
-          id: 'sys-${DateTime.now().millisecondsSinceEpoch}',
-          text:
-              '🔒 Hệ thống từ chối phê duyệt:\n$reason\n\nVui lòng kiểm tra lịch tưới hoặc độ ẩm hiện tại.',
-          isUser: false,
-          time: _formatTime(DateTime.now()),
-        ),
-      );
-      _scrollToBottom();
+      rec.status = 'ACCEPTED';
+      rec.commandStatus = result['commandStatus']?.toString() ?? 'Pending';
+      rec.commandId = result['commandId']?.toString();
+      provider.refreshChatState();
+      _schedulePollCommand(provider, zoneId, rec);
+      // Làm mới bối cảnh sau khi duyệt.
+      _refreshContextSilently(zoneId);
     } else {
-      msg.recommendationStatus = 'PROPOSED'; // Reset
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Áp dụng thất bại'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
+      provider.refreshChatState();
+      final reason = result['blocked'] == true
+          ? 'Hệ thống từ chối: ${result['message'] ?? 'kiểm tra an toàn không đạt'}'
+          : (result['message']?.toString() ?? 'Áp dụng thất bại');
+      _say(
+        provider,
+        '⚠️ Chưa thể duyệt khuyến nghị: $reason',
+        idPrefix: 'ai-warn',
+      );
+      // 409 có thể là đã được xử lý từ trước hoặc bị chặn an toàn: lấy trạng thái thật từ lịch sử thay vì đoán.
+      if (result['blocked'] == true)
+        _syncStatusFromHistory(provider, zoneId, rec);
+    }
+  }
+
+  Future<void> _reject(FarmProvider provider, AiRecCard rec) async {
+    if (rec.busy) return;
+    rec.busy = true;
+    provider.refreshChatState();
+    final result = await AiApi.applyAiRecommendation(
+      zoneId: provider.currentZone.zoneId,
+      recommendationId: rec.id,
+      decision: 'Rejected',
+      reason: 'Từ chối bởi chủ trang trại',
+    );
+    if (!mounted) return;
+    rec.busy = false;
+    if (result['success'] == true) {
+      rec.status = 'REJECTED';
+    } else {
+      _say(
+        provider,
+        result['message']?.toString() ?? 'Không thể lưu quyết định từ chối.',
+        idPrefix: 'ai-warn',
+      );
     }
     provider.refreshChatState();
+  }
+
+  Future<void> _syncStatusFromHistory(
+    FarmProvider provider,
+    String zoneId,
+    AiRecCard rec,
+  ) async {
+    final history = await AiApi.getAiHistory(zoneId);
+    if (!mounted || provider.currentZone.zoneId != zoneId) return;
+    final match = history
+        .where((h) => (h['recommendationId'] ?? h['id'])?.toString() == rec.id)
+        .firstOrNull;
+    final status = match?['status']?.toString().toUpperCase();
+    if (status != null && status.isNotEmpty && status != rec.status) {
+      rec.status = status;
+      provider.refreshChatState();
+    }
+  }
+
+  /// Hỏi lại nhật ký lệnh sau 2,5 giây và 5,5 giây để thấy trạng thái thật từ thiết bị (như web).
+  void _schedulePollCommand(
+    FarmProvider provider,
+    String zoneId,
+    AiRecCard rec,
+  ) {
+    final id = rec.commandId;
+    if (id == null || id.isEmpty) return;
+    Future<void> poll() async {
+      try {
+        final logs = await AutomationApi.getActuatorHistory(zoneId);
+        final cmd = logs
+            .where((c) => (c['commandId'] ?? c['id'])?.toString() == id)
+            .firstOrNull;
+        final real = cmd?['status']?.toString();
+        if (mounted && real != null && aiCommandLabels.containsKey(real)) {
+          rec.commandStatus = real;
+          provider.refreshChatState();
+        }
+      } catch (_) {}
+    }
+
+    _pollTimers
+      ..add(Timer(const Duration(milliseconds: 2500), poll))
+      ..add(Timer(const Duration(milliseconds: 5500), poll));
   }
 
   Future<void> _confirmClearHistory(FarmProvider provider) async {
@@ -283,14 +310,16 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
           children: [
             Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 22),
             SizedBox(width: 8),
-            Text(
-              'Xóa lịch sử tư vấn?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                'Xóa lịch sử tư vấn?',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
         content: const Text(
-          'Toàn bộ lịch sử trao đổi của Zone này sẽ được dọn dẹp khỏi màn hình.\n\nDữ liệu kiểm toán trên máy chủ vẫn được lưu trữ an toàn theo quy định.',
+          'Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện và khuyến nghị AI của khu vực này?\n\nDữ liệu kiểm toán trên máy chủ vẫn được lưu trữ theo quy định.',
           style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
         ),
         actions: [
@@ -316,24 +345,28 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
       ),
     );
 
-    if (confirmed == true) {
-      final ok = await AiApi.clearAiHistory(zoneId);
-      if (ok && mounted) {
-        final defaultIntro = ChatMessageModel(
-          id: 'msg-01',
+    if (confirmed != true) return;
+    final ok = await AiApi.clearAiHistory(zoneId);
+    if (!mounted) return;
+    if (ok) {
+      provider.setChatMessages([
+        ChatMessageModel(
+          id: 'm-reset-${DateTime.now().millisecondsSinceEpoch}',
           text:
-              'Xin chào! Tôi là Trợ lý Nông học AI SmartFarm, được hỗ trợ bởi Gemini + dữ liệu cảm biến thực tế.\n\nHỏi tôi về độ ẩm, bệnh lá, lịch tưới, hoặc bất kỳ vấn đề nào về cây trồng theo chuẩn VietGAP!',
+              'Lịch sử tư vấn đã được làm mới. Tôi sẵn sàng phân tích vi khí hậu và trả lời các câu hỏi mới của bạn!',
           isUser: false,
           time: _formatTime(DateTime.now()),
-        );
-        provider.setChatMessages([defaultIntro]);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã dọn dẹp lịch sử trò chuyện AI của Zone.'),
-            backgroundColor: Color(0xFF10B981),
+        ),
+      ]);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể xóa lịch sử tư vấn AI lúc này. Vui lòng thử lại sau.',
           ),
-        );
-      }
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
     }
   }
 }

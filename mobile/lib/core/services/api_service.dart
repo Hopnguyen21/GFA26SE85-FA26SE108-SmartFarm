@@ -25,6 +25,7 @@ part 'api/ai_api.dart';
 part 'api/contract_api.dart';
 part 'api/document_api.dart';
 part 'api/report_api.dart';
+part 'api/bill_api.dart';
 
 class SecurityException implements Exception {
   final String message;
@@ -416,10 +417,30 @@ class ApiService {
         }
         return data;
       }
-      return {'error': response.statusCode, 'body': response.body};
+      // `detail`: lý do cụ thể do backend trả (vd. tài khoản bị khóa tạm thời), giống web hiển thị extractApiError.
+      return {
+        'error': response.statusCode,
+        'body': response.body,
+        'detail': ?_loginDetail(response),
+      };
     } catch (e) {
       return {'error': 'network', 'message': e.toString()};
     }
+  }
+
+  static String? _loginDetail(http.Response response) {
+    try {
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      if (body is Map<String, dynamic>) {
+        final d = body['detail']?.toString().trim();
+        if (d != null &&
+            d.isNotEmpty &&
+            !_genericHttpTitles.contains(d.toLowerCase())) {
+          return d;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ─── Auth: Đăng ký tài khoản ─────────────────────────────────────────
@@ -578,6 +599,30 @@ class ApiService {
   /// Thông báo lỗi dễ hiểu cho người dùng từ phản hồi của backend.
   /// Ưu tiên nội dung do backend trả về (detail/message/errors); khi không có hoặc chỉ là tiêu đề chung
   /// ("Forbidden", "Bad Request"...) thì dùng câu tiếng Việt theo mã HTTP, đặc biệt 401/403.
+  /// Việt hóa các thông báo tiếng Anh của backend gặp trong luồng lắp đặt / hợp đồng (kiểm tra theo cụm từ, không phân biệt hoa thường).
+  static const _viMessages = <String, String>{
+    'only the assigned technician':
+        'Phiếu dịch vụ này chưa được quản trị viên giao cho bạn nên bạn chưa lập được báo giá. Hãy nhờ quản trị viên gán phiếu cho bạn rồi thử lại.',
+    'plan items must be non-empty':
+        'Kế hoạch thiết bị đang trống hoặc không hợp lệ: cần ít nhất một model thiết bị, mỗi model một dòng, số lượng 1–100. Hãy lập kế hoạch trước.',
+    'device model is not in the confirmed deployment plan':
+        'Thiết bị này không thuộc model nào trong kế hoạch đã xác nhận. Hãy cấp phát lại với đúng model trong kế hoạch.',
+    'final acceptance requires the linked deployment request to be completed':
+        'Chỉ nghiệm thu được khi kỹ thuật viên đã bấm "Hoàn tất lắp đặt".',
+    'deposit must be paid before':
+        'Cần ký hợp đồng và thanh toán cọc trước bước này.',
+    'zone already has a non-terminal deployment request':
+        'Zone này đang có một yêu cầu triển khai chưa kết thúc. Hãy hoàn tất hoặc hủy yêu cầu đó trước.',
+  };
+
+  static String _viMessage(String text) {
+    final lower = text.toLowerCase();
+    for (final e in _viMessages.entries) {
+      if (lower.contains(e.key)) return e.value;
+    }
+    return text;
+  }
+
   static String errorMessageFor(http.Response? response) {
     if (response == null) return 'Không nhận được phản hồi từ máy chủ.';
     String? fromBody;
@@ -628,7 +673,7 @@ class ApiService {
                 true)) {
       return 'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại rồi thử lại.';
     }
-    if (fromBody != null) return fromBody;
+    if (fromBody != null) return _viMessage(fromBody);
     switch (response.statusCode) {
       case 400:
       case 422:
