@@ -146,6 +146,7 @@ public static class DependencyInjection
         services.AddScoped<IServiceRequestService, ServiceRequestService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IPlatformAdminService, PlatformAdminService>();
+        services.AddScoped<IBackupService, BackupService>();
         services.AddScoped<IQuotationService, QuotationService>();
         services.AddScoped<IGisService, GisService>();
         services.AddScoped<IGeocodingService, NominatimGeocodingService>();
@@ -157,6 +158,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, SmartFarm.Infrastructure.Notifications.NotificationService>();
         services.AddScoped<IZoneContractService, ZoneContractService>();
         services.AddScoped<IStockOutService, StockOutService>();
+        services.AddScoped<IStockInService, StockInService>();
         services.AddScoped<IBillService, BillService>();
         services.AddScoped<IContractPackageService, ContractPackageService>();
 
