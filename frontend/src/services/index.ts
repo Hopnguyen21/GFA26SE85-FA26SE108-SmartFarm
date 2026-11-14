@@ -3,11 +3,15 @@
 
 import { apiClient, setTokens, clearTokens, extractApiError } from './api';
 import type {
+  ServiceRequest,
   FarmingSeason,
   PlantingSeason,
   CropVariety,
   AgricultureDocumentSummary,
   AgricultureDocumentDetail,
+  DocumentVersionView,
+  DocumentPreviewResult,
+  DocumentUpdateResult,
   KnowledgePassage
 } from '../types';
 
@@ -95,6 +99,12 @@ export const farmInvitationService = {
 };
 
 export const userService = {
+  /** PUT /api/v1/users/me */
+  updateProfile: async (data: { fullName: string; phone?: string | null }) => {
+    const res = await apiClient.put('/api/v1/users/me', data);
+    return res.data;
+  },
+
   /** GET /api/v1/users/me */
   getMe: async () => {
     const res = await apiClient.get('/api/v1/users/me');
@@ -1419,6 +1429,7 @@ export const knowledgeService = {
     contentText: string; approve: boolean; reviewNotes?: string;
     // Chỉnh metadata sau khi đối chiếu file gốc; bỏ trống = giữ giá trị hệ thống đã nhận diện.
     title?: string; cropScope?: string; authorOrganization?: string; version?: string;
+    standardCode?: string; issuedDate?: string; effectiveDate?: string;
     documentType?: string; confirmGeneralScope?: boolean;
   }) => {
     const res = await apiClient.post(`/api/v1/ai/knowledge/documents/${documentId}/review`, data, { timeout: 180_000 });
@@ -1460,11 +1471,31 @@ export const knowledgeService = {
   },
 
   /** PUT /api/v1/ai/knowledge/documents/{documentId} */
-  updateDocument: async (documentId: string, formData: FormData) => {
+  updateDocument: async (documentId: string, formData: FormData): Promise<DocumentUpdateResult> => {
     const res = await apiClient.put(`/api/v1/ai/knowledge/documents/${documentId}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return res.data;
+    return res.data as DocumentUpdateResult;
+  },
+
+  /** POST /api/v1/ai/knowledge/documents/preview */
+  previewDocument: async (formData: FormData): Promise<DocumentPreviewResult> => {
+    const res = await apiClient.post('/api/v1/ai/knowledge/documents/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data as DocumentPreviewResult;
+  },
+
+  /** GET /api/v1/ai/knowledge/documents/{documentId}/versions */
+  getDocumentVersions: async (documentId: string): Promise<DocumentVersionView[]> => {
+    const res = await apiClient.get(`/api/v1/ai/knowledge/documents/${documentId}/versions`);
+    return (res.data ?? []) as DocumentVersionView[];
+  },
+
+  /** POST /api/v1/ai/knowledge/documents/{documentId}/archive */
+  archiveDocument: async (documentId: string, reason?: string) => {
+    const res = await apiClient.post(`/api/v1/ai/knowledge/documents/${documentId}/archive`, { reason });
+    return res.data as { message: string };
   },
 
   /** DELETE /api/v1/ai/knowledge/documents/{documentId} */
@@ -1576,16 +1607,31 @@ export const supportService = {
     } catch { }
 
     // Parallel lookup for quotation & zone devices
+    const viewer = await apiClient.get('/api/v1/users/me').then(r => r.data).catch(() => null);
+    const deploymentPrefix = viewer?.role === 'PlatformTechnician'
+      ? '/api/v1/platform/deployment-requests/'
+      : viewer?.role === 'FarmOwner' ? '/api/v1/deployment-requests/' : null;
     const enriched = await Promise.all(
       rawList.map(async (sr: any) => {
         const id = sr.id || sr.serviceRequestId;
         let contractDetails: any = null;
         let acceptanceDetails: any = null;
-        let mappedNodesCount = 4;
+        let mappedNodesCount: number | undefined;
+        let quotationStatus: string | undefined;
+        let deploymentStatus: string | undefined;
+        let deploymentLinkInvalid = false;
+        if (sr.deploymentRequestId && deploymentPrefix) {
+          try {
+            const { data: deployment } = await apiClient.get(deploymentPrefix + sr.deploymentRequestId);
+            deploymentLinkInvalid = deployment.farmId !== sr.farmId || deployment.zoneId !== sr.zoneId;
+            if (!deploymentLinkInvalid) deploymentStatus = deployment.status;
+          } catch { /* Unavailable deployment must not imply completion. */ }
+        }
 
         try {
           const qRes = await apiClient.get(`/api/v1/service-requests/${id}/quotation`);
           const q = qRes.data;
+          quotationStatus = q?.status;
           if (q && q.id) {
             const isSigned = Boolean(sr.isContractSigned || q.status === 'SignedByOwner' || q.status === 'DepositPaid' || q.status === 'Completed');
             const isDepositPaid = Boolean(sr.isDepositPaid || q.status === 'SignedByOwner' || q.status === 'DepositPaid' || q.status === 'Completed');
@@ -1642,28 +1688,15 @@ export const supportService = {
           try {
             const locRes = await apiClient.get(`/api/v1/zones/${sr.zoneId}/devices/map-locations`);
             const locs = locRes.data?.value ?? locRes.data ?? [];
-            if (Array.isArray(locs) && locs.length > 0) {
+            if (Array.isArray(locs)) {
               mappedNodesCount = locs.length;
             }
           } catch { }
         }
 
-        const isAccepted = Boolean(acceptanceDetails?.isAcceptanceSigned || sr.status === 'Closed' || sr.status === 'Resolved');
-        const isContractSigned = Boolean(contractDetails?.isSignedByOwner && contractDetails?.is30PercentPaid);
-
-        let derivedStatus: 'OPEN' | 'IN_PROGRESS' | 'CONTRACT_SENT' | 'CONTRACT_SIGNED_30PAID' | 'ACCEPTED_BY_OWNER' | 'RESOLVED' | 'CLOSED' = 'OPEN';
-        if (isAccepted) {
-          derivedStatus = 'ACCEPTED_BY_OWNER';
-        } else if (isContractSigned) {
-          derivedStatus = 'CONTRACT_SIGNED_30PAID';
-        } else if (contractDetails) {
-          derivedStatus = 'CONTRACT_SENT';
-        } else if (sr.status === 'Assigned' || sr.status === 'InProgress') {
-          derivedStatus = 'IN_PROGRESS';
-        } else if (sr.status === 'Closed') {
-          derivedStatus = 'CLOSED';
-        }
-
+        const isAccepted = Boolean(acceptanceDetails?.isAcceptanceSigned);
+        const derivedStatus = String(sr.status ?? 'Open')
+          .replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase() as ServiceRequest['status'];
         // Resolve accurate zone name & farm name
         const zoneObj = sr.zoneId ? allZonesMap[sr.zoneId] : null;
         const farmObj = sr.farmId ? allFarmsMap[sr.farmId] : (zoneObj?.farmId ? allFarmsMap[zoneObj.farmId] : null);
@@ -1722,7 +1755,10 @@ export const supportService = {
           description: sr.description || 'Yêu cầu kiểm tra và bảo dưỡng phần cứng tại nông trang.',
           priority: sr.priority || 'HIGH',
           status: derivedStatus,
-          requestType: (sr.failureCode === 'NEW_INSTALL' ? 'INSTALLATION' : 'MAINTENANCE') as 'INSTALLATION' | 'MAINTENANCE',
+          deploymentStatus,
+          quotationStatus,
+          deploymentLinkInvalid,
+          requestType: (['NEW_INSTALL', 'INSTALLATION'].includes(String(sr.failureCode ?? '').toUpperCase()) ? 'INSTALLATION' : 'MAINTENANCE') as 'INSTALLATION' | 'MAINTENANCE',
           requestedBy: resolvedRequestedBy,
           assignedTechnician: techId || undefined,
           assignedTechnicianName: resolvedTechName,
@@ -2320,14 +2356,14 @@ export const reportService = {
   /** GET /api/v1/farms/{farmId}/report/tasks */
   getTasks: async (farmId: string, range: ReportRange): Promise<TaskReport> => (await apiClient.get(`/api/v1/farms/${farmId}/report/tasks`, { params: range })).data,
 
-  /** GET /api/v1/farms/{farmId}/report/excel - Xuất báo cáo tổng hợp tài nguyên & vận hành ra file .xlsx */
-  exportExcel: async (farmId: string, range?: ReportRange): Promise<{ blob: Blob; fileName: string }> => {
-    const res = await apiClient.get(`/api/v1/farms/${farmId}/report/excel`, {
-      params: range,
+  /** Helper tải file từ URL dạng blob */
+  exportFromUrl: async (url: string, params?: ReportRange | Record<string, any>, fallbackName = 'SmartFarm_Report.xlsx'): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await apiClient.get(url, {
+      params,
       responseType: 'blob'
     });
     const disposition = res.headers['content-disposition'] || res.headers['Content-Disposition'];
-    let fileName = `SmartFarm_Report_Resource_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    let fileName = fallbackName;
     if (disposition) {
       const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
       if (utfMatch && utfMatch[1]) {
@@ -2341,6 +2377,38 @@ export const reportService = {
     }
     return { blob: res.data, fileName };
   },
+
+  /** GET /api/v1/farms/{farmId}/report/excel - Xuất báo cáo tổng hợp tài nguyên & vận hành ra file .xlsx */
+  exportExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/excel`, range, `SmartFarm_Report_Resource_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/overview/excel - Báo cáo tổng quan nông trại */
+  exportOverviewExcel: async (farmId: string) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/overview/excel`, undefined, `SmartFarm_Report_TongQuan_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/water-usage/excel - Báo cáo tiêu thụ nước */
+  exportWaterExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/water-usage/excel`, range, `SmartFarm_Report_Nuoc_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/electricity/excel - Báo cáo điện năng */
+  exportElectricityExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/electricity/excel`, range, `SmartFarm_Report_Dien_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/inventory/excel - Báo cáo kho & vật tư */
+  exportInventoryExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/inventory/excel`, range, `SmartFarm_Report_TonKho_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/tasks/excel - Báo cáo phân công công việc */
+  exportTasksExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/tasks/excel`, range, `SmartFarm_Report_CongViec_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/farms/{farmId}/report/maintenance/excel - Báo cáo bảo trì thiết bị */
+  exportMaintenanceExcel: async (farmId: string, range?: ReportRange) =>
+    reportService.exportFromUrl(`/api/v1/farms/${farmId}/report/maintenance/excel`, range, `SmartFarm_Report_BaoTri_${new Date().toISOString().slice(0, 10)}.xlsx`),
+
+  /** GET /api/v1/zones/{zoneId}/report/season-summary/excel - Báo cáo tổng kết vụ mùa theo khu vực */
+  exportSeasonSummaryExcel: async (zoneId: string) =>
+    reportService.exportFromUrl(`/api/v1/zones/${zoneId}/report/season-summary/excel`, undefined, `SmartFarm_Report_VuMua_${new Date().toISOString().slice(0, 10)}.xlsx`),
 
   /** Helper tải trực tiếp file blob xuống trình duyệt */
   downloadBlob: (blob: Blob, fileName: string) => {
@@ -2356,7 +2424,6 @@ export const reportService = {
 };
 
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // NEW MODULE: STOCK OUT SERVICE (PHIẾU XUẤT KHO)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2499,4 +2566,88 @@ export const contractPackageService = {
     const res = await apiClient.delete(`/api/v1/contract-packages/${id}`);
     return res.data;
   },
+};
+
+
+export interface BackupMetadataView {
+  fileName: string;
+  sizeBytes: number;
+  createdAtUtc: string;
+  totalRecords: number;
+  checksumSha256: string;
+  createdByEmail: string;
+  formatVersion?: string;
+  supportedScope?: string;
+  tableRecordCounts?: Record<string, number>;
+}
+
+export interface CreateBackupResult {
+  fileName: string;
+  sizeBytes: number;
+  createdAtUtc: string;
+  totalRecords: number;
+  checksumSha256: string;
+  message?: string;
+  tableRecordCounts?: Record<string, number>;
+}
+
+export interface VerifyBackupResult {
+  fileName: string;
+  isValid: boolean;
+  checksumSha256: string;
+  checksumVerified: boolean;
+  formatVersion: string;
+  totalRecords: number;
+  tableRecordCounts: Record<string, number>;
+  missingRequiredTables: string[];
+  warnings: string[];
+  message: string;
+  verifiedAtUtc: string;
+}
+
+export interface RestoreBackupResult {
+  fileName: string;
+  success: boolean;
+  isDryRunOnly: boolean;
+  message: string;
+  restoredAtUtc: string;
+  restoredRecords: number;
+  restoredTables: string[];
+  preRestoreBackupFileName?: string | null;
+  checksumSha256?: string;
+}
+
+export interface BackupSystemStatusView {
+  allowLiveRestore: boolean;
+  retentionDays: number;
+  maxBackups: number;
+  maxBackupFileSizeBytes: number;
+  maxUncompressedSizeBytes: number;
+  storageDirectory: string;
+  totalBackupsAvailable: number;
+}
+
+export const backupService = {
+  /** GET /api/v1/platform/backups (PlatformAdmin) */
+  list: async (): Promise<BackupMetadataView[]> => (await apiClient.get('/api/v1/platform/backups')).data,
+
+  /** GET /api/v1/platform/backups/status (PlatformAdmin) */
+  getStatus: async (): Promise<BackupSystemStatusView> => (await apiClient.get('/api/v1/platform/backups/status')).data,
+
+  /** POST /api/v1/platform/backups (PlatformAdmin) */
+  create: async (): Promise<CreateBackupResult> => (await apiClient.post('/api/v1/platform/backups')).data,
+
+  /** GET /api/v1/platform/backups/{fileName}/download (PlatformAdmin) */
+  download: async (fileName: string) => {
+    const { blob } = await reportService.exportFromUrl(`/api/v1/platform/backups/${encodeURIComponent(fileName)}/download`, undefined, fileName);
+    reportService.downloadBlob(blob, fileName);
+  },
+
+  /** POST /api/v1/platform/backups/{fileName}/verify (PlatformAdmin) */
+  verify: async (fileName: string): Promise<VerifyBackupResult> =>
+    (await apiClient.post(`/api/v1/platform/backups/${encodeURIComponent(fileName)}/verify`)).data,
+
+  /** POST /api/v1/platform/backups/{fileName}/restore (PlatformAdmin) */
+  restore: async (fileName: string, confirm: boolean, overwriteConfirmation: string): Promise<RestoreBackupResult> =>
+    (await apiClient.post(`/api/v1/platform/backups/${encodeURIComponent(fileName)}/restore`, { confirm, overwriteConfirmation })).data,
 };

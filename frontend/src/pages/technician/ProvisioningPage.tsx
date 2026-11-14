@@ -1,3 +1,4 @@
+import { ServiceRequestStatus, serviceStatusLabels } from '../../components/ui/ServiceRequestStatus';
 import React, { useState, useEffect } from 'react';
 import { ServiceRequest } from '../../types';
 import { supportService, deviceService } from '../../services';
@@ -25,11 +26,6 @@ export const ProvisioningPage: React.FC = () => {
   const [activeTabFilter, setActiveTabFilter] = useState<'ALL' | 'INSTALLATION' | 'MAINTENANCE'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // QR Provisioning tool state
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [mac, setMac] = useState('24:DC:C3:98:A1:04');
-  const [deviceCode, setDeviceCode] = useState('GW-ESP32-DL03');
 
   const toggleExpand = (id: string) => {
     setExpandedRequestIds(prev => ({
@@ -77,19 +73,23 @@ export const ProvisioningPage: React.FC = () => {
 
   useEffect(() => {
     loadRequests();
+    const refresh = () => { void loadRequests(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, []);
 
   const handleSaveMapping = async (requestId: string, nodes: any[], mappedCount: number) => {
     try {
       const req = requests.find(r => r.serviceRequestId === requestId);
-      const zoneId = req?.zoneId || '32000000-0000-0000-0000-000000000001';
+      const zoneId = req?.zoneId;
+      if (!zoneId || req?.deploymentLinkInvalid) throw new Error('Thiếu Zone hoặc liên kết triển khai không hợp lệ.');
       await supportService.updateMappedNodes(zoneId, nodes, requestId, req?.deploymentRequestId);
       await loadRequests();
       setSuccessMsg(`✅ Đã cập nhật biểu đồ GIS và lưu thành công ${mappedCount} Nodes cho Phân khu! Vui lòng báo Owner ký Biên bản Nghiệm thu & 70% còn lại.`);
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err: any) {
       console.error('Failed to update mapped nodes:', err);
-      alert('Lỗi lưu biểu đồ GIS: ' + (err?.response?.data?.message || err?.message || 'Vui lòng thử lại.'));
+      throw err;
     }
   };
 
@@ -100,12 +100,8 @@ export const ProvisioningPage: React.FC = () => {
   };
 
   const handleCompleteRequest = async (req: ServiceRequest) => {
-    if (req.isAcceptedByOwner || req.acceptanceDetails?.isAcceptanceSigned || req.status === 'ACCEPTED_BY_OWNER' || req.status === 'CLOSED' || req.status === 'RESOLVED') {
-      alert('✅ Công trình này đã hoàn tất (Owner đã ký nghiệm thu 100%). Không thể thao tác lại.');
-      return;
-    }
-    if (!req.isAcceptedByOwner) {
-      alert('⚠️ Bạn chỉ có thể Xác nhận Hoàn thành sau khi Chủ trang trại (Owner) đã Ký Nghiệm thu!');
+    if (req.status !== 'VERIFIED') {
+      alert('Chỉ đóng dịch vụ sau khi kiểm tra kết nối thành công (Verified).');
       return;
     }
     try {
@@ -115,7 +111,7 @@ export const ProvisioningPage: React.FC = () => {
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
       if (err?.response?.status === 409) {
-        alert('ℹ️ Yêu cầu này đã được hoàn thành trước đó.');
+        alert(err?.response?.data?.detail || err?.response?.data?.message || 'Chưa đủ điều kiện đóng dịch vụ.');
         await loadRequests();
       } else {
         alert('Lỗi: ' + (err?.response?.data?.message || err?.message || 'Không thể hoàn thành yêu cầu.'));
@@ -158,9 +154,6 @@ export const ProvisioningPage: React.FC = () => {
           </p>
         </div>
 
-        <Button onClick={() => setIsQrModalOpen(true)} className="bg-white hover:bg-emerald-50 text-[#119653] font-bold shrink-0 shadow-sm cursor-pointer">
-          <QrCode size={16} className="mr-1.5" /> Quét QR Cấp phát Nhanh
-        </Button>
       </div>
 
       {successMsg && (
@@ -242,10 +235,7 @@ export const ProvisioningPage: React.FC = () => {
               className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-emerald-600"
             >
               <option value="ALL">Tất cả trạng thái</option>
-              <option value="OPEN">Chờ tiếp nhận (Open)</option>
-              <option value="IN_PROGRESS">Đang xử lý (In Progress)</option>
-              <option value="ACCEPTED_BY_OWNER">Đã nghiệm thu (Accepted)</option>
-              <option value="RESOLVED">Đã hoàn tất (Resolved)</option>
+              {Object.entries(serviceStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
         </div>
@@ -282,9 +272,9 @@ export const ProvisioningPage: React.FC = () => {
           filteredRequests.map(req => {
             const isInstallation = req.requestType === 'INSTALLATION' || req.requestType === 'INITIAL_SETUP';
             const contract = req.contractDetails;
-            const is30Paid = Boolean((contract?.isSignedByOwner && contract?.is30PercentPaid) || req.isContractSigned || req.isDepositPaid || req.isFullyPaid);
-            const isAccepted = Boolean(req.isAcceptedByOwner || req.acceptanceDetails?.isAcceptanceSigned || req.status === 'ACCEPTED_BY_OWNER');
-            const isCompleted = req.status === 'RESOLVED' || req.status === 'CLOSED' || isAccepted;
+            const is30Paid = Boolean((contract?.isSignedByOwner && contract?.is30PercentPaid) || (req.isContractSigned && req.isDepositPaid));
+            const isAccepted = Boolean(req.isAcceptedByOwner || req.acceptanceDetails?.isAcceptanceSigned);
+            const isCompleted = req.status === 'RESOLVED' || req.status === 'CLOSED';
             const isExpanded = !!expandedRequestIds[req.serviceRequestId];
 
             return (
@@ -307,7 +297,7 @@ export const ProvisioningPage: React.FC = () => {
                         }`}>
                         {isInstallation ? '⚡ LẮP ĐẶT THIẾT BỊ MỚI' : '🛠️ BẢO TRÌ & THAY THẾ'}
                       </span>
-                      <StatusBadge status={req.status} />
+                      <ServiceRequestStatus request={req} />
 
                       {isInstallation && (
                         is30Paid ? (
@@ -351,7 +341,7 @@ export const ProvisioningPage: React.FC = () => {
                       <span>Khách hàng: <strong>{req.assignedOwnerName || 'Chủ Trang Trại'}</strong></span>
                       <span>•</span>
                       <span className="font-mono text-emerald-700 font-bold flex items-center gap-1">
-                        <Layers size={13} /> {req.mappedNodesCount || 0} Nodes đã chấm
+                        <Layers size={13} /> {req.mappedNodesCount ?? 'Chưa tải'} Nodes đã chấm
                       </span>
                       <span>•</span>
                       <span className="text-slate-400 font-mono">Ngày tạo: {new Date(req.createdAt).toLocaleDateString('vi-VN')}</span>
@@ -477,7 +467,7 @@ export const ProvisioningPage: React.FC = () => {
                           className="bg-sky-700 hover:bg-sky-800 text-white font-bold flex items-center gap-1.5 shadow-sm"
                         >
                           <Layers size={15} className="text-sky-300" />
-                          <span>Sửa Biểu đồ GIS ({req.mappedNodesCount || 0} Nodes)</span>
+                          <span>Sửa Biểu đồ GIS ({req.mappedNodesCount ?? 'Chưa tải'} Nodes)</span>
                         </Button>
 
                         {/* BUTTON 2B: THỰC ĐỊA CHẤM NODE KHI OWNER ĐÃ CỌC 30% */}
@@ -507,18 +497,20 @@ export const ProvisioningPage: React.FC = () => {
                         {/* BUTTON 3: XÁC NHẬN HOÀN THÀNH */}
                         {isCompleted ? (
                           <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex items-center gap-1.5 select-none">
-                            <CheckCircle2 size={15} className="text-emerald-400" /> Đã hoàn thành (Owner đã nghiệm thu 100%)
+                            <CheckCircle2 size={15} className="text-emerald-400" /> Dịch vụ đã kết thúc
                           </span>
+                        ) : req.status === 'VERIFIED' ? (
+                          <Button onClick={() => handleCompleteRequest(req)}>Đóng dịch vụ</Button>
                         ) : (
                           <div className="relative group">
                             <Button
                               disabled
                               className="bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed text-xs"
                             >
-                              <Lock size={14} className="mr-1.5 text-slate-500" /> Chờ Owner nghiệm thu 100%
+                              <Lock size={14} className="mr-1.5 text-slate-500" /> Chờ kiểm tra kết nối
                             </Button>
                             <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block w-64 p-2.5 bg-slate-800 text-amber-300 text-[11px] rounded-xl shadow-xl border border-slate-700 z-20">
-                              🔒 Công trình sẽ tự động hoàn tất sau khi Chủ trang trại (Owner) ký biên bản nghiệm thu & thanh toán 70% còn lại.
+                              Đóng dịch vụ yêu cầu trạng thái Verified. Nghiệm thu và thanh toán được hiển thị riêng.
                             </div>
                           </div>
                         )}
@@ -553,42 +545,6 @@ export const ProvisioningPage: React.FC = () => {
         />
       )}
 
-      {/* QR Provisioning Modal */}
-      <Modal isOpen={isQrModalOpen} onClose={() => setIsQrModalOpen(false)} title="Cấp phát & Whitelist Nhanh Thiết Bị bằng QR Code">
-        <div className="space-y-4 text-xs">
-          <div className="p-4 bg-slate-900 text-white rounded-xl text-center space-y-2 border border-slate-800">
-            <div className="w-16 h-16 mx-auto bg-emerald-500/20 border border-emerald-500/40 rounded-xl flex items-center justify-center text-emerald-400">
-              <QrCode size={32} />
-            </div>
-            <p className="font-bold text-sm text-emerald-300">Quét mã QR trên thân mạch phần cứng</p>
-            <p className="text-[11px] text-slate-400">Hoặc nhập thủ công địa chỉ MAC bên dưới để ghi đè danh sách thiết bị</p>
-          </div>
-
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Địa chỉ MAC Thiết bị (Hardware MAC)</label>
-            <Input value={mac} onChange={e => setMac(e.target.value)} placeholder="24:DC:C3:XX:XX:XX" className="font-mono" />
-          </div>
-
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Mã hiệu Thiết bị (Device Code)</label>
-            <Input value={deviceCode} onChange={e => setDeviceCode(e.target.value)} placeholder="GW-ESP32-DL03" className="font-mono" />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={() => setIsQrModalOpen(false)}>Đóng</Button>
-            <Button
-              onClick={async () => {
-                setIsQrModalOpen(false);
-                setSuccessMsg(`✅ Đã cấp phát thiết bị [${deviceCode} - MAC: ${mac}] thành công vào hệ thống!`);
-                setTimeout(() => setSuccessMsg(null), 4000);
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-            >
-              <CheckCircle2 size={15} className="mr-1.5" /> Xác nhận Cấp phát
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

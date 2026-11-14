@@ -28,7 +28,19 @@ internal sealed class CropConfiguration : IEntityTypeConfiguration<Crop>
         builder.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         builder.Property(x => x.NormalizedName).HasColumnName("normalized_name").HasMaxLength(150).IsRequired();
         builder.Property(x => x.ScientificName).HasColumnName("scientific_name").HasMaxLength(200).IsRequired();
-        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(1000);
+        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(4000);
+        builder.Property(x => x.Category).HasColumnName("category").HasMaxLength(100);
+        builder.Property(x => x.GrowthCycleDays).HasColumnName("growth_cycle_days");
+        builder.Property(x => x.OptimalTemperatureMin).HasColumnName("optimal_temperature_min").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalTemperatureMax).HasColumnName("optimal_temperature_max").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalSoilMoistureMin).HasColumnName("optimal_soil_moisture_min").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalSoilMoistureMax).HasColumnName("optimal_soil_moisture_max").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalPhMin).HasColumnName("optimal_ph_min").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalPhMax).HasColumnName("optimal_ph_max").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalEcMin).HasColumnName("optimal_ec_min").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalEcMax).HasColumnName("optimal_ec_max").HasPrecision(5, 2);
+        builder.Property(x => x.OptimalLux).HasColumnName("optimal_lux").HasPrecision(10, 2);
+        builder.Property(x => x.CalendarIrrigationPlan).HasColumnName("calendar_irrigation_plan");
         builder.Property(x => x.IsSystemDefined).HasColumnName("is_system_defined");
         builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
         builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
@@ -58,7 +70,7 @@ internal sealed class CropVarietyConfiguration : IEntityTypeConfiguration<CropVa
         builder.Property(x => x.CreatedByUserId).HasColumnName("created_by_user_id");
         builder.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         builder.Property(x => x.NormalizedName).HasColumnName("normalized_name").HasMaxLength(150).IsRequired();
-        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(1000);
+        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(4000);
         builder.Property(x => x.IsSystemDefined).HasColumnName("is_system_defined");
         builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
         builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
@@ -91,7 +103,7 @@ internal sealed class GrowthProfileConfiguration : IEntityTypeConfiguration<Grow
         builder.Property(x => x.CreatedByUserId).HasColumnName("created_by_user_id");
         builder.Property(x => x.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(x => x.NormalizedName).HasColumnName("normalized_name").HasMaxLength(200).IsRequired();
-        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(1000);
+        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(4000);
         builder.Property(x => x.IsDefault).HasColumnName("is_default");
         builder.Property(x => x.IsSystemDefined).HasColumnName("is_system_defined");
         builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
@@ -127,6 +139,9 @@ internal sealed class GrowthStageConfiguration : IEntityTypeConfiguration<Growth
         builder.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
         builder.Property(x => x.StageOrder).HasColumnName("stage_order");
         builder.Property(x => x.DurationDays).HasColumnName("duration_days");
+        builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(4000);
+        builder.Property(x => x.FertilizerAction).HasColumnName("fertilizer_action").HasMaxLength(2000);
+        builder.Property(x => x.IpmAction).HasColumnName("ipm_action").HasMaxLength(2000);
         builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
         builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
         builder.HasIndex(x => new { x.GrowthProfileId, x.StageOrder }).IsUnique();
@@ -135,6 +150,32 @@ internal sealed class GrowthStageConfiguration : IEntityTypeConfiguration<Growth
         builder.HasData(
             new { Id = CropGrowthSeed.SeedlingStageId, GrowthProfileId = CropGrowthSeed.ProfileId, Name = "Seedling", StageOrder = 1, DurationDays = 20, CreatedAtUtc = CropGrowthSeed.SeededAt },
             new { Id = CropGrowthSeed.VegetativeStageId, GrowthProfileId = CropGrowthSeed.ProfileId, Name = "Vegetative", StageOrder = 2, DurationDays = 30, CreatedAtUtc = CropGrowthSeed.SeededAt });
+    }
+}
+
+internal sealed class GrowthStageIrrigationSessionConfiguration : IEntityTypeConfiguration<GrowthStageIrrigationSession>
+{
+    public void Configure(EntityTypeBuilder<GrowthStageIrrigationSession> builder)
+    {
+        builder.ToTable("growth_stage_irrigation_sessions", table =>
+        {
+            table.HasCheckConstraint("ck_growth_stage_irrigation_duration", "duration_seconds BETWEEN 1 AND 1800");
+            table.HasCheckConstraint("ck_growth_stage_irrigation_water", "water_per_plant_ml IS NULL OR water_per_plant_ml >= 0");
+        });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.GrowthStageId).HasColumnName("growth_stage_id");
+        builder.Property(x => x.SortOrder).HasColumnName("sort_order");
+        builder.Property(x => x.Title).HasColumnName("title").HasMaxLength(150).IsRequired();
+        builder.Property(x => x.StartTime).HasColumnName("start_time").HasColumnType("time without time zone");
+        builder.Property(x => x.DurationSeconds).HasColumnName("duration_seconds");
+        builder.Property(x => x.Enabled).HasColumnName("enabled");
+        builder.Property(x => x.Method).HasColumnName("method").HasMaxLength(100);
+        builder.Property(x => x.WaterPerPlantMl).HasColumnName("water_per_plant_ml");
+        builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+        builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+        builder.HasIndex(x => new { x.GrowthStageId, x.SortOrder }).IsUnique();
+        builder.HasOne(x => x.GrowthStage).WithMany(x => x.IrrigationSessions).HasForeignKey(x => x.GrowthStageId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
@@ -241,5 +282,66 @@ internal sealed class SeasonStageTransitionConfiguration : IEntityTypeConfigurat
         builder.HasOne(x => x.PreviousGrowthStage).WithMany().HasForeignKey(x => x.PreviousGrowthStageId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.CurrentGrowthStage).WithMany().HasForeignKey(x => x.CurrentGrowthStageId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.ChangedByUser).WithMany().HasForeignKey(x => x.ChangedByUserId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class SeasonIrrigationPlanConfiguration : IEntityTypeConfiguration<SeasonIrrigationPlan>
+{
+    public void Configure(EntityTypeBuilder<SeasonIrrigationPlan> builder)
+    {
+        builder.ToTable("season_irrigation_plans");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.PlantingSeasonId).HasColumnName("planting_season_id");
+        builder.Property(x => x.StartDateSnapshot).HasColumnName("start_date_snapshot");
+        builder.Property(x => x.TotalDaysSnapshot).HasColumnName("total_days_snapshot");
+        builder.Property(x => x.GrowthProfileIdSnapshot).HasColumnName("growth_profile_id_snapshot");
+        builder.Property(x => x.UpdatedByUserId).HasColumnName("updated_by_user_id");
+        builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+        builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+        builder.HasIndex(x => x.PlantingSeasonId).IsUnique();
+        builder.HasOne(x => x.PlantingSeason).WithMany().HasForeignKey(x => x.PlantingSeasonId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class SeasonIrrigationDayConfiguration : IEntityTypeConfiguration<SeasonIrrigationDay>
+{
+    public void Configure(EntityTypeBuilder<SeasonIrrigationDay> builder)
+    {
+        builder.ToTable("season_irrigation_days", table => table.HasCheckConstraint("ck_season_irrigation_day_number", "day_number >= 1"));
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.SeasonIrrigationPlanId).HasColumnName("season_irrigation_plan_id");
+        builder.Property(x => x.DayNumber).HasColumnName("day_number");
+        builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+        builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+        builder.HasIndex(x => new { x.SeasonIrrigationPlanId, x.DayNumber }).IsUnique();
+        builder.HasOne(x => x.Plan).WithMany(x => x.Days).HasForeignKey(x => x.SeasonIrrigationPlanId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class SeasonIrrigationSessionConfiguration : IEntityTypeConfiguration<SeasonIrrigationSession>
+{
+    public void Configure(EntityTypeBuilder<SeasonIrrigationSession> builder)
+    {
+        builder.ToTable("season_irrigation_sessions", table =>
+        {
+            table.HasCheckConstraint("ck_season_irrigation_duration", "duration_seconds BETWEEN 1 AND 1800");
+            table.HasCheckConstraint("ck_season_irrigation_water", "water_per_plant_ml IS NULL OR water_per_plant_ml >= 0");
+        });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.SeasonIrrigationDayId).HasColumnName("season_irrigation_day_id");
+        builder.Property(x => x.SortOrder).HasColumnName("sort_order");
+        builder.Property(x => x.Title).HasColumnName("title").HasMaxLength(150).IsRequired();
+        builder.Property(x => x.StartTime).HasColumnName("start_time").HasColumnType("time without time zone");
+        builder.Property(x => x.DurationSeconds).HasColumnName("duration_seconds");
+        builder.Property(x => x.Enabled).HasColumnName("enabled");
+        builder.Property(x => x.Method).HasColumnName("method").HasMaxLength(100);
+        builder.Property(x => x.WaterPerPlantMl).HasColumnName("water_per_plant_ml");
+        builder.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+        builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+        builder.HasIndex(x => new { x.SeasonIrrigationDayId, x.SortOrder }).IsUnique();
+        builder.HasOne(x => x.Day).WithMany(x => x.Sessions).HasForeignKey(x => x.SeasonIrrigationDayId).OnDelete(DeleteBehavior.Cascade);
     }
 }
