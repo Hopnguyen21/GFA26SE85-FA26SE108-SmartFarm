@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 import '../../core/widgets/dispose_later.dart';
+import '../../core/models/models.dart' show BusinessParameters;
+import '../../core/services/api_service.dart' show BusinessParametersStore;
 
 part 'parts/landing_screen_consult.dart';
 part 'parts/landing_screen_tabs.dart';
@@ -21,6 +23,15 @@ class _LandingScreenState extends State<LandingScreen> {
   void _rebuild(VoidCallback fn) => setState(fn);
 
   int _activeTabIndex = 0; // 0: IoT, 1: GIS, 2: AI, 3: Nghiệm thu
+
+  @override
+  void initState() {
+    super.initState();
+    // Tỷ lệ cọc do Admin cấu hình (endpoint công khai): cập nhật chữ quảng cáo; lỗi mạng thì giữ mặc định.
+    BusinessParametersStore.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   void _navigateToLogin(BuildContext context) {
     Navigator.push(

@@ -139,32 +139,19 @@ public sealed class AiAdvisoryService(
 
     private async Task<AiRecommendationView> AskInternalAsync(Guid ownerId, Guid tenantId, Guid zoneId, AskAiCommand command, bool checkRateLimit, CancellationToken cancellationToken)
     {
-        var question = Required(command.Question, "question", 2000, 3);
-
-        RejectPromptInjection(question);
-
-        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
-
-        var zone = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, ownerOnly: true, cancellationToken);
-
-        if (checkRateLimit) await EnsureRateLimitAsync(ownerId, zoneId, cancellationToken);
-
-        if (command.ParentRecommendationId.HasValue && !await db.AiRecommendations.AnyAsync(x => x.Id == command.ParentRecommendationId && x.ZoneId == zoneId && x.TenantId == tenantId, cancellationToken))
-
-            throw new ResourceNotFoundException("Parent recommendation was not found in this Zone.");
-
-
-
-        var now = clock.GetUtcNow().UtcDateTime;
-
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-        long classifyMs, contextMs, ragMs = 0, providerMs = 0;
-
-        // Phân loại câu hỏi (gọi HTTP tới Gemini, không dùng DbContext) chạy song song với việc nạp ngữ cảnh Zone từ DB: tiết kiệm trọn
-
-        // thời gian nạp ngữ cảnh (~0,3–0,5 giây) ở mọi câu hỏi. Chỉ câu hỏi lịch sử/theo ngày mới cần nạp thêm sau khi biết ý định.
-
+        var question = Required(command.Question, "question", 2000, 3);
+        RejectPromptInjection(question);
+        var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+        var zone = await EnsureZoneAccessAsync(ownerId, tenantId, zoneId, ownerOnly: true, cancellationToken);
+        if (checkRateLimit) await EnsureRateLimitAsync(ownerId, zoneId, cancellationToken);
+        if (command.ParentRecommendationId.HasValue && !await db.AiRecommendations.AnyAsync(x => x.Id == command.ParentRecommendationId && x.ZoneId == zoneId && x.TenantId == tenantId, cancellationToken))
+            throw new ResourceNotFoundException("Parent recommendation was not found in this Zone.");
+
+        var now = clock.GetUtcNow().UtcDateTime;
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        long classifyMs, contextMs, ragMs = 0, providerMs = 0;
+        // Phân loại câu hỏi (gọi HTTP tới Gemini, không dùng DbContext) chạy song song với việc nạp ngữ cảnh Zone từ DB: tiết kiệm trọn
+        // thời gian nạp ngữ cảnh (~0,3–0,5 giây) ở mọi câu hỏi. Chỉ câu hỏi lịch sử/theo ngày mới cần nạp thêm sau khi biết ý định.
         var classifyTask = ClassifyIntentAsync(sanitizedQuestion, cancellationToken);
         var baseContext = await BuildContextAsync(zone, includeHistory: false, historyCount: 0, historyDays: 0, cancellationToken);
         var intent = await classifyTask;
@@ -352,8 +339,7 @@ public sealed class AiAdvisoryService(
                     var ragStart = stopwatch.ElapsedMilliseconds;
                     try
                     {
-                        passages = await knowledgeRetriever.RetrievePassagesAsync(
-
+                        passages = await knowledgeRetriever.RetrievePassagesAsync(
                             sanitizedQuestion,
                             cropName: ragCrop,
                             category: null,      // Không lọc theo danh mục để tối đa tài liệu
@@ -361,7 +347,14 @@ public sealed class AiAdvisoryService(
                             topK: 4,
                             generalOnlyWhenCropUnknown: true,
                             cancellationToken,
-                            expansionTerms: intent.SearchTerms);
+                            expansionTerms: intent.SearchTerms,
+                            climateRegion: providerContext.ClimateRegion);
+
+                        // Chẩn đoán RAG (chỉ tên tài liệu và điểm, không có nội dung): giúp biết vì sao hệ thống từ chối "chưa có tài liệu".
+                        logger.LogInformation(
+                            "[RAG] Diagnostics: agronomyEvidenceRequired={Required}, crop={Crop}, climateRegion={Region}, candidates={Count}, threshold={Threshold}, top=[{Top}]",
+                            requiresAgronomyEvidence, ragCrop ?? "(none)", providerContext.ClimateRegion ?? "(unknown)", passages.Count, MinDisplayedSourceScore,
+                            string.Join("; ", passages.Select(p => $"{p.DocumentTitle}:{p.SimilarityScore:F2}")));
 
                         // Đoạn khớp yếu không được đưa cho model: có đưa thì model vẫn có thể trả lời từ kiến thức chung rồi gắn như có tài liệu.
                         passages = passages.Where(p => p.SimilarityScore >= MinDisplayedSourceScore).ToList();
@@ -433,7 +426,7 @@ public sealed class AiAdvisoryService(
                     .Select(i => passages![i - 1])
                     .Where(p => p.SimilarityScore >= MinDisplayedSourceScore)
                     .GroupBy(p => p.DocumentId).Select(g => g.OrderByDescending(p => p.SimilarityScore).First())
-                    .Select(p => new AiSourceView(p.DocumentId, p.DocumentTitle, p.AuthorOrganization, p.Category, p.SimilarityScore, p.Content, p.PageNumber, p.SectionTitle))
+                    .Select(p => new AiSourceView(p.DocumentId, p.DocumentTitle, p.AuthorOrganization, p.Category, p.SimilarityScore, p.Content, p.PageNumber, p.SectionTitle, p.Version, p.StandardCode))
                     .ToList();
 
                 // Chỉ hiển thị tài liệu mà model đã trích dẫn bằng chỉ mục passage; không tự gán nguồn theo điểm tương đồng.
@@ -460,7 +453,7 @@ public sealed class AiAdvisoryService(
                 recommendation.SourcesJson = JsonSerializer.Serialize(sources);
                 request.ContextSnapshotJson = JsonSerializer.Serialize(new 
                 { 
-                    Question = question,
+                    Question = sanitizedQuestion,
                     Prompt = promptText,
                     Context = providerContext,
                     Passages = passages?.Select(p => new { p.ChunkId, p.DocumentId, p.DocumentTitle, p.AuthorOrganization, p.Category, p.SimilarityScore, p.Content }).ToList(),
@@ -728,7 +721,7 @@ public sealed class AiAdvisoryService(
         if (zoneDeviceIds.Count > 0)
         {
             latestDeviceReadings = await db.TelemetryReadings.AsNoTracking()
-                .Where(x => zoneDeviceIds.Contains(x.DeviceId) && x.CapturedAtUtc <= now)
+                .Where(x => zoneDeviceIds.Contains(x.DeviceId) && x.CapturedAtUtc <= now.AddSeconds(5))
                 .GroupBy(x => new { x.DeviceId, x.ParameterCode })
                 .Select(g => g.OrderByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.ReceivedAtUtc).First())
                 .ToListAsync(cancellationToken);
@@ -921,7 +914,9 @@ public sealed class AiAdvisoryService(
             ReferenceProfile: referenceProfile,
             LastCompletedSeason: lastDone,
             LocationLevel: effectiveLoc?.SourceLevel,
-            GeneralRegion: effectiveLoc?.GeneralRegion);
+            GeneralRegion: effectiveLoc?.GeneralRegion,
+            // Vùng khí hậu suy từ địa chỉ (tỉnh/thành); không nhận diện được thì từ toạ độ. Chỉ là nhãn thô, không lộ vị trí.
+            ClimateRegion: ClimateRegionMapper.Resolve(effectiveLoc?.GeneralRegion, effectiveLoc?.Latitude, effectiveLoc?.Longitude));
     }
 
     /// <summary>
@@ -1131,20 +1126,13 @@ public sealed class AiAdvisoryService(
             parts.Any(p => p.WantsOverallComment));
     }
 
-    private async Task<QuestionIntent> ClassifyIntentAsync(string question, CancellationToken cancellationToken)
-
-    {
-
-        try
-
-        {
-
-            var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
-
-            var classified = await intentClassifier.ClassifyAsync(sanitizedQuestion, cancellationToken) ?? QuestionIntent.Unknown;
-
-            return WithPeriodFallbacks(sanitizedQuestion, classified.Topics.Count == 0 ? WithHypotheticalFallback(sanitizedQuestion, classified) : classified);
-
+    private async Task<QuestionIntent> ClassifyIntentAsync(string question, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sanitizedQuestion = AiPrivacySanitizer.SanitizeUserQuestion(question);
+            var classified = await intentClassifier.ClassifyAsync(sanitizedQuestion, cancellationToken) ?? QuestionIntent.Unknown;
+            return WithPeriodFallbacks(sanitizedQuestion, classified.Topics.Count == 0 ? WithHypotheticalFallback(sanitizedQuestion, classified) : classified);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -2079,12 +2067,53 @@ public sealed class AiAdvisoryService(
         return [];
     }
 
+    /// <summary>
+    /// Bản chụp trả về client (panel "Log dữ liệu BE gửi cho AI"): chỉ những gì cần để người dùng thấy dữ liệu đã gửi cho AI
+    /// (câu hỏi đã che, prompt, tài liệu tham chiếu, số đo và ngưỡng). Loại mã định danh nội bộ (ZoneId, GUID thiết bị/hồ sơ/vụ mùa,
+    /// ChunkId), danh sách thiết bị/gateway, nhãn khu vực chi tiết và mọi trường nội bộ khác của ngữ cảnh.
+    /// </summary>
+    internal static string? ClientSafeSnapshot(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            if (System.Text.Json.Nodes.JsonNode.Parse(json) is not System.Text.Json.Nodes.JsonObject root) return null;
+            var o = new System.Text.Json.Nodes.JsonObject();
+            foreach (var k in new[] { "Question", "Intent", "Prompt", "Sources" })
+                if (root[k] is { } v) o[k] = v.DeepClone();
+            if (root["Passages"] is System.Text.Json.Nodes.JsonArray passages)
+            {
+                var arr = new System.Text.Json.Nodes.JsonArray();
+                foreach (var p in passages.OfType<System.Text.Json.Nodes.JsonObject>())
+                {
+                    var c = new System.Text.Json.Nodes.JsonObject();
+                    foreach (var k in new[] { "DocumentId", "DocumentTitle", "AuthorOrganization", "Category", "SimilarityScore", "Content" })
+                        if (p[k] is { } pv) c[k] = pv.DeepClone();
+                    arr.Add(c);
+                }
+                o["Passages"] = arr;
+            }
+            if (root["Context"] is System.Text.Json.Nodes.JsonObject ctx)
+            {
+                var c = new System.Text.Json.Nodes.JsonObject();
+                foreach (var k in new[] { "Telemetry", "Requirements", "ClimateRegion" })
+                    if (ctx[k] is { } cv) c[k] = cv.DeepClone();
+                o["Context"] = c;
+            }
+            return o.ToJsonString();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     private static AiRecommendationView ToView(AiRecommendation x) => new(
         x.Id, x.ConsultationRequestId, x.ZoneId, x.ConsultationRequest?.Question ?? string.Empty,
         x.Summary, x.Details, ParseLimitations(x.Limitations), x.Confidence,
         x.Status, x.IsActionable, x.ValidUntilUtc, x.ProposedActuatorId,
         x.ProposedAction, x.ProposedDurationSeconds, x.CreatedAtUtc,
         ParseSources(x.SourcesJson, x.ConsultationRequest?.ContextSnapshotJson),
-        x.ConsultationRequest?.ContextSnapshotJson); // Gửi log dữ liệu ngữ cảnh đã làm sạch lên client để kiểm tra minh bạch
+        ClientSafeSnapshot(x.ConsultationRequest?.ContextSnapshotJson)); // Chỉ gửi cho client phần cần để minh bạch hoá dữ liệu gửi AI
     private static AiDecisionView ToView(AiRecommendationDecision x) => new(x.Id, x.RecommendationId, x.DecisionType, x.Reason, x.CreatedAtUtc, x.ActuatorCommandId, x.FollowUpConsultationId);
 }

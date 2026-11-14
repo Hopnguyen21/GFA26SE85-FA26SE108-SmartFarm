@@ -116,3 +116,25 @@ abstract final class ContractApi {
         as Map<String, dynamic>,
   );
 }
+
+/// Tham số nghiệp vụ hiện hành, giữ trong bộ nhớ; màn hình gọi [refresh] khi mở để lấy giá trị Admin vừa đổi.
+abstract final class BusinessParametersStore {
+  static BusinessParameters current = BusinessParameters.fallback;
+
+  static Future<BusinessParameters> refresh() async {
+    try {
+      current = BusinessParameters.fromJson(
+        ApiService._decodeUtf8OrThrow(
+              await ApiService._getWithAuth(
+                '${ApiService.baseUrl}/api/v1/platform/business-parameters',
+              ),
+            )
+            as Map<String, dynamic>,
+      );
+    } catch (_) {
+      // Giữ giá trị gần nhất (hoặc mặc định) khi không gọi được server.
+    }
+    BusinessParameters.active = current;
+    return current;
+  }
+}

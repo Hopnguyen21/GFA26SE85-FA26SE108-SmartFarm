@@ -51,6 +51,9 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
   @override
   void initState() {
     super.initState();
+    BusinessParametersStore.refresh().then((_) {
+      if (mounted) setState(() {});
+    });
     for (final c in [_rent, _deposit, _discount]) {
       c.addListener(() => setState(() {}));
     }
@@ -124,7 +127,9 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
         'contractNumber': opt(_number),
         'cropType': opt(_crop),
         'monthlyRentVnd': _money(_rent),
-        'depositVnd': _money(_deposit) ?? 0, // 0 → backend lấy 30%
+        'depositVnd':
+            _money(_deposit) ??
+            0, // 0 → backend lấy theo tỷ lệ cọc đang cấu hình
         'totalContractValueVnd': 0, // 0 → backend tính theo số tháng
         'discountPercent': _discount.text.trim().isEmpty
             ? null
@@ -233,7 +238,10 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
         : double.tryParse(discountText.replaceAll(',', '.'));
     final discount = pct == null ? 0.0 : raw * pct / 100;
     final total = (raw - discount).clamp(0, double.infinity).toDouble();
-    final deposit = _money(_deposit) ?? (total * 0.30).roundToDouble();
+    final deposit =
+        _money(_deposit) ??
+        (total * BusinessParametersStore.current.depositPercent / 100)
+            .roundToDouble();
     Widget row(String l, String v, {bool bold = false}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -297,14 +305,14 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
           row(
             'Tạm ứng / cọc',
             _deposit.text.trim().isEmpty
-                ? '30% tổng (≈ ${_vnd.format(deposit)})'
+                ? '${BusinessParametersStore.current.depositLabel} tổng (≈ ${_vnd.format(deposit)})'
                 : _vnd.format(deposit),
           ),
           if (pct == null)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 4),
               child: Text(
-                'Để trống chiết khấu: backend tự giảm 15% nếu bên thuê ký lần 2 trong 60 ngày, 10% nếu tái ký từ HĐ cũ.',
+                'Để trống chiết khấu: backend tự giảm ${BusinessParameters.fmt(BusinessParametersStore.current.repeatPurchaseDiscountPercent)}% nếu bên thuê ký lần 2 trong 60 ngày, ${BusinessParameters.fmt(BusinessParametersStore.current.renewalDiscountPercent)}% nếu tái ký từ HĐ cũ.',
                 style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
             ),
@@ -505,7 +513,11 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
           TextField(
             controller: _deposit,
             keyboardType: TextInputType.number,
-            decoration: _dec('Tiền cọc (₫)', hint: 'Để trống = 30% tổng'),
+            decoration: _dec(
+              'Tiền cọc (₫)',
+              hint:
+                  'Để trống = ${BusinessParametersStore.current.depositLabel} tổng',
+            ),
           ),
           const SizedBox(height: 12),
           _estimate(),

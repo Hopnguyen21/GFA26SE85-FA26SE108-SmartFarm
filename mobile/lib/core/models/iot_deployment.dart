@@ -1,3 +1,5 @@
+import 'models.dart' show BusinessParameters;
+
 // DTO của luồng triển khai IoT (IOT-V1) và báo giá/hợp đồng lắp đặt (service request).
 // Phản chiếu SmartFarm.Application.Features.IoTDeployment / Platform; mọi trạng thái lấy từ backend.
 
@@ -449,6 +451,22 @@ class Quotation {
   final String? contractTerms;
   final String status; // SentToOwner → SignedByOwner → Completed
   final List<QuotationItem> items;
+
+  /// Tỷ lệ cọc ĐÃ áp cho hợp đồng này, suy ra từ số tiền backend trả (cọc ÷ tổng). Hợp đồng chưa cọc theo tỷ lệ Admin hiện hành;
+  /// hợp đồng đã cọc / đã nghiệm thu giữ số đã chốt nên nhãn không đổi khi Admin sửa tỷ lệ về sau.
+  double get appliedDepositPercent {
+    if (totalAmount <= 0 || deposit30 <= 0) {
+      return BusinessParameters.active.depositPercent;
+    }
+    final p = deposit30 / totalAmount * 100;
+    return double.parse(p.toStringAsFixed(2));
+  }
+
+  String get depositLabel =>
+      '${BusinessParameters.fmt(appliedDepositPercent)}%';
+  String get remainingLabel =>
+      '${BusinessParameters.fmt(double.parse((100 - appliedDepositPercent).toStringAsFixed(2)))}%';
+
   Quotation({
     this.serviceRequestId,
     this.technicianUserId,

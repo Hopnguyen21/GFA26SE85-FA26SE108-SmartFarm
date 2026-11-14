@@ -233,7 +233,7 @@ abstract final class AutomationApi {
     String? cronExpression,
     int? durationSeconds,
     bool enableRainDelay = true,
-    double rainThresholdPercent = 70.0,
+    double? rainThresholdPercent,
   }) async {
     try {
       if (zoneId != null && zoneId.isNotEmpty) {
@@ -249,7 +249,9 @@ abstract final class AutomationApi {
               ? durationSeconds
               : 900,
           'enableRainDelay': enableRainDelay,
-          'rainThresholdPercent': rainThresholdPercent,
+          'rainThresholdPercent':
+              rainThresholdPercent ??
+              BusinessParametersStore.current.rainGuardThresholdPercent,
           'isActive': enable,
         };
         final resp = await ApiService._putWithAuth(
@@ -293,7 +295,8 @@ abstract final class AutomationApi {
         'cronExpression': '$mi $h * * *',
         'durationSeconds': (durationMinutes * 60).clamp(1, 1800),
         'enableRainDelay': true,
-        'rainThresholdPercent': 70,
+        'rainThresholdPercent':
+            BusinessParametersStore.current.rainGuardThresholdPercent,
         'isActive': true,
       },
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/iot_deployment.dart';
+import '../../core/models/models.dart' show BusinessParameters;
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
@@ -825,18 +826,22 @@ class _QuotationEditorState extends State<QuotationEditor> {
                   Row(
                     children: [
                       _payBox(
-                        'TẠM ỨNG 30% KHI KÝ HĐ (OWNER CỌC)',
+                        'TẠM ỨNG ${(_ro && widget.initial != null ? widget.initial!.depositLabel : BusinessParameters.active.depositLabel)} KHI KÝ HĐ (OWNER CỌC)',
                         _ro && widget.initial != null
                             ? widget.initial!.deposit30
-                            : _total * 0.3,
+                            : _total *
+                                  BusinessParameters.active.depositPercent /
+                                  100,
                         AppColors.warning,
                       ),
                       const SizedBox(width: 8),
                       _payBox(
-                        'THANH TOÁN 70% KHI NGHIỆM THU',
+                        'THANH TOÁN ${(_ro && widget.initial != null ? widget.initial!.remainingLabel : BusinessParameters.active.remainingLabel)} KHI NGHIỆM THU',
                         _ro && widget.initial != null
                             ? widget.initial!.remaining70
-                            : _total * 0.7,
+                            : _total *
+                                  BusinessParameters.active.remainingPercent /
+                                  100,
                         AppColors.info,
                       ),
                     ],
@@ -848,7 +853,7 @@ class _QuotationEditorState extends State<QuotationEditor> {
             Text(
               _ro
                   ? 'Hợp đồng đã có giá trị và đã nhận thanh toán cọc.'
-                  : 'Sau khi gửi, Owner sẽ nhận được hợp đồng để ký và đặt cọc 30%.',
+                  : 'Sau khi gửi, Owner sẽ nhận được hợp đồng để ký và đặt cọc ${BusinessParameters.active.depositLabel}.',
               style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
             const SizedBox(height: 12),

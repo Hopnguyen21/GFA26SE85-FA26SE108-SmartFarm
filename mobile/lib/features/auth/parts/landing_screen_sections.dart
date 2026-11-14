@@ -354,9 +354,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
         const SizedBox(height: 8),
         _buildStepItem(
           step: '02',
-          title: 'Ký Số & Tạm Ứng 30%',
+          title: 'Ký Số & Tạm Ứng ${BusinessParameters.active.depositLabel}',
           desc:
-              'Xuất báo giá chi tiết, Chủ trang trại ký hợp đồng điện tử và tạm ứng 30% triển khai.',
+              'Xuất báo giá chi tiết, Chủ trang trại ký hợp đồng điện tử và tạm ứng ${BusinessParameters.active.depositLabel} triển khai.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
@@ -370,9 +370,10 @@ extension _LandingScreenStateSections on _LandingScreenState {
         const SizedBox(height: 8),
         _buildStepItem(
           step: '04',
-          title: 'Nghiệm Thu & Vận Hành 70%',
+          title:
+              'Nghiệm Thu & Vận Hành ${BusinessParameters.active.remainingLabel}',
           desc:
-              'Kiểm tra hệ thống tưới tự động ổn định, ký nghiệm thu số và thanh toán 70% còn lại.',
+              'Kiểm tra hệ thống tưới tự động ổn định, ký nghiệm thu số và thanh toán ${BusinessParameters.active.remainingLabel} còn lại.',
           isHighlight: true,
         ),
       ],

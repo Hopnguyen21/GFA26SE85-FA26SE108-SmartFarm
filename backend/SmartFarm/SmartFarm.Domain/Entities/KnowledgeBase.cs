@@ -35,6 +35,12 @@ public sealed class AgricultureDocument : AuditableEntity
     /// <summary>Phạm vi cây trồng, phân cách bởi dấu phẩy. Rỗng = áp dụng cho tất cả cây trồng.</summary>
     public string CropScope { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Vùng khí hậu tài liệu áp dụng, phân cách bởi dấu phẩy: north, central, highlands, south.
+    /// Rỗng = áp dụng mọi vùng. Tài liệu ghi rõ vùng khác vùng của nông trại sẽ không được dùng làm nguồn RAG.
+    /// </summary>
+    public string RegionScope { get; set; } = string.Empty;
+
     /// <summary>Phiên bản hoặc năm ban hành tài liệu.</summary>
     public string? Version { get; set; }
 
@@ -94,6 +100,21 @@ public sealed class AgricultureDocument : AuditableEntity
     /// <summary>Các chủ đề tài liệu bao quát (irrigation, pest, nutrition, harvest, record, climate, soil), phân tách bằng dấu phẩy.</summary>
     public string Topics { get; set; } = string.Empty;
 
+    /// <summary>Mã hiệu tiêu chuẩn/quy chuẩn. VD: "TCVN 11892-1:2017", "QCVN 01-132:2020/BNNPTNT".</summary>
+    public string? StandardCode { get; set; }
+
+    /// <summary>Ngày ban hành văn bản quy chuẩn.</summary>
+    public DateTime? IssuedDate { get; set; }
+
+    /// <summary>Ngày văn bản bắt đầu có hiệu lực thi hành.</summary>
+    public DateTime? EffectiveDate { get; set; }
+
+    /// <summary>Ngày văn bản hết hiệu lực.</summary>
+    public DateTime? ExpirationDate { get; set; }
+
+    /// <summary>ID của phiên bản tiền nhiệm trực tiếp trong chuỗi phiên bản tài liệu.</summary>
+    public Guid? PreviousVersionId { get; set; }
+
     /// <summary>Bản mới đã duyệt thay thế tài liệu này (cùng tên và đơn vị ban hành). Tài liệu bị thay thế không còn dùng cho RAG.</summary>
     public Guid? SupersededByDocumentId { get; set; }
 
@@ -128,7 +149,15 @@ public enum AgricultureDocumentReviewStatus
     Approved = 2,
     NeedsCorrection = 3,
     /// <summary>Đã có phiên bản mới được duyệt; giữ lại để truy vết, không dùng cho RAG.</summary>
-    Superseded = 4
+    Superseded = 4,
+    /// <summary>Bản nháp đang soạn thảo, chưa gửi duyệt.</summary>
+    Draft = 5,
+    /// <summary>Bị từ chối phê duyệt do không đạt tiêu chuẩn kỹ thuật hoặc vi phạm quy định.</summary>
+    Rejected = 6,
+    /// <summary>Đã hết hiệu lực thi hành theo thời hạn của văn bản.</summary>
+    Expired = 7,
+    /// <summary>Đã lưu trữ, tạm ngừng phục vụ tra cứu AI.</summary>
+    Archived = 8
 }
 
 /// <summary>

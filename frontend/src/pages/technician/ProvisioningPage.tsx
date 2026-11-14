@@ -1,12 +1,13 @@
+import { ServiceRequestStatus, serviceStatusLabels } from '../../components/ui/ServiceRequestStatus';
 import React, { useState, useEffect } from 'react';
 import { ServiceRequest } from '../../types';
-import { supportService } from '../../services';
+import { supportService, deviceService } from '../../services';
 import { ZoneNodeMapperModal } from '../../components/control/ZoneNodeMapperModal';
 import { ExperimentReportModal, HardwareItem } from '../../components/control/ExperimentReportModal';
 import { Button, StatusBadge, Modal, Input } from '../../components/ui/BaseUI';
-import { 
-  CpuIcon, QrCode, Wifi, CheckCircle2, ArrowRight, MapPin, 
-  CheckSquare, Layers, Lock, ShieldCheck, Wrench, Building2, 
+import {
+  CpuIcon, QrCode, Wifi, CheckCircle2, ArrowRight, MapPin,
+  CheckSquare, Layers, Lock, ShieldCheck, Wrench, Building2,
   FlaskConical, FileText, Send, DollarSign, ChevronDown, ChevronUp,
   Search, Filter, Clock
 } from 'lucide-react';
@@ -14,6 +15,7 @@ import {
 export const ProvisioningPage: React.FC = () => {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deploymentRequests, setDeploymentRequests] = useState<any[]>([]);
   const [selectedRequestForExperiment, setSelectedRequestForExperiment] = useState<ServiceRequest | null>(null);
   const [selectedRequestForMapper, setSelectedRequestForMapper] = useState<ServiceRequest | null>(null);
   const [selectedHardwareItems, setSelectedHardwareItems] = useState<any[]>([]);
@@ -24,11 +26,6 @@ export const ProvisioningPage: React.FC = () => {
   const [activeTabFilter, setActiveTabFilter] = useState<'ALL' | 'INSTALLATION' | 'MAINTENANCE'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // QR Provisioning tool state
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [mac, setMac] = useState('24:DC:C3:98:A1:04');
-  const [deviceCode, setDeviceCode] = useState('GW-ESP32-DL03');
 
   const toggleExpand = (id: string) => {
     setExpandedRequestIds(prev => ({
@@ -52,6 +49,8 @@ export const ProvisioningPage: React.FC = () => {
       setIsLoading(true);
       const data = await supportService.getServiceRequests();
       if (Array.isArray(data)) setRequests(data);
+      const deployments = await deviceService.getTechnicianDeploymentRequests().catch(() => []);
+      setDeploymentRequests(Array.isArray(deployments) ? deployments : []);
     } catch (err) {
       console.error('Failed to load requests:', err);
     } finally {
@@ -59,21 +58,38 @@ export const ProvisioningPage: React.FC = () => {
     }
   };
 
+  const refreshDeploymentRequests = async () => setDeploymentRequests(await deviceService.getTechnicianDeploymentRequests().catch(() => []));
+  const advanceDeployment = async (request: any) => {
+    const id = request.requestId || request.deploymentRequestId;
+    const status = String(request.status || '').toLowerCase();
+    try {
+      if (status === 'submitted') await deviceService.acceptDeploymentRequest(id);
+      else if (status === 'accepted') await deviceService.surveyDeploymentRequest(id, { isFeasible: true, siteConditions: 'Khảo sát tại hiện trường', notes: 'Đủ điều kiện triển khai Gateway ngoài Zone và chấm Node trên GIS.' });
+      else if (status === 'surveyed') await deviceService.confirmDeploymentRequest(id);
+      else if (status === 'planconfirmed') await deviceService.startDeploymentInstallation(id);
+      await refreshDeploymentRequests();
+    } catch (error: any) { alert(error?.response?.data?.message || error?.message || 'Không thể chuyển trạng thái Deployment.'); }
+  };
+
   useEffect(() => {
     loadRequests();
+    const refresh = () => { void loadRequests(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, []);
 
   const handleSaveMapping = async (requestId: string, nodes: any[], mappedCount: number) => {
     try {
       const req = requests.find(r => r.serviceRequestId === requestId);
-      const zoneId = req?.zoneId || '32000000-0000-0000-0000-000000000001';
-      await supportService.updateMappedNodes(zoneId, nodes, requestId);
+      const zoneId = req?.zoneId;
+      if (!zoneId || req?.deploymentLinkInvalid) throw new Error('Thiếu Zone hoặc liên kết triển khai không hợp lệ.');
+      await supportService.updateMappedNodes(zoneId, nodes, requestId, req?.deploymentRequestId);
       await loadRequests();
       setSuccessMsg(`✅ Đã cập nhật biểu đồ GIS và lưu thành công ${mappedCount} Nodes cho Phân khu! Vui lòng báo Owner ký Biên bản Nghiệm thu & 70% còn lại.`);
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err: any) {
       console.error('Failed to update mapped nodes:', err);
-      alert('Lỗi lưu biểu đồ GIS: ' + (err?.response?.data?.message || err?.message || 'Vui lòng thử lại.'));
+      throw err;
     }
   };
 
@@ -84,14 +100,23 @@ export const ProvisioningPage: React.FC = () => {
   };
 
   const handleCompleteRequest = async (req: ServiceRequest) => {
-    if (!req.isAcceptedByOwner) {
-      alert('⚠️ Bạn chỉ có thể Xác nhận Hoàn thành sau khi Chủ trang trại (Owner) đã Ký Nghiệm thu!');
+    if (req.status !== 'VERIFIED') {
+      alert('Chỉ đóng dịch vụ sau khi kiểm tra kết nối thành công (Verified).');
       return;
     }
-    await supportService.completeByTechnician(req.serviceRequestId);
-    await loadRequests();
-    setSuccessMsg(`Đã xác nhận hoàn thành công trình Lắp đặt [${req.title}]!`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+    try {
+      await supportService.completeByTechnician(req.serviceRequestId);
+      await loadRequests();
+      setSuccessMsg(`Đã xác nhận hoàn thành công trình Lắp đặt [${req.title}]!`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        alert(err?.response?.data?.detail || err?.response?.data?.message || 'Chưa đủ điều kiện đóng dịch vụ.');
+        await loadRequests();
+      } else {
+        alert('Lỗi: ' + (err?.response?.data?.message || err?.message || 'Không thể hoàn thành yêu cầu.'));
+      }
+    }
   };
 
   // Filter requests based on tab, status and search
@@ -129,9 +154,6 @@ export const ProvisioningPage: React.FC = () => {
           </p>
         </div>
 
-        <Button onClick={() => setIsQrModalOpen(true)} className="bg-white hover:bg-emerald-50 text-[#119653] font-bold shrink-0 shadow-sm cursor-pointer">
-          <QrCode size={16} className="mr-1.5" /> Quét QR Cấp phát Nhanh
-        </Button>
       </div>
 
       {successMsg && (
@@ -141,40 +163,12 @@ export const ProvisioningPage: React.FC = () => {
         </div>
       )}
 
-      {/* Workflow Steps Indicator */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-semibold">
-        <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center gap-2.5 shadow-2xs">
-          <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold shrink-0">1</div>
-          <div>
-            <span className="block text-slate-900">1. Lập Báo giá & Hợp đồng</span>
-            <span className="text-[10px] text-slate-500 font-normal">Kỹ thuật viên soạn danh sách thiết bị</span>
-          </div>
-        </div>
+      {false && <section className="p-4 bg-slate-900 text-white rounded-2xl border border-emerald-500/30 shadow-md space-y-3">
+        <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold text-sm">Luồng Deployment IoT chuẩn</h2><p className="text-[11px] text-slate-300">Đây là nơi chuyển request sang Installing trước khi provision Gateway.</p></div><Button size="sm" variant="outline" onClick={refreshDeploymentRequests} className="text-white border-slate-500">Làm mới</Button></div>
+        {deploymentRequests.length === 0 ? <p className="text-xs text-amber-300">Chưa có Deployment Request IoT chuẩn được trả về cho Technician. Các thẻ bên dưới là Service Request cũ.</p> : <div className="space-y-2">{deploymentRequests.map((item: any) => { const id = item.requestId || item.deploymentRequestId; const status = String(item.status || 'Unknown'); const lower = status.toLowerCase(); const action = lower === 'submitted' ? 'Nhận yêu cầu' : lower === 'accepted' ? 'Khảo sát & chuyển bước' : lower === 'surveyed' ? 'Xác nhận kế hoạch' : lower === 'planconfirmed' ? 'Bắt đầu lắp đặt' : null; return <div key={id} className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 rounded-lg bg-slate-800 border border-slate-700"><div><span className="font-mono text-xs text-emerald-300">#{id}</span><div className="text-[11px] text-slate-300">Farm: {item.farmId} · Zone: {item.zoneId}</div></div><div className="flex items-center gap-2"><span className="px-2 py-1 rounded bg-slate-700 text-xs font-bold">{status}</span>{action && <Button size="sm" onClick={() => advanceDeployment(item)} className="bg-emerald-600 text-white">{action}</Button>}{lower === 'installing' && <span className="px-2 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-bold">Sẵn sàng Provision Gateway</span>}</div></div>; })}</div>}
+      </section>}
 
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 shadow-2xs">
-          <div className="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs font-bold shrink-0">2</div>
-          <div>
-            <span className="block text-amber-950 font-bold">2. Owner Ký HĐ & Cọc 30%</span>
-            <span className="text-[10px] text-amber-800 font-normal">Tiền mặt hoặc Chuyển khoản VietQR</span>
-          </div>
-        </div>
 
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 shadow-2xs">
-          <div className="w-7 h-7 rounded-full bg-emerald-700 text-white flex items-center justify-center text-xs font-bold shrink-0">3</div>
-          <div>
-            <span className="block text-emerald-950 font-bold">3. Vào Zone Chấm Node</span>
-            <span className="text-[10px] text-emerald-800 font-normal">Mở khóa chấm GPS/GIS Node</span>
-          </div>
-        </div>
-
-        <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl flex items-center gap-2.5 shadow-2xs">
-          <div className="w-7 h-7 rounded-full bg-sky-700 text-white flex items-center justify-center text-xs font-bold shrink-0">4</div>
-          <div>
-            <span className="block text-sky-950 font-bold">4. Nghiệm thu & 70%</span>
-            <span className="text-[10px] text-sky-800 font-normal">Owner bàn giao & hoàn tất 100%</span>
-          </div>
-        </div>
-      </div>
 
       {/* Filter Tabs & Search / Filter Controls (Like Owner SupportPage) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 border border-slate-200 rounded-2xl shadow-xs">
@@ -183,43 +177,38 @@ export const ProvisioningPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTabFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTabFilter === 'ALL'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTabFilter === 'ALL'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             Tất cả ({requests.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTabFilter('INSTALLATION')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTabFilter === 'INSTALLATION'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${activeTabFilter === 'INSTALLATION'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             <span>⚡ Lắp đặt mới</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTabFilter === 'INSTALLATION' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTabFilter === 'INSTALLATION' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {requests.filter(r => r.requestType === 'INSTALLATION' || r.requestType === 'INITIAL_SETUP').length}
             </span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTabFilter('MAINTENANCE')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTabFilter === 'MAINTENANCE'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${activeTabFilter === 'MAINTENANCE'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+              }`}
           >
             <span>🛠️ Bảo trì & Thay thế</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTabFilter === 'MAINTENANCE' ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'
-            }`}>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeTabFilter === 'MAINTENANCE' ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
               {requests.filter(r => r.requestType === 'MAINTENANCE' || r.requestType === 'REPAIR' || r.requestType === 'REPLACEMENT').length}
             </span>
           </button>
@@ -246,10 +235,7 @@ export const ProvisioningPage: React.FC = () => {
               className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-emerald-600"
             >
               <option value="ALL">Tất cả trạng thái</option>
-              <option value="OPEN">Chờ tiếp nhận (Open)</option>
-              <option value="IN_PROGRESS">Đang xử lý (In Progress)</option>
-              <option value="ACCEPTED_BY_OWNER">Đã nghiệm thu (Accepted)</option>
-              <option value="RESOLVED">Đã hoàn tất (Resolved)</option>
+              {Object.entries(serviceStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
         </div>
@@ -257,9 +243,7 @@ export const ProvisioningPage: React.FC = () => {
 
       {/* List Action Toolbar */}
       <div className="flex items-center justify-between text-xs px-1">
-        <span className="text-slate-500 font-medium">
-          Danh sách yêu cầu kỹ thuật (<strong>{filteredRequests.length}</strong> yêu cầu) — <em>Bấm vào từng yêu cầu để mở rộng/thu gọn chi tiết:</em>
-        </span>
+
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -288,35 +272,32 @@ export const ProvisioningPage: React.FC = () => {
           filteredRequests.map(req => {
             const isInstallation = req.requestType === 'INSTALLATION' || req.requestType === 'INITIAL_SETUP';
             const contract = req.contractDetails;
-            const is30Paid = Boolean((contract?.isSignedByOwner && contract?.is30PercentPaid) || req.isContractSigned || req.isDepositPaid || req.isFullyPaid);
+            const is30Paid = Boolean((contract?.isSignedByOwner && contract?.is30PercentPaid) || (req.isContractSigned && req.isDepositPaid));
             const isAccepted = Boolean(req.isAcceptedByOwner || req.acceptanceDetails?.isAcceptanceSigned);
             const isCompleted = req.status === 'RESOLVED' || req.status === 'CLOSED';
             const isExpanded = !!expandedRequestIds[req.serviceRequestId];
 
             return (
-              <div 
-                key={req.serviceRequestId} 
-                className={`bg-white border rounded-2xl shadow-xs transition-all ${
-                  isExpanded 
-                    ? 'p-5 border-slate-300 ring-1 ring-slate-200 space-y-4' 
-                    : 'p-4 border-slate-200 hover:border-emerald-300 hover:shadow-sm'
-                }`}
+              <div
+                key={req.serviceRequestId}
+                className={`bg-white border rounded-2xl shadow-xs transition-all ${isExpanded
+                  ? 'p-5 border-slate-300 ring-1 ring-slate-200 space-y-4'
+                  : 'p-4 border-slate-200 hover:border-emerald-300 hover:shadow-sm'
+                  }`}
               >
                 {/* Header Summary Row */}
-                <div 
-                  className={`flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                    isExpanded ? 'border-b border-slate-100 pb-3.5' : 'cursor-pointer select-none'
-                  }`}
+                <div
+                  className={`flex flex-col md:flex-row md:items-center justify-between gap-3 ${isExpanded ? 'border-b border-slate-100 pb-3.5' : 'cursor-pointer select-none'
+                    }`}
                   onClick={() => !isExpanded && toggleExpand(req.serviceRequestId)}
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                        isInstallation ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900 border border-amber-300'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${isInstallation ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-amber-100 text-amber-900 border border-amber-300'
+                        }`}>
                         {isInstallation ? '⚡ LẮP ĐẶT THIẾT BỊ MỚI' : '🛠️ BẢO TRÌ & THAY THẾ'}
                       </span>
-                      <StatusBadge status={req.status} />
+                      <ServiceRequestStatus request={req} />
 
                       {isInstallation && (
                         is30Paid ? (
@@ -360,7 +341,7 @@ export const ProvisioningPage: React.FC = () => {
                       <span>Khách hàng: <strong>{req.assignedOwnerName || 'Chủ Trang Trại'}</strong></span>
                       <span>•</span>
                       <span className="font-mono text-emerald-700 font-bold flex items-center gap-1">
-                        <Layers size={13} /> {req.mappedNodesCount || 0} Nodes đã chấm
+                        <Layers size={13} /> {req.mappedNodesCount ?? 'Chưa tải'} Nodes đã chấm
                       </span>
                       <span>•</span>
                       <span className="text-slate-400 font-mono">Ngày tạo: {new Date(req.createdAt).toLocaleDateString('vi-VN')}</span>
@@ -375,17 +356,16 @@ export const ProvisioningPage: React.FC = () => {
                         e.stopPropagation();
                         toggleExpand(req.serviceRequestId);
                       }}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
-                        isExpanded
-                          ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          : isInstallation && !contract
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isExpanded
+                        ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : isInstallation && !contract
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                           : is30Paid && !isAccepted
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse'
-                          : isAccepted && !isCompleted
-                          ? 'bg-sky-600 hover:bg-sky-700 text-white'
-                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                      }`}
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse'
+                            : isAccepted && !isCompleted
+                              ? 'bg-sky-600 hover:bg-sky-700 text-white'
+                              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                        }`}
                     >
                       {isExpanded ? (
                         <>
@@ -399,10 +379,10 @@ export const ProvisioningPage: React.FC = () => {
                             {isInstallation && !contract
                               ? 'Soạn Báo giá & HĐ'
                               : is30Paid && !isAccepted
-                              ? 'Vào Thực địa Chấm Node'
-                              : isAccepted && !isCompleted
-                              ? 'Xác nhận Hoàn thành'
-                              : 'Xem chi tiết'}
+                                ? 'Vào Thực địa Chấm Node'
+                                : isCompleted
+                                  ? 'Đã hoàn thành'
+                                  : 'Xem chi tiết'}
                           </span>
                         </>
                       )}
@@ -487,7 +467,7 @@ export const ProvisioningPage: React.FC = () => {
                           className="bg-sky-700 hover:bg-sky-800 text-white font-bold flex items-center gap-1.5 shadow-sm"
                         >
                           <Layers size={15} className="text-sky-300" />
-                          <span>Sửa Biểu đồ GIS ({req.mappedNodesCount || 0} Nodes)</span>
+                          <span>Sửa Biểu đồ GIS ({req.mappedNodesCount ?? 'Chưa tải'} Nodes)</span>
                         </Button>
 
                         {/* BUTTON 2B: THỰC ĐỊA CHẤM NODE KHI OWNER ĐÃ CỌC 30% */}
@@ -516,24 +496,22 @@ export const ProvisioningPage: React.FC = () => {
 
                         {/* BUTTON 3: XÁC NHẬN HOÀN THÀNH */}
                         {isCompleted ? (
-                          <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex items-center gap-1">
-                            <CheckCircle2 size={14} /> Đã hoàn thành
+                          <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex items-center gap-1.5 select-none">
+                            <CheckCircle2 size={15} className="text-emerald-400" /> Dịch vụ đã kết thúc
                           </span>
-                        ) : isAccepted ? (
-                          <Button
-                            onClick={() => handleCompleteRequest(req)}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold shadow-md"
-                          >
-                            <CheckCircle2 size={15} className="mr-1.5" /> Xác nhận Hoàn thành (Owner đã nghiệm thu 100%)
-                          </Button>
+                        ) : req.status === 'VERIFIED' ? (
+                          <Button onClick={() => handleCompleteRequest(req)}>Đóng dịch vụ</Button>
                         ) : (
                           <div className="relative group">
                             <Button
                               disabled
-                              className="bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                              className="bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed text-xs"
                             >
-                              <Lock size={14} className="mr-1.5 text-slate-500" /> Xác nhận Hoàn thành
+                              <Lock size={14} className="mr-1.5 text-slate-500" /> Chờ kiểm tra kết nối
                             </Button>
+                            <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block w-64 p-2.5 bg-slate-800 text-amber-300 text-[11px] rounded-xl shadow-xl border border-slate-700 z-20">
+                              Đóng dịch vụ yêu cầu trạng thái Verified. Nghiệm thu và thanh toán được hiển thị riêng.
+                            </div>
                           </div>
                         )}
                       </div>
@@ -567,42 +545,6 @@ export const ProvisioningPage: React.FC = () => {
         />
       )}
 
-      {/* QR Provisioning Modal */}
-      <Modal isOpen={isQrModalOpen} onClose={() => setIsQrModalOpen(false)} title="Cấp phát & Whitelist Nhanh Thiết Bị bằng QR Code">
-        <div className="space-y-4 text-xs">
-          <div className="p-4 bg-slate-900 text-white rounded-xl text-center space-y-2 border border-slate-800">
-            <div className="w-16 h-16 mx-auto bg-emerald-500/20 border border-emerald-500/40 rounded-xl flex items-center justify-center text-emerald-400">
-              <QrCode size={32} />
-            </div>
-            <p className="font-bold text-sm text-emerald-300">Quét mã QR trên thân mạch phần cứng</p>
-            <p className="text-[11px] text-slate-400">Hoặc nhập thủ công địa chỉ MAC bên dưới để ghi đè danh sách thiết bị</p>
-          </div>
-
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Địa chỉ MAC Thiết bị (Hardware MAC)</label>
-            <Input value={mac} onChange={e => setMac(e.target.value)} placeholder="24:DC:C3:XX:XX:XX" className="font-mono" />
-          </div>
-
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Mã hiệu Thiết bị (Device Code)</label>
-            <Input value={deviceCode} onChange={e => setDeviceCode(e.target.value)} placeholder="GW-ESP32-DL03" className="font-mono" />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={() => setIsQrModalOpen(false)}>Đóng</Button>
-            <Button
-              onClick={async () => {
-                setIsQrModalOpen(false);
-                setSuccessMsg(`✅ Đã cấp phát thiết bị [${deviceCode} - MAC: ${mac}] thành công vào hệ thống!`);
-                setTimeout(() => setSuccessMsg(null), 4000);
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-            >
-              <CheckCircle2 size={15} className="mr-1.5" /> Xác nhận Cấp phát
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

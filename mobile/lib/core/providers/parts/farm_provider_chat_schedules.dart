@@ -35,6 +35,7 @@ extension FarmProviderChatSchedules on FarmProvider {
       );
       final list = lists.expand((x) => x).toList();
       _schedules = list; // gán cả khi rỗng để phản ánh việc đã xóa hết lịch
+      BusinessParametersStore.refresh(); // lấy ngưỡng mưa/tỷ lệ cọc Admin vừa đổi
     } catch (_) {
       // Giữ danh sách hiện có khi không tải được.
     }
@@ -58,7 +59,9 @@ extension FarmProviderChatSchedules on FarmProvider {
           ? sch.durationSeconds
           : 900,
       enableRainDelay: sch?.enableRainDelay ?? true,
-      rainThresholdPercent: sch?.rainThresholdPercent ?? 70.0,
+      rainThresholdPercent:
+          sch?.rainThresholdPercent ??
+          BusinessParametersStore.current.rainGuardThresholdPercent,
     );
     if (ok) {
       if (idx != -1) {
