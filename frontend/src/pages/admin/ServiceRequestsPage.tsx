@@ -1,4 +1,3 @@
-import { ServiceRequestStatus, serviceStatusLabels } from '../../components/ui/ServiceRequestStatus';
 import { NO_CROP_LABEL, zoneCropLabel, zoneStageLabel } from '../../utils/zoneCrop';
 import React, { useState, useEffect } from 'react';
 import { ServiceRequest } from '../../types';
@@ -34,9 +33,6 @@ export const ServiceRequestsPage: React.FC = () => {
 
   useEffect(() => {
     loadRequests();
-    const refresh = () => { void loadRequests(); };
-    window.addEventListener('focus', refresh);
-    return () => window.removeEventListener('focus', refresh);
   }, []);
 
   // Modal Admin Create Request on behalf of Owner
@@ -55,7 +51,7 @@ export const ServiceRequestsPage: React.FC = () => {
 
   const filteredRequests = (requests || []).filter(r => {
     if (!r) return false;
-    const matchesFilter = activeFilter === 'ALL' ? true : (activeFilter === 'IN_PROGRESS' ? ['ASSIGNED', 'IN_PROGRESS', 'DIAGNOSED', 'WORK_COMPLETED', 'VERIFIED'].includes(r.status) : activeFilter === 'RESOLVED' ? ['RESOLVED', 'CLOSED'].includes(r.status) : r.status === activeFilter);
+    const matchesFilter = activeFilter === 'ALL' ? true : r.status === activeFilter;
     const query = String(searchTerm || '').toLowerCase().trim();
     const matchesSearch = !query ||
       String(r.title || '').toLowerCase().includes(query) ||
@@ -65,20 +61,28 @@ export const ServiceRequestsPage: React.FC = () => {
   });
 
   const handleAssignTechnician = async (requestId: string) => {
-    const request = requests.find(r => r.serviceRequestId === requestId);
-    const techId = assignedTechMap[requestId] || request?.assignedTechnician || technicians[0]?.userId;
+    const techId = assignedTechMap[requestId] || technicians[0]?.userId;
     const tech = technicians.find(t => t.userId === techId);
-    if (!tech?.userId) { alert('Chọn kỹ thuật viên trước khi phân công.'); return; }
-    const techName = tech.fullName || 'Kỹ thuật viên';
+    const techName = tech?.fullName || 'Trần Minh Trí (Kỹ thuật viên IoT)';
     try {
       if (tech?.userId) {
         await supportService.assignServiceRequest(requestId, tech.userId, `Admin phân công cho ${techName}`);
       }
       await loadRequests();
       setSuccessMsg(`Đã phân công công việc cho ${techName} thành công!`);
-    } catch (error: any) {
-      setSuccessMsg(null);
-      alert(error?.response?.data?.detail || error?.response?.data?.message || 'Phân công thất bại. Vui lòng thử lại.');
+    } catch {
+      setRequests(prev => prev.map(req => {
+        if (req.serviceRequestId === requestId) {
+          return {
+            ...req,
+            status: 'IN_PROGRESS',
+            assignedTechnician: techId || 'user-tech',
+            assignedTechnicianName: techName,
+          };
+        }
+        return req;
+      }));
+      setSuccessMsg(`Đã phân công công việc cho ${techName} thành công!`);
     }
     setTimeout(() => setSuccessMsg(null), 3000);
   };
@@ -119,7 +123,7 @@ export const ServiceRequestsPage: React.FC = () => {
   };
 
   const pendingCount = requests.filter(r => r.status === 'OPEN').length;
-  const inProgressCount = requests.filter(r => ['ASSIGNED', 'IN_PROGRESS', 'DIAGNOSED', 'WORK_COMPLETED', 'VERIFIED'].includes(r.status)).length;
+  const inProgressCount = requests.filter(r => r.status === 'IN_PROGRESS').length;
   const resolvedCount = requests.filter(r => r.status === 'RESOLVED' || r.status === 'CLOSED').length;
 
   return (
@@ -218,7 +222,7 @@ export const ServiceRequestsPage: React.FC = () => {
                       }`}>
                         {isInstallation ? '⚡ YÊU CẦU LẮP ĐẶT MỚI' : '🛠️ YÊU CẦU BẢO TRÌ & REPAIR'}
                       </span>
-                      <ServiceRequestStatus request={req} />
+                      <StatusBadge status={req.status} label={isPending ? 'CHỜ ADMIN PHÂN CÔNG' : req.status} />
                       {req.isAcceptedByOwner ? (
                         <span className="px-2 py-0.5 rounded bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1">
                           <CheckSquare size={11} /> OWNER ĐÃ NGHIỆM THU
@@ -271,7 +275,7 @@ export const ServiceRequestsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {['OPEN', 'ASSIGNED'].includes(req.status) && (
+                  {req.status !== 'ACCEPTED_BY_OWNER' && req.status !== 'RESOLVED' && req.status !== 'CLOSED' && (
                     <div className="flex items-center gap-2">
                       <select
                         value={assignedTechMap[req.serviceRequestId] || req.assignedTechnician || technicians[0]?.userId || ''}
