@@ -89,6 +89,11 @@ Future<AutoSeasonResult> autoCreateSeasonForNewZone({
   }
 }
 
+/// Zone đã có vụ ĐANG canh tác (backend: mỗi Zone chỉ một vụ đang canh tác). Có rồi thì không bắt đầu thêm vụ dự kiến
+/// và không tạo vụ mới; phải thu hoạch/kết thúc vụ hiện tại trước.
+bool hasRunningSeason(Iterable<Map<String, dynamic>> seasons) =>
+    seasons.any((s) => '${s['status']}' == 'InProgress');
+
 /// Kết quả bắt đầu vụ. `ok == false` thì [message] là lý do backend từ chối (chưa đến ngày bắt đầu, Zone đang có vụ khác...).
 typedef StartSeasonResult = ({bool ok, String message});
 
@@ -108,4 +113,14 @@ Future<StartSeasonResult> startSeasonForZone(
           'Chưa bắt đầu được vụ: ${e.toString().replaceFirst('Exception: ', '')}',
     );
   }
+}
+
+/// Tên cây của một vụ để hiển thị. Vụ chưa có cây thì lấy cây Zone đang canh tác (nếu Zone đã gán cây).
+/// Chỉ là hiển thị phía app, không ghi ngược lên backend.
+String seasonCropLabel(Map<String, dynamic> season, String zoneCurrentCrop) {
+  final own = '${season['cropName'] ?? ''}'.trim();
+  if (own.isNotEmpty && own != 'null') return own;
+  final zoneCrop = zoneCurrentCrop.trim();
+  if (zoneCrop.isEmpty || zoneCrop.startsWith('Chưa gán cây')) return '—';
+  return zoneCrop;
 }

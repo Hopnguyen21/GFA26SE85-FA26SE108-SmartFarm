@@ -456,16 +456,19 @@ class Quotation {
   /// hợp đồng đã cọc / đã nghiệm thu giữ số đã chốt nên nhãn không đổi khi Admin sửa tỷ lệ về sau.
   double get appliedDepositPercent {
     if (totalAmount <= 0 || deposit30 <= 0) {
-      return BusinessParameters.active.depositPercent;
+      // Thiếu số tiền: báo giá chưa ký theo cấu hình hiện hành; báo giá đã ký / nghiệm thu dùng mặc định cố định
+      // để nhãn không trôi theo cấu hình Admin.
+      return status == 'SentToOwner'
+          ? BusinessParameters.active.depositPercent
+          : BusinessParameters.fallback.depositPercent;
     }
     final p = deposit30 / totalAmount * 100;
     return double.parse(p.toStringAsFixed(2));
   }
 
-  String get depositLabel =>
-      '${BusinessParameters.fmt(appliedDepositPercent)}%';
+  String get depositLabel => BusinessParameters.pct(appliedDepositPercent);
   String get remainingLabel =>
-      '${BusinessParameters.fmt(double.parse((100 - appliedDepositPercent).toStringAsFixed(2)))}%';
+      BusinessParameters.remainingOf(appliedDepositPercent);
 
   Quotation({
     this.serviceRequestId,

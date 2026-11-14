@@ -4,10 +4,6 @@ library;
 
 import '../../core/models/models.dart' show BusinessParameters;
 
-/// Nhãn tỷ lệ tạm ứng / còn lại theo tham số Admin cấu hình (mặc định 30% / 70%).
-String get _dep => BusinessParameters.active.depositLabel;
-String get _rem => BusinessParameters.active.remainingLabel;
-
 /// Mã lỗi của yêu cầu lắp đặt: `INSTALLATION` do luồng triển khai IoT tạo, `NEW_INSTALL` do cổng dịch vụ tạo.
 const installationFailureCodes = {'INSTALLATION', 'NEW_INSTALL'};
 
@@ -93,7 +89,7 @@ String serviceTitle(Map<String, dynamic> r) {
 /// (SentToOwner → SignedByOwner → Completed). null = chưa có báo giá.
 /// [depositLabel]: nhãn tỷ lệ cọc của CHÍNH hợp đồng đó (đã chốt); bỏ trống thì theo cấu hình hiện hành.
 String contractStageLabel(String? quotationStatus, {String? depositLabel}) {
-  final dep = depositLabel ?? _dep;
+  final dep = depositLabel ?? BusinessParameters.active.depositLabel;
   return switch (quotationStatus) {
     null || '' || 'Draft' => 'Chưa tạo hợp đồng',
     'Completed' => 'Đã nghiệm thu 100%',
@@ -146,8 +142,8 @@ String installNextAction({
   String? depositLabel,
   String? remainingLabel,
 }) {
-  final depLbl = depositLabel ?? _dep;
-  final remLbl = remainingLabel ?? _rem;
+  final depLbl = depositLabel ?? BusinessParameters.active.depositLabel;
+  final remLbl = remainingLabel ?? BusinessParameters.active.remainingLabel;
   if (closed) return 'Đã đóng công việc';
   final dep = deploymentStatus;
   if (dep == 'Cancelled') return 'Yêu cầu đã bị hủy';
@@ -185,8 +181,8 @@ String installNextAction({
   String? depositLabel,
   String? remainingLabel,
 }) {
-  final dep = depositLabel ?? _dep;
-  final rem = remainingLabel ?? _rem;
+  final dep = depositLabel ?? BusinessParameters.active.depositLabel;
+  final rem = remainingLabel ?? BusinessParameters.active.remainingLabel;
   if (closed) return (text: 'Đã đóng', needsAction: false);
   switch (quotationStatus) {
     case 'SentToOwner':
@@ -228,8 +224,8 @@ List<({String label, FlowStepState state})> installFlowSteps({
   String? depositLabel,
   String? remainingLabel,
 }) {
-  final dep = depositLabel ?? _dep;
-  final rem = remainingLabel ?? _rem;
+  final dep = depositLabel ?? BusinessParameters.active.depositLabel;
+  final rem = remainingLabel ?? BusinessParameters.active.remainingLabel;
   final hasQuote =
       quotationStatus != null &&
       quotationStatus.isNotEmpty &&

@@ -8,7 +8,44 @@ import '../../zones/zone_operations_screens.dart'
 /// Tạo vụ trồng cho một Zone (Owner). Cây của Zone chỉ được gán khi tạo vụ:
 /// Zone chưa có cây thì vụ mới gán cây; Zone đang có cây khác thì phải tích xác nhận đổi cây.
 /// Trả về true khi tạo thành công.
-Future<bool?> showCreateSeasonSheet(BuildContext context, ZoneModel zone) {
+Future<bool?> showCreateSeasonSheet(
+  BuildContext context,
+  ZoneModel zone,
+) async {
+  // Mọi lối vào tạo vụ đều qua đây: Zone đã có vụ ĐANG canh tác thì không mở biểu mẫu (backend chỉ cho một vụ đang
+  // canh tác mỗi Zone). Không đọc được danh sách vụ thì vẫn mở, biểu mẫu tự kiểm tra lại và backend là nơi quyết định.
+  try {
+    final seasons = await CropApi.getPlantingSeasons(zoneId: zone.zoneId);
+    final running = seasons
+        .where((x) => '${x['status']}' == 'InProgress')
+        .firstOrNull;
+    if (running != null) {
+      if (!context.mounted) return false;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text(
+            'Zone đã có vụ đang canh tác',
+            style: TextStyle(fontSize: 16),
+          ),
+          content: Text(
+            'Zone "${zone.name}" đang có vụ “${running['name']}” (từ ${running['startDate']}). '
+            'Mỗi Zone chỉ có một vụ đang canh tác và hệ thống không tự đóng vụ đang chạy: hãy ghi sản lượng và kết thúc vụ đó '
+            '(Zone → Vụ trồng) rồi mới tạo vụ mới.',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Đã hiểu'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+  } catch (_) {}
+  if (!context.mounted) return false;
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -53,6 +90,24 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+
+  static const _newFarmingValue = '__new_farming_season__';
+
+  /// Thêm mùa vụ chung mới (vd. khi sang năm 2027 chưa có mùa vụ nào) rồi chọn luôn cho vụ trồng này.
+  Future<void> _addFarmingSeason() async {
+    final created = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const _NewFarmingSeasonDialog(),
+    );
+    if (created == null || !mounted) return;
+    final id = _farmingId(created);
+    setState(() {
+      if (id != null) {
+        _farmingSeasons = [..._farmingSeasons, created];
+        _farmingSeasonId = id;
+      }
+    });
+  }
 
   bool get _zoneHasCrop => !widget.zone.currentCrop.startsWith('Chưa gán cây');
 
@@ -403,8 +458,9 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (_farmingSeasons.isNotEmpty) ...[
+                  ...[
                     DropdownButtonFormField<String?>(
+                      key: ValueKey('farming-${_farmingSeasons.length}'),
                       initialValue: _farmingSeasonId,
                       isExpanded: true,
                       decoration: const InputDecoration(
@@ -424,15 +480,27 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                        const DropdownMenuItem<String?>(
+                          value: _newFarmingValue,
+                          child: Text('➕ Thêm mùa vụ chung mới…'),
+                        ),
                       ],
-                      onChanged: (v) => setState(() => _farmingSeasonId = v),
+                      onChanged: (v) {
+                        if (v == _newFarmingValue) {
+                          _addFarmingSeason();
+                        } else {
+                          setState(() => _farmingSeasonId = v);
+                        }
+                      },
                     ),
                     const SizedBox(height: 10),
                   ],
                   DropdownButtonFormField<String>(
                     initialValue: _cropId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Cây trồng *',
+                      hintText: 'Chạm để chọn cây',
                       border: OutlineInputBorder(),
                     ),
                     items: _crops
@@ -477,9 +545,12 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   DropdownButtonFormField<String>(
                     key: ValueKey('profile-$_cropId-$_varietyId'),
                     initialValue: _profileId,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Hồ sơ sinh trưởng *',
-                      border: OutlineInputBorder(),
+                      hintText: _cropId == null
+                          ? 'Chọn cây trước'
+                          : 'Chạm để chọn hồ sơ',
+                      border: const OutlineInputBorder(),
                     ),
                     items: profiles
                         .map(
@@ -519,8 +590,11 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: _nameCtrl,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
                       labelText: 'Tên vụ *',
+                      hintText: 'Ví dụ: Vụ cà chua đông xuân 2026',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -608,6 +682,175 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                 ],
               ),
       ),
+    );
+  }
+}
+
+/// Hộp thoại thêm mùa vụ chung (Đông-Xuân, Hè-Thu...) cho năm bất kỳ khi chưa có sẵn trong danh sách.
+/// Trả về mùa vụ vừa tạo (Map từ backend) hoặc null nếu hủy.
+class _NewFarmingSeasonDialog extends StatefulWidget {
+  const _NewFarmingSeasonDialog();
+
+  @override
+  State<_NewFarmingSeasonDialog> createState() =>
+      _NewFarmingSeasonDialogState();
+}
+
+class _NewFarmingSeasonDialogState extends State<_NewFarmingSeasonDialog> {
+  final _name = TextEditingController();
+  final _year = TextEditingController();
+  late DateTime _start = DateTime.now();
+  late DateTime _end = DateTime.now().add(const Duration(days: 120));
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _year.text = '${_start.year}';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _year.dispose();
+    super.dispose();
+  }
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Future<void> _pick(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _start : _end,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isStart) {
+        _start = picked;
+        _year.text = '${picked.year}';
+        if (!_end.isAfter(_start)) {
+          _end = _start.add(const Duration(days: 120));
+        }
+      } else {
+        _end = picked;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    final year = int.tryParse(_year.text.trim());
+    if (name.isEmpty) {
+      setState(() => _error = 'Hãy nhập tên mùa vụ.');
+      return;
+    }
+    if (year == null || year < 2001 || year > 2100) {
+      setState(() => _error = 'Năm không hợp lệ.');
+      return;
+    }
+    if (!_end.isAfter(_start)) {
+      setState(() => _error = 'Ngày kết thúc phải sau ngày bắt đầu.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final created = await CropApi.createFarmingSeason(
+        name: name,
+        year: year,
+        startDate: _start,
+        endDate: _end,
+      );
+      if (mounted) Navigator.pop(context, created);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        'Thêm mùa vụ chung mới',
+        style: TextStyle(fontSize: 16),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Tên mùa vụ *',
+                hintText: 'Ví dụ: Đông Xuân 2027',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _year,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Năm *',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _pick(true),
+                    child: Text('Bắt đầu: ${_fmt(_start)}'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _pick(false),
+                    child: Text('Kết thúc: ${_fmt(_end)}'),
+                  ),
+                ),
+              ],
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? 'Đang tạo…' : 'Tạo mùa vụ'),
+        ),
+      ],
     );
   }
 }

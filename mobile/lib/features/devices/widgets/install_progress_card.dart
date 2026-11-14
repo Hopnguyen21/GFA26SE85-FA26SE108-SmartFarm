@@ -157,7 +157,17 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
       case 'Surveyed':
         return [
           // Theo cam kết (BM04, WF-01): KTV khảo sát → xác nhận kế hoạch → lập báo giá, rồi Owner mới cọc.
-          if (d.latestSurveyFeasible)
+          if (d.latestSurveyFeasible && d.planItems.isEmpty) ...[
+            const Text(
+              'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.warning,
+                height: 1.4,
+              ),
+            ),
+            primary('Lập kế hoạch thiết bị', () => widget.onOpenDetail()),
+          ] else if (d.latestSurveyFeasible)
             primary(
               'Xác nhận kế hoạch',
               () => _guarded(

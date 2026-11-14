@@ -306,9 +306,8 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
     final depPct = total > 0 && c.depositVnd > 0
         ? double.parse((c.depositVnd / total * 100).toStringAsFixed(2))
         : bp.depositPercent;
-    final depLabel = '${BusinessParameters.fmt(depPct)}%';
-    final remLabel =
-        '${BusinessParameters.fmt(double.parse((100 - depPct).toStringAsFixed(2)))}%';
+    final depLabel = BusinessParameters.pct(depPct);
+    final remLabel = BusinessParameters.remainingOf(depPct);
     final netBeforeVat = total - c.vatAmountVnd;
     final double? vatPercent = c.vatPercent > 0
         ? c.vatPercent

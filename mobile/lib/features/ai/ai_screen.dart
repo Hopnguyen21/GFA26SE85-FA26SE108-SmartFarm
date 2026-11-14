@@ -1,14 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/models/models.dart';
+import '../../core/utils/ai_text.dart';
 
 part 'parts/ai_screen_actions.dart';
 part 'parts/ai_screen_context_banner.dart';
 part 'parts/ai_screen_messages.dart';
+part 'parts/ai_screen_widgets.dart';
 
+const Color _kAiGreen = Color(0xFF119653);
+
+/// Trợ lý AI Nông học VietGAP của Owner: cùng bố cục và thao tác với web (`AIAssistantPage`).
 class AiAssistantScreen extends StatefulWidget {
   final String? initialZoneId;
   const AiAssistantScreen({super.key, this.initialZoneId});
@@ -23,20 +30,31 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isTyping = false; // AI đang "gõ"
+  bool _isTyping = false; // AI đang đối chiếu dữ liệu
   Timer? _autoRefreshTimer;
+  final List<Timer> _pollTimers = [];
 
-  // Quick prompt chips
-  static const List<String> _quickPrompts = [
-    '🌱 Đất có đủ ẩm để tưới không?',
-    '🌡️ Nhiệt độ hiện tại có tốt cho cây?',
-    '💧 Khi nào nên tưới tiếp?',
-    '🐛 Có dấu hiệu sâu bệnh không?',
-    '📊 Tổng kết tình trạng zone hôm nay',
+  // Gợi ý nhanh: nhãn ngắn hiển thị, câu hỏi đầy đủ gửi cho AI (như web).
+  static const List<(String, String)> _quickPrompts = [
+    (
+      '💧 Nhu cầu tưới',
+      'Nhiệt độ và độ ẩm đất hiện tại thế nào, có cần kích hoạt tưới nhỏ giọt không?',
+    ),
+    (
+      '🐛 Sâu bệnh hại',
+      'Cây trồng ở giai đoạn hiện tại có nguy cơ mắc bệnh gì và cách phòng trừ IPM theo VietGAP?',
+    ),
+    (
+      '🌤️ Thời tiết',
+      'Thời tiết dự báo tiếp theo có thích hợp cho sự phát triển của cây không?',
+    ),
+    ('⏰ Lịch tưới', 'Có lịch tưới tự động nào sắp chạy trong hôm nay không?'),
   ];
 
   bool _isLoadingHistory = false;
   bool _isLoadingContext = false;
+  bool _showSensors = false;
+  bool _showQueue = false;
   Map<String, dynamic>? _aiContext;
 
   @override
@@ -60,9 +78,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     });
   }
 
+  /// Làm mới bối cảnh cảm biến mỗi 10 giây như web để đồng bộ với bảng điều khiển.
   void _startAutoRefresh() {
     _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted || _isLoadingContext) return;
       final provider = Provider.of<FarmProvider>(context, listen: false);
       final zId = provider.currentZone.zoneId;
@@ -84,6 +103,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    for (final t in _pollTimers) {
+      t.cancel();
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -111,7 +133,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   Widget build(BuildContext context) {
     final farmProvider = Provider.of<FarmProvider>(context);
     final zone = farmProvider.currentZone;
-    final isFarmer = farmProvider.currentRole == 'FARMER';
+    final queue = _queueOf(farmProvider);
+    // Bàn phím đang mở: ẩn gợi ý nhanh để vùng hội thoại còn đủ chỗ trên màn nhỏ.
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -123,26 +147,24 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                color: _kAiGreen.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
-                Icons.psychology,
-                color: Color(0xFF10B981),
+                Icons.smart_toy_outlined,
+                color: Color(0xFF34D399),
                 size: 20,
               ),
             ),
             const SizedBox(width: 10),
-            Expanded(
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isFarmer
-                        ? 'Trợ lý AI Nông học (Thực địa)'
-                        : 'Trợ lý AI Nông học',
-                    style: const TextStyle(
+                    'Trợ lý AI Nông học VietGAP',
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -150,13 +172,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    isFarmer
-                        ? 'Dành cho Nông Dân · VietGAP · Cập nhật liên tục'
-                        : 'Gemini · VietGAP · Dữ liệu thực tế',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF94A3B8),
-                    ),
+                    'Vi khí hậu thời gian thực · đề xuất tưới thông minh',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -165,17 +182,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ],
         ),
         actions: [
-          // Clear history button
           IconButton(
             icon: const Icon(
               Icons.delete_sweep_outlined,
               color: Colors.white70,
               size: 20,
             ),
-            tooltip: 'Xóa lịch sử trò chuyện',
+            tooltip: 'Xóa lịch sử',
             onPressed: () => _confirmClearHistory(farmProvider),
           ),
-          // Zone selector button
           PopupMenuButton<int>(
             icon: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -194,7 +209,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     child: Text(
                       zone.name,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
@@ -204,33 +219,30 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 ],
               ),
             ),
-            tooltip: 'Chọn Zone',
+            tooltip: 'Chọn Khu Vực (Zone)',
             onSelected: (i) {
               farmProvider.selectZone(i);
               final newZone = farmProvider.zones[i];
               _loadDataForZone(farmProvider, newZone.zoneId);
             },
-            itemBuilder: (_) => farmProvider.zones
-                .asMap()
-                .entries
-                .map(
-                  (e) => PopupMenuItem(
-                    value: e.key,
-                    child: Text(
-                      e.value.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: e.key == farmProvider.selectedZoneIndex
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: e.key == farmProvider.selectedZoneIndex
-                            ? const Color(0xFF10B981)
-                            : Colors.black87,
-                      ),
+            itemBuilder: (_) => [
+              for (final e in farmProvider.zones.asMap().entries)
+                PopupMenuItem(
+                  value: e.key,
+                  child: Text(
+                    '${e.value.farmName.isNotEmpty ? '[${e.value.farmName}] ' : ''}${e.value.name}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: e.key == farmProvider.selectedZoneIndex
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: e.key == farmProvider.selectedZoneIndex
+                          ? _kAiGreen
+                          : Colors.black87,
                     ),
                   ),
-                )
-                .toList(),
+                ),
+            ],
           ),
         ],
       ),
@@ -238,25 +250,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ? _buildNoPermissionView(farmProvider)
           : Column(
               children: [
-                // Context banner
                 _buildContextBanner(zone),
-
+                _buildQueueStrip(farmProvider, queue),
                 if (_isLoadingHistory || _isLoadingContext)
                   const LinearProgressIndicator(
-                    color: Color(0xFF10B981),
+                    color: _kAiGreen,
                     backgroundColor: Color(0xFFECFDF5),
                     minHeight: 2,
                   ),
-
-                // Quick prompts
-                if (farmProvider.chatMessages.length <= 1)
-                  _buildQuickPrompts(farmProvider),
-
-                // Messages
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(14),
                     itemCount:
                         farmProvider.chatMessages.length + (_isTyping ? 1 : 0),
                     itemBuilder: (context, index) {
@@ -272,8 +277,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     },
                   ),
                 ),
-
-                // Input bar
+                if (!keyboardOpen) _buildQuickPrompts(farmProvider),
                 _buildInputBar(farmProvider),
               ],
             ),

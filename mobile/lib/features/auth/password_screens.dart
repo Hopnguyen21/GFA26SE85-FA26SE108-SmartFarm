@@ -130,7 +130,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () =>
+                          Navigator.pop(context, _email.text.trim()),
                       child: const Text('Về đăng nhập'),
                     ),
                   ],

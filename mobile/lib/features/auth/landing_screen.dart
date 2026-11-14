@@ -8,6 +8,7 @@ import '../../core/services/api_service.dart' show BusinessParametersStore;
 part 'parts/landing_screen_consult.dart';
 part 'parts/landing_screen_tabs.dart';
 part 'parts/landing_screen_sections.dart';
+part 'parts/landing_screen_home.dart';
 
 class LandingScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -24,6 +25,20 @@ class _LandingScreenState extends State<LandingScreen> {
 
   int _activeTabIndex = 0; // 0: IoT, 1: GIS, 2: AI, 3: Nghiệm thu
 
+  // Cuộn tới từng mục như các liên kết neo trên thanh điều hướng của web.
+  final _scroll = ScrollController();
+  final _solutionsKey = GlobalKey();
+  final _hardwareKey = GlobalKey();
+  final _pillarsKey = GlobalKey();
+  final _workflowKey = GlobalKey();
+  final _testimonialsKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +53,26 @@ class _LandingScreenState extends State<LandingScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => LoginScreen(onLoginSuccess: widget.onLoginSuccess),
+      ),
+    );
+  }
+
+  /// Đăng ký như web: xong thì sang màn đăng nhập với email đã đăng ký và thông báo thành công (không tự đăng nhập).
+  Future<void> _openRegister(BuildContext context) async {
+    final email = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+    );
+    if (email == null || !context.mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(
+          onLoginSuccess: widget.onLoginSuccess,
+          initialEmail: email,
+          initialMessage:
+              'Đăng ký tài khoản thành công! Hãy nhập mật khẩu của bạn để đăng nhập.',
+        ),
       ),
     );
   }
@@ -122,18 +157,6 @@ class _LandingScreenState extends State<LandingScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        onPressed: () => _showConsultModal(context),
-                        icon: const Icon(
-                          Icons.phone_in_talk,
-                          color: Color(0xFF059669),
-                          size: 19,
-                        ),
-                        tooltip: 'Tư vấn',
-                        padding: const EdgeInsets.all(4),
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 4),
                       TextButton(
                         onPressed: () => _navigateToLogin(context),
                         style: TextButton.styleFrom(
@@ -151,6 +174,28 @@ class _LandingScreenState extends State<LandingScreen> {
                         ),
                         child: const Text('Đăng nhập'),
                       ),
+                      const SizedBox(width: 4),
+                      FilledButton(
+                        onPressed: () => _openRegister(context),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF119653),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        child: const Text('Đăng ký'),
+                      ),
                     ],
                   ),
                 ],
@@ -160,6 +205,7 @@ class _LandingScreenState extends State<LandingScreen> {
             // Scrollable Content
             Expanded(
               child: SingleChildScrollView(
+                controller: _scroll,
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -167,155 +213,8 @@ class _LandingScreenState extends State<LandingScreen> {
                   children: [
                     const SizedBox(height: 6),
 
-                    // Badge Highlight
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.auto_awesome,
-                            color: Color(0xFF059669),
-                            size: 12,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              'Nền tảng Quản trị Nông nghiệp Đa cấp 2026',
-                              style: const TextStyle(
-                                color: Color(0xFF065F46),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Main Headline
-                    const Text(
-                      'Tối Ưu Nông Trại Bằng\nCảm Biến LoRa & AI',
-                      style: TextStyle(
-                        fontSize: 24,
-                        height: 1.2,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF062326),
-                        letterSpacing: -0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    const Text(
-                      'Tự động hóa tưới tiêu thông minh, giám sát vi khí hậu thời gian thực và trợ lý nông học theo tiêu chuẩn VietGAP.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.45,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // CTA Buttons: Bắt đầu ngay, Đăng ký, Tư vấn
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _navigateToLogin(context),
-                            icon: const Icon(Icons.arrow_forward, size: 15),
-                            label: const Text('Bắt Đầu Ngay'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF062326),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: OutlinedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => RegisterScreen(
-                                    onRegisterSuccess: () {
-                                      Navigator.pop(context);
-                                      _navigateToLogin(context);
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF062326),
-                              side: const BorderSide(
-                                color: Color(0xFFCBD5E1),
-                                width: 1.3,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                            child: const Text('Đăng Ký'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Nút Yêu cầu tư vấn thiết bị (Secondary CTA)
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
-                        onPressed: () => _showConsultModal(context),
-                        icon: const Icon(
-                          Icons.support_agent,
-                          size: 16,
-                          color: Color(0xFF059669),
-                        ),
-                        label: const Text(
-                          'Yêu cầu tư vấn thiết bị & Khảo sát thực địa',
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF065F46),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
+                    // Hero như web: huy hiệu, tiêu đề, mô tả, nút Đăng ký / Đăng nhập / Tư vấn, chỉ số tin cậy
+                    _buildHeroIntro(context),
                     // HERO TELEMETRY CARD WITH BANNER IMAGE (100% Matching Web)
                     Container(
                       width: double.infinity,
@@ -541,22 +440,16 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     const SizedBox(height: 18),
 
-                    // Quick Stats Bar
-                    Row(
-                      children: [
-                        Expanded(child: _buildStatBadge('1,200+', 'Node LoRa')),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: _buildStatBadge('150+', 'Nhà màng HTX'),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: _buildStatBadge('99.9%', 'Uptime 24/7'),
-                        ),
-                      ],
-                    ),
+                    // Dải bốn chỉ số, thanh điều hướng mục và "Hệ sinh thái" như web
+                    _buildMetricsRibbon(),
+                    const SizedBox(height: 16),
+                    _buildNavChips(),
+                    const SizedBox(height: 20),
+                    SizedBox(key: _solutionsKey, height: 0),
+                    _buildEcosystemSection(),
                     const SizedBox(height: 24),
 
+                    SizedBox(key: _pillarsKey, height: 0),
                     // INTERACTIVE TABS: 4 TRỤ CỘT NỀN TẢNG (Matching Web Tabs)
                     const Text(
                       'Khám Phá 4 Trụ Cột Nền Tảng',
@@ -675,14 +568,17 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    SizedBox(key: _hardwareKey, height: 0),
                     // Khối Phần Cứng LoRa Chuẩn Công Nghiệp
                     _buildHardwareShowcase(),
                     const SizedBox(height: 24),
 
+                    SizedBox(key: _workflowKey, height: 0),
                     // Quy trình 4 bước chuẩn hóa
                     _buildWorkflowSteps(),
                     const SizedBox(height: 24),
 
+                    SizedBox(key: _testimonialsKey, height: 0),
                     // Đánh giá khách hàng thực tế
                     _buildTestimonials(),
                     const SizedBox(height: 24),

@@ -18,6 +18,7 @@ import '../cf1/cf1_progress_screen.dart';
 import '../support/support_requests_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
+import '../bills/bills_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 import '../devices/technician_gateway_tools_screen.dart';
 
@@ -201,33 +202,34 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stats row
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        'Trang Trại',
-                        '${provider.farms.length}',
-                        Icons.corporate_fare,
-                        const Color(0xFF062326),
-                      ),
-                      const SizedBox(width: 10),
-                      _buildStatCard(
-                        'Zone Canh Tác',
-                        '${provider.zones.length}',
-                        Icons.grid_view_rounded,
-                        const Color(0xFF10B981),
-                      ),
-                      const SizedBox(width: 10),
-                      _buildStatCard(
-                        'Cảnh Báo',
-                        '${provider.alerts.where((a) => !a.isAcknowledged).length}',
-                        Icons.notifications_active,
-                        const Color(0xFFDC2626),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
+                  // Stats row - chỉ hiển thị cho Chủ trang trại và Nông dân, không hiển thị cho Kỹ thuật viên
+                  if (provider.currentRole != 'TECHNICIAN') ...[
+                    Row(
+                      children: [
+                        _buildStatCard(
+                          'Trang Trại',
+                          '${provider.farms.length}',
+                          Icons.corporate_fare,
+                          const Color(0xFF062326),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildStatCard(
+                          'Zone Canh Tác',
+                          '${provider.zones.length}',
+                          Icons.grid_view_rounded,
+                          const Color(0xFF10B981),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildStatCard(
+                          'Cảnh Báo',
+                          '${provider.alerts.where((a) => !a.isAcknowledged).length}',
+                          Icons.notifications_active,
+                          const Color(0xFFDC2626),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Account Info
                   Row(

@@ -336,7 +336,7 @@ extension _ContractsDepreciationScreenStateContractsTab
                   ],
                 ),
 
-                if (contract.isActive) ...[
+                if (contract.isInEffect() || contract.isLapsed()) ...[
                   const Divider(height: 18),
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
@@ -377,13 +377,18 @@ extension _ContractsDepreciationScreenStateContractsTab
                             OutlinedButton.icon(
                               onPressed: () =>
                                   _showRenewContractDialog(contract),
-                              icon: const Icon(
-                                Icons.autorenew,
+                              // Hợp đồng còn hiệu lực: gia hạn; đã hết hạn thì không gia hạn được nữa, chỉ tạo yêu cầu mới.
+                              icon: Icon(
+                                contract.isInEffect()
+                                    ? Icons.autorenew
+                                    : Icons.add_circle_outline,
                                 size: 14,
-                                color: Color(0xFF059669),
+                                color: const Color(0xFF059669),
                               ),
-                              label: const Text(
-                                'Yêu cầu gia hạn',
+                              label: Text(
+                                contract.isInEffect()
+                                    ? 'Yêu cầu gia hạn'
+                                    : 'Tạo yêu cầu mới',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF059669),

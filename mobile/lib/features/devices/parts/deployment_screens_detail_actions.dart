@@ -65,7 +65,20 @@ extension _DeploymentRequestDetailScreenStateActions
             ),
           );
           buttons.add(btn('Ghi nhận khảo sát khác', () => _survey(r)));
-          if (r.latestSurveyFeasible) {
+          if (r.latestSurveyFeasible && r.planItems.isEmpty) {
+            buttons.add(
+              btn(
+                'Xác nhận kế hoạch (cần lập kế hoạch trước)',
+                () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
+                    ),
+                  ),
+                ),
+              ),
+            );
+          } else if (r.latestSurveyFeasible) {
             buttons.add(
               btn(
                 'Xác nhận kế hoạch',

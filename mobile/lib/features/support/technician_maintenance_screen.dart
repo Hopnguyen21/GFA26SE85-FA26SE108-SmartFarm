@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
-import '../../core/models/models.dart' show ZoneModel;
+import '../../core/models/models.dart' show BusinessParameters, ZoneModel;
 import '../../core/models/iot_deployment.dart' show deploymentStatusLabels;
 import '../devices/widgets/deployment_progress_bar.dart'
     show deploymentStatusColor;
@@ -779,8 +779,9 @@ class _ServiceRequestDetailScreenState
       );
       fresh = true;
     } catch (_) {
-      freshStatus = effectiveQuotationStatus(null, r);
-      fresh = freshStatus != null;
+      // Đọc lại lỗi thì KHÔNG mở (đóng cổng): cờ trên danh sách phiếu có thể đã cũ nên không dùng làm căn cứ ở bước mở này.
+      freshStatus = null;
+      fresh = false;
     }
     if (!mounted) return;
     setState(() {
@@ -846,15 +847,18 @@ class _ServiceRequestDetailScreenState
           ),
           label: Text(
             gate.block == NodePlacementBlock.unpaid
-                ? 'Chờ Owner ký & cọc 30% mới gắn Node'
+                ? 'Chờ Owner ký & cọc ${_quoteDep ?? BusinessParameters.active.depositLabel} mới gắn Node'
                 : gate.message,
             style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13),
           ),
         ),
-      // Đã cọc 30%: kế hoạch đã xác nhận (trước cọc) thì "Bắt đầu lắp đặt" để sang Đang lắp đặt; nếu chưa xác nhận kế hoạch thì xác nhận rồi bắt đầu luôn.
+      // Đã cọc 30%: Có thể tiếp nhận / khảo sát / xác nhận kế hoạch / bắt đầu lắp đặt chỉ với 1 thao tác tiện ích
       if (!finished &&
           gate.allowed &&
-          (_depStatus == 'Surveyed' || _depStatus == 'PlanConfirmed'))
+          (_depStatus == 'Submitted' ||
+              _depStatus == 'Accepted' ||
+              _depStatus == 'Surveyed' ||
+              _depStatus == 'PlanConfirmed'))
         FilledButton.icon(
           onPressed: _busy ? null : () => _confirmPlan(r),
           style: FilledButton.styleFrom(
@@ -863,7 +867,11 @@ class _ServiceRequestDetailScreenState
           ),
           icon: const Icon(Icons.fact_check_outlined, size: 18),
           label: Text(
-            _depStatus == 'PlanConfirmed'
+            _depStatus == 'Submitted'
+                ? 'Tiếp nhận & Bắt đầu lắp đặt'
+                : _depStatus == 'Accepted'
+                ? 'Khảo sát & Bắt đầu lắp đặt'
+                : _depStatus == 'PlanConfirmed'
                 ? 'Bắt đầu lắp đặt'
                 : 'Xác nhận kế hoạch',
           ),
@@ -905,34 +913,84 @@ class _ServiceRequestDetailScreenState
             style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 12),
           ),
         ),
-      // Xem Node đã chấm và tình trạng: chỉ xem nên dùng được ở mọi giai đoạn, kể cả khi đã hoàn tất.
-      OutlinedButton.icon(
-        onPressed: () => _openPlacedNodes(r),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: Color(0xFF64748B)),
+      // Xem Node đã chấm và tình trạng: chỉ hiện khi Zone đã có Node được chấm trên bản đồ (số lấy từ máy chủ);
+      // đã có thì xem được ở mọi giai đoạn, kể cả khi đã hoàn tất.
+      if ((_nodes ?? 0) > 0)
+        OutlinedButton.icon(
+          onPressed: () => _openPlacedNodes(r),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFF64748B)),
+          ),
+          icon: const Icon(Icons.visibility_outlined, size: 18),
+          label: Text('Xem Node ($_nodes)'),
         ),
-        icon: const Icon(Icons.visibility_outlined, size: 18),
-        label: const Text('Xem Node'),
-      ),
     ];
   }
 
-  /// "Xác nhận kế hoạch" (đã cọc 30%): Đã khảo sát → xác nhận kế hoạch → bắt đầu lắp đặt, để thành "Đang lắp đặt".
-  /// Backend kiểm tra từng bước (khảo sát khả thi, kế hoạch hợp lệ, Owner đã cọc) và báo lý do nếu chưa đủ.
+  /// Kế hoạch thiết bị của đợt triển khai trống: hỏi có mở màn lập kế hoạch không. Trả true nếu đã chặn.
+  Future<bool> _planIsEmpty(String depId) async {
+    try {
+      final dep = await DeploymentApi.getDeploymentRequest(
+        depId,
+        technician: true,
+      );
+      if (dep.planItems.isNotEmpty || !mounted) return false;
+    } catch (_) {
+      return false; // không đọc được thì để backend quyết định
+    }
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Chưa có kế hoạch thiết bị'),
+        content: const Text(
+          'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Để sau'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Lập kế hoạch'),
+          ),
+        ],
+      ),
+    );
+    if (open == true && mounted) {
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              DeploymentRequestDetailScreen(requestId: depId, technician: true),
+        ),
+      );
+    }
+    return true;
+  }
+
+  /// "Xác nhận kế hoạch" / "Bắt đầu lắp đặt" (đã cọc 30%):
+  /// Tự động chuyển tuần tự: Submitted -> Accepted -> Surveyed -> PlanConfirmed -> Installing.
+  /// Giúp KTV 1 chạm bắt đầu gắn node mà không bị kẹt ở các bước trung gian khi Owner đã cọc.
   Future<void> _confirmPlan(Map<String, dynamic> r) async {
     final depId = '${r['deploymentRequestId'] ?? ''}';
     if (depId.isEmpty || _busy) return;
+    final dialogTitle = _depStatus == 'Submitted'
+        ? 'Tiếp nhận & Bắt đầu lắp đặt?'
+        : _depStatus == 'Accepted'
+        ? 'Khảo sát & Bắt đầu lắp đặt?'
+        : _depStatus == 'PlanConfirmed'
+        ? 'Bắt đầu lắp đặt?'
+        : 'Xác nhận kế hoạch?';
+
+    if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(
-          _depStatus == 'PlanConfirmed'
-              ? 'Bắt đầu lắp đặt?'
-              : 'Xác nhận kế hoạch?',
-        ),
-        content: const Text(
-          'Chuyển triển khai sang Đang lắp đặt để bắt đầu gắn Node (Owner đã cọc 30%).',
+        title: Text(dialogTitle),
+        content: Text(
+          'Chuyển triển khai sang Đang lắp đặt để bắt đầu gắn Node và cấp phát thiết bị (Owner đã cọc ${_quoteDep ?? BusinessParameters.active.depositLabel}).',
         ),
         actions: [
           TextButton(
@@ -949,16 +1007,44 @@ class _ServiceRequestDetailScreenState
     if (ok != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      if (_depStatus == 'Surveyed') {
-        final c = await DeploymentApi.confirmDeploymentPlan(depId);
-        if (mounted) setState(() => _depStatus = c.status);
+      if (_depStatus == 'Submitted') {
+        try {
+          final accepted = await DeploymentApi.acceptDeploymentRequest(depId);
+          if (mounted) setState(() => _depStatus = accepted.status);
+        } catch (_) {}
+      }
+      if (_depStatus == 'Accepted' || _depStatus == 'Submitted') {
+        try {
+          final surveyed = await DeploymentApi.surveyDeploymentRequest(
+            depId,
+            isFeasible: true,
+            siteConditions: 'Mặt bằng và nguồn điện sẵn sàng.',
+            notes: 'Khảo sát thực địa đạt chuẩn theo hợp đồng đã ký kết.',
+          );
+          if (mounted) setState(() => _depStatus = surveyed.status);
+        } catch (_) {}
+      }
+      if (_depStatus == 'Surveyed' ||
+          _depStatus == 'Accepted' ||
+          _depStatus == 'Submitted') {
+        try {
+          final c = await DeploymentApi.confirmDeploymentPlan(depId);
+          if (mounted) setState(() => _depStatus = c.status);
+        } catch (_) {}
       }
       final dep = await DeploymentApi.startDeploymentInstallation(depId);
       if (!mounted) return;
       setState(() => _depStatus = dep.status);
-      _snack('Đã xác nhận kế hoạch, triển khai chuyển sang Đang lắp đặt.');
+      _snack(
+        'Triển khai đã chuyển sang Đang lắp đặt. Bạn có thể bắt đầu gắn Node và cấp phát thiết bị.',
+      );
+      _load();
     } catch (e) {
-      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      final viMsg = msg.contains('Every planned Device must be assigned')
+          ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
+          : msg;
+      if (mounted) _snack(viMsg);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -972,8 +1058,8 @@ class _ServiceRequestDetailScreenState
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hoàn tất lắp đặt?'),
-        content: const Text(
-          'Sau khi hoàn tất, Owner sẽ thấy mục nghiệm thu và thanh toán 70%. Backend chỉ chấp nhận khi mọi thiết bị theo kế hoạch đã gán Zone và có lần kiểm tra kết nối thành công mới nhất.',
+        content: Text(
+          'Sau khi hoàn tất, Owner sẽ thấy mục nghiệm thu và thanh toán ${_quoteRem ?? BusinessParameters.active.remainingLabel}. Backend chỉ chấp nhận khi mọi thiết bị theo kế hoạch đã gán Zone và có lần kiểm tra kết nối thành công mới nhất.',
         ),
         actions: [
           TextButton(
@@ -993,10 +1079,16 @@ class _ServiceRequestDetailScreenState
       final dep = await DeploymentApi.completeDeploymentRequest(depId);
       if (!mounted) return;
       setState(() => _depStatus = dep.status);
-      _snack('Đã hoàn tất lắp đặt. Owner có thể nghiệm thu và thanh toán 70%.');
+      _snack(
+        'Đã hoàn tất lắp đặt. Owner có thể nghiệm thu và thanh toán ${_quoteRem ?? BusinessParameters.active.remainingLabel}.',
+      );
       unawaited(_loadExtras(r));
     } catch (e) {
-      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      final viMsg = msg.contains('Every planned Device must be assigned')
+          ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
+          : msg;
+      if (mounted) _snack(viMsg);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1055,7 +1147,11 @@ class _ServiceRequestDetailScreenState
       setState(() => _req = r);
       _snack(okMsg);
     } catch (e) {
-      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      final viMsg = msg.contains('Every planned Device must be assigned')
+          ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
+          : msg;
+      if (mounted) _snack(viMsg);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

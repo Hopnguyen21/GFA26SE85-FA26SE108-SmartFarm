@@ -27,7 +27,9 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
 
   Future<void> _reload() async {
     final f = loadDeviceHealth(context.read<FarmProvider>());
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
     try {
       await f;
     } catch (_) {

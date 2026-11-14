@@ -72,6 +72,8 @@ extension FarmProviderAlertsTasks on FarmProvider {
             status: t.status,
             zoneId: t.zoneId,
             assignments: t.assignments,
+            dueAtUtc: t.dueAtUtc,
+            createdAtUtc: t.createdAtUtc,
           );
   }
 

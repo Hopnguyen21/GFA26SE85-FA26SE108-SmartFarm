@@ -120,8 +120,17 @@ abstract final class ContractApi {
 /// Tham số nghiệp vụ hiện hành, giữ trong bộ nhớ; màn hình gọi [refresh] khi mở để lấy giá trị Admin vừa đổi.
 abstract final class BusinessParametersStore {
   static BusinessParameters current = BusinessParameters.fallback;
+  static DateTime? _lastRefresh;
 
-  static Future<BusinessParameters> refresh() async {
+  /// Lấy tham số từ server. Gọi lại trong vòng 1 phút thì dùng giá trị đang có (tránh mỗi lần làm mới màn hình lại gọi mạng);
+  /// [force] bỏ qua khoảng nghỉ này.
+  static Future<BusinessParameters> refresh({bool force = false}) async {
+    final last = _lastRefresh;
+    if (!force &&
+        last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 1)) {
+      return current;
+    }
     try {
       current = BusinessParameters.fromJson(
         ApiService._decodeUtf8OrThrow(
@@ -131,6 +140,7 @@ abstract final class BusinessParametersStore {
             )
             as Map<String, dynamic>,
       );
+      _lastRefresh = DateTime.now();
     } catch (_) {
       // Giữ giá trị gần nhất (hoặc mặc định) khi không gọi được server.
     }

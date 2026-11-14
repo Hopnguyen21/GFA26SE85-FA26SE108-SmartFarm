@@ -12,7 +12,9 @@ part 'parts/alerts_tasks_screen_tasks_tab.dart';
 part 'parts/alerts_tasks_screen_quick_assign.dart';
 
 class AlertsTasksScreen extends StatelessWidget {
-  const AlertsTasksScreen({super.key});
+  /// 0 = Thông báo, 1 = Cảnh báo, 2 = Nhiệm vụ.
+  final int initialTab;
+  const AlertsTasksScreen({super.key, this.initialTab = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +22,7 @@ class AlertsTasksScreen extends StatelessWidget {
 
     return DefaultTabController(
       length: 3,
+      initialIndex: initialTab.clamp(0, 2),
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(

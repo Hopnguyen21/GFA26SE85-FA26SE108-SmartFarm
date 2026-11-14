@@ -3,8 +3,9 @@ part of '../api_service.dart';
 /// Trợ lý AI nông học theo Zone.
 abstract final class AiApi {
   // ─── 12. AI Ask ────────────────────────────────────────────────────────
-  /// Gửi câu hỏi đến AI Advisory, trả về AiRecommendationModel (Timeout 60s cho LLM Gemini)
-  static Future<AiRecommendationModel?> askAi({
+  /// Gửi câu hỏi đến AI Advisory. Trả về phản hồi gốc của backend (summary, details, sources, recommendationId...)
+  /// hoặc lý do lỗi do backend trả về (Timeout 60s cho LLM Gemini).
+  static Future<({Map<String, dynamic>? data, String? error})> askAi({
     required String zoneId,
     required String prompt,
   }) async {
@@ -15,11 +16,13 @@ abstract final class AiApi {
         timeout: const Duration(seconds: 60),
       );
       if (resp != null && (resp.statusCode == 200 || resp.statusCode == 201)) {
-        final data = jsonDecode(resp.body);
-        return AiRecommendationModel.fromJson(data);
+        final data = jsonDecode(utf8.decode(resp.bodyBytes));
+        if (data is Map<String, dynamic>) return (data: data, error: null);
       }
-    } catch (_) {}
-    return null;
+      return (data: null, error: ApiService._apiErrorMessage(resp));
+    } catch (e) {
+      return (data: null, error: e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   // ─── 12.5. AI Context ─────────────────────────────────────────────────
@@ -62,11 +65,16 @@ abstract final class AiApi {
     required String zoneId,
     required String recommendationId,
     String decision = 'Accepted',
+    String? reason,
   }) async {
     try {
       final resp = await ApiService._postWithAuth(
         '${ApiService.baseUrl}/api/v1/zones/$zoneId/ai/apply-recommendation',
-        {'recommendationId': recommendationId, 'decision': decision},
+        {
+          'recommendationId': recommendationId,
+          'decision': decision,
+          'reason': ?reason,
+        },
       );
       if (resp == null) {
         return {'success': false, 'message': 'Không thể kết nối máy chủ'};
@@ -77,7 +85,14 @@ abstract final class AiApi {
         final commandStatus = command is Map<String, dynamic>
             ? command['status']?.toString()
             : null;
-        return {'success': true, 'commandStatus': commandStatus};
+        final commandId = command is Map<String, dynamic>
+            ? (command['commandId'] ?? command['id'])?.toString()
+            : null;
+        return {
+          'success': true,
+          'commandStatus': commandStatus,
+          'commandId': commandId,
+        };
       }
       if (resp.statusCode == 409) {
         try {

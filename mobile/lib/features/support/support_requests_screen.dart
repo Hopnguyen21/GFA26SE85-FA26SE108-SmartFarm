@@ -862,7 +862,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
       _error = null;
     });
     try {
-      await BusinessParametersStore.refresh(); // tỷ lệ cọc do Admin cấu hình (không đoán 30%)
+      // Không chặn việc tải báo giá: nhãn tỷ lệ lấy từ chính báo giá, tham số chung chỉ là dự phòng (có khoảng nghỉ 1 phút).
+      unawaited(BusinessParametersStore.refresh());
       final q = await SupportApi.getQuotation(widget.serviceRequestId);
       String? depStatus;
       final depId = widget.deploymentRequestId;
@@ -985,6 +986,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
               signerFullName: signer,
               paymentMethod: method,
               transactionReference: reference,
+              expectedDepositAmount: _quotation?.deposit30,
             )
           : await SupportApi.signAcceptanceAndPayFinal(
               widget.serviceRequestId,
@@ -1006,6 +1008,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
       if (mounted) await _showReceipt(payment);
     } catch (e) {
       if (mounted) setState(() => _signError = 'Không ghi nhận được: $e');
+      // Có thể do Admin vừa đổi tỷ lệ cọc (409): tải lại báo giá để Owner thấy số tiền mới trước khi ký lại.
+      if (mounted && deposit) await _load();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1686,57 +1690,6 @@ class _QuotationPanelState extends State<QuotationPanel> {
   }
 
   /// Khung tóm tắt hợp đồng như web: mã, số thiết bị, tổng, cọc 30% và trạng thái khóa.
-  Widget _contractBanner(Quotation q) {
-    final signed = q.status != 'SentToOwner';
-    final color = signed ? const Color(0xFF059669) : const Color(0xFFD97706);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hợp đồng ${q.id.length > 8 ? q.id.substring(0, 8).toUpperCase() : q.id} (${q.items.length} thiết bị)',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Tổng HĐ: ${_money(q.totalAmount)} • Cọc $_dep: ${_money(q.deposit30)}',
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            signed
-                ? 'Owner đã ký và cọc $_dep (khóa sửa)'
-                : 'Chờ Owner ký và thanh toán $_dep',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          if (q.status == 'Completed')
-            Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: Text(
-                'Owner đã ký nghiệm thu và thanh toán $_rem (hoàn tất 100%)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF059669),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _createQuotation() async {
     if (!_isTechnician ||
         _busy ||
@@ -1823,33 +1776,35 @@ class _QuotationPanelState extends State<QuotationPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.description_outlined,
-              size: 20,
-              color: Color(0xFF059669),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Báo giá & hợp đồng lắp đặt',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        if (q == null) ...[
+          Row(
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                size: 20,
+                color: Color(0xFF059669),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Báo giá & hợp đồng lắp đặt',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.only(top: 4, bottom: 8),
+            child: Text(
+              'Cọc $_dep và nghiệm thu $_rem thuộc báo giá lắp đặt thiết bị của yêu cầu này, không liên quan hợp đồng của Zone.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+                height: 1.35,
               ),
             ),
-          ],
-        ),
-        Padding(
-          padding: EdgeInsets.only(top: 4, bottom: 8),
-          child: Text(
-            'Cọc $_dep và nghiệm thu $_rem thuộc báo giá lắp đặt thiết bị của yêu cầu này, không liên quan hợp đồng của Zone.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: Color(0xFF64748B),
-              height: 1.35,
-            ),
           ),
-        ),
+        ],
         if (q == null)
           Container(
             width: double.infinity,
@@ -1865,30 +1820,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
               style: TextStyle(color: Color(0xFF64748B), height: 1.4),
             ),
           ),
-        if (q != null) _contractBanner(q),
         if (q != null) ...[
-          _metaRow(Icons.tag, 'Mã hợp đồng', q.id, selectable: true),
-          if (q.createdAtUtc != null)
-            _metaRow(
-              Icons.event_outlined,
-              'Ngày lập',
-              formatContractDate(q.createdAtUtc!),
-            ),
-          _metaRow(
-            Icons.flag_outlined,
-            'Trạng thái',
-            _statusText[q.status] ?? q.status,
-            bold: true,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Danh mục thiết bị & vật tư',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-          ),
-          const SizedBox(height: 6),
-          for (final i in q.items) _itemRow(i),
-          const SizedBox(height: 6),
-          _totalsBox(q),
+          _contractPanel(q),
           if (q.notes?.isNotEmpty == true)
             _noteBox('Trao đổi / bổ sung', q.notes!),
           if (q.contractTerms != null && q.contractTerms!.isNotEmpty)
@@ -1982,175 +1915,427 @@ class _QuotationPanelState extends State<QuotationPanel> {
     );
   }
 
-  Widget _metaRow(
-    IconData icon,
-    String label,
-    String value, {
-    bool selectable = false,
-    bool bold = false,
-  }) {
-    final style = TextStyle(
-      fontSize: 13.5,
-      fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+  /// Khối hợp đồng báo giá cùng bố cục web (SupportPage): tiêu đề + nhãn, bảng hạng mục, tổng và số tiền tạm ứng.
+  Widget _contractPanel(Quotation q) {
+    final signed = q.status != 'SentToOwner';
+    // Owner đã có tiêu đề "1. …" và số tiền cọc ở khối ký bên dưới nên không lặp lại.
+    final ownerUnsigned = _isOwner && !signed;
+    final vatPct = q.subtotal > 0
+        ? (q.vatAmount / q.subtotal * 100).round()
+        : (q.items.isNotEmpty ? q.items.first.vatPercent.round() : 0);
+    const head = Color(0xFF451A03);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 15, color: const Color(0xFF94A3B8)),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
+          if (!_isOwner) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(
+                    Icons.description_outlined,
+                    size: 16,
+                    color: Color(0xFFB45309),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '1. HỢP ĐỒNG BÁO GIÁ THIẾT BỊ & THANH TOÁN TẠM ỨNG $_dep',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                      color: head,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: signed
+                    ? const Color(0xFF059669)
+                    : const Color(0xFFFDE68A),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                signed
+                    ? '✓ Đã Ký & Thanh toán $_dep'
+                    : 'Cần Owner Ký tên & Cọc $_dep',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: signed ? Colors.white : head,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
+          SelectableText(
+            'Mã hợp đồng: ${q.id}'
+            '${q.createdAtUtc != null ? ' • Ngày lập: ${formatContractDate(q.createdAtUtc!)}' : ''}'
+            ' • Trạng thái: ${_statusText[q.status] ?? q.status}',
+            style: const TextStyle(fontSize: 10.5, color: Color(0xFF92400E)),
           ),
-          Expanded(
-            child: selectable
-                ? SelectableText(value, style: style)
-                : Text(value, style: style),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: _contractTable(q),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Tổng cộng (gồm VAT $vatPct%):',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _money(q.totalAmount),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!ownerUnsigned) ...[
+                  const Divider(height: 14),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'SỐ TIỀN TẠM ỨNG $_dep ${signed ? 'ĐÃ THANH TOÁN' : 'CẦN THANH TOÁN TẠI ĐÂY'}:',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF78350F),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _money(q.deposit30),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (q.remaining70 > 0) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Còn lại $_rem khi nghiệm thu:',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF0369A1),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _money(q.remaining70),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0369A1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Một dòng hạng mục: tên đậm + mã, "SL ĐVT × đơn giá" và thành tiền (đã gồm VAT) bên phải.
-  Widget _itemRow(QuotationItem i) => Container(
-    margin: const EdgeInsets.only(bottom: 6),
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                i.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${i.code} · ${i.quantity} ${i.unit} × ${_money(i.unitPrice)} · VAT ${i.vatPercent.toStringAsFixed(0)}%',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              if (i.notes?.isNotEmpty == true)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    i.notes!,
+  /// Bảng hạng mục của hợp đồng. Luôn vừa chiều ngang màn hình (không cuộn ngang): màn rộng đủ 7 cột như web,
+  /// màn hẹp gộp "Mã hàng" thành dòng nhỏ dưới tên để các cột số còn đủ chỗ.
+  Widget _contractTable(Quotation q) {
+    const head = Color(0xFF451A03);
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth < 560) return _compactItems(q);
+        Widget cell(
+          String t,
+          int flex, {
+          TextAlign align = TextAlign.left,
+          FontWeight weight = FontWeight.w500,
+          Color color = const Color(0xFF334155),
+          String? top,
+          String? sub,
+        }) => Expanded(
+          flex: flex,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Column(
+              crossAxisAlignment: align == TextAlign.right
+                  ? CrossAxisAlignment.end
+                  : (align == TextAlign.center
+                        ? CrossAxisAlignment.center
+                        : CrossAxisAlignment.start),
+              children: [
+                if (top != null && top.isNotEmpty)
+                  Text(
+                    top,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                Text(
+                  t,
+                  textAlign: align,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: weight,
+                    color: color,
+                  ),
+                ),
+                if (sub != null && sub.isNotEmpty)
+                  Text(
+                    sub,
+                    style: const TextStyle(
+                      fontSize: 10,
                       fontStyle: FontStyle.italic,
                       color: Color(0xFF94A3B8),
                     ),
                   ),
-                ),
+              ],
+            ),
+          ),
+        );
+
+        // Tỉ lệ cột: [mã, tên, ĐVT, đơn giá, VAT, SL, thành tiền].
+        const f = [14, 30, 8, 15, 7, 6, 17];
+        Widget headRow() => Container(
+          color: const Color(0xFFFEF3C7),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              cell('Mã hàng', f[0], weight: FontWeight.w800, color: head),
+              cell(
+                'Tên sản phẩm / Thiết bị',
+                f[1],
+                weight: FontWeight.w800,
+                color: head,
+              ),
+              cell(
+                'ĐVT',
+                f[2],
+                align: TextAlign.center,
+                weight: FontWeight.w800,
+                color: head,
+              ),
+              cell(
+                'Đơn giá (đ)',
+                f[3],
+                align: TextAlign.right,
+                weight: FontWeight.w800,
+                color: head,
+              ),
+              cell(
+                'VAT',
+                f[4],
+                align: TextAlign.center,
+                weight: FontWeight.w800,
+                color: head,
+              ),
+              cell(
+                'SL',
+                f[5],
+                align: TextAlign.center,
+                weight: FontWeight.w800,
+                color: head,
+              ),
+              cell(
+                'Thành tiền (đ)',
+                f[6],
+                align: TextAlign.right,
+                weight: FontWeight.w800,
+                color: head,
+              ),
             ],
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          _money(i.totalAmount),
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-            color: Color(0xFF065F46),
+        );
+        Widget itemRow(QuotationItem i) => Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
           ),
-        ),
-      ],
-    ),
-  );
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              cell(
+                i.code,
+                f[0],
+                weight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+              cell(
+                i.name,
+                f[1],
+                weight: FontWeight.w600,
+                color: const Color(0xFF1E293B),
+                sub: i.notes,
+              ),
+              cell(
+                i.unit,
+                f[2],
+                align: TextAlign.center,
+                color: const Color(0xFF475569),
+              ),
+              cell(_money(i.unitPrice), f[3], align: TextAlign.right),
+              cell(
+                '${i.vatPercent.toStringAsFixed(0)}%',
+                f[4],
+                align: TextAlign.center,
+                color: const Color(0xFF64748B),
+              ),
+              cell(
+                '${i.quantity}',
+                f[5],
+                align: TextAlign.center,
+                weight: FontWeight.w800,
+              ),
+              cell(
+                _money(i.totalAmount),
+                f[6],
+                align: TextAlign.right,
+                weight: FontWeight.w800,
+                color: const Color(0xFF064E3B),
+              ),
+            ],
+          ),
+        );
+        return Column(
+          children: [headRow(), for (final i in q.items) itemRow(i)],
+        );
+      },
+    );
+  }
 
-  Widget _totalsBox(Quotation q) {
-    Widget row(String l, String v, {bool strong = false}) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  /// Màn hẹp (điện thoại): mỗi hạng mục hai dòng, không chia cột nên số tiền không bị bẻ dòng.
+  /// Dòng 1: tên + thành tiền; dòng 2: mã · ĐVT · SL × đơn giá · VAT; dòng 3: ghi chú.
+  Widget _compactItems(Quotation q) {
+    const head = Color(0xFF451A03);
+    Widget headRow() => Container(
+      color: const Color(0xFFFEF3C7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: const Row(
         children: [
           Expanded(
             child: Text(
-              l,
+              'Sản phẩm / Thiết bị',
               style: TextStyle(
-                fontSize: strong ? 14 : 12.5,
-                fontWeight: strong ? FontWeight.w800 : FontWeight.w500,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: head,
               ),
             ),
           ),
-          const SizedBox(width: 8),
           Text(
-            v,
+            'Thành tiền',
             style: TextStyle(
-              fontSize: strong ? 15 : 12.5,
-              fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: head,
             ),
           ),
         ],
       ),
     );
-    Widget pay(String l, double v, Color c) => Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: c.withValues(alpha: 0.45)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l, style: TextStyle(fontSize: 12, color: c)),
-            const SizedBox(height: 3),
-            Text(
-              _money(v),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+    Widget itemRow(QuotationItem i) => Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          row('Tiền hàng trước thuế', _money(q.subtotal)),
-          row('Thuế VAT', _money(q.vatAmount)),
-          const Divider(height: 14),
-          row('Tổng giá trị hợp đồng', _money(q.totalAmount), strong: true),
-          const SizedBox(height: 8),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              pay('Cọc $_dep khi ký', q.deposit30, const Color(0xFFD97706)),
+              Expanded(
+                child: Text(
+                  i.name,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
-              pay(
-                'Còn lại $_rem khi nghiệm thu',
-                q.remaining70,
-                const Color(0xFF0284C7),
+              Text(
+                _money(i.totalAmount),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF064E3B),
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 2),
+          Text(
+            '${i.code} · ${i.quantity} ${i.unit} × ${_money(i.unitPrice)} · VAT ${i.vatPercent.toStringAsFixed(0)}%',
+            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          ),
+          if (i.notes?.isNotEmpty == true)
+            Text(
+              i.notes!,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontStyle: FontStyle.italic,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
         ],
       ),
     );
+    return Column(children: [headRow(), for (final i in q.items) itemRow(i)]);
   }
 
   Widget _noteBox(String title, String text) => Container(
