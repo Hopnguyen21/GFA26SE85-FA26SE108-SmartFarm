@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthContext';
 import {
-  LayoutDashboard, Building2, Users, Sprout, Cpu, Radio, Activity,
+  LayoutDashboard, Building2, Database, Users, Sprout, Cpu, Radio, Activity,
   ShieldAlert, Settings, Wrench, Package, CpuIcon, MapPin, Gauge,
   Sliders, Calendar, Bot, FileText, ClipboardList, PackageCheck, Headphones,
   ChevronRight, FileCheck, BookOpen
@@ -25,13 +25,14 @@ export const Sidebar: React.FC = () => {
     { title: 'Quản lý Người dùng', path: '/admin/users', icon: <Users size={18} /> },
     { title: 'Gói Hợp Đồng Canh Tác', path: '/admin/contract-packages', icon: <PackageCheck size={18} />, badge: 'Mới' },
     { title: 'Hóa Đơn Thu Phí', path: '/admin/bills', icon: <FileCheck size={18} /> },
-    { title: 'Phiếu Xuất Kho', path: '/admin/stock-outs', icon: <Package size={18} /> },
+    { title: 'Xuất Kho Thiết Bị IoT', path: '/admin/stock-outs', icon: <Package size={18} /> },
     { title: 'Thư viện Giống Cây', path: '/admin/crops', icon: <Sprout size={18} /> },
     { title: 'Quy chuẩn VietGAP', path: '/admin/vietgap', icon: <FileText size={18} />, badge: 'TCVN' },
     { title: 'Hồ sơ Sinh trưởng', path: '/admin/growth-profiles', icon: <Activity size={18} /> },
     { title: 'Kho Vật tư & Linh kiện', path: '/admin/devices', icon: <Package size={18} />, badge: 'Kho' },
     { title: 'Sức khỏe Máy chủ & IoT', path: '/admin/system-health', icon: <Radio size={18} /> },
     { title: 'Nhật ký Audit Logs', path: '/admin/audit-logs', icon: <ShieldAlert size={18} /> },
+    { title: 'Sao lưu & Khôi phục', path: '/admin/backup-restore', icon: <Database size={18} /> },
     { title: 'Cấu hình Platform', path: '/admin/settings', icon: <Settings size={18} /> },
   ];
 
@@ -41,7 +42,7 @@ export const Sidebar: React.FC = () => {
     { title: 'Yêu cầu Bảo trì (Chấm Node)', path: '/technician/maintenance', icon: <Wrench size={18} />, badge: '🛠️ Hot-Swap' },
     { title: 'Gói Hợp Đồng Canh Tác', path: '/technician/contract-packages', icon: <PackageCheck size={18} />, badge: 'Gói' },
     { title: 'Hóa Đơn Thu Phí', path: '/technician/bills', icon: <FileCheck size={18} /> },
-    { title: 'Phiếu Xuất Kho', path: '/technician/stock-outs', icon: <Package size={18} /> },
+    { title: 'Xuất Kho Thiết Bị IoT', path: '/technician/stock-outs', icon: <Package size={18} /> },
     { title: 'Quản lý Gateway ESP32', path: '/technician/gateways', icon: <Radio size={18} /> },
     { title: 'Chẩn đoán Node & Cảm biến', path: '/technician/devices', icon: <Activity size={18} /> },
     { title: 'Kho Vật tư Linh kiện', path: '/technician/inventory', icon: <Package size={18} /> },
