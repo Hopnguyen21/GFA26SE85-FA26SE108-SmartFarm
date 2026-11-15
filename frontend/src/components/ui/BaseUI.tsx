@@ -80,7 +80,9 @@ export const StatusBadge: React.FC<{ status?: string | null; label?: string }> =
   
   if (['ACTIVE', 'ONLINE', 'VALID', 'ACCEPTED', 'COMPLETED', 'RESOLVED', 'ON', 'OPERATING'].includes(upper)) {
     color = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-  } else if (['WARNING', 'PENDING', 'PROPOSED', 'IN_PROGRESS', 'ASSIGNED', 'ACKNOWLEDGED'].includes(upper)) {
+  } else if (['ASSIGNED'].includes(upper)) {
+    color = 'bg-sky-50 text-sky-800 border-sky-300';
+  } else if (['WARNING', 'PENDING', 'PROPOSED', 'IN_PROGRESS', 'ACKNOWLEDGED'].includes(upper)) {
     color = 'bg-amber-50 text-amber-800 border-amber-200';
   } else if (['CRITICAL', 'DANGER', 'OFFLINE', 'SUSPENDED', 'CANCELLED', 'ERROR', 'ANOMALY'].includes(upper)) {
     color = 'bg-rose-50 text-rose-800 border-rose-200';
@@ -90,6 +92,7 @@ export const StatusBadge: React.FC<{ status?: string | null; label?: string }> =
     <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-xs', color)}>
       <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5',
         upper.includes('ACTIVE') || upper.includes('ONLINE') || upper.includes('ON') || upper.includes('OPERATING') ? 'bg-emerald-500 animate-pulse' :
+        upper.includes('ASSIGNED') ? 'bg-sky-500 animate-pulse' :
         upper.includes('WARNING') || upper.includes('PENDING') ? 'bg-amber-500 animate-ping' :
         upper.includes('CRITICAL') || upper.includes('OFFLINE') ? 'bg-rose-500' : 'bg-slate-400'
       )} />
@@ -209,15 +212,15 @@ export const Modal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-      <div className={cn("w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-slate-900", sizeClasses[size])}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50 shrink-0">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/50 backdrop-blur-xs">
+      <div className={cn("w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-slate-900 flex flex-col max-h-[90vh]", sizeClasses[size])}>
+        <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-slate-100 bg-slate-50 shrink-0">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate pr-2">{title}</h3>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 shrink-0 transition-colors">
             ✕
           </button>
         </div>
-        <div className={cn("p-5 overflow-y-auto", size === 'full' ? 'flex-1' : 'max-h-[80vh]')}>{children}</div>
+        <div className={cn("p-4 sm:p-5 overflow-y-auto", size === 'full' ? 'flex-1' : 'max-h-[calc(90vh-4rem)]')}>{children}</div>
       </div>
     </div>
   );

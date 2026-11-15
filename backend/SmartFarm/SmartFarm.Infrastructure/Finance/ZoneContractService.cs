@@ -3,12 +3,23 @@ using SmartFarm.Application.Common.Exceptions;
 using SmartFarm.Application.Features.Finance;
 using SmartFarm.Domain.Entities;
 using SmartFarm.Domain.Enums;
+using SmartFarm.Infrastructure.Inventory;
 using SmartFarm.Infrastructure.Persistence;
+using SmartFarm.Infrastructure.Platform;
 
 namespace SmartFarm.Infrastructure.Finance;
 
 public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider clock) : IZoneContractService
 {
+    private async Task<List<Guid>?> VisibleZoneIdsAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId && x.Status == AccountStatus.Active, ct) ?? throw new AuthorizationException();
+        if (user.Role == UserRole.PlatformAdmin) return null;
+        if (user.Role == UserRole.FarmOwner) return await db.Zones.Where(x => x.Field.Farm.TenantId == user.TenantId).Select(x => x.Id).ToListAsync(ct);
+        if (user.Role == UserRole.PlatformTechnician) return await db.Zones.Where(x => db.ServiceRequests.Any(s => s.ZoneId == x.Id && s.AssignedTechnicianId == userId) || db.DeploymentRequests.Any(d => d.ZoneId == x.Id && d.TechnicianUserId == userId)).Select(x => x.Id).ToListAsync(ct);
+        throw new AuthorizationException();
+    }
+
     private static bool IsDevelopment() =>
         string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
 
@@ -20,6 +31,7 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             .Include(c => c.Zone)
             .Include(c => c.ParentContract)
             .Include(c => c.Renewals)
+            .Include(c => c.ContractPackage)
             .AsNoTracking();
 
         if (tenantId.HasValue && tenantId.Value != Guid.Empty)
@@ -27,6 +39,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             query = query.Where(c => c.TenantId == tenantId.Value);
         }
 
+        var visible = await VisibleZoneIdsAsync(ownerId, ct);
+        if (visible != null) query = query.Where(c => visible.Contains(c.ZoneId));
         var contracts = await query
             .OrderByDescending(c => c.CreatedAtUtc)
             .ToListAsync(ct);
@@ -42,6 +56,7 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             .Include(c => c.Zone)
             .Include(c => c.ParentContract)
             .Include(c => c.Renewals)
+            .Include(c => c.ContractPackage)
             .AsNoTracking()
             .Where(c => c.ZoneId == zoneId);
 
@@ -50,6 +65,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             query = query.Where(c => c.TenantId == tenantId.Value);
         }
 
+        var visible = await VisibleZoneIdsAsync(ownerId, ct);
+        if (visible != null) query = query.Where(c => visible.Contains(c.ZoneId));
         var contracts = await query
             .OrderByDescending(c => c.CreatedAtUtc)
             .ToListAsync(ct);
@@ -65,6 +82,7 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             .Include(c => c.Zone)
             .Include(c => c.ParentContract)
             .Include(c => c.Renewals)
+            .Include(c => c.ContractPackage)
             .AsNoTracking()
             .Where(c => c.FarmId == farmId);
 
@@ -73,6 +91,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             query = query.Where(c => c.TenantId == tenantId.Value);
         }
 
+        var visible = await VisibleZoneIdsAsync(ownerId, ct);
+        if (visible != null) query = query.Where(c => visible.Contains(c.ZoneId));
         var contracts = await query
             .OrderByDescending(c => c.CreatedAtUtc)
             .ToListAsync(ct);
@@ -88,6 +108,7 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             .Include(c => c.Zone)
             .Include(c => c.ParentContract)
             .Include(c => c.Renewals)
+            .Include(c => c.ContractPackage)
             .AsNoTracking();
 
         if (tenantId.HasValue && tenantId.Value != Guid.Empty)
@@ -95,6 +116,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             query = query.Where(c => c.TenantId == tenantId.Value);
         }
 
+        var visible = await VisibleZoneIdsAsync(ownerId, ct);
+        if (visible != null) query = query.Where(c => visible.Contains(c.ZoneId));
         var contract = await query.FirstOrDefaultAsync(c => c.Id == contractId, ct)
             ?? throw new KeyNotFoundException($"Không tìm thấy hợp đồng #{contractId}");
 
@@ -105,8 +128,61 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
     {
         if (string.IsNullOrWhiteSpace(command.LesseeName))
             throw new RequestValidationException("lesseeName", "Tên bên thuê là bắt buộc.");
-        if (command.EndDate <= command.StartDate)
-            throw new RequestValidationException("endDate", "Ngày kết thúc phải sau ngày bắt đầu.");
+
+        ContractPackage? package = null;
+        if (command.CustomPackage != null)
+        {
+            var custom = command.CustomPackage;
+            if (string.IsNullOrWhiteSpace(custom.PackageName))
+                throw new RequestValidationException("customPackage.packageName", "Tên gói riêng là bắt buộc.");
+            if (custom.DurationMonths <= 0)
+                throw new RequestValidationException("customPackage.durationMonths", "Thời hạn gói riêng phải lớn hơn 0 tháng.");
+            if (custom.Price < 0)
+                throw new RequestValidationException("customPackage.price", "Giá gói riêng không được âm.");
+
+            package = new ContractPackage
+            {
+                Id = Guid.NewGuid(),
+                PackageName = custom.PackageName.Trim(),
+                Description = string.IsNullOrWhiteSpace(custom.Description)
+                    ? $"Gói dịch vụ tùy chỉnh riêng cho khách hàng {command.LesseeName.Trim()}"
+                    : custom.Description.Trim(),
+                DurationMonths = custom.DurationMonths,
+                MaxZones = custom.MaxZones > 0 ? custom.MaxZones : 1,
+                Price = custom.Price,
+                Currency = string.IsNullOrWhiteSpace(custom.Currency) ? "VND" : custom.Currency.Trim(),
+                Status = PackageStatus.Active,
+                IsCustom = true,
+                CustomerName = command.LesseeName.Trim(),
+                CreatedByUserId = ownerId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            db.ContractPackages.Add(package);
+        }
+        else if (command.ContractPackageId.HasValue && command.ContractPackageId.Value != Guid.Empty)
+        {
+            package = await db.ContractPackages.FirstOrDefaultAsync(p => p.Id == command.ContractPackageId.Value, ct)
+                ?? throw new RequestValidationException("contractPackageId", "Gói hợp đồng không tồn tại.");
+            if (package.Status != PackageStatus.Active)
+            {
+                throw new RequestValidationException("contractPackageId", "Gói hợp đồng đã chọn hiện đang bị vô hiệu hóa.");
+            }
+        }
+
+        var startDate = command.StartDate != default ? command.StartDate : DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var endDate = command.EndDate;
+        if (endDate <= startDate)
+        {
+            if (package != null && package.DurationMonths > 0)
+            {
+                endDate = startDate.AddMonths(package.DurationMonths);
+            }
+            else
+            {
+                throw new RequestValidationException("endDate", "Ngày kết thúc phải sau ngày bắt đầu.");
+            }
+        }
+
         if (command.MonthlyRentVnd < 0 || command.DepositVnd < 0 || command.TotalContractValueVnd < 0)
             throw new RequestValidationException("amount", "Giá trị tiền không được âm.");
         if (command.DiscountPercent is < 0 or > 50)
@@ -125,6 +201,11 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             : zone.Field.Farm.TenantId;
         var farmId = command.FarmId != Guid.Empty ? command.FarmId : zone.Field.FarmId;
 
+        if (package != null && package.IsCustom && package.TenantId == null)
+        {
+            package.TenantId = effectiveTenantId;
+        }
+
         // Auto-generate Contract Number if not provided, ensuring no collision
         var contractNumber = !string.IsNullOrWhiteSpace(command.ContractNumber)
             ? command.ContractNumber.Trim()
@@ -136,10 +217,10 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
         }
 
         // Auto calculate financials
-        var totalMonths = Math.Max(1, ((command.EndDate.Year - command.StartDate.Year) * 12) + command.EndDate.Month - command.StartDate.Month);
+        var totalMonths = Math.Max(1, ((endDate.Year - startDate.Year) * 12) + endDate.Month - startDate.Month);
         var rawTotal = command.TotalContractValueVnd > 0
             ? command.TotalContractValueVnd
-            : command.MonthlyRentVnd * totalMonths;
+            : (package != null && package.Price > 0 ? package.Price : command.MonthlyRentVnd * totalMonths);
 
         // Check if the same lessee is purchasing for the 2nd time within 2 months (60 days) in the same tenant
         var twoMonthsAgo = DateTime.UtcNow.AddDays(-60);
@@ -152,11 +233,14 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             .FirstOrDefaultAsync(ct);
 
         var isRepeatPurchaseInTwoMonths = previousRecentContract != null;
-        var discountPercent = command.DiscountPercent ?? (isRepeatPurchaseInTwoMonths ? 15m : (command.ParentContractId.HasValue ? 10m : 0m));
+        var repeatDiscountPercent = await PlatformSettingsStore.GetDecimalAsync(db, PlatformSettingKeys.RepeatPurchaseDiscountPercent, ct);
+        var renewalDiscountPercent = await PlatformSettingsStore.GetDecimalAsync(db, PlatformSettingKeys.RenewalDiscountPercent, ct);
+        var discountPercent = command.DiscountPercent ?? (isRepeatPurchaseInTwoMonths ? repeatDiscountPercent : (command.ParentContractId.HasValue ? renewalDiscountPercent : 0m));
 
         var discount = command.DiscountAmount ?? (discountPercent > 0 ? rawTotal * (discountPercent / 100m) : 0m);
         var finalTotal = Math.Max(0, rawTotal - discount);
-        var deposit = command.DepositVnd > 0 ? command.DepositVnd : Math.Round(finalTotal * 0.30m);
+        var depositPercent = await PlatformSettingsStore.GetDecimalAsync(db, PlatformSettingKeys.DepositPercent, ct);
+        var deposit = command.DepositVnd > 0 ? command.DepositVnd : Math.Round(finalTotal * depositPercent / 100m);
 
         var notes = command.Notes;
         if (isRepeatPurchaseInTwoMonths && (notes == null || !notes.Contains("lần 2 trong 2 tháng")))
@@ -166,9 +250,9 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
         }
 
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
-        var status = command.EndDate < today
+        var status = endDate < today
             ? ZoneContractStatus.Expired
-            : (command.EndDate.DayNumber - today.DayNumber <= 30 ? ZoneContractStatus.ExpiringSoon : ZoneContractStatus.Active);
+            : (endDate.DayNumber - today.DayNumber <= 30 ? ZoneContractStatus.ExpiringSoon : ZoneContractStatus.Active);
 
         var contract = new ZoneContract
         {
@@ -184,8 +268,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             TotalContractValueVnd = finalTotal,
             DiscountPercent = discountPercent,
             DiscountVnd = discount,
-            StartDate = command.StartDate,
-            EndDate = command.EndDate,
+            StartDate = startDate,
+            EndDate = endDate,
             Status = status,
             LesseeName = command.LesseeName,
             LesseePhone = command.LesseePhone,
@@ -193,7 +277,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             LesseeAddress = command.LesseeAddress,
             SpecialTerms = command.SpecialTerms,
             Notes = notes,
-            SignedAtUtc = DateTime.UtcNow
+            SignedAtUtc = DateTime.UtcNow,
+            ContractPackageId = package?.Id
         };
 
         // If this replaces an existing contract, update parent contract status to Renewed
@@ -207,7 +292,36 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             }
         }
 
+        if (package != null && package.IsCustom)
+        {
+            package.ContractId = contract.Id;
+        }
+
         db.ZoneContracts.Add(contract);
+
+        // Tự động tạo Phiếu Xuất Kho Thiết Bị IoT nếu hợp đồng có thiết bị và đã thanh toán cọc 30%
+        if (contract.DepositVnd > 0 && !string.IsNullOrWhiteSpace(contract.EquipmentJson))
+        {
+            try
+            {
+                var equipments = ParseEquipment(contract.EquipmentJson);
+                if (equipments.Count > 0)
+                {
+                    await StockOutAutomationHelper.AutoCreateStockOutForDepositAsync(
+                        db,
+                        effectiveTenantId,
+                        farmId,
+                        zoneId,
+                        contractNumber,
+                        ownerId,
+                        command.LesseeName,
+                        equipments.Select(e => (e.Code, e.Name, (string?)e.Category, e.Quantity)),
+                        ct);
+                }
+            }
+            catch {}
+        }
+
         await db.SaveChangesAsync(ct);
 
         return await GetContractByIdAsync(ownerId, tenantId, contract.Id, ct);
@@ -221,6 +335,8 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             query = query.Where(c => c.TenantId == tenantId.Value);
         }
 
+        var visible = await VisibleZoneIdsAsync(ownerId, ct);
+        if (visible != null) query = query.Where(c => visible.Contains(c.ZoneId));
         var contract = await query.FirstOrDefaultAsync(c => c.Id == contractId, ct)
             ?? throw new KeyNotFoundException($"Không tìm thấy hợp đồng #{contractId} hoặc bạn không có quyền thao tác.");
 
@@ -240,7 +356,9 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             (contract.SignedAtUtc.HasValue && contract.SignedAtUtc.Value >= twoMonthsAgo) ||
             (contract.Renewals != null && contract.Renewals.Any(r => r.CreatedAtUtc >= twoMonthsAgo));
 
-        var discountPercent = command.DiscountPercent ?? (isRepeatWithinTwoMonths ? 15m : 10m);
+        var repeatDiscountPercent = await PlatformSettingsStore.GetDecimalAsync(db, PlatformSettingKeys.RepeatPurchaseDiscountPercent, ct);
+        var renewalDiscountPercent = await PlatformSettingsStore.GetDecimalAsync(db, PlatformSettingKeys.RenewalDiscountPercent, ct);
+        var discountPercent = command.DiscountPercent ?? (isRepeatWithinTwoMonths ? repeatDiscountPercent : renewalDiscountPercent);
         var monthsAdded = Math.Max(1, ((newEndDate.Year - baseEndDate.Year) * 12) + newEndDate.Month - baseEndDate.Month);
         var rentPerMonth = command.NewMonthlyRentVnd ?? contract.MonthlyRentVnd;
         var rawRenewalValue = rentPerMonth * monthsAdded;
@@ -285,7 +403,7 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
         return await GetContractByIdAsync(ownerId, tenantId, contract.Id, ct);
     }
 
-    public async Task<IReadOnlyList<ExpiringContractAlertView>> GetExpiringContractsAsync(Guid ownerId, Guid? tenantId, Guid? farmId, int daysThreshold, CancellationToken ct)
+    public async Task<IReadOnlyList<ExpiringContractAlertView>> GetExpiringContractsAsync(Guid ownerId, Guid? tenantId, Guid? farmId, int daysThreshold, CancellationToken ct, Guid? zoneId = null)
     {
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         var thresholdDate = today.AddDays(daysThreshold);
@@ -307,6 +425,12 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
         if (farmId.HasValue && farmId.Value != Guid.Empty)
         {
             query = query.Where(c => c.FarmId == farmId.Value);
+        }
+
+        // Lọc theo Zone (màn hợp đồng mở từ Zone Detail): chỉ cảnh báo của đúng Zone, vẫn trong phạm vi Tenant ở trên.
+        if (zoneId.HasValue && zoneId.Value != Guid.Empty)
+        {
+            query = query.Where(c => c.ZoneId == zoneId.Value);
         }
 
         var list = await query.OrderBy(c => c.EndDate).ToListAsync(ct);
@@ -568,7 +692,10 @@ public sealed class ZoneContractService(SmartFarmDbContext db, TimeProvider cloc
             c.DiscountVnd,
             c.VatPercent,
             c.VatAmountVnd,
-            ParseEquipment(c.EquipmentJson)
+            ParseEquipment(c.EquipmentJson),
+            c.ContractPackageId,
+            c.ContractPackage?.PackageName,
+            c.ContractPackage?.IsCustom
         );
     }
 

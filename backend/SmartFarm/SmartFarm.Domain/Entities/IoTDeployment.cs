@@ -41,6 +41,7 @@ public sealed class DeploymentRequest : AuditableEntity
     public DateTime? SubmittedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
     public ICollection<DeploymentPlanItem> PlanItems { get; } = new List<DeploymentPlanItem>();
+    public ICollection<DeploymentEstimateItem> EstimateItems { get; } = new List<DeploymentEstimateItem>();
     public ICollection<DeploymentSurvey> Surveys { get; } = new List<DeploymentSurvey>();
     public ICollection<DeploymentDecisionHistory> Decisions { get; } = new List<DeploymentDecisionHistory>();
 }
@@ -53,6 +54,28 @@ public sealed class DeploymentPlanItem : AuditableEntity
     public DeviceModelDefinition DeviceModelDefinition { get; set; } = null!;
     public int Quantity { get; set; }
     public string? InstallationNotes { get; set; }
+}
+
+/// <summary>
+/// Dòng dự toán thiết bị của Owner, lưu kèm yêu cầu triển khai (ảnh chụp tại thời điểm lưu). Đây là danh sách để kỹ thuật viên
+/// chỉnh sửa khi lập báo giá/hợp đồng; KHÔNG phải kế hoạch thiết bị chính thức (DeploymentPlanItem trỏ tới mô hình thiết bị).
+/// Mã/tên/đơn giá được chụp lại nên vẫn đọc được dù bản ghi kho sau này bị sửa hoặc xóa.
+/// </summary>
+public sealed class DeploymentEstimateItem : AuditableEntity
+{
+    public Guid DeploymentRequestId { get; set; }
+    public DeploymentRequest DeploymentRequest { get; set; } = null!;
+    /// <summary>Tham chiếu mềm tới PlatformHardwareItems (không có khóa ngoại). Null với dòng thi công.</summary>
+    public Guid? HardwareItemId { get; set; }
+    public int SortOrder { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Model { get; set; }
+    /// <summary>Gateway | SensorNode | ActuatorNode | InstallKit | Installation.</summary>
+    public string Role { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public string? Notes { get; set; }
 }
 
 public sealed class DeploymentSurvey : AuditableEntity
@@ -92,6 +115,12 @@ public sealed class Gateway : AuditableEntity
     public string ClientCertificateFingerprint { get; set; } = string.Empty;
     public GatewayStatus Status { get; set; } = GatewayStatus.Provisioned;
     public DateTime? LastSeenAtUtc { get; set; }
+    public int TelemetryIntervalSec { get; set; } = 60;
+    public int SamplesPerInterval { get; set; } = 1;
+    public string AntennaDirection { get; set; } = "Omnidirectional";
+    public string? InstallationLocation { get; set; }
+    public string ConfiguredNodeIdsCsv { get; set; } = string.Empty;
+    public DateTime? ConfiguredAtUtc { get; set; }
     public ICollection<Device> Devices { get; } = new List<Device>();
 }
 
@@ -126,6 +155,8 @@ public sealed class Device : AuditableEntity
     public int? BatteryLevel { get; set; }
     public decimal? Rssi { get; set; }
     public DateTime? DecommissionedAtUtc { get; set; }
+    public DateTime? LastSeenAtUtc { get; set; }
+    public int? HeartbeatIntervalSeconds { get; set; }
     public ICollection<DeviceSensor> Sensors { get; } = new List<DeviceSensor>();
     public ICollection<DeviceActuator> Actuators { get; } = new List<DeviceActuator>();
     public ICollection<DeviceAssignmentHistory> AssignmentHistory { get; } = new List<DeviceAssignmentHistory>();

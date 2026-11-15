@@ -3,6 +3,7 @@ using SmartFarm.Application.Common.Exceptions;
 using SmartFarm.Application.Features.Finance;
 using SmartFarm.Domain.Entities;
 using SmartFarm.Domain.Enums;
+using SmartFarm.Infrastructure.IoTDeployment;
 using SmartFarm.Infrastructure.Persistence;
 
 namespace SmartFarm.Infrastructure.Finance;
@@ -11,13 +12,18 @@ public sealed class ServiceRequestService(SmartFarmDbContext db, TimeProvider cl
 {
     public async Task<ServiceRequestView> CreateAsync(Guid owner, Guid tenant, Guid farm, CreateServiceRequestCommand c, CancellationToken ct)
     {
-        await Role(owner, UserRole.FarmOwner, ct);
-        
-        // Chỉ làm việc trong Tenant của Owner: Farm và Zone phải thuộc Tenant này. Trước đây các nhánh dự phòng có thể lấy Farm/Zone của Tenant khác.
-        var targetFarm = await db.Farms.FirstOrDefaultAsync(x => x.Id == farm && x.TenantId == tenant && x.ArchivedAtUtc == null, ct)
-            ?? await db.Farms.FirstOrDefaultAsync(x => x.TenantId == tenant && x.ArchivedAtUtc == null, ct)
-            ?? throw new ResourceNotFoundException("Farm was not found in the authenticated Tenant.");
+        var caller = await db.AppUsers.SingleOrDefaultAsync(x => x.Id == owner && x.Status == AccountStatus.Active, ct)
+            ?? throw new AuthorizationException();
+        if (caller.Role != UserRole.FarmOwner && caller.Role != UserRole.PlatformAdmin)
+            throw new AuthorizationException();
+
+        var targetFarm = await db.Farms.FirstOrDefaultAsync(x => x.Id == farm && (caller.Role == UserRole.PlatformAdmin || x.TenantId == tenant) && x.ArchivedAtUtc == null, ct)
+            ?? (caller.Role == UserRole.PlatformAdmin
+                ? await db.Farms.FirstOrDefaultAsync(x => x.ArchivedAtUtc == null, ct)
+                : await db.Farms.FirstOrDefaultAsync(x => x.TenantId == tenant && x.ArchivedAtUtc == null, ct))
+            ?? throw new ResourceNotFoundException("Farm was not found.");
         farm = targetFarm.Id;
+        tenant = targetFarm.TenantId;
 
         var zone = await db.Zones.Include(x => x.Field).FirstOrDefaultAsync(x => x.Id == c.ZoneId && x.Field.FarmId == farm, ct)
             ?? await db.Zones.Include(x => x.Field).FirstOrDefaultAsync(x => x.Field.FarmId == farm, ct);
@@ -52,12 +58,12 @@ public sealed class ServiceRequestService(SmartFarmDbContext db, TimeProvider cl
         Device? d = null;
         if (c.DeviceId.HasValue && c.DeviceId.Value != Guid.Empty)
         {
-            d = await db.Devices.FirstOrDefaultAsync(x => x.Id == c.DeviceId.Value && x.FarmId == farm && x.Status != DeviceStatus.Decommissioned, ct);
+            d = await db.Devices.FirstOrDefaultAsync(x => x.Id == c.DeviceId.Value && x.FarmId == farm && x.ZoneId == zoneId && x.Status != DeviceStatus.Decommissioned, ct)
+                ?? throw new ResourceNotFoundException("Device was not found in the requested Farm and Zone.");
         }
         if (d == null)
         {
-            d = await db.Devices.FirstOrDefaultAsync(x => x.ZoneId == zoneId && x.FarmId == farm && x.Status != DeviceStatus.Decommissioned, ct)
-                ?? await db.Devices.FirstOrDefaultAsync(x => x.FarmId == farm && x.Status != DeviceStatus.Decommissioned, ct);
+            d = await db.Devices.FirstOrDefaultAsync(x => x.ZoneId == zoneId && x.FarmId == farm && x.Status != DeviceStatus.Decommissioned, ct);
         }
 
         // Liên kết tường minh với yêu cầu triển khai (cùng Tenant/Farm/Zone) để hợp đồng nghiệm thu bám đúng đợt lắp đặt.
@@ -70,30 +76,47 @@ public sealed class ServiceRequestService(SmartFarmDbContext db, TimeProvider cl
         }
         else if (d != null)
         {
+            if (!await db.DeploymentRequests.AnyAsync(x => x.Id == d.DeploymentRequestId && x.TenantId == tenant && x.FarmId == farm && x.ZoneId == zoneId, ct))
+                throw new ResourceConflictException("Device deployment does not match the requested Farm and Zone. Repair the deployment link before creating service work.");
             deploymentRequestId = d.DeploymentRequestId;
             d.Status = DeviceStatus.MaintenanceRequired;
         }
         else
         {
             // Chỉ tìm trong Tenant của Owner; trước đây fallback cuối có thể lấy yêu cầu triển khai của Tenant khác.
-            var dep = await db.DeploymentRequests.FirstOrDefaultAsync(x => x.TenantId == tenant && x.ZoneId == zoneId, ct)
-                   ?? await db.DeploymentRequests.FirstOrDefaultAsync(x => x.TenantId == tenant && x.FarmId == farm, ct);
-            if (dep != null)
+            // Ưu tiên đợt triển khai đang chạy (mỗi Zone chỉ có một). Không bao giờ gắn phiếu lắp mới vào đợt đã Completed/Cancelled.
+            var active = await db.DeploymentRequests
+                .Where(x => x.TenantId == tenant && x.FarmId == farm && x.ZoneId == zoneId && SmartFarm.Infrastructure.IoTDeployment.DeploymentSupport.ActiveStatuses.Contains(x.Status))
+                .OrderByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(ct);
+            if (active != null)
             {
-                deploymentRequestId = dep.Id;
+                deploymentRequestId = active.Id;
+            }
+            else if (!SmartFarm.Infrastructure.IoTDeployment.DeploymentSupport.IsInstallationCode(c.FailureCode))
+            {
+                // Bảo trì: bám đợt triển khai đã lắp xong (hoặc đã chuyển bảo trì) gần nhất của Zone.
+                var installed = await db.DeploymentRequests
+                    .Where(x => x.TenantId == tenant && x.FarmId == farm && x.ZoneId == zoneId
+                        && (x.Status == DeploymentRequestStatus.Completed || x.Status == DeploymentRequestStatus.MaintenanceRequired))
+                    .OrderByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(ct);
+                deploymentRequestId = installed?.Id
+                    ?? throw new ResourceConflictException("Zone has no deployed IoT system yet; submit an installation request instead of a maintenance request.");
             }
             else
             {
-                var season = await db.PlantingSeasons.FirstOrDefaultAsync(s => s.ZoneId == zoneId, ct);
-                var seasonId = season?.Id ?? Guid.Empty;
+                // Lắp mới và Zone chưa có đợt nào đang chạy: tạo đợt mới với vụ trồng thật của Zone (không dùng Guid.Empty).
+                var season = await db.PlantingSeasons.Where(s => s.ZoneId == zoneId && s.Status != PlantingSeasonStatus.Cancelled)
+                    .OrderByDescending(s => s.Status == PlantingSeasonStatus.InProgress).ThenByDescending(s => s.CreatedAtUtc).FirstOrDefaultAsync(ct)
+                    ?? throw new ResourceConflictException("Zone has no planting season; create a season before requesting an installation.");
                 var newDep = new DeploymentRequest
                 {
                     TenantId = tenant,
                     FarmId = farm,
                     ZoneId = zoneId,
-                    PlantingSeasonId = seasonId,
+                    PlantingSeasonId = season.Id,
                     OwnerUserId = owner,
                     Status = DeploymentRequestStatus.Submitted,
+                    SubmittedAtUtc = DateTime.UtcNow,
                     OwnerNotes = $"Yêu cầu lắp đặt mới cho Zone {zoneId}"
                 };
                 db.DeploymentRequests.Add(newDep);
@@ -136,6 +159,64 @@ public sealed class ServiceRequestService(SmartFarmDbContext db, TimeProvider cl
     }
     public async Task<ServiceRequestView> TestAsync(Guid tech, Guid id, ServiceConnectionTestCommand c, CancellationToken ct)
     { var r = await Assigned(tech, id, ct); if (r.Status is not (ServiceRequestStatus.WorkCompleted or ServiceRequestStatus.Verified)) throw new ResourceConflictException("Complete service work before testing."); if (c.ObservedAtUtc.Kind != DateTimeKind.Utc) throw new RequestValidationException("observedAtUtc", "Observed time must be UTC."); var device = r.CurrentDeviceId ?? r.DeviceId ?? throw new ResourceConflictException("Request has no current Device."); var test = new DeviceConnectionTest { DeviceId = device, DeploymentRequestId = r.DeploymentRequestId, TechnicianUserId = tech, Succeeded = c.Succeeded, Rssi = c.Rssi, Snr = c.Snr, RoundTripLatencyMs = c.RoundTripLatencyMs, ObservedAtUtc = c.ObservedAtUtc, ErrorCode = FinanceService.Optional(c.ErrorCode, 100), ErrorMessage = FinanceService.Optional(c.ErrorMessage, 1000) }; db.DeviceConnectionTests.Add(test); var from = r.Status; r.Status = c.Succeeded ? ServiceRequestStatus.Verified : ServiceRequestStatus.WorkCompleted; Add(r, tech, c.Succeeded ? ServiceHistoryEventType.TestPassed : ServiceHistoryEventType.TestFailed, from, r.Status, c.ErrorMessage); await db.SaveChangesAsync(ct); return await Load(id, ct); }
+    public async Task<ServiceRequestView> CancelAsync(Guid userId, Guid id, CancelServiceRequestCommand c, CancellationToken ct)
+    {
+        var u = await User(userId, ct);
+        var r = await Query().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new ResourceNotFoundException("Service Request was not found.");
+        if (u.Role == UserRole.FarmOwner)
+        {
+            if (r.TenantId != u.TenantId && r.CreatedByOwnerId != userId)
+                throw new AuthorizationException("Chỉ người tạo hoặc chủ trang trại mới có quyền hủy yêu cầu này.");
+        }
+        else if (u.Role != UserRole.PlatformAdmin)
+        {
+            throw new AuthorizationException("Chỉ Farm Owner hoặc Platform Admin mới có quyền hủy yêu cầu.");
+        }
+
+        if (r.Status is ServiceRequestStatus.Closed or ServiceRequestStatus.Resolved)
+            throw new ResourceConflictException("Yêu cầu đã hoàn tất hoặc đóng, không thể hủy.");
+
+        if (r.Status == ServiceRequestStatus.Cancelled)
+            throw new ResourceConflictException("Yêu cầu này đã được hủy trước đó.");
+
+        // Chỉ phiếu lắp đặt mới gắn với vòng đời của đợt triển khai; phiếu bảo trì/sửa chữa hủy riêng, không đụng tới đợt triển khai đã lắp.
+        DeploymentRequest? dep = null;
+        if (r.DeploymentRequestId != Guid.Empty && DeploymentSupport.IsInstallationCode(r.FailureCode))
+        {
+            dep = await db.DeploymentRequests.Include(x => x.Decisions).SingleOrDefaultAsync(x => x.Id == r.DeploymentRequestId, ct);
+            // Cùng luật với hủy yêu cầu triển khai: chỉ hủy trước khi lắp đặt, và chưa ký hợp đồng/đóng cọc (cần Admin hoàn cọc).
+            if (dep != null)
+            {
+                if (dep.Status is not (DeploymentRequestStatus.Draft or DeploymentRequestStatus.Submitted or DeploymentRequestStatus.Accepted
+                    or DeploymentRequestStatus.Surveyed or DeploymentRequestStatus.PlanConfirmed))
+                    throw new ResourceConflictException($"Installation request can only be cancelled before installation starts; the deployment status is {dep.Status}.");
+                if (r.IsContractSigned || r.IsDepositPaid)
+                    throw new ResourceConflictException("The contract is already signed or the deposit is paid; contact the platform administrator to cancel.");
+            }
+        }
+
+        var from = r.Status;
+        r.Status = ServiceRequestStatus.Cancelled;
+        r.ClosedAtUtc = clock.GetUtcNow().UtcDateTime;
+
+        var reason = string.IsNullOrWhiteSpace(c.Reason) ? "Chủ động hủy yêu cầu" : c.Reason.Trim();
+        Add(r, userId, ServiceHistoryEventType.Cancelled, from, r.Status, $"Hủy bởi {u.Role}: {reason}");
+
+        if (dep != null)
+        {
+            var old = dep.Status;
+            dep.Status = DeploymentRequestStatus.Cancelled;
+            db.DeploymentDecisionHistory.Add(new DeploymentDecisionHistory
+            {
+                DeploymentRequestId = dep.Id, ActorUserId = userId, DecisionType = "Cancelled",
+                FromStatus = old.ToString(), ToStatus = DeploymentRequestStatus.Cancelled.ToString(), Notes = $"Hủy qua phiếu dịch vụ: {reason}"
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return await Load(id, ct);
+    }
+
     public async Task<ServiceRequestView> CloseAsync(Guid tech, Guid id, CancellationToken ct)
     { var r = await Assigned(tech, id, ct); if (r.Status != ServiceRequestStatus.Verified) throw new ResourceConflictException("A successful current-Device connection test is required before closure."); var device = r.CurrentDeviceId ?? r.DeviceId!.Value; var latest = await db.DeviceConnectionTests.Where(x => x.DeviceId == device).OrderByDescending(x => x.ObservedAtUtc).FirstOrDefaultAsync(ct); if (latest?.Succeeded != true) throw new ResourceConflictException("The latest current-Device connection test did not pass."); var from = r.Status; r.Status = ServiceRequestStatus.Closed; r.ClosedAtUtc = clock.GetUtcNow().UtcDateTime; (await db.Devices.SingleAsync(x => x.Id == device, ct)).Status = DeviceStatus.Online; Add(r, tech, ServiceHistoryEventType.Closed, from, r.Status, null); await db.SaveChangesAsync(ct); return await Load(id, ct); }
     private IQueryable<ServiceRequest> Query() => db.ServiceRequests.Include(x => x.History).Include(x => x.Replacements);
@@ -148,5 +229,5 @@ public sealed class ServiceRequestService(SmartFarmDbContext db, TimeProvider cl
     private void Move(ServiceRequest r, Guid actor, ServiceRequestStatus expected, ServiceRequestStatus next, ServiceHistoryEventType e, string? notes) { if (r.Status != expected) throw new ResourceConflictException($"Expected Service Request state {expected}."); var from = r.Status; r.Status = next; Add(r, actor, e, from, next, notes); }
     private void Add(ServiceRequest r, Guid actor, ServiceHistoryEventType e, ServiceRequestStatus from, ServiceRequestStatus to, string? notes) { var h = new ServiceRequestHistory { ServiceRequest = r, ActorUserId = actor, EventType = e, FromStatus = from, ToStatus = to, Notes = FinanceService.Optional(notes, 2000) }; r.History.Add(h); db.ServiceRequestHistories.Add(h); }
     private async Task<ServiceRequestView> Load(Guid id, CancellationToken ct) => View(await Query().AsNoTracking().SingleAsync(x => x.Id == id, ct));
-    private static ServiceRequestView View(ServiceRequest r) => new(r.Id, r.TenantId, r.FarmId, r.ZoneId, r.DeviceId, r.CurrentDeviceId ?? r.DeviceId, r.FailureCode, r.Description, r.Status, r.AssignedTechnicianId, r.InspectionNotes, r.Diagnosis, r.ResolutionAction, r.WorkPerformed, r.ClosedAtUtc, r.History.OrderBy(x => x.CreatedAtUtc).Select(x => new ServiceHistoryView(x.Id, x.EventType, x.FromStatus, x.ToStatus, x.ActorUserId, x.Notes, x.CreatedAtUtc)).ToList(), r.Replacements.OrderBy(x => x.CreatedAtUtc).Select(x => new DeviceReplacementView(x.Id, x.OldDeviceId, x.NewDeviceId, x.ZoneId, x.CreatedAtUtc)).ToList(), r.DeploymentRequestId);
+    private static ServiceRequestView View(ServiceRequest r) => new(r.Id, r.TenantId, r.FarmId, r.ZoneId, r.DeviceId, r.CurrentDeviceId ?? r.DeviceId, r.FailureCode, r.Description, r.Status, r.AssignedTechnicianId, r.InspectionNotes, r.Diagnosis, r.ResolutionAction, r.WorkPerformed, r.ClosedAtUtc, r.History.OrderBy(x => x.CreatedAtUtc).Select(x => new ServiceHistoryView(x.Id, x.EventType, x.FromStatus, x.ToStatus, x.ActorUserId, x.Notes, x.CreatedAtUtc)).ToList(), r.Replacements.OrderBy(x => x.CreatedAtUtc).Select(x => new DeviceReplacementView(x.Id, x.OldDeviceId, x.NewDeviceId, x.ZoneId, x.CreatedAtUtc)).ToList(), r.DeploymentRequestId, r.IsContractSigned, r.IsDepositPaid, r.IsAcceptanceSigned, r.IsFullyPaid);
 }

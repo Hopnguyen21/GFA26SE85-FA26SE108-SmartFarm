@@ -11,6 +11,7 @@ namespace SmartFarm.Api.Controllers;
 [Authorize]
 public sealed class PlatformFeaturesController(
     IPlatformAdminService adminService,
+    IBackupService backupService,
     IQuotationService quotationService,
     IGisService gisService,
     IFarmWizardService farmWizardService,
@@ -20,6 +21,53 @@ public sealed class PlatformFeaturesController(
     IControlAutomationService controlAutomationService,
     IGeocodingService geocodingService) : ControllerBase
 {
+    // ─── 0. Platform Backup & Restore ─────────────────────────────────────────
+    [HttpGet("api/v1/platform/backups")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<IReadOnlyList<BackupMetadataView>>> ListBackups(CancellationToken ct)
+    {
+        return Ok(await backupService.ListBackupsAsync(ct));
+    }
+
+    [HttpGet("api/v1/platform/backups/status")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<BackupSystemStatusView>> GetBackupSystemStatus(CancellationToken ct)
+    {
+        return Ok(await backupService.GetSystemStatusAsync(ct));
+    }
+
+    [HttpPost("api/v1/platform/backups")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<CreateBackupResult>> CreateBackup(CancellationToken ct)
+    {
+        return Ok(await backupService.CreateBackupAsync(User.GetUserId(), ct));
+    }
+
+    [HttpGet("api/v1/platform/backups/{fileName}/download")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<IActionResult> DownloadBackup(string fileName, CancellationToken ct)
+    {
+        var result = await backupService.DownloadBackupAsync(fileName, User.GetUserId(), ct);
+        return File(result.Content, result.ContentType, result.FileName);
+    }
+
+    [HttpPost("api/v1/platform/backups/{fileName}/verify")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<VerifyBackupResult>> VerifyBackup(string fileName, CancellationToken ct)
+    {
+        return Ok(await backupService.VerifyBackupAsync(fileName, User.GetUserId(), ct));
+    }
+
+    [HttpPost("api/v1/platform/backups/{fileName}/restore")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<RestoreBackupResult>> RestoreBackup(
+        string fileName,
+        [FromBody] RestoreBackupRequest request,
+        CancellationToken ct)
+    {
+        return Ok(await backupService.RestoreBackupAsync(fileName, request, User.GetUserId(), ct));
+    }
+
     // ─── 1. Audit Logs ────────────────────────────────────────────────────────
     [HttpGet("api/v1/audit-logs")]
     [Authorize(Roles = "PlatformAdmin")]
@@ -50,6 +98,13 @@ public sealed class PlatformFeaturesController(
     public async Task<ActionResult<IReadOnlyList<PlatformSettingView>>> GetSettings(CancellationToken ct)
     {
         return Ok(await adminService.GetSettingsAsync(ct));
+    }
+
+    /// <summary>Tham số nghiệp vụ hiện hành (tỷ lệ cọc, ngưỡng mưa, giảm giá); công khai (trang giới thiệu cần hiển thị tỷ lệ cọc), chỉ gồm 4 con số không bí mật.</summary>
+    [HttpGet("api/v1/platform/business-parameters"), AllowAnonymous]
+    public async Task<ActionResult<BusinessParametersView>> GetBusinessParameters(CancellationToken ct)
+    {
+        return Ok(await adminService.GetBusinessParametersAsync(ct));
     }
 
     [HttpPut("api/v1/platform/settings")]
@@ -130,6 +185,17 @@ public sealed class PlatformFeaturesController(
     {
         var result = await quotationService.CreateAsync(User.GetUserId(), id, command, ct);
         return StatusCode(StatusCodes.Status201Created, result);
+    }
+
+    /// <summary>Bản nháp báo giá dựng từ dự toán thiết bị Owner đã lưu (kỹ thuật viên được giao). Chỉnh sửa rồi gửi bằng POST quotation.</summary>
+    [HttpGet("api/v1/service-requests/{id:guid}/quotation/estimate-draft")]
+    [Authorize(Roles = "PlatformTechnician")]
+    public async Task<ActionResult<QuotationEstimateDraftView>> GetQuotationEstimateDraft(
+        Guid id,
+        [FromQuery] decimal? vatPercent,
+        CancellationToken ct)
+    {
+        return Ok(await quotationService.GetEstimateDraftAsync(User.GetUserId(), id, vatPercent ?? QuotationDefaults.VatPercent, ct));
     }
 
     [HttpGet("api/v1/service-requests/{id:guid}/quotation")]
@@ -243,6 +309,15 @@ public sealed class PlatformFeaturesController(
         return Ok(result);
     }
 
+    // ─── 12b. Đồng bộ lịch tưới từ HỒ SƠ đang gắn trên Zone (không nhận cây tùy ý) ──────────────────
+    [HttpPost("api/v1/zones/{zoneId:guid}/schedules/sync-from-profile")]
+    [Authorize(Roles = "FarmOwner")]
+    public async Task<ActionResult<ProfileScheduleSyncResult>> SyncProfileSchedule(
+        Guid zoneId,
+        [FromBody] SyncProfileScheduleRequest request,
+        CancellationToken ct) =>
+        Ok(await scheduleSyncService.SyncFromProfileAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, zoneId, request.ActuatorId, request.GrowthStageId, ct));
+
     // ─── 13. Emergency Stop (All Actuators) ──────────────────────────────────
     [HttpPost("api/v1/control/emergency-stop")]
     [Authorize(Roles = "FarmOwner,Farmer")]
@@ -283,8 +358,24 @@ public sealed class PlatformFeaturesController(
         if (request is null || request.Latitude is < -90 or > 90 || request.Longitude is < -180 or > 180 || (request.Latitude == 0 && request.Longitude == 0))
             return BadRequest(new { message = "Tọa độ không hợp lệ." });
 
-        var result = await geocodingService.ReverseGeocodeAsync(request.Latitude, request.Longitude, ct);
-        return result is not null ? Ok(result) : NotFound(new { message = "Không tìm thấy địa chỉ cho tọa độ này." });
+        try
+        {
+            var result = await geocodingService.ReverseGeocodeAsync(request.Latitude, request.Longitude, ct);
+            return result is not null
+                ? Ok(result)
+                : NotFound(new { message = "Không tìm thấy địa chỉ cho tọa độ này.", code = "GEOCODE_NOT_FOUND" });
+        }
+        catch (GeocodingProviderException ex)
+        {
+            // Lỗi nhà cung cấp KHÔNG được báo là "không tìm thấy": trả mã phù hợp để client chẩn đoán/thử lại.
+            var status = ex.Kind switch
+            {
+                GeocodingFailureKind.Timeout => StatusCodes.Status504GatewayTimeout,
+                GeocodingFailureKind.RateLimited => StatusCodes.Status429TooManyRequests,
+                _ => StatusCodes.Status502BadGateway
+            };
+            return StatusCode(status, new { message = ex.Message, code = "GEOCODE_" + ex.Kind.ToString().ToUpperInvariant() });
+        }
     }
 
     [HttpPost("api/v1/gis/search-location")]
@@ -304,6 +395,15 @@ public sealed class EmergencyStopRequest
 {
     public Guid? ZoneId { get; init; }
     public string? Notes { get; init; }
+}
+
+public sealed class SyncProfileScheduleRequest
+{
+    /// <summary>Thiết bị tưới (bơm/van) của Zone; Guid rỗng = tự chọn bơm/van đầu tiên của Zone.</summary>
+    public Guid ActuatorId { get; init; }
+
+    /// <summary>Giai đoạn cần lấy lịch; bỏ trống = giai đoạn hiện tại của vụ đang chạy (cùng hồ sơ) hoặc giai đoạn đầu tiên.</summary>
+    public Guid? GrowthStageId { get; init; }
 }
 
 public sealed class SyncCropScheduleRequest

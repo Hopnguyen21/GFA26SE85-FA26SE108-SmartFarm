@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -17,6 +18,8 @@ internal sealed class AuthService(
     IOptions<JwtOptions> jwtOptions,
     TimeProvider timeProvider) : IAuthService
 {
+    private static readonly ConcurrentDictionary<string, (string Otp, DateTime ExpiresAtUtc)> ResetOtps = new();
+
     public async Task<UserView> RegisterAsync(RegisterUserCommand command, CancellationToken cancellationToken)
     {
         if (command.Role is not (UserRole.FarmOwner or UserRole.Farmer))
@@ -160,6 +163,64 @@ internal sealed class AuthService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return new LogoutView(now, matches.Count);
+    }
+
+    public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordCommand command, CancellationToken cancellationToken)
+    {
+        var normalizedEmail = NormalizeEmail(command.Email);
+        var user = await dbContext.AppUsers.SingleOrDefaultAsync(x => x.NormalizedEmail == normalizedEmail, cancellationToken);
+        var expires = DateTime.UtcNow.AddMinutes(15);
+
+        if (user is null)
+        {
+            return new ForgotPasswordResponse(
+                "Nếu email tồn tại trong hệ thống, mã xác nhận OTP đã được gửi.",
+                null,
+                expires);
+        }
+
+        var otp = new Random().Next(100000, 999999).ToString();
+        ResetOtps[normalizedEmail] = (otp, expires);
+
+        return new ForgotPasswordResponse(
+            "Mã xác nhận OTP đặt lại mật khẩu đã được tạo (hiệu lực 15 phút).",
+            otp,
+            expires);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordCommand command, CancellationToken cancellationToken)
+    {
+        var normalizedEmail = NormalizeEmail(command.Email);
+        if (string.IsNullOrWhiteSpace(command.Otp))
+        {
+            throw new RequestValidationException(nameof(command.Otp), "Mã OTP xác thực không được để trống.");
+        }
+
+        if (!ResetOtps.TryGetValue(normalizedEmail, out var entry) || entry.ExpiresAtUtc < DateTime.UtcNow || entry.Otp != command.Otp.Trim())
+        {
+            throw new RequestValidationException(nameof(command.Otp), "Mã xác thực OTP không chính xác hoặc đã hết hạn.");
+        }
+
+        ValidatePassword(command.NewPassword);
+
+        var user = await dbContext.AppUsers
+            .Include(x => x.RefreshTokens)
+            .SingleOrDefaultAsync(x => x.NormalizedEmail == normalizedEmail, cancellationToken)
+            ?? throw new ResourceNotFoundException("Tài khoản không tồn tại.");
+
+        user.PasswordHash = passwordHasher.HashPassword(user, command.NewPassword);
+        user.FailedLoginAttempts = 0;
+        user.LockedUntilUtc = null;
+        if (user.Status == AccountStatus.Locked) user.Status = AccountStatus.Active;
+
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        foreach (var rt in user.RefreshTokens.Where(t => !t.RevokedAtUtc.HasValue))
+        {
+            rt.RevokedAtUtc = now;
+        }
+
+        ResetOtps.TryRemove(normalizedEmail, out _);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private AuthTokenView CreateSession(AppUser user, DateTime now)

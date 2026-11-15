@@ -585,8 +585,12 @@ public static class AiPromptBuilder
         if (needsActuators && c.Actuators is not null && c.Actuators.Count > 0)
         {
             sb.AppendLine("    <actuators>");
-            foreach (var x in c.Actuators)
-                sb.AppendLine($"      <actuator id=\"{x.ActuatorId}\" type=\"{Escape(x.ActuatorType)}\" max_duration_seconds=\"{x.MaxDurationSeconds}\" online=\"{x.IsOnline.ToString().ToLowerInvariant()}\" />");
+            // Gửi bí danh V1..Vn thay cho GUID thật; TryResolveActuator đổi ngược lại khi nhận đề xuất của AI.
+            for (var i = 0; i < c.Actuators.Count; i++)
+            {
+                var x = c.Actuators[i];
+                sb.AppendLine($"      <actuator id=\"V{i + 1}\" type=\"{Escape(x.ActuatorType)}\" max_duration_seconds=\"{x.MaxDurationSeconds}\" online=\"{x.IsOnline.ToString().ToLowerInvariant()}\" />");
+            }
             sb.AppendLine("    </actuators>");
         }
 
@@ -629,5 +633,27 @@ public static class AiPromptBuilder
         }
         sb.AppendLine("</consultation_request>");
         return sb.ToString();
+    }
+
+    public static bool TryResolveActuator(IReadOnlyList<AiActuatorContextItem>? actuators, string? token, out Guid id)
+    {
+        id = Guid.Empty;
+        if (actuators == null || string.IsNullOrWhiteSpace(token)) return false;
+        token = token.Trim();
+        if (Guid.TryParse(token, out var guid))
+        {
+            var match = actuators.FirstOrDefault(a => a.ActuatorId == guid);
+            if (match != null)
+            {
+                id = match.ActuatorId;
+                return true;
+            }
+        }
+        if (token.StartsWith("V", StringComparison.OrdinalIgnoreCase) && int.TryParse(token[1..], out var idx) && idx >= 1 && idx <= actuators.Count)
+        {
+            id = actuators[idx - 1].ActuatorId;
+            return true;
+        }
+        return false;
     }
 }

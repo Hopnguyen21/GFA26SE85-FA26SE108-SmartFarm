@@ -22,8 +22,25 @@ import { ZoneContractDetailsModal } from '../../components/contracts/ZoneContrac
 import { ZoneContractRenewModal } from '../../components/contracts/ZoneContractRenewModal';
 import { DeviceDepreciationModal } from '../../components/contracts/DeviceDepreciationModal';
 import { HoneycombEstimator } from '../../components/estimation/HoneycombEstimator';
+import { useBusinessParameters, formatPercent, contractDepositPercent } from '../../services/businessParameters';
+
+const sensorCodeToParameters = (sensor: any): string[] => {
+  const text = `${sensor?.sensorType || ''} ${sensor?.code || ''} ${sensor?.name || ''}`.toUpperCase();
+  if (text.includes('DHT') || text.includes('SHT') || text.includes('BME') || text.includes('AIR') || text.includes('KHÍ') || text.includes('NHIỆT') || text.includes('ẨM KK')) return ['Temperature', 'AirHumidity'];
+  if (text.includes('ĐẤT') || text.includes('SOIL') || text.includes('FDR') || text.includes('RS485')) return ['SoilMoisture'];
+  if (text.includes('PH')) return ['Ph'];
+  if (text.includes('EC')) return ['Ec'];
+  if (text.includes('LIGHT') || text.includes('LUX') || text.includes('ÁNH')) return ['LightIntensity'];
+  return [];
+};
+const normalizeDeviceStatus = (value: any) => {
+  if (value === 4 || String(value).toUpperCase() === 'ONLINE') return 'ONLINE';
+  return 'OFFLINE';
+};
+
 
 export const FarmsPage: React.FC = () => {
+  const businessParams = useBusinessParameters();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -263,8 +280,11 @@ export const FarmsPage: React.FC = () => {
       telemetryService.getRealtime(zid).then(setZoneLatest).catch(() => setZoneLatest(null));
 
       // Fetch mapped nodes for this zone so Owner can view them on the GIS map and Live Telemetry card
-      supportService.getMappedNodes(zid).then(mapped => {
+      supportService.getMappedNodes(zid).then(async mapped => {
         if (Array.isArray(mapped) && mapped.length > 0) {
+          const deviceList = await deviceService.getNodes(zid).catch(() => []);
+          const liveResponse = await telemetryService.getLatestByDevice(zid).catch(() => null);
+          const liveDevices = Array.isArray(liveResponse?.devices) ? liveResponse.devices : [];
           const formatted = mapped.map((m: any, idx: number) => ({
             ...m,
             nodeId: m.deviceId || m.id || `node-${idx}`,
@@ -277,11 +297,13 @@ export const FarmsPage: React.FC = () => {
             longitude: typeof m.longitude === 'number' ? m.longitude : (typeof m.gpsLongitude === 'number' ? m.gpsLongitude : 108.4583),
             gpsKnown: typeof m.latitude === 'number' || typeof m.gpsLatitude === 'number',
             batteryLevel: m.batteryLevel ?? undefined,
-            status: m.status?.toUpperCase() || 'ONLINE',
+            status: normalizeDeviceStatus(liveDevices.find((d: any) => String(d.deviceId) === String(m.deviceId || m.id) || String(d.hardwareAddress || '').toUpperCase() === String(m.hardwareAddress || '').toUpperCase())?.status),
+            liveMetrics: liveDevices.find((d: any) => String(d.deviceId) === String(m.deviceId || m.id) || String(d.hardwareAddress || '').toUpperCase() === String(m.hardwareAddress || '').toUpperCase())?.metrics || [],
             rssi: m.rssi ?? undefined,
             deviceType: m.deviceType || (m.hardwareAddress?.includes('VALVE') || m.hardwareAddress?.includes('ACT') ? 'ActuatorNode' : 'SensorNode'),
             actuatorsCount: (m.deviceType === 'ActuatorNode' || m.hardwareAddress?.includes('VALVE') || m.hardwareAddress?.includes('ACT')) ? 1 : 0,
-            sensorsCount: (m.deviceType === 'SensorNode' || m.hardwareAddress?.includes('SN') || m.hardwareAddress?.includes('AIR') || m.hardwareAddress?.includes('SOIL')) ? 2 : 0,
+            sensors: m.sensors || m.sensorParameters || deviceList.find((d: any) => String(d.deviceId || d.id) === String(m.deviceId || m.id) || String(d.hardwareAddress || '').toUpperCase() === String(m.hardwareAddress || '').toUpperCase())?.sensors || [],
+            sensorsCount: (m.sensors || m.sensorParameters || deviceList.find((d: any) => String(d.deviceId || d.id) === String(m.deviceId || m.id) || String(d.hardwareAddress || '').toUpperCase() === String(m.hardwareAddress || '').toUpperCase())?.sensors || []).length,
             // Số đo KHÔNG gắn cứng vào từng node: API chỉ có số đo mới nhất theo Zone, hiển thị riêng ở khối "Số đo mới nhất của Zone".
           }));
 
@@ -296,6 +318,57 @@ export const FarmsPage: React.FC = () => {
     }
   }, [selectedZone]);
 
+  // Keep the Owner view in sync with the same live telemetry source used by
+  // the Technician view. A node is green only while the backend considers its
+  // latest telemetry fresh; otherwise it becomes red after the freshness window.
+  useEffect(() => {
+    const zoneId = selectedZone?.zoneId || (selectedZone as any)?.id;
+    if (!zoneId) return;
+
+    let disposed = false;
+    const refreshLiveTelemetry = async () => {
+      const [latest, byDevice] = await Promise.all([
+        telemetryService.getRealtime(zoneId).catch(() => null),
+        telemetryService.getLatestByDevice(zoneId).catch(() => null),
+      ]);
+      if (disposed) return;
+      if (latest) setZoneLatest(latest);
+      const liveDevices = Array.isArray(byDevice?.devices) ? byDevice.devices : [];
+      setNodes(previous => previous.map(node => {
+        if (node.zoneId !== zoneId) return node;
+        const live = liveDevices.find((item: any) =>
+          String(item.deviceId || item.nodeId) === String(node.nodeId || node.id)
+          || String(item.hardwareAddress || '').toUpperCase() === String(node.hardwareAddress || node.serialNumber || '').toUpperCase());
+        return {
+          ...node,
+          status: normalizeDeviceStatus(live?.status),
+          liveMetrics: live?.metrics || [],
+          batteryLevel: live?.batteryLevel ?? node.batteryLevel,
+          rssi: live?.rssi ?? node.rssi,
+        };
+      }));
+    };
+
+    refreshLiveTelemetry();
+    const timer = window.setInterval(refreshLiveTelemetry, 10000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [selectedZone?.zoneId, (selectedZone as any)?.id]);
+
+  const assignedParameterCodes = new Set(
+    nodes
+      .filter(n => n.zoneId === selectedZone?.zoneId || n.zoneId === (selectedZone as any)?.id)
+      .flatMap(n => (Array.isArray(n.sensors) ? n.sensors : []).flatMap(sensorCodeToParameters))
+  );
+  const visibleZoneMetrics = Array.isArray(zoneLatest?.metrics)
+    ? zoneLatest.metrics.filter((metric: any) => assignedParameterCodes.has(String(metric.parameterCode)))
+    : [];
+  const displayedZoneMetrics = visibleZoneMetrics.length > 0
+    ? visibleZoneMetrics
+    : (zoneLatest?.metrics || []);
+
   // Deep-linking from OwnerDashboard, SupportPage or other pages
   const handledDeepLinkRef = React.useRef<string | null>(null);
 
@@ -303,6 +376,7 @@ export const FarmsPage: React.FC = () => {
     if (location.state && (farms.length > 0 || fields.length > 0 || zones.length > 0)) {
       const { farmId, farmName, zoneId, zoneName, openContract } = location.state as any;
       const stateKey = `${farmId || ''}_${farmName || ''}_${zoneId || ''}_${zoneName || ''}_${openContract || ''}`;
+
       if (handledDeepLinkRef.current === stateKey) return;
 
       // 1. Find Target Zone (match by zoneId or name)
@@ -659,6 +733,9 @@ export const FarmsPage: React.FC = () => {
     return currentZoneContracts.find(c => c.status === 'Active' || c.status === 'ExpiringSoon' || (typeof c.status === 'number' && (c.status === 0 || c.status === 1)))
       || (currentZoneContracts.length > 0 ? currentZoneContracts[0] : null);
   }, [currentZoneContracts]);
+
+  // Tỷ lệ cọc của hợp đồng Zone đang xem (suy từ số tiền đã chốt), không theo cấu hình Platform hiện hành.
+  const depLabel = `${formatPercent(contractDepositPercent({ deposit30Percent: Number(activeZoneContract?.depositVnd ?? 0), totalAmount: Number(activeZoneContract?.totalContractValueVnd ?? 0) }, businessParams.depositPercent))}%`;
 
   const historicalZoneContracts = React.useMemo(() => {
     if (!activeZoneContract) return currentZoneContracts;
@@ -1022,8 +1099,12 @@ export const FarmsPage: React.FC = () => {
       alert('Vui lòng nhập tiêu đề yêu cầu lắp đặt!');
       return;
     }
-    const farmId = selectedFarm?.farmId || (selectedFarm as any)?.id || (installTargetZone as any)?.farmId || (installTargetField ? (installTargetField.farmId || (installTargetField as any).id) : '30000000-0000-0000-0000-000000000001');
-    const zoneId = installTargetZone?.zoneId || (installTargetZone as any)?.id || selectedZone?.zoneId || (selectedZone as any)?.id || (zones.find(z => (z.farmId === farmId || (z as any).id === farmId))?.zoneId || (zones[0]?.zoneId || '32000000-0000-0000-0000-000000000001'));
+    const farmId = selectedFarm?.farmId || (selectedFarm as any)?.id || (installTargetZone as any)?.farmId || installTargetField?.farmId;
+    const zoneId = installTargetZone?.zoneId || (installTargetZone as any)?.id || selectedZone?.zoneId || (selectedZone as any)?.id;
+    if (!farmId || !zoneId) {
+      alert('Vui lòng chọn đúng Trang trại và Zone trước khi gửi yêu cầu lắp đặt.');
+      return;
+    }
 
 
     if (installTargetZone) {
@@ -1047,6 +1128,7 @@ export const FarmsPage: React.FC = () => {
         description: `[Hạng mục: ${installCategory}] ${installDescription.trim()}`,
         priority: installPriority,
         failureCode: 'NEW_INSTALL',
+        skipDeviceLookup: true,
       });
       setShowInstallModal(false);
       alert('🎉 Đã gửi Yêu cầu Lắp đặt Thiết bị thành công lên hệ thống API! Kỹ thuật viên sẽ liên hệ khảo sát thực địa. Bạn có thể theo dõi tiến độ, ký hợp đồng và nghiệm thu tại mục "Yêu cầu Hỗ trợ Kỹ thuật".');
@@ -1818,19 +1900,19 @@ export const FarmsPage: React.FC = () => {
                         <Cpu size={16} className="text-[#119653]" /> Thông tin Node Cảm biến & Vi khí hậu Trả về (Live Telemetry)
                       </h4>
                       <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200">
-                        {nodes.filter(n => (n.zoneId === selectedZone.zoneId || n.zoneId === (selectedZone as any).id)).length} Node kết nối
+                        {nodes.filter(n => (n.zoneId === selectedZone.zoneId || n.zoneId === (selectedZone as any).id) && n.status === 'ONLINE').length}/{nodes.filter(n => (n.zoneId === selectedZone.zoneId || n.zoneId === (selectedZone as any).id)).length} Node đang chạy
                       </span>
                     </div>
 
                     <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2">
                       <div className="text-[11px] font-bold text-emerald-900">Số đo mới nhất của Zone (tổng hợp từ các cảm biến, không phải từng node)</div>
-                      {zoneLatest && Array.isArray(zoneLatest.metrics) && zoneLatest.metrics.length > 0 ? (
+                      {displayedZoneMetrics.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                          {zoneLatest.metrics.map((m: any) => (
+                          {displayedZoneMetrics.map((m: any) => (
                             <div key={m.parameterCode} className="p-2 bg-white border border-slate-200 rounded-lg flex items-center justify-between">
                               <span className="text-slate-600 text-[10px]">{m.parameterCode}</span>
                               <strong className={`font-mono text-[11px] ${m.isFresh ? 'text-slate-800' : 'text-slate-400'}`}>
-                                {Number(m.value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} {m.unit}{m.isFresh ? '' : ' (cũ)'}
+                                {Number(m.value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} {m.unit}
                               </strong>
                             </div>
                           ))}
@@ -1894,6 +1976,16 @@ export const FarmsPage: React.FC = () => {
                                 <strong className="text-slate-800 text-[11px]">{(node.deviceType === 'ActuatorNode') ? 'Chấp hành' : 'Cảm biến'}</strong>
                               </div>
                             </div>
+                            {Array.isArray(node.liveMetrics) && node.liveMetrics.length > 0 && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                                {node.liveMetrics.map((metric: any) => (
+                                  <div key={metric.parameterCode} className="p-2 bg-white border border-emerald-100 rounded-lg">
+                                    <div className="text-slate-500 text-[10px]">{metric.parameterCode}</div>
+                                    <strong className="text-slate-800 font-mono text-[11px]">{Number(metric.value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} {metric.unit}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-600">
                               {Array.isArray(node.sensors) && node.sensors.length > 0 && (
                                 <span className="px-2 py-1 bg-white border border-slate-200 rounded-lg">
@@ -2323,8 +2415,8 @@ export const FarmsPage: React.FC = () => {
                         </span>
                         <span className="text-[10px] text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded font-mono font-semibold">
                           {(activeZoneContract.vatPercent ?? activeZoneContract.vatRatePercent ?? 0) > 0
-                            ? `VAT ${activeZoneContract.vatPercent ?? activeZoneContract.vatRatePercent}% & Tạm ứng 30%`
-                            : 'Tạm ứng 30%'}
+                            ? `VAT ${activeZoneContract.vatPercent ?? activeZoneContract.vatRatePercent}% & Tạm ứng ${depLabel}`
+                            : `Tạm ứng ${depLabel}`}
                         </span>
                       </div>
 
@@ -2365,7 +2457,7 @@ export const FarmsPage: React.FC = () => {
                         </div>
 
                         <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-                          <div className="text-[10px] text-emerald-900 font-bold">Tạm ứng (30%)</div>
+                          <div className="text-[10px] text-emerald-900 font-bold">Tạm ứng ({depLabel})</div>
                           <div className="font-bold text-emerald-900 text-xs mt-0.5 font-mono">
                             {(activeZoneContract.depositVnd || 0).toLocaleString()} đ
                           </div>
@@ -2422,7 +2514,7 @@ export const FarmsPage: React.FC = () => {
                     <div>
                       <h4 className="font-bold text-slate-800 text-sm">Chưa có hợp đồng nào được ký thành công cho Zone này</h4>
                       <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                        Hợp đồng phân khu chỉ hiển thị sau khi đã ký kết thành công và hoàn tất cọc 30% tại Cổng Dịch vụ & Hợp đồng (Owner Portal). Hãy vào Cổng Dịch vụ để kiểm tra báo giá và ký hợp đồng.
+                        Hợp đồng phân khu chỉ hiển thị sau khi đã ký kết thành công và hoàn tất cọc {depLabel} tại Cổng Dịch vụ & Hợp đồng (Owner Portal). Hãy vào Cổng Dịch vụ để kiểm tra báo giá và ký hợp đồng.
                       </p>
                     </div>
                     <Button

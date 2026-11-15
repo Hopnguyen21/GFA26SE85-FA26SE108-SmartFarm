@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SmartFarm.Application.Common.Exceptions;
 using SmartFarm.Application.Common.Interfaces;
@@ -8,7 +9,10 @@ using SmartFarm.Infrastructure.Persistence;
 
 namespace SmartFarm.Infrastructure.Identity;
 
-internal sealed class UserService(SmartFarmDbContext dbContext, TimeProvider timeProvider) : IUserService
+internal sealed class UserService(
+    SmartFarmDbContext dbContext,
+    TimeProvider timeProvider,
+    IPasswordHasher<AppUser> passwordHasher) : IUserService
 {
     public async Task<IReadOnlyList<UserDetailView>> ListTenantUsersAsync(
         Guid ownerUserId,
@@ -58,6 +62,78 @@ internal sealed class UserService(SmartFarmDbContext dbContext, TimeProvider tim
         return user is null
             ? throw new ResourceNotFoundException("User was not found.")
             : ToDetailView(user);
+    }
+
+    public async Task<UserDetailView> UpdateCurrentUserProfileAsync(
+        Guid userId,
+        UpdateUserProfileCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.FullName))
+        {
+            throw new RequestValidationException(nameof(command.FullName), "Họ và tên không được để trống.");
+        }
+
+        var trimmedName = command.FullName.Trim();
+        if (trimmedName.Length is < 2 or > 100)
+        {
+            throw new RequestValidationException(nameof(command.FullName), "Họ và tên phải từ 2 đến 100 ký tự.");
+        }
+
+        string? trimmedPhone = null;
+        if (!string.IsNullOrWhiteSpace(command.Phone))
+        {
+            trimmedPhone = command.Phone.Trim();
+            if (trimmedPhone.Length > 20)
+            {
+                throw new RequestValidationException(nameof(command.Phone), "Số điện thoại không được vượt quá 20 ký tự.");
+            }
+        }
+
+        var user = await dbContext.AppUsers
+            .Include(x => x.ZoneAccesses)
+            .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Không tìm thấy thông tin tài khoản người dùng.");
+
+        // Strictly only allow updating FullName and Phone
+        user.FullName = trimmedName;
+        user.Phone = trimmedPhone;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ToDetailView(user);
+    }
+
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordCommand command, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.CurrentPassword))
+        {
+            throw new RequestValidationException(nameof(command.CurrentPassword), "Mật khẩu hiện tại không được để trống.");
+        }
+
+        if (string.IsNullOrWhiteSpace(command.NewPassword))
+        {
+            throw new RequestValidationException(nameof(command.NewPassword), "Mật khẩu mới không được để trống.");
+        }
+
+        AuthService.ValidatePassword(command.NewPassword);
+
+        var user = await dbContext.AppUsers
+            .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken)
+            ?? throw new ResourceNotFoundException("Tài khoản người dùng không tồn tại.");
+
+        var verify = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, command.CurrentPassword);
+        if (verify == PasswordVerificationResult.Failed)
+        {
+            throw new RequestValidationException(nameof(command.CurrentPassword), "Mật khẩu hiện tại không chính xác.");
+        }
+
+        if (command.CurrentPassword == command.NewPassword)
+        {
+            throw new RequestValidationException(nameof(command.NewPassword), "Mật khẩu mới không được trùng với mật khẩu hiện tại.");
+        }
+
+        user.PasswordHash = passwordHasher.HashPassword(user, command.NewPassword);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<ZoneAccessView> ReplaceZoneAccessAsync(

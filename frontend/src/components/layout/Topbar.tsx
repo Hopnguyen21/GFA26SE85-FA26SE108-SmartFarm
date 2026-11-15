@@ -5,16 +5,24 @@ import { UserProfileModal } from '../profile/UserProfileModal';
 import { UserRole, Alert } from '../../types';
 import { alertService, supportService, notificationService, NotificationItem, isAuthenticated, zoneContractService } from '../../services';
 import {
-  Sprout, Bell, UserCheck, LogOut,
-  ChevronDown, CheckCircle2, Check, ExternalLink, Clock
+  Sprout, Bell, UserCheck, LogOut, User,
+  ChevronDown, CheckCircle2, Check, ExternalLink, Clock,
+  Menu, X
 } from 'lucide-react';
 
-export const Topbar: React.FC = () => {
+interface TopbarProps {
+  onToggleMobileMenu?: () => void;
+  isMobileMenuOpen?: boolean;
+}
+
+export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileMenu, isMobileMenuOpen }) => {
   const { user, role, switchRole, logout } = useAuth();
   const navigate = useNavigate();
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -31,12 +39,16 @@ export const Topbar: React.FC = () => {
       if (roleMenuRef.current && !roleMenuRef.current.contains(event.target as Node)) {
         setShowRoleMenu(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShowNotificationMenu(false);
         setShowRoleMenu(false);
+        setShowUserMenu(false);
       }
     };
 
@@ -104,7 +116,7 @@ export const Topbar: React.FC = () => {
   useEffect(() => {
     alertService.getAlerts().then(res => {
       if (res) setAlerts(res);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleRoleSwitch = (targetRole: UserRole) => {
@@ -143,22 +155,29 @@ export const Topbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full h-16 bg-[#119653] text-white border-b border-[#0e8046] px-4 flex items-center justify-between shadow-md">
-      {/* Left section: Logo & Farm Selector */}
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-white/20 border border-white/30 text-white shadow-xs">
-            <Sprout size={22} />
+    <header className="sticky top-0 z-40 w-full h-16 bg-[#119653] text-white border-b border-[#0e8046] px-3 sm:px-4 flex items-center justify-between shadow-md">
+      {/* Left section: Hamburger (mobile), Logo & Farm Selector */}
+      <div className="flex items-center gap-2.5 sm:gap-6">
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="p-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white lg:hidden transition-all border border-white/20"
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        )}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="p-1.5 sm:p-2 rounded-xl bg-white/20 border border-white/30 text-white shadow-xs shrink-0">
+            <Sprout size={20} className="sm:w-[22px] sm:h-[22px]" />
           </div>
           <div>
-            <span className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
-              SmartFarm <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#0e8046] text-white border border-white/30">AI Cloud</span>
+            <span className="font-bold text-sm sm:text-base tracking-tight text-white flex items-center gap-1.5">
+              SmartFarm
             </span>
             <p className="text-[10px] text-emerald-100/90 hidden sm:block">Nền tảng Nông nghiệp Thông minh</p>
           </div>
         </div>
-
-
       </div>
 
       {/* Right section: Weather, Notifications, Dev Role Switcher, Profile */}
@@ -221,22 +240,20 @@ export const Topbar: React.FC = () => {
                         setShowNotificationMenu(false);
                         if (n.targetUrl) navigate(n.targetUrl);
                       }}
-                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all hover:shadow-sm ${
-                        n.isRead
-                          ? 'bg-slate-50/70 border-slate-200/60 opacity-80'
-                          : 'bg-emerald-50/40 border-emerald-200/90 font-medium'
-                      } hover:bg-emerald-50/80`}
+                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all hover:shadow-sm ${n.isRead
+                        ? 'bg-slate-50/70 border-slate-200/60 opacity-80'
+                        : 'bg-emerald-50/40 border-emerald-200/90 font-medium'
+                        } hover:bg-emerald-50/80`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-semibold text-slate-900 text-[13px] leading-snug">{n.title}</span>
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 uppercase tracking-wider ${
-                            n.severity === 'Critical'
-                              ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                              : n.severity === 'Warning'
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 uppercase tracking-wider ${n.severity === 'Critical'
+                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                            : n.severity === 'Warning'
                               ? 'bg-amber-100 text-amber-700 border border-amber-200'
                               : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
+                            }`}
                         >
                           {n.type}
                         </span>
@@ -342,22 +359,62 @@ export const Topbar: React.FC = () => {
           )}
         </div>
 
-        {/* User Avatar & Logout */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-white/20">
-          <div className="hidden lg:flex flex-col text-right">
-            <span className="text-xs font-semibold leading-tight text-white max-w-[140px] truncate">{user?.fullName || 'Người dùng'}</span>
-            <span className="text-[10px] text-emerald-100/80 leading-tight max-w-[140px] truncate">{user?.email || ''}</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-            {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-          </div>
+        {/* User Avatar & Profile Dropdown */}
+        <div className="relative pl-2 border-l border-white/20" ref={userMenuRef}>
           <button
-            onClick={handleLogout}
-            title="Đăng xuất khỏi hệ thống"
-            className="p-1.5 text-emerald-100 hover:text-white rounded-lg hover:bg-[#0e8046] transition-colors"
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2 p-1 rounded-xl hover:bg-[#0e8046] transition-colors text-left focus:outline-none"
+            title="Tài khoản & Hồ sơ cá nhân"
           >
-            <LogOut size={16} />
+            <div className="hidden lg:flex flex-col text-right">
+              <span className="text-xs font-semibold leading-tight text-white max-w-[140px] truncate">
+                {user?.fullName || 'Người dùng'}
+              </span>
+              <span className="text-[10px] text-emerald-100/80 leading-tight max-w-[140px] truncate">
+                {user?.email || ''}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+              {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+            </div>
+            <ChevronDown size={13} className="text-emerald-200 hidden sm:block" />
           </button>
+
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 text-slate-800">
+              <div className="p-2 border-b border-slate-100 mb-1.5">
+                <p className="font-bold text-xs text-slate-900 truncate">{user?.fullName || 'Người dùng'}</p>
+                <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                <span className="inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-[#119653] border border-emerald-200">
+                  {roleLabels[role]?.label || role}
+                </span>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowUserMenu(false);
+                  setShowProfileModal(true);
+                }}
+                className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium hover:bg-emerald-50 text-slate-700 hover:text-[#119653] flex items-center gap-2.5 transition-colors"
+              >
+                <User size={15} className="text-slate-500" />
+                <span>Hồ sơ cá nhân &amp; Đổi mật khẩu</span>
+              </button>
+
+              <div className="h-px bg-slate-100 my-1" />
+
+              <button
+                onClick={() => {
+                  setShowUserMenu(false);
+                  handleLogout();
+                }}
+                className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium hover:bg-rose-50 text-rose-600 flex items-center gap-2.5 transition-colors"
+              >
+                <LogOut size={15} className="text-rose-500" />
+                <span>Đăng xuất khỏi hệ thống</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <UserProfileModal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} />

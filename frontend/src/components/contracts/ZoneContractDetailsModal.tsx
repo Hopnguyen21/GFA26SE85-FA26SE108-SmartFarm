@@ -1,9 +1,10 @@
+import { useBusinessParameters, contractDepositPercent, formatPercent } from '../../services/businessParameters';
 import React from 'react';
 import { Modal, Button } from '../ui/BaseUI';
 import { ZoneContract } from '../../types';
 import {
   FileText, Calendar, DollarSign, ShieldCheck, Clock, CheckCircle2,
-  AlertTriangle, RefreshCw, User, Phone, MapPin, Tag, PlusCircle, History
+  AlertTriangle, RefreshCw, User, Phone, MapPin, Tag, PlusCircle, History, Sparkles
 } from 'lucide-react';
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -30,13 +31,18 @@ export const ZoneContractDetailsModal: React.FC<ZoneContractDetailsModalProps> =
   onOpenRenewModal,
   onOpenNewContractModal,
 }) => {
+  const { depositPercent: currentDepositPercent } = useBusinessParameters();
   if (!contract) return null;
 
   const isExpired = contract.daysRemaining < 0;
   const isExpiringSoon = !isExpired && contract.daysRemaining <= 30;
   const monthlyRent = Number(contract.monthlyRentVnd || 0);
   const totalValue = Number(contract.totalContractValueVnd || 0);
-  const deposit = Number(contract.depositVnd || (totalValue * 0.3));
+  const deposit = Number(contract.depositVnd || (totalValue * currentDepositPercent / 100));
+  // Tỷ lệ cọc và VAT của HỢP ĐỒNG NÀY (số đã chốt khi ký), không theo cấu hình Platform hiện hành.
+  const depositPercent = contractDepositPercent({ deposit30Percent: Number(contract.depositVnd || 0), totalAmount: totalValue }, currentDepositPercent);
+  const vatBase = totalValue - Number((contract as any).vatAmountVnd || 0);
+  const vatPercentLabel = Number((contract as any).vatPercent) > 0 ? formatPercent(Number((contract as any).vatPercent)) : (Number((contract as any).vatAmountVnd) > 0 && vatBase > 0 ? formatPercent(Number(((Number((contract as any).vatAmountVnd) / vatBase) * 100).toFixed(2))) : null);
   const remaining = Math.max(0, totalValue - deposit);
   const equipment = contract.equipment ?? [];
   const totalDevices = equipment.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -130,6 +136,21 @@ export const ZoneContractDetailsModal: React.FC<ZoneContractDetailsModalProps> =
                 <span className="text-slate-500">Phân khu (Zone):</span>
                 <strong className="text-slate-800">{contract.zoneName || 'Zone'}</strong>
               </div>
+              {contract.contractPackageName && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Gói hợp đồng:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {contract.contractPackageName}
+                    </span>
+                    {contract.isCustomPackage && (
+                      <span className="text-purple-700 font-bold bg-purple-50 text-[10px] px-1.5 py-0.5 rounded border border-purple-200 flex items-center gap-1">
+                        <Sparkles size={11} className="text-purple-600" /> Riêng khách hàng
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Cây trồng áp dụng:</span>
                 <strong className="text-[#119653] font-bold">{contract.cropType || 'Rau màu'}</strong>
@@ -200,15 +221,15 @@ export const ZoneContractDetailsModal: React.FC<ZoneContractDetailsModalProps> =
               <strong className="font-mono text-slate-900">{totalValue.toLocaleString('vi-VN')} đ</strong>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>3. Tỷ lệ thuế VAT quy định (8%):</span>
+              <span>3. Tỷ lệ thuế VAT{vatPercentLabel ? ` (${vatPercentLabel}%)` : ''} theo hợp đồng:</span>
               <span className="font-mono text-slate-600">Đã bao gồm trong tổng gói</span>
             </div>
             <div className="flex justify-between text-amber-900 font-bold bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-              <span>4. Tạm ứng bắt buộc khi ký (Tạm ứng 30% = Tổng tiền × 30%):</span>
+              <span>4. Tạm ứng bắt buộc khi ký (Tạm ứng {depositPercent}% = Tổng tiền × {depositPercent}%):</span>
               <span className="font-mono text-sm">{deposit.toLocaleString('vi-VN')} đ</span>
             </div>
             <div className="flex justify-between text-slate-700 font-semibold p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span>5. Còn lại thanh toán theo kỳ / nghiệm thu (70%):</span>
+              <span>5. Còn lại thanh toán theo kỳ / nghiệm thu ({100 - depositPercent}%):</span>
               <span className="font-mono text-sm">{remaining.toLocaleString('vi-VN')} đ</span>
             </div>
           </div>

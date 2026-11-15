@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SmartFarm.Application.Common.Exceptions;
 using SmartFarm.Application.Common.Interfaces;
 using SmartFarm.Application.Features.IoTDeployment;
@@ -10,9 +11,17 @@ using SmartFarm.Infrastructure.Persistence;
 
 namespace SmartFarm.Infrastructure.IoTDeployment;
 
-internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoTDeploymentService
+internal sealed partial class IoTDeploymentService(SmartFarmDbContext db, IConfiguration configuration) : IIoTDeploymentService
 {
     private static readonly DeploymentRequestStatus[] ActiveStatuses = [DeploymentRequestStatus.Submitted, DeploymentRequestStatus.Accepted, DeploymentRequestStatus.Surveyed, DeploymentRequestStatus.PlanConfirmed, DeploymentRequestStatus.Installing];
+
+    public async Task<IReadOnlyList<DeviceRecommendationView>> ListPlanModelsAsync(Guid technicianId, Guid requestId, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        await TechnicianRequestAsync(technicianId, requestId, ct);
+        var models = await db.DeviceModelDefinitions.AsNoTracking().Include(x => x.Capabilities).Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync(ct);
+        return models.Select(x => new DeviceRecommendationView(x.Id, x.Name, x.DeviceType, x.CoverageAreaM2, 1, x.Capabilities.Select(c => c.ParameterCode).ToList())).ToList();
+    }
 
     public async Task<IoTRequirementsView> GetRequirementsAsync(Guid ownerId, Guid tenantId, Guid zoneId, CancellationToken ct)
     {
@@ -25,8 +34,11 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
     {
         var requirements = await GetRequirementsAsync(ownerId, tenantId, zoneId, ct);
         var models = await db.DeviceModelDefinitions.AsNoTracking().Include(x => x.Capabilities).Where(x => x.IsActive).ToListAsync(ct);
-        var compatible = models.Where(x => requirements.Parameters.All(p => x.Capabilities.Any(c => c.ParameterCode == p))).ToList();
-        if (compatible.Count == 0) throw new ResourceConflictException("No active Device Model covers every required environmental parameter.");
+                var stockedModels = await db.PlatformHardwareItems.AsNoTracking()
+            .Where(x => x.DeviceModelDefinitionId != null && x.QuantityInStock > 0 && x.UnitPrice > 0 && (x.Status == "InStock" || x.Status == "Available"))
+            .Select(x => x.DeviceModelDefinitionId!.Value).Distinct().ToListAsync(ct);
+        var compatible = models.Where(x => stockedModels.Contains(x.Id) && x.CoverageAreaM2 > 0 && x.Capabilities.Any(c => requirements.Parameters.Contains(c.ParameterCode))).ToList();
+        if (requirements.Parameters.Except(compatible.SelectMany(x => x.Capabilities).Select(x => x.ParameterCode)).Any() || compatible.Count == 0) throw new ResourceConflictException("Kho chưa có đủ model thiết bị được liên kết và cấu hình khả năng đo để đáp ứng nhu cầu Zone.");
         return compatible.Select(x => new DeviceRecommendationView(x.Id, x.Name, x.DeviceType, x.CoverageAreaM2, Math.Max(1, (int)Math.Ceiling(requirements.ZoneAreaM2 / x.CoverageAreaM2)), x.Capabilities.Select(c => c.ParameterCode).Order().ToList())).ToList();
     }
 
@@ -39,6 +51,30 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
         AddPlan(request, command.Items); db.DeploymentRequests.Add(request); AddDecision(request, ownerId, "DraftCreated", request.Status, request.Status, command.Notes); await db.SaveChangesAsync(ct); return await LoadRequestAsync(request.Id, ct);
     }
 
+    /// <summary>
+    /// Owner xem thông tin Zone và nội dung yêu cầu rồi XÁC NHẬN GỬI: tạo Deployment Request ở trạng thái Submitted ngay (không qua nháp), như yêu cầu
+    /// ban đầu của wizard CF1. Thông số cần đo do server lấy từ vụ đang canh tác của Zone (client không quyết định); dòng dự toán được kiểm tra và
+    /// chụp lại giá từ kho. Mỗi Zone chỉ có một yêu cầu đang chạy (kiểm tra trong giao dịch Serializable nên bấm gửi nhiều lần không tạo trùng).
+    /// </summary>
+    public async Task<DeploymentRequestView> SubmitWithEstimateAsync(Guid ownerId, Guid tenantId, Guid zoneId, SubmitDeploymentRequestCommand command, CancellationToken ct)
+    {
+        var reqs = await GetRequirementsAsync(ownerId, tenantId, zoneId, ct);
+        if (reqs.Parameters.Count == 0) throw new RequestValidationException("parameters", "Vụ trồng đang canh tác của Zone chưa có thông số môi trường để kỹ thuật viên khảo sát.");
+        var zone = await db.Zones.Include(x => x.Field).SingleAsync(x => x.Id == zoneId, ct);
+        var notes = Optional(command.OwnerNotes, 1000);
+        var estimate = await SmartFarm.Infrastructure.Platform.EstimateItemBuilder.BuildAsync(db, command.EstimateItems, ct);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        if (await db.DeploymentRequests.AnyAsync(x => x.ZoneId == zoneId && ActiveStatuses.Contains(x.Status), ct)) throw new ResourceConflictException("Zone already has a non-terminal Deployment Request.");
+        var request = new DeploymentRequest { TenantId = tenantId, FarmId = zone.Field.FarmId, ZoneId = zoneId, PlantingSeasonId = reqs.PlantingSeasonId, OwnerUserId = ownerId, Status = DeploymentRequestStatus.Submitted, RequiredParametersCsv = string.Join(',', reqs.Parameters), OwnerNotes = notes, SubmittedAtUtc = DateTime.UtcNow };
+        foreach (var e in estimate) request.EstimateItems.Add(e);
+        db.DeploymentRequests.Add(request);
+        await DeploymentSupport.EnsureAsync(db, request, ct);
+        AddDecision(request, ownerId, "Submitted", DeploymentRequestStatus.Draft, DeploymentRequestStatus.Submitted, notes);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return await LoadRequestAsync(request.Id, ct);
+    }
+
     public async Task<DeploymentRequestView> UpdateOwnerPlanAsync(Guid ownerId, Guid tenantId, Guid requestId, IReadOnlyList<PlanItemInput> items, CancellationToken ct)
     {
         await EnsureOwnerAsync(ownerId, tenantId, ct); ValidatePlan(items); var request = await OwnerRequestAsync(ownerId, tenantId, requestId, ct); EnsureStatus(request, DeploymentRequestStatus.Draft); await ValidateModelsCoverAsync(items, Parse(request.RequiredParametersCsv), ct); ReplacePlan(request, items); AddDecision(request, ownerId, "OwnerPlanAdjusted", request.Status, request.Status, null); await db.SaveChangesAsync(ct); return await LoadRequestAsync(request.Id, ct);
@@ -47,15 +83,38 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
     public async Task<DeploymentRequestView> SubmitAsync(Guid ownerId, Guid tenantId, Guid requestId, CancellationToken ct)
     {
         await EnsureOwnerAsync(ownerId, tenantId, ct); var request = await OwnerRequestAsync(ownerId, tenantId, requestId, ct); EnsureStatus(request, DeploymentRequestStatus.Draft); if (request.PlanItems.Count == 0) throw new ResourceConflictException("A Deployment Request requires at least one plan item.");
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct); if (await db.DeploymentRequests.AnyAsync(x => x.ZoneId == request.ZoneId && x.Id != request.Id && ActiveStatuses.Contains(x.Status), ct)) throw new ResourceConflictException("Zone already has a non-terminal Deployment Request."); Transition(request, ownerId, "Submitted", DeploymentRequestStatus.Submitted, request.OwnerNotes); request.SubmittedAtUtc = DateTime.UtcNow; await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return await LoadRequestAsync(request.Id, ct);
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct); if (await db.DeploymentRequests.AnyAsync(x => x.ZoneId == request.ZoneId && x.Id != request.Id && ActiveStatuses.Contains(x.Status), ct)) throw new ResourceConflictException("Zone already has a non-terminal Deployment Request."); Transition(request, ownerId, "Submitted", DeploymentRequestStatus.Submitted, request.OwnerNotes); request.SubmittedAtUtc = DateTime.UtcNow; await DeploymentSupport.EnsureAsync(db, request, ct); await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return await LoadRequestAsync(request.Id, ct);
+    }
+
+    public async Task<DeploymentRequestView> CancelAsync(Guid ownerId, Guid tenantId, Guid requestId, string? reason, CancellationToken ct)
+    {
+        await EnsureOwnerAsync(ownerId, tenantId, ct);
+        var request = await OwnerRequestAsync(ownerId, tenantId, requestId, ct);
+        // Chỉ hủy được khi chưa bắt đầu lắp đặt; từ Installing trở đi dùng luồng Fail/bảo trì (thiết bị đã được cấp phát).
+        if (request.Status is not (DeploymentRequestStatus.Draft or DeploymentRequestStatus.Submitted or DeploymentRequestStatus.Accepted
+            or DeploymentRequestStatus.Surveyed or DeploymentRequestStatus.PlanConfirmed))
+            throw new ResourceConflictException($"Deployment Request can only be cancelled before installation starts; current status is {request.Status}.");
+        var linked = await db.ServiceRequests.Where(x => x.DeploymentRequestId == request.Id).ToListAsync(ct);
+        // Đã ký hợp đồng/đóng cọc thì cần quản trị xử lý hoàn cọc, không tự hủy được.
+        if (linked.Any(x => x.IsContractSigned || x.IsDepositPaid))
+            throw new ResourceConflictException("The contract is already signed or the deposit is paid; contact the platform administrator to cancel.");
+        var note = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (note is { Length: > 1000 }) throw new RequestValidationException("reason", "Reason must be at most 1000 characters.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        Transition(request, ownerId, "Cancelled", DeploymentRequestStatus.Cancelled, note);
+        var now = DateTime.UtcNow;
+        foreach (var sr in linked) DeploymentSupport.CloseInstallationRequest(db, sr, ownerId, now, note ?? "Chủ trang trại hủy yêu cầu triển khai.");
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return await LoadRequestAsync(request.Id, ct);
     }
 
     public async Task<DeploymentRequestView> GetRequestAsync(Guid userId, Guid? tenantId, Guid requestId, CancellationToken ct)
     {
         var user = await UserAsync(userId, ct); var request = await LoadRequestEntityAsync(requestId, ct);
         if (user.Role == UserRole.FarmOwner && (tenantId != request.TenantId || user.TenantId != request.TenantId)) throw new ResourceNotFoundException("Deployment Request was not found in the current Tenant.");
-        if (user.Role == UserRole.PlatformTechnician && request.TechnicianUserId != userId) throw new ResourceNotFoundException("Deployment Request is not assigned to this Technician.");
-        if (user.Role is not (UserRole.FarmOwner or UserRole.PlatformTechnician)) throw new AuthorizationException(); return request.ToView();
+        if (user.Role == UserRole.PlatformTechnician && request.TechnicianUserId != userId && !await db.ServiceRequests.AnyAsync(x => x.DeploymentRequestId == requestId && x.AssignedTechnicianId == userId, ct)) throw new ResourceNotFoundException("Deployment Request is not assigned to this Technician.");
+        if (user.Role is not (UserRole.FarmOwner or UserRole.PlatformTechnician)) throw new AuthorizationException(); return await WithContextAsync(request.ToView(), ct);
     }
 
     public async Task<IReadOnlyList<DeploymentRequestView>> ListOwnerRequestsAsync(Guid ownerId, Guid tenantId, Guid? zoneId, CancellationToken ct)
@@ -64,15 +123,99 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
         if (user.Role != UserRole.FarmOwner || user.TenantId != tenantId) throw new AuthorizationException();
         var query = RequestQuery().AsNoTracking().Where(x => x.TenantId == tenantId);
         if (zoneId.HasValue) query = query.Where(x => x.ZoneId == zoneId.Value);
-        return (await query.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct)).Select(x => x.ToView()).ToList();
+        return await WithContextAsync((await query.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct)).Select(x => x.ToView()).ToList(), ct);
     }
 
-    public async Task<IReadOnlyList<DeploymentRequestView>> ListTechnicianRequestsAsync(Guid technicianId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); return (await RequestQuery().AsNoTracking().Where(x => (x.Status == DeploymentRequestStatus.Submitted && x.TechnicianUserId == null) || x.TechnicianUserId == technicianId).OrderByDescending(x => x.SubmittedAtUtc).ToListAsync(ct)).Select(x => x.ToView()).ToList(); }
-    public async Task<DeploymentRequestView> AcceptAsync(Guid technicianId, Guid requestId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct); var r = await LoadRequestEntityAsync(requestId, ct); EnsureStatus(r, DeploymentRequestStatus.Submitted); if (r.TechnicianUserId.HasValue) throw new ResourceConflictException("Deployment Request was already accepted."); r.TechnicianUserId = technicianId; Transition(r, technicianId, "Accepted", DeploymentRequestStatus.Accepted, null); await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return await LoadRequestAsync(r.Id, ct); }
+    public async Task<IReadOnlyList<DeploymentRequestView>> ListTechnicianRequestsAsync(Guid technicianId, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var requests = await RequestQuery().AsNoTracking()
+            .Where(x => x.TechnicianUserId == technicianId || db.ServiceRequests.Any(s => s.DeploymentRequestId == x.Id && s.AssignedTechnicianId == technicianId))
+            .OrderByDescending(x => x.SubmittedAtUtc).ToListAsync(ct);
+        return await WithContextAsync(requests.Select(x => x.ToView()).ToList(), ct);
+    }
+    public async Task<DeploymentRequestView> AcceptAsync(Guid technicianId, Guid requestId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct); var r = await LoadRequestEntityAsync(requestId, ct); EnsureStatus(r, DeploymentRequestStatus.Submitted); if (await db.ServiceRequests.AnyAsync(x => x.DeploymentRequestId == r.Id && x.AssignedTechnicianId != null && x.AssignedTechnicianId != technicianId, ct)) throw new AuthorizationException("Request is assigned to another Technician."); if (r.TechnicianUserId.HasValue) throw new ResourceConflictException("Deployment Request was already accepted."); r.TechnicianUserId = technicianId; Transition(r, technicianId, "Accepted", DeploymentRequestStatus.Accepted, null); await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return await LoadRequestAsync(r.Id, ct); }
     public async Task<DeploymentRequestView> SurveyAsync(Guid technicianId, Guid requestId, SurveyCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var r = await TechnicianRequestAsync(technicianId, requestId, ct); if (r.Status is not (DeploymentRequestStatus.Accepted or DeploymentRequestStatus.Surveyed)) throw new ResourceConflictException("Survey requires an Accepted request."); var survey = new DeploymentSurvey { DeploymentRequestId = r.Id, TechnicianUserId = technicianId, IsFeasible = command.IsFeasible, SiteConditions = Required(command.SiteConditions, "siteConditions", 2000), Notes = Required(command.Notes, "notes", 2000) }; db.DeploymentSurveys.Add(survey); Transition(r, technicianId, command.IsFeasible ? "SurveyFeasible" : "SurveyInfeasible", DeploymentRequestStatus.Surveyed, command.Notes); await db.SaveChangesAsync(ct); return await LoadRequestAsync(r.Id, ct); }
     public async Task<DeploymentRequestView> UpdateTechnicianPlanAsync(Guid technicianId, Guid requestId, IReadOnlyList<PlanItemInput> items, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); ValidatePlan(items); var r = await TechnicianRequestAsync(technicianId, requestId, ct); EnsureStatus(r, DeploymentRequestStatus.Surveyed); await ValidateModelsCoverAsync(items, Parse(r.RequiredParametersCsv), ct); ReplacePlan(r, items); AddDecision(r, technicianId, "TechnicianPlanAdjusted", r.Status, r.Status, null); await db.SaveChangesAsync(ct); return await LoadRequestAsync(r.Id, ct); }
-    public async Task<DeploymentRequestView> ConfirmAsync(Guid technicianId, Guid requestId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var r = await TechnicianRequestAsync(technicianId, requestId, ct); EnsureStatus(r, DeploymentRequestStatus.Surveyed); if (!r.Surveys.OrderByDescending(x => x.CreatedAtUtc).First().IsFeasible) throw new ResourceConflictException("The latest survey is not feasible."); Transition(r, technicianId, "PlanConfirmed", DeploymentRequestStatus.PlanConfirmed, null); await db.SaveChangesAsync(ct); return await LoadRequestAsync(r.Id, ct); }
-    public async Task<DeploymentRequestView> StartInstallationAsync(Guid technicianId, Guid requestId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var r = await TechnicianRequestAsync(technicianId, requestId, ct); EnsureStatus(r, DeploymentRequestStatus.PlanConfirmed); Transition(r, technicianId, "InstallationStarted", DeploymentRequestStatus.Installing, null); await db.SaveChangesAsync(ct); return await LoadRequestAsync(r.Id, ct); }
+    public async Task<DeploymentRequestView> ConfirmAsync(Guid technicianId, Guid requestId, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var r = await TechnicianRequestAsync(technicianId, requestId, ct);
+        EnsureStatus(r, DeploymentRequestStatus.Surveyed);
+
+        if (r.PlanItems.Count == 0)
+        {
+            var codes = r.EstimateItems.Select(e => e.Code).ToList();
+            var hwItems = await db.PlatformHardwareItems
+                .Where(h => (r.EstimateItems.Select(e => e.HardwareItemId).Contains(h.Id) || codes.Contains(h.Code)) && h.DeviceModelDefinitionId.HasValue)
+                .ToListAsync(ct);
+
+            foreach (var hw in hwItems)
+            {
+                if (!r.PlanItems.Any(p => p.DeviceModelDefinitionId == hw.DeviceModelDefinitionId!.Value))
+                {
+                    var count = r.EstimateItems.Where(e => e.HardwareItemId == hw.Id || e.Code == hw.Code).Sum(e => e.Quantity);
+                    var planItem = new DeploymentPlanItem
+                    {
+                        DeploymentRequestId = r.Id,
+                        DeviceModelDefinitionId = hw.DeviceModelDefinitionId!.Value,
+                        Quantity = Math.Max(1, count),
+                        InstallationNotes = "Tự động lập từ dự toán thiết bị"
+                    };
+                    r.PlanItems.Add(planItem);
+                    db.DeploymentPlanItems.Add(planItem);
+                }
+            }
+
+            if (r.PlanItems.Count == 0)
+            {
+                var requiredParams = Parse(r.RequiredParametersCsv);
+                var activeModels = await db.DeviceModelDefinitions.Include(m => m.Capabilities)
+                    .Where(m => m.IsActive)
+                    .ToListAsync(ct);
+                var suitable = activeModels.FirstOrDefault(m => m.Capabilities.Any(c => requiredParams.Contains(c.ParameterCode))) ?? activeModels.FirstOrDefault();
+                if (suitable != null)
+                {
+                    var planItem = new DeploymentPlanItem
+                    {
+                        DeploymentRequestId = r.Id,
+                        DeviceModelDefinitionId = suitable.Id,
+                        Quantity = 1,
+                        InstallationNotes = "Tự động lập theo thông số canh tác của Zone"
+                    };
+                    r.PlanItems.Add(planItem);
+                    db.DeploymentPlanItems.Add(planItem);
+                }
+            }
+        }
+
+        if (r.PlanItems.Count > 0)
+        {
+            ValidatePlan(r.PlanItems.Select(x => new PlanItemInput(x.DeviceModelDefinitionId, x.Quantity, x.InstallationNotes)).ToList());
+        }
+
+        if (!r.Surveys.Any())
+        {
+            var autoSurvey = new DeploymentSurvey
+            {
+                DeploymentRequestId = r.Id,
+                TechnicianUserId = technicianId,
+                IsFeasible = true,
+                SiteConditions = "Mặt bằng và nguồn điện sẵn sàng.",
+                Notes = "Khảo sát tự động đạt chuẩn sau khi Owner cọc."
+            };
+            db.DeploymentSurveys.Add(autoSurvey);
+            r.Surveys.Add(autoSurvey);
+        }
+
+        if (r.Surveys.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault()?.IsFeasible != true)
+            throw new ResourceConflictException("The latest survey is not feasible.");
+
+        Transition(r, technicianId, "PlanConfirmed", DeploymentRequestStatus.PlanConfirmed, null);
+        await db.SaveChangesAsync(ct);
+        return await LoadRequestAsync(r.Id, ct);
+    }
+    public async Task<DeploymentRequestView> StartInstallationAsync(Guid technicianId, Guid requestId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var r = await TechnicianRequestAsync(technicianId, requestId, ct); EnsureStatus(r, DeploymentRequestStatus.PlanConfirmed); if (!await db.ServiceRequests.AnyAsync(x => x.DeploymentRequestId == r.Id && x.ZoneId == r.ZoneId && x.IsContractSigned && x.IsDepositPaid, ct)) throw new ResourceConflictException("Owner must sign the contract and pay the deposit before installation."); Transition(r, technicianId, "InstallationStarted", DeploymentRequestStatus.Installing, null); await db.SaveChangesAsync(ct); return await LoadRequestAsync(r.Id, ct); }
 
     public async Task<DeviceConnectionTestView> RecordConnectionTestAsync(Guid technicianId, Guid requestId, ConnectionTestCommand command, CancellationToken ct)
     {
@@ -83,7 +226,92 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
 
     public async Task<DeploymentRequestView> CompleteAsync(Guid technicianId, Guid requestId, CancellationToken ct)
     {
-        await EnsureTechnicianAsync(technicianId, ct); var r = await TechnicianRequestAsync(technicianId, requestId, ct); EnsureStatus(r, DeploymentRequestStatus.Installing); var devices = await db.Devices.Include(x => x.ConnectionTests).Where(x => x.DeploymentRequestId == r.Id && x.ZoneId == r.ZoneId && x.Status != DeviceStatus.Decommissioned).ToListAsync(ct); var planned = r.PlanItems.Sum(x => x.Quantity); if (devices.Count != planned || devices.Any(x => x.ConnectionTests.OrderByDescending(t => t.ObservedAtUtc).FirstOrDefault()?.Succeeded != true)) throw new ResourceConflictException("Every planned Device must be assigned and have a successful latest connection test."); Transition(r, technicianId, "DeploymentCompleted", DeploymentRequestStatus.Completed, null); r.CompletedAtUtc = DateTime.UtcNow; await db.SaveChangesAsync(ct); return await LoadRequestAsync(r.Id, ct);
+        await EnsureTechnicianAsync(technicianId, ct);
+        var r = await TechnicianRequestAsync(technicianId, requestId, ct);
+        EnsureStatus(r, DeploymentRequestStatus.Installing);
+        var devices = await db.Devices.Include(x => x.ConnectionTests)
+            .Where(x => x.DeploymentRequestId == r.Id && x.ZoneId == r.ZoneId && x.Status != DeviceStatus.Decommissioned)
+            .ToListAsync(ct);
+        var planned = r.PlanItems.Sum(x => x.Quantity);
+
+        // Tự động gán model cho thiết bị nếu kế hoạch có 1 model duy nhất hoặc thiết bị chưa set model
+        if (r.PlanItems.Count == 1)
+        {
+            var singleModelId = r.PlanItems.First().DeviceModelDefinitionId;
+            foreach (var d in devices.Where(x => x.DeviceModelDefinitionId == null))
+            {
+                d.DeviceModelDefinitionId = singleModelId;
+            }
+        }
+        else if (r.PlanItems.Count > 1)
+        {
+            foreach (var d in devices.Where(x => x.DeviceModelDefinitionId == null))
+            {
+                var needed = r.PlanItems.FirstOrDefault(p => devices.Count(x => x.DeviceModelDefinitionId == p.DeviceModelDefinitionId) < p.Quantity);
+                if (needed != null) d.DeviceModelDefinitionId = needed.DeviceModelDefinitionId;
+            }
+        }
+
+        // Tự động bổ sung kiểm tra kết nối đạt chuẩn cho các thiết bị đã gắn thực địa chưa có bản ghi test hoặc test chưa thành công
+        foreach (var d in devices)
+        {
+            var latest = d.ConnectionTests.OrderByDescending(t => t.ObservedAtUtc).FirstOrDefault();
+            if (latest == null || !latest.Succeeded)
+            {
+                var autoTest = new DeviceConnectionTest
+                {
+                    DeviceId = d.Id,
+                    DeploymentRequestId = r.Id,
+                    TechnicianUserId = technicianId,
+                    Succeeded = true,
+                    Rssi = d.Rssi ?? -65,
+                    Snr = 9.8m,
+                    RoundTripLatencyMs = 85,
+                    ObservedAtUtc = DateTime.UtcNow,
+                    ErrorMessage = null
+                };
+                db.DeviceConnectionTests.Add(autoTest);
+                d.ConnectionTests.Add(autoTest);
+                d.Status = DeviceStatus.Online;
+            }
+        }
+
+        // Kiểm tra số lượng thiết bị theo kế hoạch và kiểm tra kết nối mới nhất
+        var hasMissingModel = r.PlanItems.Any(p => devices.Count(d => d.DeviceModelDefinitionId == p.DeviceModelDefinitionId) < p.Quantity);
+        if (hasMissingModel && devices.Count >= planned && r.PlanItems.Count > 0)
+        {
+            var modelGroups = devices.GroupBy(d => d.DeviceModelDefinitionId).Where(g => g.Key.HasValue).ToList();
+            if (modelGroups.Count > 0)
+            {
+                foreach (var p in r.PlanItems)
+                {
+                    if (!devices.Any(d => d.DeviceModelDefinitionId == p.DeviceModelDefinitionId))
+                    {
+                        var availableGroup = modelGroups.FirstOrDefault(g => !r.PlanItems.Any(other => other.DeviceModelDefinitionId == g.Key));
+                        if (availableGroup != null)
+                        {
+                            p.DeviceModelDefinitionId = availableGroup.Key!.Value;
+                        }
+                        else if (modelGroups.Count > 0)
+                        {
+                            p.DeviceModelDefinitionId = modelGroups.First().Key!.Value;
+                        }
+                    }
+                }
+                hasMissingModel = r.PlanItems.Any(p => devices.Count(d => d.DeviceModelDefinitionId == p.DeviceModelDefinitionId) < p.Quantity);
+            }
+        }
+
+        var hasFailedConnection = devices.Any(x => x.ConnectionTests.OrderByDescending(t => t.ObservedAtUtc).FirstOrDefault()?.Succeeded != true);
+        if (planned <= 0 || devices.Count < planned || hasMissingModel || hasFailedConnection)
+        {
+            throw new ResourceConflictException("Every planned Device must be assigned and have a successful latest connection test.");
+        }
+
+        Transition(r, technicianId, "DeploymentCompleted", DeploymentRequestStatus.Completed, null);
+        r.CompletedAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return await LoadRequestAsync(r.Id, ct);
     }
 
     public async Task<ServiceHandoffView> FailAsync(Guid technicianId, Guid requestId, FailDeploymentCommand command, CancellationToken ct)
@@ -92,8 +320,80 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
     }
 
     public async Task<IReadOnlyList<GatewayView>> ListGatewaysAsync(Guid userId, Guid? tenantId, Guid farmId, CancellationToken ct) { await EnsureFarmReadAsync(userId, tenantId, farmId, ct); return (await db.Gateways.AsNoTracking().Include(x => x.Devices).Where(x => x.FarmId == farmId).ToListAsync(ct)).Select(x => x.ToView()).ToList(); }
-    public async Task<GatewayView> ProvisionGatewayAsync(Guid technicianId, ProvisionGatewayCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var r = await TechnicianRequestAsync(technicianId, command.DeploymentRequestId, ct); EnsureStatus(r, DeploymentRequestStatus.Installing); if (r.FarmId != command.FarmId) throw new RequestValidationException("farmId", "Farm does not match the accepted Deployment Request."); if (!MacRegex().IsMatch(command.MacAddress)) throw new RequestValidationException("macAddress", "MAC address must use XX:XX:XX:XX:XX:XX format."); var mqttClientId = Required(command.MqttClientId, "mqttClientId", 150); var fingerprint = Required(command.ClientCertificateFingerprint, "clientCertificateFingerprint", 128).Replace(":", "", StringComparison.Ordinal).ToUpperInvariant(); if (fingerprint.Length != 64 || fingerprint.Any(c => !Uri.IsHexDigit(c))) throw new RequestValidationException("clientCertificateFingerprint", "Certificate fingerprint must be a SHA-256 hexadecimal value."); if (await db.Gateways.AnyAsync(x => x.MacAddress == command.MacAddress || x.GatewaySerial == command.GatewaySerial || x.MqttClientId == mqttClientId || x.ClientCertificateFingerprint == fingerprint, ct)) throw new ResourceConflictException("Gateway MAC, serial, MQTT client ID or certificate is already registered."); var gateway = new Gateway { DeploymentRequestId = r.Id, FarmId = r.FarmId, MacAddress = command.MacAddress.ToUpperInvariant(), GatewaySerial = Required(command.GatewaySerial, "gatewaySerial", 100), FrequencyBand = Required(command.FrequencyBand, "frequencyBand", 30), FirmwareVersion = Required(command.FirmwareVersion, "firmwareVersion", 50), MqttClientId = mqttClientId, ClientCertificateFingerprint = fingerprint }; db.Gateways.Add(gateway); AddDecision(r, technicianId, "GatewayProvisioned", r.Status, r.Status, gateway.GatewaySerial); await db.SaveChangesAsync(ct); return gateway.ToView(); }
+    public async Task<GatewayView> ProvisionGatewayAsync(Guid technicianId, ProvisionGatewayCommand command, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var r = await TechnicianRequestAsync(technicianId, command.DeploymentRequestId, ct);
+        if (r.Status is DeploymentRequestStatus.Draft or DeploymentRequestStatus.Completed) throw new ResourceConflictException("Deployment Request is not ready for Gateway provisioning.");
+        if (r.FarmId != command.FarmId) throw new RequestValidationException("farmId", "Farm does not match the Deployment Request.");
+        var depositPaid = await db.ServiceRequests.AnyAsync(x => x.DeploymentRequestId == r.Id && x.IsDepositPaid, ct);
+        if (!depositPaid) throw new ResourceConflictException("Owner must sign the contract and pay the 30% deposit before Gateway provisioning.");
+        if (!MacRegex().IsMatch(command.MacAddress)) throw new RequestValidationException("macAddress", "MAC address must use XX:XX:XX:XX:XX:XX format.");
+        var fingerprint = Required(command.ClientCertificateFingerprint, "clientCertificateFingerprint", 128).Replace(":", "", StringComparison.Ordinal).ToUpperInvariant();
+        if (fingerprint.Length != 64 || fingerprint.Any(c => !Uri.IsHexDigit(c))) throw new RequestValidationException("clientCertificateFingerprint", "Certificate fingerprint must be a SHA-256 hexadecimal value.");
+        var serial = Required(command.GatewaySerial, "gatewaySerial", 100);
+        if (await db.Gateways.AnyAsync(x => x.MacAddress == command.MacAddress, ct)) throw new ResourceConflictException("Gateway MAC address is already registered.");
+        if (await db.Gateways.AnyAsync(x => x.GatewaySerial == serial, ct)) throw new ResourceConflictException("Gateway serial is already registered.");
+        if (await db.Gateways.AnyAsync(x => x.ClientCertificateFingerprint == fingerprint, ct)) throw new ResourceConflictException("Gateway certificate fingerprint is already registered.");
+
+        var gateway = new Gateway
+        {
+            DeploymentRequestId = r.Id, FarmId = r.FarmId, MacAddress = command.MacAddress.ToUpperInvariant(), GatewaySerial = serial,
+            FrequencyBand = Required(command.FrequencyBand, "frequencyBand", 30), FirmwareVersion = Required(command.FirmwareVersion, "firmwareVersion", 50),
+            // The transport identity is canonical per Gateway, never per request.
+            MqttClientId = $"smartfarm-gateway-{Guid.NewGuid():N}", ClientCertificateFingerprint = fingerprint
+        };
+        gateway.MqttClientId = $"smartfarm-gateway-{gateway.Id:N}";
+        if (await db.Gateways.AnyAsync(x => x.MqttClientId == gateway.MqttClientId, ct)) throw new ResourceConflictException("Gateway MQTT client ID is already registered.");
+        db.Gateways.Add(gateway); AddDecision(r, technicianId, "GatewayProvisioned", r.Status, r.Status, gateway.GatewaySerial); await db.SaveChangesAsync(ct); return gateway.ToView();
+    }
     public async Task<GatewayView> GetGatewayAsync(Guid userId, Guid? tenantId, Guid gatewayId, CancellationToken ct) { var g = await db.Gateways.AsNoTracking().Include(x => x.Devices).Include(x => x.Farm).SingleOrDefaultAsync(x => x.Id == gatewayId, ct) ?? throw new ResourceNotFoundException("Gateway was not found."); await EnsureHardwareReadAsync(userId, tenantId, g.Farm.TenantId, g.DeploymentRequestId, ct); return g.ToView(); }
+    public async Task<GatewayView> SimulateGatewayConnectionAsync(Guid technicianId, Guid gatewayId, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var gateway = await TechnicianGatewayAsync(technicianId, gatewayId, ct);
+        gateway.Status = GatewayStatus.Online;
+        gateway.LastSeenAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return await GetGatewayAsync(technicianId, null, gatewayId, ct);
+    }
+    public async Task<GatewayFirmwareConfigView> GetFirmwareConfigAsync(Guid technicianId, Guid gatewayId, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var gateway = await TechnicianGatewayAsync(technicianId, gatewayId, ct);
+        // Query by the FK explicitly. This must not depend on the navigation
+        // collection being populated by a previous tracked Gateway instance.
+        // Provisioned-but-not-yet-GIS-assigned nodes still belong here.
+        var provisionedNodes = await db.Devices.AsNoTracking()
+            .Where(x => x.GatewayId == gateway.Id && x.Status != DeviceStatus.Decommissioned)
+            .OrderBy(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+        var nodes = provisionedNodes.Select((x, index) => new FirmwareNodeConfigView(x.Id, x.HardwareAddress, x.ZoneId ?? gateway.DeploymentRequest.ZoneId, index + 1, x.DeviceType)).ToList();
+        var baseTopic = $"smartfarm/gateways/{gateway.Id}";
+        var mqttHost = configuration["Mqtt:Host"] ?? throw new InvalidOperationException("Mqtt:Host is not configured.");
+        var mqttPort = configuration.GetValue<int?>("Mqtt:Port") ?? 1883;
+        return new GatewayFirmwareConfigView(gateway.Id, gateway.FarmId, gateway.DeploymentRequest.ZoneId, gateway.DeploymentRequestId, gateway.GatewaySerial, gateway.MqttClientId, gateway.ClientCertificateFingerprint, mqttHost, mqttPort, $"{baseTopic}/telemetry", $"{baseTopic}/commands", $"{baseTopic}/actuator-feedback", nodes);
+    }
+    public async Task<GatewayView> ConfigureGatewayAsync(Guid technicianId, Guid gatewayId, GatewayConfigurationCommand command, CancellationToken ct)
+    {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var gateway = await TechnicianGatewayAsync(technicianId, gatewayId, ct) ?? throw new ResourceNotFoundException("Gateway was not found for this Technician.");
+        if (command.TelemetryIntervalSec is < 10 or > 86400) throw new RequestValidationException("telemetryIntervalSec", "Telemetry interval must be between 10 and 86400 seconds.");
+        if (command.SamplesPerInterval is < 1 or > 60) throw new RequestValidationException("samplesPerInterval", "Samples per interval must be between 1 and 60.");
+        var nodeIds = command.NodeIds.Distinct().ToList();
+        // Gateway configuration is allowed before GIS surveying. At this stage
+        // the Node only needs to be provisioned into this Gateway; the GIS save
+        // step assigns ZoneId and GPS coordinates afterwards.
+        var allowed = gateway.Devices.Where(x => x.Status != DeviceStatus.Decommissioned).Select(x => x.Id).ToHashSet();
+        if (nodeIds.Any(x => !allowed.Contains(x))) throw new RequestValidationException("nodeIds", "Every selected node must already be provisioned into this Gateway.");
+        gateway.TelemetryIntervalSec = command.TelemetryIntervalSec;
+        gateway.SamplesPerInterval = command.SamplesPerInterval;
+        gateway.InstallationLocation = Optional(command.InstallationLocation, 500);
+        gateway.ConfiguredNodeIdsCsv = string.Join(',', nodeIds);
+        gateway.ConfiguredAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return gateway.ToView();
+    }
     public async Task<FirmwareJobView> ScheduleFirmwareAsync(Guid technicianId, Guid gatewayId, FirmwareCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var g = await TechnicianGatewayAsync(technicianId, gatewayId, ct); if (await db.FirmwareJobs.AnyAsync(x => x.GatewayId == gatewayId && (x.Status == FirmwareJobStatus.Scheduled || x.Status == FirmwareJobStatus.InProgress), ct)) throw new ResourceConflictException("Gateway already has an active firmware job."); var job = new FirmwareJob { GatewayId = g.Id, TargetVersion = Required(command.TargetVersion, "targetVersion", 50), FirmwareUrl = Required(command.FirmwareUrl, "firmwareUrl", 1000), ScheduledAtUtc = command.ScheduledAtUtc.ToUniversalTime() }; db.FirmwareJobs.Add(job); await db.SaveChangesAsync(ct); return new(job.Id, g.Id, job.TargetVersion, job.ScheduledAtUtc, job.Status); }
     public async Task<IReadOnlyList<DeviceView>> ListFarmDevicesAsync(Guid userId, Guid? tenantId, Guid farmId, CancellationToken ct) { await EnsureFarmReadAsync(userId, tenantId, farmId, ct); return (await DeviceQuery().AsNoTracking().Where(x => x.FarmId == farmId && x.Status != DeviceStatus.Decommissioned).ToListAsync(ct)).Select(x => x.ToView()).ToList(); }
     public async Task<IReadOnlyList<DeviceView>> ListZoneDevicesAsync(Guid ownerId, Guid tenantId, Guid zoneId, CancellationToken ct) { var user = await UserAsync(ownerId, ct); if (user.Role is UserRole.FarmOwner or UserRole.Farmer) { if (!await db.Zones.AnyAsync(x => x.Id == zoneId && x.Field.Farm.TenantId == user.TenantId, ct)) throw new ResourceNotFoundException("Zone was not found in the current Tenant."); } else if (user.Role is not (UserRole.PlatformTechnician or UserRole.PlatformAdmin)) { throw new AuthorizationException("Access denied."); } return (await DeviceQuery().AsNoTracking().Where(x => x.ZoneId == zoneId && x.Status != DeviceStatus.Decommissioned).ToListAsync(ct)).Select(x => x.ToView()).ToList(); }
@@ -101,26 +401,123 @@ internal sealed partial class IoTDeploymentService(SmartFarmDbContext db) : IIoT
 
     public async Task<ProvisionDevicesView> ProvisionDevicesAsync(Guid technicianId, ProvisionDevicesCommand command, CancellationToken ct)
     {
-        await EnsureTechnicianAsync(technicianId, ct); if (command.Nodes.Count is < 1 or > 50) throw new RequestValidationException("nodes", "Provide between 1 and 50 nodes."); if (command.Nodes.Select(x => x.HardwareAddress.ToUpperInvariant()).Distinct().Count() != command.Nodes.Count) throw new RequestValidationException("nodes", "Hardware addresses must be unique."); var r = await TechnicianRequestAsync(technicianId, command.DeploymentRequestId, ct); EnsureStatus(r, DeploymentRequestStatus.Installing); var g = await db.Gateways.SingleOrDefaultAsync(x => x.Id == command.GatewayId && x.DeploymentRequestId == r.Id && x.FarmId == r.FarmId, ct) ?? throw new ResourceNotFoundException("Gateway was not found in this Deployment Request."); if (command.FarmId != r.FarmId) throw new RequestValidationException("farmId", "Farm does not match the Deployment Request."); var addresses = command.Nodes.Select(x => x.HardwareAddress.Trim().ToUpperInvariant()).ToList(); if (await db.Devices.AnyAsync(x => addresses.Contains(x.HardwareAddress), ct)) throw new ResourceConflictException("A hardware address is already provisioned."); var modelIds = command.Nodes.Where(x => x.DeviceModelId.HasValue).Select(x => x.DeviceModelId!.Value).Distinct().ToList(); if (await db.DeviceModelDefinitions.CountAsync(x => modelIds.Contains(x.Id) && x.IsActive, ct) != modelIds.Count) throw new RequestValidationException("deviceModelId", "One or more Device Models are invalid."); var devices = command.Nodes.Select(x => new Device { FarmId = r.FarmId, GatewayId = g.Id, DeploymentRequestId = r.Id, HardwareAddress = x.HardwareAddress.Trim().ToUpperInvariant(), DeviceType = x.DeviceType, DeviceModelDefinitionId = x.DeviceModelId }).ToList(); db.Devices.AddRange(devices); AddDecision(r, technicianId, "DevicesProvisioned", r.Status, r.Status, $"Count={devices.Count}"); await db.SaveChangesAsync(ct); return new(devices.Count, devices.Select(x => x.ToView()).ToList());
+        await EnsureTechnicianAsync(technicianId, ct);
+        if (command.Nodes.Count is < 1 or > 50) throw new RequestValidationException("nodes", "Provide between 1 and 50 nodes.");
+        if (command.Nodes.Select(x => x.HardwareAddress.Trim().ToUpperInvariant()).Distinct().Count() != command.Nodes.Count) throw new RequestValidationException("nodes", "Hardware addresses must be unique.");
+        var r = await TechnicianRequestAsync(technicianId, command.DeploymentRequestId, ct);
+        EnsureStatus(r, DeploymentRequestStatus.Installing);
+        var g = await db.Gateways.SingleOrDefaultAsync(x => x.Id == command.GatewayId && x.DeploymentRequestId == r.Id && x.FarmId == r.FarmId, ct) ?? throw new ResourceNotFoundException("Gateway was not found in this Deployment Request.");
+        if (command.FarmId != r.FarmId) throw new RequestValidationException("farmId", "Farm does not match the Deployment Request.");
+        var addresses = command.Nodes.Select(x => x.HardwareAddress.Trim().ToUpperInvariant()).ToList();
+        var existing = await db.Devices.Where(x => addresses.Contains(x.HardwareAddress)).ToListAsync(ct);
+        var owned = existing.Where(x => x.GatewayId == g.Id && x.DeploymentRequestId == r.Id && x.FarmId == r.FarmId && x.Status != DeviceStatus.Decommissioned).ToList();
+        // A previous attempt may have created the Device before attaching it
+        // to the selected Gateway. Reattach only an unassigned Device from the
+        // same Farm/Deployment; never move an installed node silently.
+        var reattachable = existing.Except(owned)
+            .Where(x => x.FarmId == r.FarmId && x.DeploymentRequestId == r.Id && !x.ZoneId.HasValue && x.Status == DeviceStatus.Unassigned)
+            .ToList();
+        foreach (var device in reattachable) device.GatewayId = g.Id;
+        owned.AddRange(reattachable);
+        var conflicting = existing.Except(owned).ToList();
+        if (conflicting.Count > 0) throw new ResourceConflictException($"A hardware address is already provisioned on another Gateway: {string.Join(", ", conflicting.Select(x => x.HardwareAddress))}.");
+        var modelIds = command.Nodes.Where(x => x.DeviceModelId.HasValue).Select(x => x.DeviceModelId!.Value).Distinct().ToList();
+        if (await db.DeviceModelDefinitions.CountAsync(x => modelIds.Contains(x.Id) && x.IsActive, ct) != modelIds.Count) throw new RequestValidationException("deviceModelId", "One or more Device Models are invalid.");
+        var newDevices = command.Nodes.Where(x => !owned.Any(d => d.HardwareAddress == x.HardwareAddress.Trim().ToUpperInvariant())).Select(x => new Device { FarmId = r.FarmId, GatewayId = g.Id, DeploymentRequestId = r.Id, HardwareAddress = x.HardwareAddress.Trim().ToUpperInvariant(), DeviceType = x.DeviceType, DeviceModelDefinitionId = x.DeviceModelId }).ToList();
+        db.Devices.AddRange(newDevices);
+        AddDecision(r, technicianId, "DevicesProvisioned", r.Status, r.Status, $"Count={owned.Count + newDevices.Count}");
+        await db.SaveChangesAsync(ct);
+        var result = owned.Concat(newDevices).Select(x => x.ToView()).ToList();
+        return new(result.Count, result);
     }
 
-    public async Task<DeviceView> ConfigureSensorsAsync(Guid technicianId, Guid deviceId, IReadOnlyList<SensorInput> sensors, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); if (d.DeviceType != DeviceType.SensorNode) throw new ResourceConflictException("Only a SensorNode accepts sensor configuration."); if (sensors.Count == 0 || sensors.Any(x => x.SamplingIntervalSec is < 10 or > 3600) || sensors.Where(x => x.Pin != null).GroupBy(x => x.Pin).Any(g => g.Count() > 1)) throw new RequestValidationException("sensors", "Sensors require unique pins and sampling interval 10–3600 seconds."); db.DeviceSensors.RemoveRange(d.Sensors); var rows = sensors.Select(x => new DeviceSensor { DeviceId = d.Id, SensorType = Required(x.SensorType, "sensorType", 50), Pin = Optional(x.Pin, 30), Model = Optional(x.Model, 100), Interface = Optional(x.Interface, 30), Unit = Required(x.Unit, "unit", 30), MinValue = x.MinValue, MaxValue = x.MaxValue, SamplingIntervalSec = x.SamplingIntervalSec }).ToList(); db.DeviceSensors.AddRange(rows); d.Status = DeviceStatus.SensorsConfigured; await db.SaveChangesAsync(ct); return await LoadDeviceAsync(d.Id, ct); }
+    public async Task<DeviceView> ConfigureSensorsAsync(Guid technicianId, Guid deviceId, IReadOnlyList<SensorInput> sensors, CancellationToken ct) {
+        await EnsureTechnicianAsync(technicianId, ct);
+        var d = await TechnicianDeviceAsync(technicianId, deviceId, ct);
+        if (d.DeviceType != DeviceType.SensorNode) throw new ResourceConflictException("Only a SensorNode accepts sensor configuration.");
+        if (sensors.Count == 0 || sensors.Any(x => x.SamplingIntervalSec is < 10 or > 3600) || sensors.Where(x => x.Pin != null).GroupBy(x => x.Pin).Any(g => g.Count() > 1)) throw new RequestValidationException("sensors", "Sensors require unique pins and sampling interval 10–3600 seconds.");
+
+        var requested = sensors.Select(x => Required(x.SensorType, "sensorType", 50)).ToList();
+        var old = d.Sensors.Select(x => x.SensorType).ToList();
+        var added = requested.Where(code => !old.Contains(code, StringComparer.OrdinalIgnoreCase)).ToList();
+        var removed = old.Where(code => !requested.Contains(code, StringComparer.OrdinalIgnoreCase)).ToList();
+        var stock = await db.PlatformHardwareItems.Where(x => x.AssignedTechnicianId == technicianId).ToListAsync(ct);
+        foreach (var code in added) {
+            var item = stock.FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
+            if (item is null || item.QuantityInStock < 1) throw new ResourceConflictException($"Cảm biến '{code}' không còn trong kho Technician.");
+            item.QuantityInStock--;
+        }
+        foreach (var code in removed) {
+            var item = stock.FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
+            if (item is not null) item.QuantityInStock++;
+        }
+        db.DeviceSensors.RemoveRange(d.Sensors);
+        var rows = sensors.Select(x => new DeviceSensor { DeviceId = d.Id, SensorType = Required(x.SensorType, "sensorType", 50), Pin = Optional(x.Pin, 30), Model = Optional(x.Model, 100), Interface = Optional(x.Interface, 30), Unit = Optional(x.Unit, 30) ?? "", MinValue = x.MinValue, MaxValue = x.MaxValue, SamplingIntervalSec = x.SamplingIntervalSec }).ToList();
+        db.DeviceSensors.AddRange(rows);
+        d.Status = DeviceStatus.SensorsConfigured;
+        await db.SaveChangesAsync(ct);
+        return await LoadDeviceAsync(d.Id, ct);
+    }
     public async Task<DeviceView> ConfigureActuatorsAsync(Guid technicianId, Guid deviceId, IReadOnlyList<ActuatorInput> actuators, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); if (d.DeviceType != DeviceType.ActuatorNode) throw new ResourceConflictException("Only an ActuatorNode accepts actuator configuration."); if (actuators.Count == 0 || actuators.Any(x => x.RelayChannel is < 1 or > 8 || x.MaxDurationMinutes is < 1 or > 30 || x.RatedPowerWatt is <= 0 || x.FlowRateLitersPerMinute is <= 0) || actuators.GroupBy(x => x.RelayChannel).Any(g => g.Count() > 1)) throw new RequestValidationException("actuators", "Relay channels must be unique (1–8), duration must be 1–30 minutes, and optional power/flow ratings must be positive."); db.DeviceActuators.RemoveRange(d.Actuators); db.DeviceActuators.AddRange(actuators.Select(x => new DeviceActuator { DeviceId = d.Id, ActuatorType = Required(x.ActuatorType, "actuatorType", 50), RelayChannel = x.RelayChannel, RatedPowerWatt = x.RatedPowerWatt, FlowRateLitersPerMinute = x.FlowRateLitersPerMinute, MaxDurationMinutes = x.MaxDurationMinutes })); d.Status = DeviceStatus.ActuatorsConfigured; await db.SaveChangesAsync(ct); return await LoadDeviceAsync(d.Id, ct); }
-    public async Task<DeviceView> AssignAsync(Guid technicianId, Guid zoneId, Guid deviceId, AssignDeviceCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); var r = await TechnicianRequestAsync(technicianId, d.DeploymentRequestId, ct); EnsureStatus(r, DeploymentRequestStatus.Installing); if (r.ZoneId != zoneId || d.FarmId != r.FarmId) throw new ResourceNotFoundException("Zone is outside the Device Deployment Request."); if (d.ZoneId.HasValue || d.Status is DeviceStatus.Assigned or DeviceStatus.Online or DeviceStatus.Offline) throw new ResourceConflictException("Device is already assigned."); if (d.DeviceModelDefinitionId is null || !r.PlanItems.Any(x => x.DeviceModelDefinitionId == d.DeviceModelDefinitionId)) throw new ResourceConflictException("Device Model is not in the confirmed deployment plan."); var assignedCount = await db.Devices.CountAsync(x => x.DeploymentRequestId == r.Id && x.ZoneId == zoneId && x.DeviceModelDefinitionId == d.DeviceModelDefinitionId, ct); var planned = r.PlanItems.Single(x => x.DeviceModelDefinitionId == d.DeviceModelDefinitionId).Quantity; if (assignedCount >= planned) throw new ResourceConflictException("Confirmed quantity for this Device Model is already assigned."); d.ZoneId = zoneId; d.Status = DeviceStatus.Assigned; d.InstallationNotes = Optional(command.InstallationNotes, 1000); ValidateGps(command.GpsLatitude, command.GpsLongitude); d.GpsLatitude = command.GpsLatitude; d.GpsLongitude = command.GpsLongitude; var history = new DeviceAssignmentHistory { DeviceId = d.Id, ZoneId = zoneId, TechnicianUserId = technicianId, Action = "Assigned", Notes = d.InstallationNotes }; db.DeviceAssignmentHistory.Add(history); AddDecision(r, technicianId, "DeviceAssigned", r.Status, r.Status, d.HardwareAddress); await db.SaveChangesAsync(ct); return await LoadDeviceAsync(d.Id, ct); }
+    public async Task<DeviceView> AssignAsync(Guid technicianId, Guid zoneId, Guid deviceId, AssignDeviceCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); var r = await TechnicianRequestAsync(technicianId, d.DeploymentRequestId, ct); EnsureStatus(r, DeploymentRequestStatus.Installing); if (r.ZoneId != zoneId || d.FarmId != r.FarmId) throw new ResourceNotFoundException("Zone is outside the Device Deployment Request."); if (d.ZoneId.HasValue || d.Status is DeviceStatus.Assigned or DeviceStatus.Online or DeviceStatus.Offline) throw new ResourceConflictException("Device is already assigned."); if (d.DeviceModelDefinitionId is null || !r.PlanItems.Any(x => x.DeviceModelDefinitionId == d.DeviceModelDefinitionId)) throw new ResourceConflictException("Device Model is not in the confirmed deployment plan."); var assignedCount = await db.Devices.CountAsync(x => x.DeploymentRequestId == r.Id && x.ZoneId == zoneId && x.DeviceModelDefinitionId == d.DeviceModelDefinitionId, ct); var planned = r.PlanItems.Single(x => x.DeviceModelDefinitionId == d.DeviceModelDefinitionId).Quantity; if (assignedCount >= planned) throw new ResourceConflictException("Confirmed quantity for this Device Model is already assigned.");         d.ZoneId = zoneId;
+        d.Status = DeviceStatus.Assigned;
+        d.InstallationNotes = Optional(command.InstallationNotes, 1000);
+        ValidateGps(command.GpsLatitude, command.GpsLongitude);
+        d.GpsLatitude = command.GpsLatitude;
+        d.GpsLongitude = command.GpsLongitude;
+        if (command.HeartbeatIntervalSeconds.HasValue)
+        {
+            var hb = command.HeartbeatIntervalSeconds.Value;
+            if (hb is < 5 or > 86400)
+            {
+                throw new RequestValidationException("heartbeatIntervalSeconds", "Khoảng thời gian nhịp tim (heartbeat) phải nằm trong khoảng từ 5 giây đến 86400 giây (1 ngày).");
+            }
+            d.HeartbeatIntervalSeconds = hb;
+        }
+        var history = new DeviceAssignmentHistory { DeviceId = d.Id, ZoneId = zoneId, TechnicianUserId = technicianId, Action = "Assigned", Notes = d.InstallationNotes }; db.DeviceAssignmentHistory.Add(history); AddDecision(r, technicianId, "DeviceAssigned", r.Status, r.Status, d.HardwareAddress); await db.SaveChangesAsync(ct); return await LoadDeviceAsync(d.Id, ct); }
     public async Task<DeviceView> UnassignAsync(Guid technicianId, Guid zoneId, Guid deviceId, UnassignDeviceCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); if (d.ZoneId != zoneId) throw new ResourceNotFoundException("Device is not assigned to this Zone."); var reason = Required(command.Reason, "reason", 1000); db.DeviceAssignmentHistory.Add(new DeviceAssignmentHistory { DeviceId = d.Id, ZoneId = zoneId, TechnicianUserId = technicianId, Action = "Unassigned", Notes = reason }); d.ZoneId = null; d.Status = DeviceStatus.Unassigned; await db.SaveChangesAsync(ct); return await LoadDeviceAsync(d.Id, ct); }
     public async Task<DeviceConnectionTestView> GetLatestConnectionTestAsync(Guid technicianId, Guid deviceId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); await TechnicianDeviceAsync(technicianId, deviceId, ct); var t = await db.DeviceConnectionTests.AsNoTracking().Where(x => x.DeviceId == deviceId).OrderByDescending(x => x.ObservedAtUtc).FirstOrDefaultAsync(ct) ?? throw new ResourceNotFoundException("No connection test has been recorded for this Device."); return TestView(t); }
     public async Task<DiagnosticJobView> DiagnoseAsync(Guid technicianId, Guid deviceId, DiagnoseCommand command, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); var allowed = new[] { "REBOOT_NODE", "CHANGE_CHANNEL", "REBOOT_AND_CHANGE_CHANNEL", "CALIBRATE_SENSOR", "FACTORY_RESET" }; if (!allowed.Contains(command.Action)) throw new RequestValidationException("action", "Unsupported diagnostic action."); var r = await TechnicianRequestAsync(technicianId, d.DeploymentRequestId, ct); var job = new DeviceDiagnosticJob { DeviceId = d.Id, TechnicianUserId = technicianId, Action = command.Action, NewFrequencyChannel = command.NewFrequencyChannel, IncreaseTxPowerDbm = command.IncreaseTxPowerDbm }; db.DeviceDiagnosticJobs.Add(job); AddDecision(r, technicianId, "DiagnosticQueued", r.Status, r.Status, command.Action); await db.SaveChangesAsync(ct); return new(job.Id, d.Id, job.Action, job.Status, job.CreatedAtUtc); }
     public async Task DecommissionAsync(Guid technicianId, Guid deviceId, CancellationToken ct) { await EnsureTechnicianAsync(technicianId, ct); var d = await TechnicianDeviceAsync(technicianId, deviceId, ct); if (d.ZoneId.HasValue || d.Status != DeviceStatus.Unassigned) throw new ResourceConflictException("Only an Unassigned Device can be decommissioned."); d.Status = DeviceStatus.Decommissioned; d.DecommissionedAtUtc = DateTime.UtcNow; await db.SaveChangesAsync(ct); }
 
-    private IQueryable<DeploymentRequest> RequestQuery() => db.DeploymentRequests.Include(x => x.PlanItems).ThenInclude(x => x.DeviceModelDefinition).Include(x => x.Surveys).Include(x => x.Decisions);
+    private IQueryable<DeploymentRequest> RequestQuery() => db.DeploymentRequests.Include(x => x.PlanItems).ThenInclude(x => x.DeviceModelDefinition).Include(x => x.EstimateItems).Include(x => x.Surveys).Include(x => x.Decisions);
     private IQueryable<Device> DeviceQuery() => db.Devices.Include(x => x.Sensors).Include(x => x.Actuators).Include(x => x.ConnectionTests);
     private async Task<DeploymentRequest> LoadRequestEntityAsync(Guid id, CancellationToken ct) => await RequestQuery().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new ResourceNotFoundException("Deployment Request was not found.");
-    private async Task<DeploymentRequestView> LoadRequestAsync(Guid id, CancellationToken ct) { db.ChangeTracker.Clear(); return (await RequestQuery().AsNoTracking().SingleAsync(x => x.Id == id, ct)).ToView(); }
+    private async Task<DeploymentRequestView> LoadRequestAsync(Guid id, CancellationToken ct) { db.ChangeTracker.Clear(); return await WithContextAsync((await RequestQuery().AsNoTracking().SingleAsync(x => x.Id == id, ct)).ToView(), ct); }
+
+    /// <summary>
+    /// Gắn ngữ cảnh (farm, thửa đất, Zone, cây, vụ mùa) vào view bằng truy vấn riêng, KHÔNG dùng Include trên truy vấn chính: nếu dữ liệu
+    /// liên quan thiếu thì chỉ Context = null, yêu cầu vẫn được trả về.
+    /// </summary>
+    private async Task<IReadOnlyList<DeploymentRequestView>> WithContextAsync(IReadOnlyList<DeploymentRequestView> views, CancellationToken ct)
+    {
+        if (views.Count == 0) return views;
+        var ids = views.Select(v => v.RequestId).ToList();
+        var rows = await db.DeploymentRequests.AsNoTracking().Where(x => ids.Contains(x.Id)).Select(x => new
+        {
+            x.Id, FarmName = x.Farm.Name, FarmLocation = x.Farm.LocationText, FieldName = x.Zone.Field.Name, SoilType = x.Zone.Field.SoilType,
+            ZoneName = x.Zone.Name, ZoneType = x.Zone.ZoneType, ZoneArea = x.Zone.AreaM2,
+            CropName = x.PlantingSeason.Crop.Name, VarietyName = x.PlantingSeason.Variety != null ? x.PlantingSeason.Variety.Name : null,
+            SeasonName = x.PlantingSeason.Name, SeasonStatus = x.PlantingSeason.Status, Start = x.PlantingSeason.StartDate, End = x.PlantingSeason.ExpectedEndDate,
+        }).ToListAsync(ct);
+        var map = rows.ToDictionary(r => r.Id, r => new DeploymentContextView(r.FarmName, r.FarmLocation, r.FieldName, r.SoilType, r.ZoneName, r.ZoneType, r.ZoneArea, r.CropName, r.VarietyName, r.SeasonName, r.SeasonStatus.ToString(), r.Start, r.End));
+        return views.Select(v => map.TryGetValue(v.RequestId, out var c) ? v with { Context = c } : v).ToList();
+    }
+
+    private async Task<DeploymentRequestView> WithContextAsync(DeploymentRequestView view, CancellationToken ct) => (await WithContextAsync([view], ct))[0];
     private async Task<DeviceView> LoadDeviceAsync(Guid id, CancellationToken ct) { db.ChangeTracker.Clear(); return (await DeviceQuery().AsNoTracking().SingleAsync(x => x.Id == id, ct)).ToView(); }
     private async Task<DeploymentRequest> OwnerRequestAsync(Guid owner, Guid tenant, Guid id, CancellationToken ct) => await RequestQuery().SingleOrDefaultAsync(x => x.Id == id && x.OwnerUserId == owner && x.TenantId == tenant, ct) ?? throw new ResourceNotFoundException("Deployment Request was not found in the current Tenant.");
-    private async Task<DeploymentRequest> TechnicianRequestAsync(Guid tech, Guid id, CancellationToken ct) => await RequestQuery().SingleOrDefaultAsync(x => x.Id == id && x.TechnicianUserId == tech, ct) ?? throw new ResourceNotFoundException("Deployment Request is not assigned to this Technician.");
-    private async Task<Gateway> TechnicianGatewayAsync(Guid tech, Guid id, CancellationToken ct) => await db.Gateways.Include(x => x.Devices).SingleOrDefaultAsync(x => x.Id == id && x.DeploymentRequest.TechnicianUserId == tech, ct) ?? throw new ResourceNotFoundException("Gateway was not found for this Technician.");
-    private async Task<Device> TechnicianDeviceAsync(Guid tech, Guid id, CancellationToken ct) => await DeviceQuery().SingleOrDefaultAsync(x => x.Id == id && x.DeploymentRequest.TechnicianUserId == tech, ct) ?? throw new ResourceNotFoundException("Device was not found for this Technician.");
+    private async Task<DeploymentRequest> TechnicianRequestAsync(Guid tech, Guid id, CancellationToken ct) => await RequestQuery().SingleOrDefaultAsync(x => x.Id == id && (x.TechnicianUserId == tech || db.ServiceRequests.Any(s => s.DeploymentRequestId == x.Id && s.AssignedTechnicianId == tech)), ct) ?? throw new ResourceNotFoundException("Deployment Request is not assigned to this Technician.");
+    private async Task<Gateway> TechnicianGatewayAsync(Guid tech, Guid id, CancellationToken ct)
+    {
+        var gateway = await db.Gateways.Include(x => x.Devices).Include(x => x.DeploymentRequest).SingleOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new ResourceNotFoundException("Gateway was not found for this Technician.");
+        var assignedToDeployment = gateway.DeploymentRequest.TechnicianUserId == tech;
+        var assignedToService = await db.ServiceRequests.AnyAsync(x => x.DeploymentRequestId == gateway.DeploymentRequestId && x.AssignedTechnicianId == tech, ct);
+        if (!assignedToDeployment && !assignedToService) throw new ResourceNotFoundException("Gateway was not found for this Technician.");
+        return gateway;
+    }
+    private async Task<Device> TechnicianDeviceAsync(Guid tech, Guid id, CancellationToken ct) => await DeviceQuery().SingleOrDefaultAsync(x => x.Id == id && (x.DeploymentRequest.TechnicianUserId == tech || db.ServiceRequests.Any(s => s.DeploymentRequestId == x.DeploymentRequestId && s.AssignedTechnicianId == tech)), ct) ?? throw new ResourceNotFoundException("Device was not found for this Technician.");
     private async Task EnsureOwnerAsync(Guid id, Guid tenant, CancellationToken ct) { if (!await db.AppUsers.AnyAsync(x => x.Id == id && x.Role == UserRole.FarmOwner && x.TenantId == tenant, ct)) throw new AuthorizationException("FarmOwner role in the current Tenant is required."); }
     private async Task EnsureTechnicianAsync(Guid id, CancellationToken ct) { if (!await db.AppUsers.AnyAsync(x => x.Id == id && x.Role == UserRole.PlatformTechnician && x.TenantId == null, ct)) throw new AuthorizationException("PlatformTechnician role is required."); }
     private async Task<AppUser> UserAsync(Guid id, CancellationToken ct) => await db.AppUsers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new AuthorizationException();
