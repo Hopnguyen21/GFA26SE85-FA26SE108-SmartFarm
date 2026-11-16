@@ -1743,6 +1743,19 @@ class _QuotationPanelState extends State<QuotationPanel> {
         notes: draft.notes,
         contractTerms: draft.terms,
       );
+      // Gửi hợp đồng cũng là xác nhận kế hoạch: tự đưa triển khai gắn với phiếu tới "Đã xác nhận kế hoạch".
+      final depId = widget.deploymentRequestId;
+      if (_isTechnician && depId != null && depId.isNotEmpty) {
+        try {
+          await DeploymentApi.autoConfirmPlan(depId);
+        } catch (e) {
+          if (mounted) {
+            _snack(
+              'Đã gửi hợp đồng nhưng chưa tự xác nhận được kế hoạch: ${e.toString().replaceFirst('Exception: ', '')}',
+            );
+          }
+        }
+      }
       await _load();
       widget.onChanged?.call();
     } catch (e) {

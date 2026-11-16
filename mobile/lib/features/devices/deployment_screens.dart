@@ -7,8 +7,10 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/summary_tile.dart';
 import '../zones/honeycomb_estimate.dart';
 import 'deployment_board_logic.dart';
+import '../support/install_voucher_card.dart'
+    show loadVoucherPhaseForDeployment;
+import '../support/install_voucher_logic.dart';
 import 'widgets/cancel_deployment_dialog.dart';
-import 'widgets/survey_dialog.dart';
 import 'widgets/deployment_progress_bar.dart';
 import '../zones/widgets/zone_honeycomb_estimate_card.dart'
     show measurementLabel;

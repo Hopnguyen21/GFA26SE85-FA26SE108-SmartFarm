@@ -264,6 +264,9 @@ class ZoneModel {
   /// Ghi chú của Zone (backend ghi đè khi PUT, nên mọi lần cập nhật phải gửi lại giá trị này để không làm mất).
   final String? notes;
 
+  /// Ngưỡng của giai đoạn hiện tại (ai/context.requirements: parameterCode/minValue/maxValue/targetValue/unit). Rỗng khi Zone không có vụ đang chạy.
+  final List<Map<String, dynamic>> appliedRequirements;
+
   ZoneModel({
     required this.zoneId,
     required this.farmId,
@@ -289,6 +292,7 @@ class ZoneModel {
     this.growthProfileName,
     this.growthProfileIsSystem,
     this.notes,
+    this.appliedRequirements = const [],
   });
 
   ZoneModel copyWith({
@@ -306,6 +310,7 @@ class ZoneModel {
     String? workerRole,
     bool clearAssignedWorker = false,
     List<LatLng>? polygon,
+    List<Map<String, dynamic>>? appliedRequirements,
   }) {
     return ZoneModel(
       zoneId: zoneId,
@@ -330,6 +335,7 @@ class ZoneModel {
           : (assignedWorkerName ?? this.assignedWorkerName),
       workerRole: clearAssignedWorker ? null : (workerRole ?? this.workerRole),
       polygon: polygon ?? this.polygon,
+      appliedRequirements: appliedRequirements ?? this.appliedRequirements,
       boundaryProblem: polygon != null ? null : boundaryProblem,
       growthProfileId: growthProfileId,
       growthProfileName: growthProfileName,

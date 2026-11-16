@@ -808,7 +808,7 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
                           child: Text(
                             selectedStage.description.isNotEmpty
                                 ? 'Quy chuẩn VietGAP: ${selectedStage.description}'
-                                : 'Quy chuẩn VietGAP: Hệ thống tự động hoãn ca tưới nếu xác suất mưa ≥ 70% hoặc độ ẩm đất đo được vượt ngưỡng an toàn.',
+                                : 'Quy chuẩn VietGAP: Hệ thống tự động hoãn ca tưới nếu xác suất mưa ≥ ${BusinessParameters.fmt(BusinessParametersStore.current.rainGuardThresholdPercent)}% hoặc độ ẩm đất đo được vượt ngưỡng an toàn.',
                             style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFF166534),

@@ -76,6 +76,7 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
     }
 
     for (final g in gateways) {
+      final gwInterval = (g['telemetryIntervalSec'] as num?)?.toInt() ?? 60;
       result.add(
         DeviceHealthModel(
           nodeId: '${g['gatewaySerial'] ?? g['gatewayId']}',
@@ -84,14 +85,15 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
           lastSeenAt: DateTime.tryParse(
             '${g['lastSeenAtUtc'] ?? ''}',
           )?.toLocal(),
-          expectedIntervalSeconds:
-              (g['telemetryIntervalSec'] as num?)?.toInt() ?? 60,
+          expectedIntervalSeconds: gwInterval > 0 ? gwInterval : 60,
         ),
       );
     }
     for (final d in devices) {
       final loc = telemetry['${d['deviceId']}'.toLowerCase()];
       final isActuator = '${d['deviceType']}' == 'ActuatorNode';
+      final devInterval =
+          (d['heartbeatIntervalSeconds'] as num?)?.toInt() ?? 60;
       result.add(
         DeviceHealthModel(
           nodeId: '${d['hardwareAddress'] ?? d['deviceId']}',
@@ -101,8 +103,7 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
           lastSeenAt: DateTime.tryParse(
             '${d['lastSeenAtUtc'] ?? ''}',
           )?.toLocal(),
-          expectedIntervalSeconds:
-              (d['heartbeatIntervalSeconds'] as num?)?.toInt() ?? 60,
+          expectedIntervalSeconds: devInterval > 0 ? devInterval : 60,
           signalRssi: (loc?['rssi'] as num?)?.toDouble(),
           batteryPercent: (loc?['batteryLevel'] as num?)?.toInt(),
           deviceId: '${d['deviceId']}',

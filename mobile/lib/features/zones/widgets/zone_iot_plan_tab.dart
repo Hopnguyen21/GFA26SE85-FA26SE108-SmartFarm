@@ -14,6 +14,7 @@ import 'zone_honeycomb_estimate_card.dart';
 /// Có thêm bảng dự toán (thuật toán Tổ ong, đơn giá từ backend); báo giá chính thức do kỹ thuật viên lập sau khảo sát.
 class ZoneIotPlanTab extends StatefulWidget {
   final String zoneId;
+  final String? farmId;
   final String zoneName;
   final double areaM2;
   final String cropName;
@@ -23,6 +24,7 @@ class ZoneIotPlanTab extends StatefulWidget {
   const ZoneIotPlanTab({
     super.key,
     required this.zoneId,
+    this.farmId,
     required this.zoneName,
     this.areaM2 = 0,
     this.cropName = '',
@@ -229,6 +231,7 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
                       ZoneHoneycombEstimateCard(
                         key: ValueKey('${widget.zoneId}-$_reloadCount'),
                         zoneId: widget.zoneId,
+                        farmId: widget.farmId,
                         perimeterM: widget.perimeterM,
                         areaM2: widget.areaM2,
                         cropName: widget.cropName,
@@ -305,34 +308,37 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
                       ),
                     for (final r in d.requests)
                       _card(
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _statusLabel[r.status] ?? r.status,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${r.planItems.fold<int>(0, (s, i) => s + i.quantity)} thiết bị trong kế hoạch'
-                            '${(r.ownerNotes ?? '').isEmpty ? '' : '\n${r.ownerNotes}'}',
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DeploymentRequestDetailScreen(
-                                  requestId: r.requestId,
-                                  technician: false,
-                                ),
+                        Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              _statusLabel[r.status] ?? r.status,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                               ),
-                            );
-                            if (mounted) _reload();
-                          },
+                            ),
+                            subtitle: Text(
+                              '${r.planItems.fold<int>(0, (s, i) => s + i.quantity)} thiết bị trong kế hoạch'
+                              '${(r.ownerNotes ?? '').isEmpty ? '' : '\n${r.ownerNotes}'}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DeploymentRequestDetailScreen(
+                                    requestId: r.requestId,
+                                    technician: false,
+                                  ),
+                                ),
+                              );
+                              if (mounted) _reload();
+                            },
+                          ),
                         ),
                       ),
                   ],

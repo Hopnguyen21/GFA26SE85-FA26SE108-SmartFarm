@@ -472,6 +472,7 @@ class _DeploymentRequestSendScreenState
                   ZoneHoneycombEstimateCard(
                     key: ValueKey('est-${widget.zoneId}'),
                     zoneId: widget.zoneId,
+                    farmId: zone.farmId,
                     areaM2: zone.areaM2,
                     cropName: zone.currentCrop,
                     perimeterM: perimeter,

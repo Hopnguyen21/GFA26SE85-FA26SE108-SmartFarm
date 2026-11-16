@@ -7,7 +7,33 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
     return ZoneClimatePanel(
       key: ValueKey('climate_${zone.zoneId}'),
       zone: zone,
-      footer: _buildZoneGisSection(zone),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Quy tắc cảnh báo an toàn + nhật ký cảnh báo của Zone (như web).
+          OutlinedButton.icon(
+            key: const Key('open_alert_center'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              foregroundColor: const Color(0xFF119653),
+              side: const BorderSide(color: Color(0xFF119653)),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ZoneAlertCenterScreen(zone: zone),
+              ),
+            ),
+            icon: const Icon(Icons.notifications_active_outlined, size: 18),
+            label: const Text(
+              'Cảnh báo & quy tắc của Zone',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildZoneGisSection(zone),
+        ],
+      ),
     );
   }
 
@@ -372,17 +398,45 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
               borderRadius: BorderRadius.circular(12),
               child: MiniGISMapPicker(
                 key: ValueKey(
-                  'zone_gis_${zone.zoneId}_${_isEditingGis}_${effectivePolygon.length}',
+                  'zone_gis_${zone.zoneId}_${_isEditingGis}_${effectivePolygon.length}_${_nodeMarkers.length}',
                 ),
                 initialCenter: center,
                 initialPolygon: effectivePolygon,
                 level: 'ZONE',
                 height: 240,
+                nodeMarkers: _nodeMarkers,
                 isReadOnly: !_isEditingGis,
                 onPolygonChanged: (newPts) {
                   _rebuild(() {
                     _editedPolygon = newPts;
                   });
+                },
+              ),
+            ),
+          if (_nodeMarkers.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Builder(
+                builder: (_) {
+                  final outside = effectivePolygon.length >= 3
+                      ? _nodeMarkers
+                            .where(
+                              (n) => !pointInPolygon(n.point, effectivePolygon),
+                            )
+                            .length
+                      : 0;
+                  return Text(
+                    outside > 0
+                        ? '${_nodeMarkers.length} node trên bản đồ · $outside node nằm NGOÀI ranh giới Zone (viền đỏ): kiểm tra lại toạ độ.'
+                        : '${_nodeMarkers.length} node trên bản đồ (xanh dương: cảm biến, cam: van/bơm, xám: không online).',
+                    key: const Key('gis_node_caption'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: outside > 0
+                          ? const Color(0xFFB91C1C)
+                          : const Color(0xFF64748B),
+                    ),
+                  );
                 },
               ),
             ),

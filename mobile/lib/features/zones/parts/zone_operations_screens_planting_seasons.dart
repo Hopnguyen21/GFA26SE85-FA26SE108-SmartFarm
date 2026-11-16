@@ -114,9 +114,9 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                   statusCode == 'InProgress' || statusCode == 'Planned';
               final profileId = _validId(s['growthProfileId']);
               final seasonId = _validId(s['seasonId'] ?? s['plantingSeasonId']);
-              // Sản lượng chỉ ghi cho vụ đang canh tác hoặc đã thu hoạch; vụ dự kiến/đã hủy chưa có sản lượng.
-              final canYield =
-                  statusCode == 'InProgress' || statusCode == 'Completed';
+              // Cùng quy tắc với thẻ sản lượng và mục vụ trồng ở Zone Detail: chỉ ghi sản lượng khi vụ đã thu hoạch
+              // hoặc đang ở giai đoạn thu hoạch (isHarvestStageSeason).
+              final canYield = isHarvestStageSeason(s, zone: zone);
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(

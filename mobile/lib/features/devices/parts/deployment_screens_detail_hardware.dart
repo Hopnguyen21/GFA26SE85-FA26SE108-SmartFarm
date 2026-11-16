@@ -7,6 +7,11 @@ extension _DeploymentRequestDetailScreenStateHardware
     if (r.status != 'Installing' && _gateways.isEmpty && _devices.isEmpty)
       return const [];
     final installing = r.status == 'Installing';
+    // Kỹ thuật viên: chưa có phiếu xuất kho được Admin duyệt thì không cấp phát/gán thiết bị (Luồng 1).
+    final voucherBlock = widget.technician && installing
+        ? voucherBlockMessage(_voucherPhase, code: _voucherCode)
+        : null;
+    final canProvision = installing && voucherBlock == null;
     return [
       const Divider(height: 24),
       const Text(
@@ -25,7 +30,22 @@ extension _DeploymentRequestDetailScreenStateHardware
           title: Text('${g.gatewaySerial} · ${g.macAddress}'),
           subtitle: Text('Trạng thái: ${g.status}'),
         ),
-      if (installing)
+      if (voucherBlock != null)
+        Container(
+          key: const Key('hardware_voucher_lock'),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFCD34D)),
+          ),
+          child: Text(
+            voucherBlock,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+          ),
+        ),
+      if (canProvision)
         Row(
           children: [
             TextButton.icon(
@@ -41,7 +61,7 @@ extension _DeploymentRequestDetailScreenStateHardware
               ),
           ],
         ),
-      for (final d in _devices) _deviceTile(r, d, installing),
+      for (final d in _devices) _deviceTile(r, d, canProvision),
     ];
   }
 

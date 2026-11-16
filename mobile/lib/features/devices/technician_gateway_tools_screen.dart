@@ -449,16 +449,14 @@ class _GatewayCardState extends State<_GatewayCard> {
                         builder: (_) => ZoneNodesScreen(
                           zoneId: b.request.zoneId,
                           zoneName: b.gateway.gatewaySerial,
-                          canEditLocations: true,
+                          // Chỉ xem: chấm/sửa vị trí node của kỹ thuật viên đi qua màn Gắn Node (cổng phiếu xuất kho được Admin duyệt).
+                          canEditLocations: false,
                           deploymentRequestId: b.request.requestId,
                         ),
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.edit_location_alt_outlined,
-                      size: 16,
-                    ),
-                    label: const Text('Toạ độ node'),
+                    icon: const Icon(Icons.place_outlined, size: 16),
+                    label: const Text('Xem toạ độ node'),
                   ),
               ],
             ),

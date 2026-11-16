@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/api_service.dart';
 import '../zone_operations_screens.dart';
+import '../actuator_labels.dart';
 
 /// Tóm tắt node cảm biến của Zone từ dữ liệu thật (GET /zones/{id}/telemetry/latest-by-device):
 /// số node online/tổng, pin thấp nhất, sóng yếu nhất. Chạm để xem chi tiết từng node.
@@ -84,7 +85,7 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                 future: _future,
                 builder: (context, snap) {
                   final title = Text(
-                    'Node cảm biến · ${widget.zoneName}',
+                    'Node trong Zone · ${widget.zoneName}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -133,9 +134,8 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                       ],
                     );
                   }
-                  final online = nodes
-                      .where((n) => '${n['status']}' == 'Online')
-                      .length;
+                  final counts = countZoneNodes(nodes);
+                  final online = counts.online;
                   final batteries = [
                     for (final n in nodes) (n['batteryLevel'] as num?)?.toInt(),
                   ].whereType<int>();
@@ -166,6 +166,11 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                         spacing: 6,
                         runSpacing: 4,
                         children: [
+                          _chip(
+                            '${counts.total} node: ${counts.sensors} cảm biến · ${counts.actuators} điều khiển${counts.simulated > 0 ? ' (${counts.simulated} giả lập)' : ''}',
+                            const Color(0xFFF1F5F9),
+                            const Color(0xFF334155),
+                          ),
                           _chip(
                             '● $online/${nodes.length} online',
                             allOnline

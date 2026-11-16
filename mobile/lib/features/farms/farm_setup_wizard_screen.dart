@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/mini_gis_map_picker.dart';
 import '../../core/widgets/state_views.dart';
 import '../crops/widgets/create_season_sheet.dart';
+import '../crops/widgets/season_profile_preview.dart';
 import '../devices/deployment_request_send_screen.dart';
 import '../devices/deployment_screens.dart';
 import '../zones/honeycomb_estimate.dart';
@@ -777,6 +778,41 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
             style: const TextStyle(fontSize: 12),
           ),
         ),
+      const SizedBox(height: 8),
+      InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  SeasonProfilePreview(profileId: '${p['profileId']}'),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFA7F3D0)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.water_drop, size: 14, color: Color(0xFF059669)),
+              SizedBox(width: 4),
+              Text(
+                'Xem lịch tưới mẫu VietGAP của hồ sơ này ➔',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF059669),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     ]);
   }
 

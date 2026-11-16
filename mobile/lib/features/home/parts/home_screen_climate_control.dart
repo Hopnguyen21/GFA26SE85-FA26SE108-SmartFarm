@@ -87,15 +87,15 @@ extension _HomeScreenClimateControl on HomeScreen {
               value: zone.telemetryIsFresh
                   ? '${zone.currentSoilMoisture}%'
                   : '—',
-              target: zone.cropContextIsDbBacked
-                  ? 'Ngưỡng theo mùa vụ DB'
-                  : 'Ngưỡng chưa đồng bộ từ DB',
+              target: thresholdCaption(zone, 'SoilMoisture', '%'),
               icon: Icons.water_drop,
               iconColor: const Color(0xFF0284C7),
               bgColor: const Color(0xFFF0F9FF),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
-                  ? null
-                  : zone.currentSoilMoisture < 60,
+              isWarning: outOfRange(
+                zone,
+                'SoilMoisture',
+                zone.currentSoilMoisture.toDouble(),
+              ),
               unit: '%',
             ),
             _buildSensorCard(
@@ -104,15 +104,15 @@ extension _HomeScreenClimateControl on HomeScreen {
               parameterCode: 'Temperature',
               title: 'Nhiệt độ không khí',
               value: zone.telemetryIsFresh ? '${zone.currentTemp}°C' : '—',
-              target: zone.cropContextIsDbBacked
-                  ? 'Ngưỡng theo mùa vụ DB'
-                  : 'Ngưỡng chưa đồng bộ từ DB',
+              target: thresholdCaption(zone, 'Temperature', '°C'),
               icon: Icons.thermostat,
               iconColor: const Color(0xFFEA580C),
               bgColor: const Color(0xFFFFF7ED),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
-                  ? null
-                  : zone.currentTemp > 28 || zone.currentTemp < 18,
+              isWarning: outOfRange(
+                zone,
+                'Temperature',
+                zone.currentTemp.toDouble(),
+              ),
               unit: '°C',
             ),
             _buildSensorCard(
@@ -121,15 +121,15 @@ extension _HomeScreenClimateControl on HomeScreen {
               parameterCode: 'AirHumidity',
               title: 'Độ ẩm không khí',
               value: zone.telemetryIsFresh ? '${zone.currentHumidity}%' : '—',
-              target: zone.cropContextIsDbBacked
-                  ? 'Ngưỡng theo mùa vụ DB'
-                  : 'Ngưỡng chưa đồng bộ từ DB',
+              target: thresholdCaption(zone, 'AirHumidity', '%'),
               icon: Icons.cloud,
               iconColor: const Color(0xFF059669),
               bgColor: const Color(0xFFF0FDF4),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
-                  ? null
-                  : false,
+              isWarning: outOfRange(
+                zone,
+                'AirHumidity',
+                zone.currentHumidity.toDouble(),
+              ),
               unit: '%',
             ),
             _buildSensorCard(
@@ -140,15 +140,15 @@ extension _HomeScreenClimateControl on HomeScreen {
               value: zone.telemetryIsFresh
                   ? '${zone.currentLux.toInt()} lx'
                   : '—',
-              target: zone.cropContextIsDbBacked
-                  ? 'Ngưỡng theo mùa vụ DB'
-                  : 'Ngưỡng chưa đồng bộ từ DB',
+              target: thresholdCaption(zone, 'LightIntensity', 'lx'),
               icon: Icons.wb_sunny,
               iconColor: const Color(0xFFCA8A04),
               bgColor: const Color(0xFFFEFCE8),
-              isWarning: !zone.telemetryIsFresh || !zone.cropContextIsDbBacked
-                  ? null
-                  : false,
+              isWarning: outOfRange(
+                zone,
+                'LightIntensity',
+                zone.currentLux.toDouble(),
+              ),
               unit: 'lx',
             ),
           ],
@@ -193,7 +193,7 @@ extension _HomeScreenClimateControl on HomeScreen {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${farmProvider.currentZoneActuators.length} thiết bị',
+                relaySummary(farmProvider.currentZoneActuators),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -321,11 +321,24 @@ extension _HomeScreenClimateControl on HomeScreen {
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
+                              if (actuatorPlaceLabel(
+                                    act,
+                                    farmProvider.currentZoneActuators,
+                                  )
+                                  case final place?)
+                                Text(
+                                  place,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
                               const SizedBox(height: 2),
                               Text(
-                                act.isRunning
-                                    ? 'Đang bật (${act.remainingMinutes} phút còn lại)'
-                                    : 'Đang tắt',
+                                actuatorNotReadyReason(act) ??
+                                    (act.isRunning
+                                        ? 'Đang bật (${act.remainingMinutes} phút còn lại)'
+                                        : 'Đang tắt'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: act.isRunning
@@ -342,24 +355,29 @@ extension _HomeScreenClimateControl on HomeScreen {
                         Switch.adaptive(
                           value: act.isRunning,
                           activeThumbColor: const Color(0xFF10B981),
-                          onChanged: (_) {
-                            if (!farmProvider.canControlZone(act.zoneId)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    '⚠️ Bạn chưa được cấp quyền điều khiển thiết bị tại khu vực này!',
-                                  ),
-                                  backgroundColor: Color(0xFFE11D48),
-                                ),
-                              );
-                              return;
-                            }
-                            toggleActuatorWithFeedback(
-                              context,
-                              farmProvider,
-                              act.actuatorId,
-                            );
-                          },
+                          // Node offline/đang bảo trì: backend từ chối lệnh (409) nên khóa công tắc và nêu lý do ở dòng trạng thái.
+                          onChanged: actuatorNotReadyReason(act) != null
+                              ? null
+                              : (_) {
+                                  if (!farmProvider.canControlZone(
+                                    act.zoneId,
+                                  )) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          '⚠️ Bạn chưa được cấp quyền điều khiển thiết bị tại khu vực này!',
+                                        ),
+                                        backgroundColor: Color(0xFFE11D48),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  toggleActuatorWithFeedback(
+                                    context,
+                                    farmProvider,
+                                    act.actuatorId,
+                                  );
+                                },
                         ),
                       ],
                     ),

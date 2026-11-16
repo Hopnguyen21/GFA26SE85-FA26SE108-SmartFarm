@@ -2,23 +2,162 @@ import 'package:flutter/material.dart';
 import '../../core/models/models.dart';
 import '../../core/services/api_service.dart';
 import '../zones/profile_irrigation_logic.dart';
-import '../zones/widgets/profile_irrigation_view.dart';
 import 'season_irrigation_logic.dart';
 
 const _ink = Color(0xFF0F172A);
-const _muted = Color(0xFF475569);
+const _muted = Color(0xFF64748B);
 const _green = Color(0xFF059669);
-const _amber = Color(0xFFB45309);
+const _amber = Color(0xFFD97706);
 
-/// Lịch tưới THEO NGÀY của một vụ trồng (Zone + mùa vụ), đọc/ghi qua backend (không lưu cục bộ). Phân biệt rõ 3 loại lịch:
-///  1. Lịch mẫu/đề xuất theo Growth Profile (giai đoạn) — không bị sửa ở đây;
-///  2. Lịch tùy chỉnh theo ngày của vụ — thứ màn này sửa;
-///  3. Lịch điều khiển thật trên thiết bị (ControlSchedule) — chỉ đổi khi đồng bộ.
+class StageInfo {
+  final String id;
+  final String name;
+  final String shortName;
+  final Color color;
+  final Color bgColor;
+  final Color borderColor;
+  final String rangeText;
+
+  const StageInfo({
+    required this.id,
+    required this.name,
+    required this.shortName,
+    required this.color,
+    required this.bgColor,
+    required this.borderColor,
+    required this.rangeText,
+  });
+}
+
+StageInfo getStageInfo(int dayNum, int maxDays) {
+  final p = dayNum / (maxDays > 0 ? maxDays : 1);
+  final d1 = (maxDays * 0.22).round().clamp(1, maxDays);
+  final d2 = (maxDays * 0.50).round().clamp(d1 + 1, maxDays);
+  final d3 = (maxDays * 0.78).round().clamp(d2 + 1, maxDays);
+
+  if (p <= 0.22) {
+    return StageInfo(
+      id: 'STAGE_1',
+      name: 'Giai đoạn 1: Cây con & Hồi xanh',
+      shortName: 'Cây con',
+      color: const Color(0xFF059669),
+      bgColor: const Color(0xFFECFDF5),
+      borderColor: const Color(0xFFA7F3D0),
+      rangeText: 'Ngày 1 - Ngày $d1',
+    );
+  }
+  if (p <= 0.50) {
+    return StageInfo(
+      id: 'STAGE_2',
+      name: 'Giai đoạn 2: Phát triển thân lá',
+      shortName: 'Thân lá',
+      color: const Color(0xFF0284C7),
+      bgColor: const Color(0xFFF0F9FF),
+      borderColor: const Color(0xFFBAE6FD),
+      rangeText: 'Ngày ${d1 + 1} - Ngày $d2',
+    );
+  }
+  if (p <= 0.78) {
+    return StageInfo(
+      id: 'STAGE_3',
+      name: 'Giai đoạn 3: Ra hoa & Đậu quả',
+      shortName: 'Ra hoa',
+      color: const Color(0xFFD97706),
+      bgColor: const Color(0xFFFFFBEB),
+      borderColor: const Color(0xFFFDE68A),
+      rangeText: 'Ngày ${d2 + 1} - Ngày $d3',
+    );
+  }
+  return StageInfo(
+    id: 'STAGE_4',
+    name: 'Giai đoạn 4: Nuôi trái & Thu hoạch',
+    shortName: 'Thu hoạch',
+    color: const Color(0xFFE11D48),
+    bgColor: const Color(0xFFFFF1F2),
+    borderColor: const Color(0xFFFECDD3),
+    rangeText: 'Ngày ${d3 + 1} - Ngày $maxDays',
+  );
+}
+
+DateTime? getDayDate(String startDateStr, int dayNumber) {
+  try {
+    final start = DateTime.parse(startDateStr);
+    return start.add(Duration(days: dayNumber - 1));
+  } catch (_) {
+    return null;
+  }
+}
+
+String getDayOfWeekName(DateTime date) {
+  const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  return days[(date.weekday - 1) % 7];
+}
+
+String formatDisplayDate(DateTime date) {
+  return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+}
+
+String formatFullDate(DateTime date) {
+  return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+List<ProfileSession> extractDaySessions(SeasonDay? day) {
+  ProfileSession? morning;
+  ProfileSession? noon;
+  ProfileSession? afternoon;
+
+  if (day != null && day.sessions.isNotEmpty) {
+    for (final s in day.sessions) {
+      final l = s.title.toLowerCase();
+      final h = int.tryParse(s.startTime.split(':').firstOrNull ?? '') ?? 0;
+      if (morning == null && (l.contains('sáng') || h < 11)) {
+        morning = s;
+      } else if (noon == null && (l.contains('trưa') || (h >= 11 && h < 14))) {
+        noon = s;
+      } else if (afternoon == null && (l.contains('chiều') || h >= 14)) {
+        afternoon = s;
+      }
+    }
+  }
+
+  morning ??= const ProfileSession(
+    title: 'Tưới Sáng Khởi Động',
+    startTime: '07:30',
+    durationSeconds: 20 * 60,
+    enabled: true,
+    method: 'Tưới nhỏ giọt bù áp',
+    waterPerPlantMl: 500,
+  );
+  noon ??= const ProfileSession(
+    title: 'Tưới Trưa Giảm Nhiệt',
+    startTime: '12:00',
+    durationSeconds: 10 * 60,
+    enabled: false,
+    method: 'Tưới nhỏ giọt bù áp',
+    waterPerPlantMl: 300,
+  );
+  afternoon ??= const ProfileSession(
+    title: 'Tưới Chiều Bổ Sung',
+    startTime: '16:30',
+    durationSeconds: 15 * 60,
+    enabled: true,
+    method: 'Tưới nhỏ giọt bù áp',
+    waterPerPlantMl: 400,
+  );
+
+  return [morning, noon, afternoon];
+}
+
+/// Màn hình Cuốn Lịch Tưới 3 Ca Vụ Mùa Chuẩn VietGAP trên Mobile
+/// Thiết kế đồng bộ 100% với phiên bản Web:
+/// 1. Banner tiến trình vụ mùa, tên giống, khoảng ngày canh tác
+/// 2. Thanh 4 Giai đoạn sinh trưởng (Cây con, Thân lá, Ra hoa, Thu hoạch)
+/// 3. Lưới lịch tưới ngày với 3 chấm biểu thị ca tưới (Sáng, Trưa, Chiều)
+/// 4. Bảng điều khiển chi tiết 3 Ca tưới tích hợp thao tác sao chép hàng loạt
 class SeasonIrrigationCalendarScreen extends StatefulWidget {
   final ZoneModel zone;
-
-  /// Vụ cần mở; bỏ trống = vụ đang chạy của Zone (rồi vụ dự kiến).
   final String? seasonId;
+
   const SeasonIrrigationCalendarScreen({
     super.key,
     required this.zone,
@@ -41,6 +180,9 @@ class _SeasonIrrigationCalendarScreenState
   String _stageFilter = 'ALL';
   bool _busy = false;
 
+  List<ProfileSession> _activeDaySessions = [];
+  bool _hasUnsavedChanges = false;
+
   String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
 
   @override
@@ -49,7 +191,6 @@ class _SeasonIrrigationCalendarScreenState
     _load(seasonId: widget.seasonId);
   }
 
-  /// Tải danh sách vụ của Zone rồi lịch của vụ được chọn (mặc định: vụ đang chạy, rồi vụ dự kiến).
   Future<void> _load({String? seasonId}) async {
     setState(() {
       _loading = true;
@@ -82,11 +223,14 @@ class _SeasonIrrigationCalendarScreenState
       final json = await CropApi.getSeasonIrrigation(widget.zone.zoneId, id);
       if (!mounted) return;
       final cal = SeasonIrrigationCalendar.fromJson(json);
+      final initialDay = cal.todayDayNumber ?? 1;
       setState(() {
         _seasonId = id;
         _cal = cal;
-        _selected = cal.todayDayNumber ?? 1;
+        _selected = initialDay;
         _stageFilter = 'ALL';
+        _activeDaySessions = extractDaySessions(cal.day(initialDay));
+        _hasUnsavedChanges = false;
         _loading = false;
       });
     } catch (e) {
@@ -100,16 +244,27 @@ class _SeasonIrrigationCalendarScreenState
   }
 
   void _toast(String text, {bool error = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
         backgroundColor: error ? const Color(0xFFDC2626) : _green,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  /// Chạy một thao tác ghi: chỉ báo thành công khi backend xác nhận, và dùng đúng dữ liệu backend trả về.
+  void _onSelectDay(int dayNumber) {
+    if (_selected == dayNumber) return;
+    setState(() {
+      _selected = dayNumber;
+      final d = _cal?.day(dayNumber);
+      _activeDaySessions = extractDaySessions(d);
+      _hasUnsavedChanges = false;
+    });
+  }
+
   Future<void> _write(
     Future<Map<String, dynamic>> Function() call,
     String success,
@@ -118,7 +273,13 @@ class _SeasonIrrigationCalendarScreenState
     try {
       final json = await call();
       if (!mounted) return;
-      setState(() => _cal = SeasonIrrigationCalendar.fromJson(json));
+      final updated = SeasonIrrigationCalendar.fromJson(json);
+      setState(() {
+        _cal = updated;
+        final d = updated.day(_selected);
+        _activeDaySessions = extractDaySessions(d);
+        _hasUnsavedChanges = false;
+      });
       _toast(success);
     } catch (e) {
       if (mounted) _toast('Không lưu được: ${_err(e)}', error: true);
@@ -141,103 +302,15 @@ class _SeasonIrrigationCalendarScreenState
     );
   }
 
-  Future<void> _editDay(SeasonDay day) async {
-    final c = _cal!;
-    final edit = await showStageSessionsEditor(
-      context,
-      StageSchedule(
-        stageId: day.stageId ?? '',
-        name: 'Ngày ${day.dayNumber}',
-        order: day.dayNumber,
-        durationDays: 1,
-        source: day.source.code,
-        sessions: day.sessions,
-      ),
-      canApplyAll: day.stageId != null,
-      title: 'Ca tưới · Ngày ${day.dayNumber} (${day.shortDate})',
-      hint:
-          'Chỉ lưu cho vụ này (lịch tùy chỉnh theo ngày), không đổi lịch mẫu của hồ sơ. Giờ HH:mm theo múi giờ trang trại. '
-          'Mỗi ca tối đa 30 phút. Không có ca nào = ngày này không tưới.',
-      applyAllLabel:
-          'Áp dụng cho mọi ngày cùng giai đoạn "${day.stageName ?? ''}"',
-    );
-    if (edit == null || !mounted) return;
-    final problem = validateStageSessions(edit.sessions);
-    if (problem != null) {
-      _toast(problem, error: true);
-      return;
-    }
-    final days = edit.applyToAllStages
-        ? targetDays(c, day, wholeSeason: false)
-        : [day.dayNumber];
-    await _saveDays(
-      days,
-      edit.sessions,
-      days.length == 1
-          ? 'Đã lưu lịch tưới riêng cho ngày ${day.dayNumber}.'
-          : 'Đã lưu lịch tưới riêng cho ${days.length} ngày của giai đoạn "${day.stageName}".',
-    );
-  }
-
-  Future<void> _applyElsewhere(
-    SeasonDay day, {
-    required bool wholeSeason,
-  }) async {
-    final c = _cal!;
-    final days = targetDays(c, day, wholeSeason: wholeSeason);
-    if (days.isEmpty) return;
-    final ok = await _confirm(
-      wholeSeason ? 'Áp dụng cho cả vụ?' : 'Áp dụng cho cả giai đoạn?',
-      'Ca tưới của ngày ${day.dayNumber} sẽ ghi đè lịch của ${days.length} ngày'
-          '${wholeSeason ? ' trong vụ' : ' thuộc giai đoạn "${day.stageName}"'}. Lịch mẫu của hồ sơ không bị đổi; bạn có thể khôi phục từng ngày hoặc cả vụ.',
-      'Áp dụng',
-    );
-    if (!ok || !mounted) return;
-    await _saveDays(
-      days,
-      day.sessions,
-      'Đã áp dụng ca tưới của ngày ${day.dayNumber} cho ${days.length} ngày.',
-    );
-  }
-
-  Future<void> _resetDay(SeasonDay day) async {
-    final c = _cal!;
-    final ok = await _confirm(
-      'Khôi phục ngày ${day.dayNumber}?',
-      'Ngày này sẽ quay về lịch mẫu của hồ sơ. Các ngày khác không đổi.',
-      'Khôi phục',
-    );
-    if (!ok || !mounted) return;
-    await _write(
-      () => CropApi.resetSeasonIrrigation(
-        c.zoneId,
-        c.seasonId,
-        dayNumber: day.dayNumber,
-      ),
-      'Đã khôi phục ngày ${day.dayNumber} về lịch mẫu.',
-    );
-  }
-
-  Future<void> _resetAll() async {
-    final c = _cal!;
-    final ok = await _confirm(
-      'Khôi phục cả mùa vụ?',
-      'Mọi ngày tùy chỉnh (${c.overrideDayCount} ngày) của vụ "${c.seasonName}" sẽ bị xóa và quay về lịch mẫu của hồ sơ. '
-          'Không thể hoàn tác.',
-      'Khôi phục tất cả',
-    );
-    if (!ok || !mounted) return;
-    await _write(
-      () => CropApi.resetSeasonIrrigation(c.zoneId, c.seasonId),
-      'Đã khôi phục toàn bộ mùa vụ về lịch mẫu của hồ sơ.',
-    );
-  }
-
   Future<bool> _confirm(String title, String body, String action) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
         content: Text(body, style: const TextStyle(fontSize: 13, height: 1.4)),
         actions: [
           TextButton(
@@ -245,6 +318,7 @@ class _SeasonIrrigationCalendarScreenState
             child: const Text('Hủy'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _green),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(action),
           ),
@@ -254,262 +328,1237 @@ class _SeasonIrrigationCalendarScreenState
     return ok == true;
   }
 
+  Future<void> _saveCurrentDay() async {
+    await _saveDays(
+      [_selected],
+      _activeDaySessions,
+      'Đã lưu thành công cấu hình lịch tưới Ngày $_selected!',
+    );
+  }
+
+  Future<void> _applyToStage() async {
+    final c = _cal!;
+    final currentStage = getStageInfo(_selected, c.totalDays);
+    final days = [
+      for (final d in c.inRangeDays)
+        if (getStageInfo(d.dayNumber, c.totalDays).id == currentStage.id)
+          d.dayNumber,
+    ];
+    final ok = await _confirm(
+      'Áp dụng cho toàn bộ ${currentStage.name}?',
+      'Cấu hình 3 ca tưới của Ngày $_selected sẽ được sao chép cho toàn bộ ${days.length} ngày trong giai đoạn này.',
+      'Áp dụng ngay',
+    );
+    if (!ok || !mounted) return;
+    await _saveDays(
+      days,
+      _activeDaySessions,
+      'Đã sao chép cấu hình Ngày $_selected cho toàn bộ ${currentStage.name}!',
+    );
+  }
+
+  Future<void> _applyToAllDays() async {
+    final c = _cal!;
+    final days = [for (final d in c.inRangeDays) d.dayNumber];
+    final ok = await _confirm(
+      'Áp dụng cho cả vụ (${c.totalDays} ngày)?',
+      'Cấu hình 3 ca tưới của Ngày $_selected sẽ được áp dụng cho tất cả ${days.length} ngày trong toàn bộ mùa vụ canh tác.',
+      'Áp dụng cả vụ',
+    );
+    if (!ok || !mounted) return;
+    await _saveDays(
+      days,
+      _activeDaySessions,
+      'Đã áp dụng lịch tưới Ngày $_selected cho tất cả ${days.length} ngày của mùa vụ!',
+    );
+  }
+
+  Future<void> _resetSelectedDay() async {
+    final c = _cal!;
+    final ok = await _confirm(
+      'Khôi phục Ngày $_selected về chuẩn gốc?',
+      'Ngày $_selected sẽ quay về cấu hình lịch mẫu VietGAP mặc định của Thư viện Cây trồng.',
+      'Khôi phục ngày này',
+    );
+    if (!ok || !mounted) return;
+    await _write(
+      () => CropApi.resetSeasonIrrigation(
+        c.zoneId,
+        c.seasonId,
+        dayNumber: _selected,
+      ),
+      'Đã khôi phục Ngày $_selected về lịch mẫu chuẩn!',
+    );
+  }
+
+  Future<void> _resetAllToTemplate() async {
+    final c = _cal!;
+    final ok = await _confirm(
+      'Khôi phục toàn bộ mùa vụ về chuẩn gốc?',
+      'Mọi tùy chỉnh riêng của bạn cho ${c.overrideDayCount} ngày sẽ bị xóa và quay về lịch chuẩn VietGAP mặc định.',
+      'Khôi phục tất cả',
+    );
+    if (!ok || !mounted) return;
+    await _write(
+      () => CropApi.resetSeasonIrrigation(c.zoneId, c.seasonId),
+      'Đã khôi phục toàn bộ mùa vụ về chuẩn VietGAP gốc!',
+    );
+  }
+
+  void _toggleSession(int index, bool val) {
+    if (!(_cal?.isEditable ?? false)) return;
+    setState(() {
+      _activeDaySessions[index] = _activeDaySessions[index].copyWith(
+        enabled: val,
+      );
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  Future<void> _pickTime(int index) async {
+    if (!(_cal?.isEditable ?? false)) return;
+    final current = _activeDaySessions[index].startTime;
+    final parts = current.split(':');
+    final initial = TimeOfDay(
+      hour: int.tryParse(parts.firstOrNull ?? '7') ?? 7,
+      minute: int.tryParse(parts.elementAtOrNull(1) ?? '30') ?? 30,
+    );
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(
+            context,
+          ).copyWith(colorScheme: const ColorScheme.light(primary: _green)),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      final hh = picked.hour.toString().padLeft(2, '0');
+      final mm = picked.minute.toString().padLeft(2, '0');
+      setState(() {
+        _activeDaySessions[index] = _activeDaySessions[index].copyWith(
+          startTime: '$hh:$mm',
+        );
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  void _adjustDuration(int index, int deltaMinutes) {
+    if (!(_cal?.isEditable ?? false)) return;
+    final currentMin = (_activeDaySessions[index].durationSeconds / 60).round();
+    final newMin = (currentMin + deltaMinutes).clamp(1, 30);
+    setState(() {
+      _activeDaySessions[index] = _activeDaySessions[index].copyWith(
+        durationSeconds: newMin * 60,
+      );
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  void _adjustWater(int index, int deltaMl) {
+    if (!(_cal?.isEditable ?? false)) return;
+    final currentMl = _activeDaySessions[index].waterPerPlantMl ?? 500;
+    final newMl = (currentMl + deltaMl).clamp(50, 3000);
+    setState(() {
+      _activeDaySessions[index] = _activeDaySessions[index].copyWith(
+        waterPerPlantMl: newMl,
+      );
+      _hasUnsavedChanges = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(
-          'Lịch tưới theo ngày · ${widget.zone.name}',
-          style: const TextStyle(fontSize: 15),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Cuốn Lịch Tưới 3 Ca Vụ Mùa',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              'Zone: ${widget.zone.name}',
+              style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1)),
+            ),
+          ],
         ),
+        backgroundColor: const Color(0xFF064E3B),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Tải lại',
+            onPressed: _busy ? null : () => _load(seasonId: _seasonId),
+          ),
+          if (_cal != null && _cal!.isEditable && _cal!.hasOverrides)
+            IconButton(
+              icon: const Icon(Icons.restore, color: Colors.white),
+              tooltip: 'Khôi phục chuẩn gốc',
+              onPressed: _busy ? null : _resetAllToTemplate,
+            ),
+        ],
         bottom: _busy
             ? const PreferredSize(
                 preferredSize: Size.fromHeight(3),
-                child: LinearProgressIndicator(minHeight: 3),
+                child: LinearProgressIndicator(
+                  minHeight: 3,
+                  backgroundColor: Color(0xFF064E3B),
+                  color: Color(0xFF34D399),
+                ),
               )
             : null,
       ),
-      body: _body(),
+      body: _buildBody(),
     );
   }
 
-  Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: _green));
+    }
     if (_error != null) {
-      return _centered([
-        Text(
-          'Không tải được lịch tưới của vụ: $_error',
-          textAlign: TextAlign.center,
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Color(0xFFDC2626),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Không tải được lịch tưới của vụ: $_error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _ink),
+              ),
+              const SizedBox(height: 14),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: _green),
+                onPressed: _load,
+                child: const Text('Thử lại'),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        FilledButton(onPressed: _load, child: const Text('Thử lại')),
-      ]);
+      );
     }
     final c = _cal;
     if (c == null) {
-      return _centered([
-        const Text(
-          'Zone chưa có vụ trồng đang chạy hoặc dự kiến, nên chưa có lịch tưới theo ngày. Hãy tạo vụ trồng cho Zone trước.',
-          textAlign: TextAlign.center,
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_today, size: 48, color: _muted),
+              const SizedBox(height: 12),
+              const Text(
+                'Zone chưa có vụ trồng đang chạy hoặc dự kiến. Vui lòng tạo vụ trồng cho Zone trước.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _muted),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton(onPressed: _load, child: const Text('Tải lại')),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton(onPressed: _load, child: const Text('Tải lại')),
-      ]);
+      );
     }
+
     final days = c.inRangeDays;
-    final visible = _stageFilter == 'ALL'
+    final visibleDays = _stageFilter == 'ALL'
         ? days
         : [
             for (final d in days)
-              if (d.stageId == _stageFilter) d,
+              if (getStageInfo(d.dayNumber, c.totalDays).id == _stageFilter) d,
           ];
-    final selected = c.day(_selected) ?? days.firstOrNull;
+
+    final selectedDay = c.day(_selected) ?? days.firstOrNull;
+
     return RefreshIndicator(
+      color: _green,
       onRefresh: () => _load(seasonId: _seasonId),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         children: [
-          _header(c),
-          const SizedBox(height: 12),
-          _legend(c),
+          // 1. Main Header Banner (Tiến trình vụ mùa & thông số)
+          _buildHeaderBanner(c),
+          const SizedBox(height: 14),
+
+          // 2. 4 Growth Stages Bar (Tổng quan 4 Giai đoạn sinh trưởng)
+          _buildGrowthStagesOverview(c),
+          const SizedBox(height: 14),
+
+          // 3. Filter & Legend Bar (Thanh lọc & chú thích ca tưới)
+          _buildFilterAndLegend(c),
+          const SizedBox(height: 10),
+
+          // 4. Calendar Day Grid (Lưới lịch tưới cả vụ)
+          _buildCalendarGrid(c, visibleDays),
+          const SizedBox(height: 14),
+
+          // 5. Selected Day Detail & Editing Control Panel (Chi tiết 3 Ca tưới)
+          if (selectedDay != null) _buildSelectedDayPanel(c, selectedDay),
+          const SizedBox(height: 14),
+
+          // Stale notification if needed
           if (c.isStale || c.outOfRangeDays.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _staleBanner(c),
+            _buildStaleBanner(c),
+            const SizedBox(height: 14),
           ],
-          const SizedBox(height: 12),
-          _filters(c),
-          const SizedBox(height: 8),
-          _grid(visible),
-          const SizedBox(height: 12),
-          if (selected != null) _dayCard(c, selected),
-          const SizedBox(height: 12),
-          if (c.isEditable && c.hasOverrides)
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _resetAll,
-              icon: const Icon(Icons.restore, size: 18),
-              label: const Text('Khôi phục toàn bộ mùa vụ về lịch mẫu'),
-            ),
-          const SizedBox(height: 12),
-          _syncNote(c),
+
+          // Sync device note
+          _buildSyncNote(c),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _centered(List<Widget> children) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: children),
-    ),
-  );
+  Widget _buildHeaderBanner(SeasonIrrigationCalendar c) {
+    final startDt = getDayDate(c.startDate, 1);
+    final endDt = getDayDate(c.startDate, c.totalDays);
+    final startStr = startDt != null ? formatDisplayDate(startDt) : c.startDate;
+    final endStr = endDt != null
+        ? formatDisplayDate(endDt)
+        : 'Ngày ${c.totalDays}';
 
-  Widget _header(SeasonIrrigationCalendar c) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_seasons.length > 1)
-          DropdownButtonFormField<String>(
-            initialValue: _seasonId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Vụ trồng',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final s in _seasons)
-                DropdownMenuItem(
-                  value: '${s['seasonId']}',
-                  child: Text(
-                    '${s['name']} (${s['status'] == 'InProgress' ? 'đang chạy' : 'dự kiến'})',
+    final todayNum = c.todayDayNumber;
+    final todayStage = todayNum != null
+        ? getStageInfo(todayNum, c.totalDays)
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFECFDF5), Color(0xFFF0FDF4), Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFA7F3D0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF059669).withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF059669), Color(0xFF047857)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF059669).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.calendar_month,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Cuốn Lịch Tưới 3 Ca Vụ Mùa (${c.totalDays} Ngày)',
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD1FAE5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: Text(
+                            c.profileName,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF065F46),
+                            ),
+                          ),
+                        ),
+                        if (_seasons.length > 1)
+                          PopupMenuButton<String>(
+                            tooltip: 'Chọn vụ trồng',
+                            initialValue: _seasonId,
+                            onSelected: _busy
+                                ? null
+                                : (v) => _load(seasonId: v),
+                            itemBuilder: (context) => [
+                              for (final s in _seasons)
+                                PopupMenuItem(
+                                  value: '${s['seasonId']}',
+                                  child: Text(
+                                    '${s['name']} (${s['status'] == 'InProgress' ? 'đang chạy' : 'dự kiến'})',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                            ],
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    c.seasonName,
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      color: _ink,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 14,
+                                    color: _ink,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              c.seasonName,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: _ink,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Tiến trình canh tác Ngày 1 ➔ Ngày ${c.totalDays} ($startStr ➔ $endStr). Múi giờ: ${c.timeZone}.',
+            style: const TextStyle(fontSize: 12, color: _muted, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: Color(0xFFD1FAE5)),
+          const SizedBox(height: 10),
+
+          // Sub parameters row
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (todayNum != null && todayStage != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome, size: 13, color: _green),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Hôm nay: Ngày $todayNum/${c.totalDays} (${todayStage.shortName})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF065F46),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.verified_user, size: 13, color: _green),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tùy chỉnh riêng cho Zone ${widget.zone.name}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
-            onChanged: _busy ? null : (v) => _load(seasonId: v),
-          )
-        else
-          Text(
-            c.seasonName,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: _ink,
-            ),
           ),
-        const SizedBox(height: 6),
-        Text(
-          'Hồ sơ: ${c.profileName}\nBắt đầu ${c.startDate} · ${c.totalDays} ngày'
-          '${c.todayDayNumber == null ? ' · hôm nay nằm ngoài vụ' : ' · hôm nay là ngày ${c.todayDayNumber}'}\n'
-          'Múi giờ ${c.timeZone} · ${c.overrideDayCount} ngày tùy chỉnh'
-          '${c.updatedAtUtc == null ? '' : ' · cập nhật ${c.updatedAtUtc!.replaceFirst('T', ' ').split('.').first} UTC'}',
-          style: const TextStyle(fontSize: 12, color: _muted, height: 1.45),
-        ),
-        if (!c.isEditable)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text(
-              'Chỉ chủ trang trại sửa được lịch của vụ đang chạy hoặc dự kiến; bạn chỉ xem.',
-              style: TextStyle(fontSize: 11.5, color: _amber),
-            ),
-          ),
-        if (c.todayDayNumber != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => setState(() {
-                _selected = c.todayDayNumber!;
-                _stageFilter = 'ALL';
-              }),
-              icon: const Icon(Icons.today, size: 18),
-              label: const Text('Hôm nay'),
-            ),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
-  Widget _legend(SeasonIrrigationCalendar c) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF1F5F9),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Text(
-      'Ba loại lịch khác nhau:\n'
-      '• Lịch mẫu theo hồ sơ: đề xuất theo giai đoạn, dùng khi ngày không có chỉnh sửa (không đổi ở đây).\n'
-      '• Lịch tùy chỉnh theo ngày: lịch riêng của vụ này (chấm cam), lưu trên máy chủ.\n'
-      '• Lịch điều khiển trên thiết bị: chỉ đổi khi bạn đồng bộ (mục "Lịch tưới" của Zone).',
-      style: TextStyle(fontSize: 11.5, color: _muted, height: 1.45),
-    ),
-  );
+  Widget _buildGrowthStagesOverview(SeasonIrrigationCalendar c) {
+    final stages = [
+      getStageInfo(1, c.totalDays),
+      getStageInfo((c.totalDays * 0.35).round(), c.totalDays),
+      getStageInfo((c.totalDays * 0.65).round(), c.totalDays),
+      getStageInfo(c.totalDays, c.totalDays),
+    ];
 
-  Widget _staleBanner(SeasonIrrigationCalendar c) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFFBEB),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
-    ),
-    child: Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Vụ đã thay đổi sau lần lưu lịch cuối',
+          'GIAI ĐOẠN SINH TRƯỞNG VIETGAP',
           style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: _amber,
+            fontSize: 11.5,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF475569),
+            letterSpacing: 0.5,
           ),
         ),
-        for (final r in c.staleReasons)
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Text(
-              '• ${staleReasonText(r)}',
-              style: const TextStyle(fontSize: 11.5, color: _ink, height: 1.35),
-            ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 2.3,
           ),
-        for (final d in c.outOfRangeDays)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Ngày ${d.dayNumber} (ngoài vụ): ${d.sessions.length} ca',
-                    style: const TextStyle(fontSize: 11.5, color: _ink),
+          itemCount: stages.length,
+          itemBuilder: (context, idx) {
+            final st = stages[idx];
+            final isFilter = _stageFilter == st.id;
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _stageFilter = isFilter ? 'ALL' : st.id;
+                });
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: st.bgColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isFilter ? st.color : st.borderColor,
+                    width: isFilter ? 2 : 1,
                   ),
                 ),
-                if (c.isEditable)
-                  TextButton(
-                    onPressed: _busy ? null : () => _resetDay(d),
-                    child: const Text('Khôi phục'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          st.shortName,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: st.color,
+                          ),
+                        ),
+                        Text(
+                          st.rangeText,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: st.color.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      st.name.replaceFirst(RegExp(r'Giai đoạn \d+: '), ''),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterAndLegend(SeasonIrrigationCalendar c) {
+    final todayNum = c.todayDayNumber;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Wrap(
+              spacing: 6,
+              children: [
+                ChoiceChip(
+                  label: Text(
+                    'Tất cả (${c.totalDays} ngày)',
+                    style: const TextStyle(fontSize: 11.5),
+                  ),
+                  selected: _stageFilter == 'ALL',
+                  selectedColor: const Color(0xFF0F172A),
+                  labelStyle: TextStyle(
+                    color: _stageFilter == 'ALL' ? Colors.white : _ink,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  onSelected: (_) => setState(() => _stageFilter = 'ALL'),
+                ),
+                if (todayNum != null)
+                  ActionChip(
+                    avatar: const Icon(
+                      Icons.my_location,
+                      size: 14,
+                      color: _green,
+                    ),
+                    label: Text(
+                      'Hôm nay (Ngày $todayNum)',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: _green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    backgroundColor: const Color(0xFFD1FAE5),
+                    side: const BorderSide(color: Color(0xFFA7F3D0)),
+                    onPressed: () {
+                      _onSelectDay(todayNum);
+                      setState(() => _stageFilter = 'ALL');
+                    },
                   ),
               ],
             ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Legend row
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _legendDot(const Color(0xFFF59E0B), 'Ca Sáng (Khởi động)'),
+              const SizedBox(width: 10),
+              _legendDot(const Color(0xFFF43F5E), 'Ca Trưa (Hạ nhiệt)'),
+              const SizedBox(width: 10),
+              _legendDot(const Color(0xFF6366F1), 'Ca Chiều (Bổ sung)'),
+              const SizedBox(width: 10),
+              _legendDot(_green, 'Đã tùy biến'),
+            ],
           ),
+        ),
       ],
-    ),
-  );
+    );
+  }
 
-  Widget _filters(SeasonIrrigationCalendar c) {
-    final stages = c.stages;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+  Widget _legendDot(Color color, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(text, style: const TextStyle(fontSize: 11, color: _muted)),
+      ],
+    );
+  }
+
+  Widget _buildCalendarGrid(SeasonIrrigationCalendar c, List<SeasonDay> days) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: ChoiceChip(
-              label: Text(
-                'Tất cả (${c.totalDays} ngày)',
-                style: const TextStyle(fontSize: 12),
+          // Table header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF047857),
+                  Color(0xFF059669),
+                  Color(0xFF0D9488),
+                ],
               ),
-              selected: _stageFilter == 'ALL',
-              onSelected: (_) => setState(() => _stageFilter = 'ALL'),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(17),
+                topRight: Radius.circular(17),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: Color(0xFFFDE68A),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'LƯỚI LỊCH TƯỚI ${c.totalDays} NGÀY VỤ MÙA',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${days.length} / ${c.totalDays} ngày',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ],
             ),
           ),
-          for (final s in stages)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(
-                label: Text(s.name, style: const TextStyle(fontSize: 12)),
-                selected: _stageFilter == s.id,
-                onSelected: (_) => setState(() {
-                  _stageFilter = s.id;
-                  final first = c.inRangeDays
-                      .where((d) => d.stageId == s.id)
-                      .firstOrNull;
-                  if (first != null && c.day(_selected)?.stageId != s.id)
-                    _selected = first.dayNumber;
-                }),
+
+          // Day cells grid
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final d in days) _buildDayCell(c, d)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayCell(SeasonIrrigationCalendar c, SeasonDay d) {
+    final isSelected = d.dayNumber == _selected;
+    final isToday = c.todayDayNumber == d.dayNumber;
+    final stage = getStageInfo(d.dayNumber, c.totalDays);
+    final dayDt = getDayDate(c.startDate, d.dayNumber);
+    final displayDate = dayDt != null ? formatDisplayDate(dayDt) : d.shortDate;
+    final dayOfWeek = dayDt != null ? getDayOfWeekName(dayDt) : '';
+
+    final daySessions = isSelected ? _activeDaySessions : extractDaySessions(d);
+    final morning = daySessions[0];
+    final noon = daySessions[1];
+    final afternoon = daySessions[2];
+
+    return InkWell(
+      key: ValueKey('calendar_day_${d.dayNumber}'),
+      onTap: () => _onSelectDay(d.dayNumber),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 68,
+        height: 72,
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFFECFDF5)
+              : isToday
+              ? const Color(0xFFFFFBEB)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? _green
+                : isToday
+                ? _amber
+                : const Color(0xFFE2E8F0),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: _green.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Top: Day number + customized indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'N${d.dayNumber}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? const Color(0xFF065F46) : _ink,
+                  ),
+                ),
+                if (d.isOverride)
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: _green,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                else if (isToday)
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: _amber,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+
+            // Mid: Date + day of week
+            Text(
+              '$displayDate $dayOfWeek',
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? const Color(0xFF047857) : _muted,
+              ),
+            ),
+
+            // Bottom: 3 Session indicator dots + Stage short pill
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (morning.enabled)
+                      Container(
+                        width: 5,
+                        height: 5,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    if (noon.enabled)
+                      Container(
+                        width: 5,
+                        height: 5,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF43F5E),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    if (afternoon.enabled)
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF6366F1),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: stage.bgColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      stage.shortName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.bold,
+                        color: stage.color,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedDayPanel(
+    SeasonIrrigationCalendar c,
+    SeasonDay selectedDay,
+  ) {
+    final stage = getStageInfo(selectedDay.dayNumber, c.totalDays);
+    final dayDt = getDayDate(c.startDate, selectedDay.dayNumber);
+    final fullDate = dayDt != null ? formatFullDate(dayDt) : selectedDay.date;
+    final dayOfWeek = dayDt != null ? getDayOfWeekName(dayDt) : '';
+    final isToday = c.todayDayNumber == selectedDay.dayNumber;
+    final canEdit = c.isEditable;
+
+    final morning = _activeDaySessions[0];
+    final noon = _activeDaySessions[1];
+    final afternoon = _activeDaySessions[2];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header of panel
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1FAE5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.access_time_filled,
+                  color: _green,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Chi tiết Lịch Tưới Ngày ${selectedDay.dayNumber}',
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
+                          ),
+                        ),
+                        if (isToday) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFFDE68A),
+                              ),
+                            ),
+                            child: const Text(
+                              'HÔM NAY',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: _amber,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (selectedDay.isOverride) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD1FAE5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFA7F3D0),
+                              ),
+                            ),
+                            child: const Text(
+                              'ĐÃ TÙY BIẾN',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: _green,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$fullDate ($dayOfWeek) • ${stage.name} (${stage.rangeText})',
+                      style: const TextStyle(fontSize: 11.5, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Batch Action Buttons
+          if (canEdit)
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF0F9FF),
+                    side: const BorderSide(color: Color(0xFFBAE6FD)),
+                    foregroundColor: const Color(0xFF0369A1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: _busy ? null : _applyToStage,
+                  icon: const Icon(Icons.bolt, size: 15),
+                  label: const Text(
+                    'Áp dụng cả Giai đoạn này',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFECFDF5),
+                    side: const BorderSide(color: Color(0xFFA7F3D0)),
+                    foregroundColor: const Color(0xFF047857),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: _busy ? null : _applyToAllDays,
+                  icon: const Icon(Icons.public, size: 15),
+                  label: Text(
+                    'Áp dụng cả Vụ (${c.totalDays} ngày)',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (selectedDay.isOverride)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF64748B),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                    ),
+                    onPressed: _busy ? null : _resetSelectedDay,
+                    icon: const Icon(Icons.undo, size: 14),
+                    label: const Text(
+                      'Bỏ tùy biến',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+              ],
+            ),
+          const SizedBox(height: 12),
+
+          // 3 Session Cards
+          _buildSessionCard(
+            index: 0,
+            session: morning,
+            sessionTypeTitle: 'Ca Sáng (Khởi động)',
+            icon: Icons.wb_twilight,
+            themeColor: const Color(0xFFD97706),
+            bgColor: const Color(0xFFFFFBEB),
+            borderColor: const Color(0xFFFDE68A),
+            canEdit: canEdit,
+          ),
+          const SizedBox(height: 10),
+
+          _buildSessionCard(
+            index: 1,
+            session: noon,
+            sessionTypeTitle: 'Ca Trưa (Hạ nhiệt)',
+            icon: Icons.wb_sunny,
+            themeColor: const Color(0xFFE11D48),
+            bgColor: const Color(0xFFFFF1F2),
+            borderColor: const Color(0xFFFECDD3),
+            canEdit: canEdit,
+          ),
+          const SizedBox(height: 10),
+
+          _buildSessionCard(
+            index: 2,
+            session: afternoon,
+            sessionTypeTitle: 'Ca Chiều (Bổ sung)',
+            icon: Icons.nights_stay,
+            themeColor: const Color(0xFF4F46E5),
+            bgColor: const Color(0xFFEEF2FF),
+            borderColor: const Color(0xFFC7D2FE),
+            canEdit: canEdit,
+          ),
+          const SizedBox(height: 14),
+
+          // Save button for this day
+          if (canEdit)
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _hasUnsavedChanges
+                      ? const Color(0xFF059669)
+                      : const Color(0xFF0F172A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: _hasUnsavedChanges ? 3 : 0,
+                ),
+                onPressed: _busy ? null : _saveCurrentDay,
+                icon: const Icon(Icons.save, size: 18),
+                label: Text(
+                  _hasUnsavedChanges
+                      ? 'LƯU THAY ĐỔI NGÀY ${selectedDay.dayNumber}'
+                      : 'LƯU CẤU HÌNH NGÀY ${selectedDay.dayNumber}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
         ],
@@ -517,186 +1566,286 @@ class _SeasonIrrigationCalendarScreenState
     );
   }
 
-  Widget _grid(List<SeasonDay> days) => Container(
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-    ),
-    child: Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final d in days)
-          InkWell(
-            key: ValueKey('day_${d.dayNumber}'),
-            onTap: () => setState(() => _selected = d.dayNumber),
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 50,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(
-                color: d.dayNumber == _selected
-                    ? const Color(0xFF064E3B)
-                    : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: d.dayNumber == _selected
-                      ? const Color(0xFF10B981)
-                      : (d.isOverride
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFFE2E8F0)),
-                  width: d.isOverride || d.dayNumber == _selected ? 2 : 1,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'N${d.dayNumber}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: d.dayNumber == _selected ? Colors.white : _ink,
-                    ),
-                  ),
-                  Text(
-                    d.shortDate,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: d.dayNumber == _selected ? Colors.white70 : _muted,
-                    ),
-                  ),
-                  Text(
-                    d.source == DaySource.none ? '—' : '${d.enabledCount} ca',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: d.dayNumber == _selected
-                          ? Colors.white
-                          : (d.isOverride ? _amber : _green),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
+  Widget _buildSessionCard({
+    required int index,
+    required ProfileSession session,
+    required String sessionTypeTitle,
+    required IconData icon,
+    required Color themeColor,
+    required Color bgColor,
+    required Color borderColor,
+    required bool canEdit,
+  }) {
+    final durationMinutes = (session.durationSeconds / 60).round();
+    final waterMl = session.waterPerPlantMl ?? 500;
 
-  Widget _dayCard(SeasonIrrigationCalendar c, SeasonDay d) {
-    final canEdit = c.isEditable;
-    final isToday = c.todayDayNumber == d.dayNumber;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: session.enabled ? bgColor : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: d.isOverride
-              ? const Color(0xFFF59E0B)
-              : const Color(0xFFE2E8F0),
-          width: 1.5,
+          color: session.enabled ? borderColor : const Color(0xFFE2E8F0),
+          width: 1.2,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Ngày ${d.dayNumber} · ${d.date}${isToday ? ' · hôm nay' : ''}',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: _ink,
-            ),
-          ),
-          Text(
-            '${d.stageName ?? 'Ngoài các giai đoạn của hồ sơ'} · Nguồn: ${d.source.label}',
-            style: TextStyle(
-              fontSize: 12,
-              color: d.isOverride ? _amber : _muted,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (d.sessions.isEmpty)
-            Text(
-              d.isOverride
-                  ? 'Ngày này được đặt là KHÔNG tưới (không có ca nào).'
-                  : 'Chưa có lịch cho ngày này: hồ sơ chưa có ca tưới và cây cũng chưa có lịch mẫu.',
-              style: const TextStyle(fontSize: 12, color: _amber),
-            )
-          else
-            for (final s in d.sessions)
-              Padding(
-                padding: const EdgeInsets.only(top: 3),
-                child: Text(
-                  '${s.enabled ? '•' : '◦'} ${describeProfileSession(s)}',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: s.enabled ? _ink : _muted,
-                  ),
-                ),
-              ),
-          if (d.source == DaySource.crop)
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Text(
-                'Đây chỉ là lịch mẫu chung của cây để tham khảo, chưa lưu trong hồ sơ.',
-                style: TextStyle(fontSize: 11, color: _muted),
-              ),
-            ),
-          const SizedBox(height: 8),
-          if (canEdit)
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                FilledButton.icon(
-                  onPressed: _busy ? null : () => _editDay(d),
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('Sửa ngày này'),
-                ),
-                if (d.isOverride)
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _resetDay(d),
-                    icon: const Icon(Icons.restore, size: 16),
-                    label: const Text('Khôi phục ngày'),
-                  ),
-                if (d.sessions.isNotEmpty || d.isOverride) ...[
-                  if (d.stageId != null)
-                    OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () => _applyElsewhere(d, wholeSeason: false),
-                      child: const Text('Áp dụng cả giai đoạn'),
+          // Card Title + Checkbox + Time Picker Button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Checkbox(
+                    value: session.enabled,
+                    activeColor: themeColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _applyElsewhere(d, wholeSeason: true),
-                    child: const Text('Áp dụng cả vụ'),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: canEdit
+                        ? (val) => _toggleSession(index, val ?? false)
+                        : null,
+                  ),
+                  Icon(
+                    icon,
+                    size: 17,
+                    color: session.enabled ? themeColor : _muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    sessionTypeTitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: session.enabled ? _ink : _muted,
+                    ),
                   ),
                 ],
+              ),
+              InkWell(
+                onTap: canEdit && session.enabled
+                    ? () => _pickTime(index)
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: session.enabled
+                          ? themeColor.withValues(alpha: 0.5)
+                          : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.schedule,
+                        size: 13,
+                        color: session.enabled ? themeColor : _muted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        session.startTime,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: session.enabled ? themeColor : _muted,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Adjusters
+          Opacity(
+            opacity: session.enabled ? 1.0 : 0.45,
+            child: Column(
+              children: [
+                // Duration Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Thời lượng tưới:',
+                      style: TextStyle(fontSize: 12, color: _ink),
+                    ),
+                    Row(
+                      children: [
+                        _stepperButton(
+                          icon: Icons.remove,
+                          enabled: canEdit && session.enabled,
+                          onPressed: () => _adjustDuration(index, -5),
+                        ),
+                        Container(
+                          width: 64,
+                          alignment: Alignment.center,
+                          child: Text(
+                            '$durationMinutes phút',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
+                          ),
+                        ),
+                        _stepperButton(
+                          icon: Icons.add,
+                          enabled: canEdit && session.enabled,
+                          onPressed: () => _adjustDuration(index, 5),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
+                // Water Volume Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Liều lượng nước:',
+                      style: TextStyle(fontSize: 12, color: _ink),
+                    ),
+                    Row(
+                      children: [
+                        _stepperButton(
+                          icon: Icons.remove,
+                          enabled: canEdit && session.enabled,
+                          onPressed: () => _adjustWater(index, -50),
+                        ),
+                        Container(
+                          width: 80,
+                          alignment: Alignment.center,
+                          child: Text(
+                            '$waterMl ml/gốc',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
+                          ),
+                        ),
+                        _stepperButton(
+                          icon: Icons.add,
+                          enabled: canEdit && session.enabled,
+                          onPressed: () => _adjustWater(index, 50),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepperButton({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onPressed,
+  }) {
+    return InkWell(
+      onTap: enabled ? onPressed : null,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: enabled ? Colors.white : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Icon(icon, size: 14, color: enabled ? _ink : _muted),
+      ),
+    );
+  }
+
+  Widget _buildStaleBanner(SeasonIrrigationCalendar c) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 16, color: _amber),
+              SizedBox(width: 6),
+              Text(
+                'Lưu ý thay đổi mùa vụ',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: _amber,
+                ),
+              ),
+            ],
+          ),
+          for (final r in c.staleReasons)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '• ${staleReasonText(r)}',
+                style: const TextStyle(fontSize: 11.5, color: _ink),
+              ),
             ),
         ],
       ),
     );
   }
 
-  Widget _syncNote(SeasonIrrigationCalendar c) {
+  Widget _buildSyncNote(SeasonIrrigationCalendar c) {
     final today = c.today;
     final text = today == null
-        ? 'Hôm nay nằm ngoài vụ nên đồng bộ thiết bị sẽ dùng lịch theo giai đoạn của hồ sơ.'
+        ? 'Hôm nay nằm ngoài vụ nên đồng bộ thiết bị sẽ dùng lịch theo giai đoạn chuẩn VietGAP của hồ sơ.'
         : today.isOverride
-        ? 'Khi đồng bộ xuống thiết bị hôm nay (ngày ${today.dayNumber}), hệ thống dùng lịch TÙY CHỈNH của ngày này. '
-              'Thiết bị lặp hằng ngày cho tới lần đồng bộ kế tiếp.'
-        : 'Hôm nay (ngày ${today.dayNumber}) chưa có lịch tùy chỉnh: khi đồng bộ, hệ thống dùng lịch theo giai đoạn của hồ sơ.';
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 11.5, color: _muted, height: 1.4),
+        ? 'Khi đồng bộ xuống thiết bị hôm nay (ngày ${today.dayNumber}), hệ thống sẽ nạp lịch TÙY CHỈNH 3 CA của ngày này.'
+        : 'Hôm nay (ngày ${today.dayNumber}) dùng lịch chuẩn VietGAP. Bạn có thể tùy chỉnh và bấm Lưu để nạp xuống phần cứng.';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 16, color: _muted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: _muted,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

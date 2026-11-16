@@ -9,6 +9,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import 'map_zoom_controls.dart';
 import 'node_placement_logic.dart';
+import 'install_voucher_card.dart' show loadInstallVoucher;
+import 'install_voucher_logic.dart';
 import 'service_board_logic.dart' show effectiveQuotationStatus;
 import 'placed_nodes_screen.dart';
 import 'technician_maintenance_screen.dart' show serviceStatusOf;
@@ -107,6 +109,20 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       final sr = results[5] as Map<String, dynamic>;
       final dep = results[1] as DeploymentRequest;
       final quotation = results[0] as Quotation?;
+      // Phiếu xuất kho của hợp đồng (Luồng 1): chỉ chấm Node khi Admin đã duyệt; đọc lỗi thì khoá.
+      InstallVoucher? voucher;
+      var voucherKnown = false;
+      if (quotation != null) {
+        try {
+          voucher = await loadInstallVoucher(
+            farmId: widget.farmId,
+            zoneId: widget.zoneId,
+            quotationId: quotation.id,
+            serviceRequestId: widget.serviceRequestId,
+          );
+          voucherKnown = true;
+        } catch (_) {}
+      }
       final rawDevices = (results[2] as List<Map<String, dynamic>>)
           .where(
             (d) => '${d['deploymentRequestId']}' == widget.deploymentRequestId,
@@ -133,6 +149,10 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           depositLabel: quotation?.depositLabel,
           remainingLabel: quotation?.remainingLabel,
           deploymentStatus: dep.status,
+          voucherPhase: voucherKnown
+              ? (voucher?.phase ?? VoucherPhase.none)
+              : null,
+          voucherCode: voucher?.code,
           linkValid:
               sameArgs &&
               deploymentLinkValid(

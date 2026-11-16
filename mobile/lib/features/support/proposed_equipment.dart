@@ -83,6 +83,8 @@ Future<List<QuotationItem>> proposedItemsForZone(
   final results = await Future.wait<List<Map<String, dynamic>>>([
     DeploymentApi.getHardwareItems(),
     DeploymentApi.getZoneDevices(zone.zoneId),
+    // Gateway đã có của trang trại: không dự toán mua thêm.
+    DeploymentApi.getFarmGatewaysRaw(zone.farmId),
   ]);
   final polygon = zone.polygon;
   final est = computeHoneycombEstimate(
@@ -91,7 +93,10 @@ Future<List<QuotationItem>> proposedItemsForZone(
     actuatorRatio: honeycombActuatorRatio(zone.currentCrop),
     catalog: HoneycombCatalog.fromHardwareItems(results[0]),
     requiredParameters: requiredParameters,
-    installed: ZoneInstalledDevices.fromJson(results[1]),
+    installed: ZoneInstalledDevices.fromJson(
+      results[1],
+      farmGateways: results[2],
+    ),
     perimeterM: polygon == null
         ? null
         : convexHullPerimeterM([

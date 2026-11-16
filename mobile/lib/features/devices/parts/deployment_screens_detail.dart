@@ -22,6 +22,9 @@ class _DeploymentRequestDetailScreenState
   DeploymentRequest? _req;
   List<IotDevice> _devices = [];
   List<IotGateway> _gateways = [];
+  // Luồng 1: kỹ thuật viên chỉ cấp phát/gán Node khi phiếu xuất kho của hợp đồng đã được Admin duyệt (null = chưa đọc được: khoá).
+  VoucherPhase? _voucherPhase;
+  String? _voucherCode;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -55,11 +58,25 @@ class _DeploymentRequestDetailScreenState
           r.farmId,
         )).where((d) => d.deploymentRequestId == r.requestId).toList();
       }
+      VoucherPhase? voucherPhase;
+      String? voucherCode;
+      if (widget.technician && r.status == 'Installing') {
+        try {
+          final v = await loadVoucherPhaseForDeployment(
+            deploymentRequestId: r.requestId,
+            farmId: r.farmId,
+          );
+          voucherPhase = v.phase;
+          voucherCode = v.code;
+        } catch (_) {}
+      }
       if (mounted) {
         setState(() {
           _req = r;
           _devices = devices;
           _gateways = gateways;
+          _voucherPhase = voucherPhase;
+          _voucherCode = voucherCode;
         });
       }
     } catch (e) {

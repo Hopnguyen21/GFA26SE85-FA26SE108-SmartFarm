@@ -16,6 +16,9 @@ class DeviceHealthScreen extends StatefulWidget {
 
 class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
   Future<List<DeviceHealthModel>>? _future;
+  final ScrollController _scrollController = ScrollController();
+  int _currentPage = 1;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -23,6 +26,12 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _reload();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -35,6 +44,161 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
     } catch (_) {
       // Lỗi được hiển thị bởi FutureBuilder.
     }
+  }
+
+  void _goToPage(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  List<int> _generatePageNumbers(int current, int total) {
+    if (total <= 5) {
+      return [for (var i = 1; i <= total; i++) i];
+    }
+    final pages = <int>{};
+    pages.add(1);
+    pages.add(total);
+    pages.add(current);
+    if (current > 1) pages.add(current - 1);
+    if (current < total) pages.add(current + 1);
+
+    final sorted = pages.toList()..sort();
+    final result = <int>[];
+    for (var i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) {
+        result.add(-1); // Dấu "..."
+      }
+      result.add(sorted[i]);
+    }
+    return result;
+  }
+
+  Widget _buildPaginationControls(
+    int currentPage,
+    int totalPages,
+    int totalCount,
+    int fromItem,
+    int toItem,
+  ) {
+    return Column(
+      children: [
+        Text(
+          'Hiển thị $fromItem – $toItem trong tổng số $totalCount thiết bị',
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Nút Trang trước
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded),
+              onPressed: currentPage > 1
+                  ? () => _goToPage(currentPage - 1)
+                  : null,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0F172A),
+                disabledBackgroundColor: const Color(0xFFF1F5F9),
+                disabledForegroundColor: const Color(0xFF94A3B8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Các nút số trang
+            ..._generatePageNumbers(currentPage, totalPages).map((p) {
+              if (p == -1) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    '…',
+                    style: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              }
+              final isCurrent = p == currentPage;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: FilledButton(
+                    onPressed: isCurrent ? null : () => _goToPage(p),
+                    style: FilledButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: isCurrent
+                          ? const Color(0xFF059669)
+                          : Colors.white,
+                      foregroundColor: isCurrent
+                          ? Colors.white
+                          : const Color(0xFF334155),
+                      disabledBackgroundColor: const Color(0xFF059669),
+                      disabledForegroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: isCurrent
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      '$p',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+
+            const SizedBox(width: 8),
+            // Nút Trang sau
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded),
+              onPressed: currentPage < totalPages
+                  ? () => _goToPage(currentPage + 1)
+                  : null,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0F172A),
+                disabledBackgroundColor: const Color(0xFFF1F5F9),
+                disabledForegroundColor: const Color(0xFF94A3B8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   @override
@@ -97,6 +261,15 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
             );
           }
           final devices = snap.data!;
+          final totalCount = devices.length;
+          final totalPages = (totalCount / _pageSize).ceil().clamp(1, 9999);
+          final currentPage = _currentPage.clamp(1, totalPages);
+          final startIndex = (currentPage - 1) * _pageSize;
+          final endIndex = (startIndex + _pageSize).clamp(0, totalCount);
+          final pagedDevices = devices.isEmpty
+              ? <DeviceHealthModel>[]
+              : devices.sublist(startIndex, endIndex);
+
           final online = devices
               .where((d) => d.healthStatus == 'ONLINE')
               .length;
@@ -109,6 +282,7 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(16),
               children: [
                 Row(
@@ -165,14 +339,30 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'DANH SÁCH THIẾT BỊ (${devices.length})',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF64748B),
-                    letterSpacing: 0.5,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'DANH SÁCH THIẾT BỊ ($totalCount)',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF64748B),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    if (totalPages > 1)
+                      Text(
+                        'Trang $currentPage / $totalPages',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF059669),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 if (devices.isEmpty)
@@ -184,7 +374,7 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
                       style: TextStyle(color: Color(0xFF64748B)),
                     ),
                   ),
-                ...devices.map(
+                ...pagedDevices.map(
                   (device) => _DeviceCard(
                     device: device,
                     canManage:
@@ -194,6 +384,17 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
                     onChanged: _reload,
                   ),
                 ),
+                if (totalPages > 1) ...[
+                  const SizedBox(height: 16),
+                  _buildPaginationControls(
+                    currentPage,
+                    totalPages,
+                    totalCount,
+                    startIndex + 1,
+                    endIndex,
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ],
             ),
           );

@@ -3,6 +3,7 @@
 library;
 
 import '../../core/models/models.dart' show BusinessParameters;
+import 'install_voucher_logic.dart' show VoucherPhase;
 
 /// Mã lỗi của yêu cầu lắp đặt: `INSTALLATION` do luồng triển khai IoT tạo, `NEW_INSTALL` do cổng dịch vụ tạo.
 const installationFailureCodes = {'INSTALLATION', 'NEW_INSTALL'};
@@ -141,6 +142,9 @@ String installNextAction({
   required bool closed,
   String? depositLabel,
   String? remainingLabel,
+  // Luồng 1: bắt buộc có phiếu xuất kho được Admin duyệt trước khi gắn Node. [voucherPhase] null = chưa đọc được.
+  bool voucherRequired = false,
+  VoucherPhase? voucherPhase,
 }) {
   final depLbl = depositLabel ?? BusinessParameters.active.depositLabel;
   final remLbl = remainingLabel ?? BusinessParameters.active.remainingLabel;
@@ -157,6 +161,14 @@ String installNextAction({
   final signed =
       quotationStatus == 'SignedByOwner' || quotationStatus == 'DepositPaid';
   if (signed) {
+    if (voucherRequired && voucherPhase != VoucherPhase.approved) {
+      return switch (voucherPhase) {
+        null => 'Tải lại để xem phiếu xuất kho của hợp đồng',
+        VoucherPhase.draft => 'Gửi phiếu xuất kho cho Admin duyệt',
+        VoucherPhase.pending => 'Chờ Admin duyệt phiếu xuất kho',
+        _ => 'Tạo phiếu xuất kho thiết bị và gửi Admin duyệt',
+      };
+    }
     return 'Gắn Node, lưu vị trí, ghi kết nối rồi hoàn tất';
   }
   final hasQuote =
@@ -166,7 +178,7 @@ String installNextAction({
   if (hasQuote) return 'Chờ Owner thanh toán cọc $depLbl';
   return switch (dep) {
     'Accepted' => 'Khảo sát',
-    'Surveyed' => 'Xác nhận kế hoạch',
+    'Surveyed' => 'Tạo và gửi hợp đồng',
     'PlanConfirmed' => 'Tạo và gửi hợp đồng',
     'Installing' => 'Gắn Node, lưu vị trí, ghi kết nối rồi hoàn tất',
     _ => 'Tiếp nhận',

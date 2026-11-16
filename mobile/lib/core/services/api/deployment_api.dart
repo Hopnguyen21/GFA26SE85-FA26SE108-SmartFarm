@@ -209,6 +209,26 @@ abstract final class DeploymentApi {
   static Future<DeploymentRequest> confirmDeploymentPlan(String id) =>
       _technicianPost(id, 'confirm');
 
+  /// Kỹ thuật viên gửi hợp đồng = xác nhận kế hoạch: tự đưa triển khai tới "Đã xác nhận kế hoạch" (Tiếp nhận → Khảo sát đạt
+  /// → Xác nhận), chỉ làm các bước còn thiếu. Backend bắt buộc đi đủ các bước này nên app thay KTV bấm; lỗi của bước nào thì
+  /// ném ra để báo, không nuốt.
+  static Future<DeploymentRequest> autoConfirmPlan(String id) async {
+    var d = await getDeploymentRequest(id, technician: true);
+    if (d.status == 'Submitted') d = await acceptDeploymentRequest(id);
+    if (d.status == 'Accepted') {
+      d = await surveyDeploymentRequest(
+        id,
+        isFeasible: true,
+        siteConditions: 'Mặt bằng và nguồn điện sẵn sàng.',
+        notes: 'Khảo sát thực địa đạt chuẩn theo hợp đồng đã gửi.',
+      );
+    }
+    if (d.status == 'Surveyed' && d.latestSurveyFeasible) {
+      d = await confirmDeploymentPlan(id);
+    }
+    return d;
+  }
+
   static Future<DeploymentRequest> startDeploymentInstallation(String id) =>
       _technicianPost(id, 'installation/start');
 

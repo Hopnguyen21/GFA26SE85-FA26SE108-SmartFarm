@@ -199,19 +199,33 @@ extension FarmProviderSync on FarmProvider {
             if (ctx != null && ctx['cropName'] != null) {
               final idx = _zones.indexWhere((z) => z.zoneId == d.zoneId);
               if (idx != -1) {
-                final crop = ctx['cropName'].toString();
-                final stage =
-                    ctx['growthStageName']?.toString() ??
-                    _zones[idx].currentStage;
-                _zones[idx] = _zones[idx].copyWith(
-                  currentCrop: crop,
-                  currentStage: stage,
+                final z = _zones[idx];
+                // Zone API là nguồn chính của cây/giai đoạn (cây kèm giống, vd "Cà Chua (Beef F1)"); ngữ cảnh AI chỉ bù khi Zone API không có.
+                final hasCrop = !z.currentCrop.startsWith('Chưa gán cây');
+                final hasStage =
+                    z.seasonStatus == 'InProgress' &&
+                    !z.currentStage.startsWith('Chưa có vụ');
+                final reqs = ctx['requirements'];
+                _zones[idx] = z.copyWith(
+                  currentCrop: hasCrop ? null : ctx['cropName'].toString(),
+                  currentStage: hasStage
+                      ? null
+                      : (ctx['growthStageName']?.toString() ?? z.currentStage),
                   cropContextIsDbBacked: true,
+                  appliedRequirements: reqs is List
+                      ? [
+                          for (final r in reqs)
+                            if (r is Map) Map<String, dynamic>.from(r),
+                        ]
+                      : const [],
                 );
               }
             }
           }
         }
+
+        // Số đo mới nhất cho MỌI Zone (trước đây chỉ Zone đang chọn có số đo, các Zone khác hiện 0/—).
+        await refreshAllZonesTelemetry();
 
         // 5. Tải song song kho vật tư và luật tự động hoá
         await _loadInventoryAndRules();
@@ -225,6 +239,60 @@ extension FarmProviderSync on FarmProvider {
     }
   }
 
+  /// Áp số đo mới nhất (từ FarmApi.getLatestTelemetry) lên một Zone; null khi không có gì thay đổi.
+  ZoneModel? _zoneWithTelemetry(ZoneModel z, Map<String, double> t) {
+    final hasFresh =
+        t['__hasFreshTelemetry'] == 1.0 &&
+        t.containsKey('TEMPERATURE') &&
+        t.containsKey('SOILMOISTURE') &&
+        t.containsKey('AIRHUMIDITY') &&
+        (t.containsKey('LIGHTINTENSITY') || t.containsKey('LIGHT'));
+    final temp = t['TEMPERATURE'] ?? z.currentTemp;
+    final moist = t['SOILMOISTURE'] ?? z.currentSoilMoisture;
+    final humid = t['AIRHUMIDITY'] ?? z.currentHumidity;
+    final lux = t['LIGHTINTENSITY'] ?? t['LIGHT'] ?? z.currentLux;
+    final changed =
+        temp != z.currentTemp ||
+        moist != z.currentSoilMoisture ||
+        humid != z.currentHumidity ||
+        lux != z.currentLux ||
+        hasFresh != z.telemetryIsFresh;
+    if (!changed) return null;
+    return z.copyWith(
+      currentTemp: temp,
+      currentSoilMoisture: moist,
+      currentHumidity: humid,
+      currentLux: lux,
+      telemetryIsFresh: hasFresh,
+    );
+  }
+
+  /// Tải số đo mới nhất cho các Zone (trừ [exceptZoneId], thường là Zone đang chọn đã có vòng cập nhật 5 giây riêng).
+  Future<void> refreshAllZonesTelemetry({String? exceptZoneId}) async {
+    _lastAllZonesTelemetryAt = DateTime.now();
+    final ids = [
+      for (final z in _zones)
+        if (z.zoneId != exceptZoneId) z.zoneId,
+    ];
+    if (ids.isEmpty) return;
+    final results = await Future.wait(
+      ids.map((id) => FarmApi.getLatestTelemetry(id).catchError((_) => null)),
+    );
+    var any = false;
+    for (var i = 0; i < ids.length; i++) {
+      final t = results[i];
+      if (t == null) continue;
+      final idx = _zones.indexWhere((z) => z.zoneId == ids[i]);
+      if (idx == -1) continue;
+      final updated = _zoneWithTelemetry(_zones[idx], t);
+      if (updated != null) {
+        _zones[idx] = updated;
+        any = true;
+      }
+    }
+    if (any) _notify();
+  }
+
   void _startRealtimeSensorTimer() {
     _realtimeTimer?.cancel();
     if (!_lifecycleObserverAdded) {
@@ -235,6 +303,14 @@ extension FarmProviderSync on FarmProvider {
     _realtimeTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
       // Lần hỏi trước chưa xong (mạng chậm) thì bỏ lượt này, tránh dồn nhiều yêu cầu chồng nhau.
       if (_pollInFlight) return;
+      final lastAll = _lastAllZonesTelemetryAt;
+      if (_isApiConnected &&
+          _zones.length > 1 &&
+          (lastAll == null ||
+              DateTime.now().difference(lastAll) >
+                  const Duration(seconds: 30))) {
+        unawaited(refreshAllZonesTelemetry(exceptZoneId: currentZone.zoneId));
+      }
       // Nếu đang kết nối API, thử lấy số liệu đo từ API cho Zone hiện tại
       if (_isApiConnected && _zones.isNotEmpty) {
         _pollInFlight = true;

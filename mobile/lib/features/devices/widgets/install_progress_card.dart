@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/state_views.dart';
 import '../deployment_board_logic.dart';
 import 'deployment_progress_bar.dart';
-import 'survey_dialog.dart';
 
 /// Khối "Tiến độ lắp đặt" trong chi tiết phiếu dịch vụ loại lắp đặt: cho kỹ thuật viên nhận, khảo sát, xác nhận kế hoạch
 /// và bắt đầu lắp đặt ngay trên phiếu. Các bước sau (cấp phát thiết bị, kiểm tra kết nối, hoàn tất, thất bại) và
@@ -114,19 +113,6 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     }
   }
 
-  Future<void> _survey(DeploymentRequest d) async {
-    final input = await askSurvey(context);
-    if (input == null || !mounted) return;
-    await _run(
-      () => DeploymentApi.surveyDeploymentRequest(
-        d.requestId,
-        isFeasible: input.feasible,
-        siteConditions: input.siteConditions,
-        notes: input.notes,
-      ),
-    );
-  }
-
   Future<void> _guarded(
     String title,
     String body,
@@ -153,29 +139,10 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           ),
         ];
       case 'Accepted':
-        return [primary('Ghi nhận khảo sát địa điểm', () => _survey(d))];
+        return const []; // không còn nút nhập khảo sát thực địa thủ công
       case 'Surveyed':
         return [
-          // Theo cam kết (BM04, WF-01): KTV khảo sát → xác nhận kế hoạch → lập báo giá, rồi Owner mới cọc.
-          if (d.latestSurveyFeasible && d.planItems.isEmpty) ...[
-            const Text(
-              'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.warning,
-                height: 1.4,
-              ),
-            ),
-            primary('Lập kế hoạch thiết bị', () => widget.onOpenDetail()),
-          ] else if (d.latestSurveyFeasible)
-            primary(
-              'Xác nhận kế hoạch',
-              () => _guarded(
-                'Xác nhận kế hoạch',
-                'Xác nhận kế hoạch thiết bị đã khảo sát. Bước tiếp theo là lập và gửi báo giá / hợp đồng cho Owner.',
-                () => DeploymentApi.confirmDeploymentPlan(d.requestId),
-              ),
-            ),
+          // Kế hoạch tự được xác nhận khi KTV gửi hợp đồng: không còn nút "Xác nhận kế hoạch".
           if (!d.latestSurveyFeasible)
             const Text(
               'Khảo sát ghi nhận KHÔNG khả thi (lý do đã lưu). Không thể xác nhận kế hoạch hay tạo hợp đồng. '
@@ -192,8 +159,7 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     'Submitted' || 'Accepted' => null, // nút đã tự mô tả bước
     'PlanConfirmed' =>
       'Cần chủ trang trại đã ký hợp đồng và đóng cọc trước khi bắt đầu lắp đặt.',
-    'Surveyed' =>
-      'Chỉnh số lượng thiết bị trong kế hoạch ở chi tiết triển khai trước khi xác nhận.',
+    'Surveyed' => 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.',
     'Installing' =>
       'Cấp phát thiết bị, kiểm tra kết nối rồi hoàn tất trong chi tiết triển khai.',
     'Completed' =>

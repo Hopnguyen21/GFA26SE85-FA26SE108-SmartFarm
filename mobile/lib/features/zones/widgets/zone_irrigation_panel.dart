@@ -6,6 +6,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/utils/cron_utils.dart';
 import '../profile_irrigation_logic.dart';
 import '../zone_irrigation_logic.dart';
+import '../actuator_labels.dart';
 import 'profile_irrigation_view.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
 import '../../irrigation/season_irrigation_logic.dart' show syncSourceText;
@@ -531,7 +532,11 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
               for (final a in usable)
                 DropdownMenuItem(
                   value: a.actuatorId,
-                  child: Text(a.name, overflow: TextOverflow.ellipsis),
+                  // Tên kênh trùng giữa các node ("… #1" của node 1 và node 2): thêm vị trí để phân biệt.
+                  child: Text(
+                    [a.name, ?actuatorPlaceLabel(a, usable)].join(' · '),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: _busy ? null : (v) => setState(() => _actuatorId = v),

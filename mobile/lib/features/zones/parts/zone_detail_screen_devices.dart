@@ -26,9 +26,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
           ZoneNodeSummaryCard(
             zoneId: widget.zone.zoneId,
             zoneName: widget.zone.name,
-            canEditLocations:
-                provider.currentRole == 'OWNER' ||
-                provider.currentRole == 'TECHNICIAN',
+            // Kỹ thuật viên chỉ chấm/sửa vị trí node qua màn Gắn Node của phiếu lắp đặt (có cổng phiếu xuất kho đã duyệt);
+            // ở đây chỉ Owner được sửa toạ độ trực tiếp.
+            canEditLocations: provider.currentRole == 'OWNER',
           ),
 
           const SizedBox(height: 20),
@@ -38,7 +38,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'THIẾT BỊ CHẤP HÀNH (${actuators.length})',
+                'KÊNH ĐIỀU KHIỂN (${relaySummary(actuators)})',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -286,8 +286,22 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                     fontSize: 13,
                   ),
                 ),
+                if (actuatorPlaceLabel(
+                      act,
+                      provider.actuators.where((x) => x.zoneId == act.zoneId),
+                    )
+                    case final place?)
+                  Text(
+                    place,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
                 Text(
-                  act.isRunning
+                  actuatorNotReadyReason(act) != null
+                      ? '⚠️ ${actuatorNotReadyReason(act)}'
+                      : act.isRunning
                       ? '🟢 Đang bật — còn ${act.remainingMinutes} phút'
                       : '⚫ Đang tắt',
                   style: TextStyle(
@@ -305,7 +319,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
           Switch.adaptive(
             value: act.isRunning,
             activeThumbColor: const Color(0xFF10B981),
-            onChanged: provider.canControlZone(act.zoneId)
+            onChanged:
+                provider.canControlZone(act.zoneId) &&
+                    actuatorNotReadyReason(act) == null
                 ? (_) {
                     HapticFeedback.mediumImpact();
                     toggleActuatorWithFeedback(

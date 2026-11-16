@@ -699,7 +699,9 @@ extension _HomeScreenSelectors on HomeScreen {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
                                       '${(z.areaM2).toStringAsFixed(0)} m²',
@@ -709,7 +711,6 @@ extension _HomeScreenSelectors on HomeScreen {
                                         color: Color(0xFF10B981),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
                                     Text(
                                       '• Thửa: ${z.fieldName}',
                                       style: const TextStyle(

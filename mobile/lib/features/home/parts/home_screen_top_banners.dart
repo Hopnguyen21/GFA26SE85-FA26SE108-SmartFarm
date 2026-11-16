@@ -540,8 +540,8 @@ extension _HomeScreenTopBanners on HomeScreen {
                                 final subText = hasRunning
                                     ? '${runningAct.name} (${runningAct.remainingMinutes}p)'
                                     : (isEmpty
-                                          ? '0 thiết bị'
-                                          : '${currentActs.length} thiết bị');
+                                          ? '0 kênh'
+                                          : relaySummary(currentActs));
                                 final subColor = hasRunning
                                     ? const Color(0xFF0284C7)
                                     : const Color(0xFF64748B);

@@ -18,6 +18,8 @@ import 'widgets/zone_cultivation_info_card.dart';
 import 'widgets/zone_climate_panel.dart';
 import 'widgets/zone_seasons_section.dart';
 import 'widgets/zone_yield_card.dart';
+import 'actuator_labels.dart';
+import '../alerts/zone_alert_center_screen.dart';
 import 'widgets/zone_workers_section.dart';
 import 'widgets/zone_contracts_section.dart';
 import 'widgets/zone_support_section.dart';
@@ -53,6 +55,8 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
   List<LatLng>? _editedPolygon;
   bool _isEditingGis = false;
   bool _isSavingGis = false;
+  // Node đã chấm toạ độ GIS của Zone (GET /zones/{id}/devices/map-locations), vẽ trên bản đồ vị trí.
+  List<MapNodeMarker> _nodeMarkers = const [];
   int _cultivationVersion =
       0; // tăng để tải lại thẻ canh tác sau khi gắn hồ sơ/tạo vụ
 
@@ -70,6 +74,23 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
           zoneId: widget.zone.zoneId,
         );
     });
+    _loadNodeMarkers();
+    // Quay lại tab Vi khí hậu thì tải lại (toạ độ có thể vừa được cập nhật ở màn Node).
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && _tabController.index == 0) {
+        _loadNodeMarkers();
+      }
+    });
+  }
+
+  Future<void> _loadNodeMarkers() async {
+    try {
+      final rows = await FarmApi.getDeviceMapLocations(widget.zone.zoneId);
+      final markers = [for (final r in rows) ?MapNodeMarker.fromJson(r)];
+      if (mounted) setState(() => _nodeMarkers = markers);
+    } catch (_) {
+      // Không có quyền/không tải được: bản đồ vẫn hiện ranh giới, chỉ không có chấm node.
+    }
   }
 
   @override
@@ -378,6 +399,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                       _buildCultivationTab(context, provider, zone),
                       ZoneIotPlanTab(
                         zoneId: zone.zoneId,
+                        farmId: zone.farmId,
                         zoneName: zone.name,
                         areaM2: zone.areaM2,
                         cropName: zone.currentCrop,

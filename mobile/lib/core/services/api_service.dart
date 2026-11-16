@@ -26,6 +26,8 @@ part 'api/contract_api.dart';
 part 'api/document_api.dart';
 part 'api/report_api.dart';
 part 'api/bill_api.dart';
+part 'api/alert_api.dart';
+part 'api/stock_out_api.dart';
 
 class SecurityException implements Exception {
   final String message;

@@ -17,6 +17,9 @@ class ZoneHoneycombEstimateCard extends StatefulWidget {
   /// Zone cần dự toán: có thì chỉ tính phần BỔ SUNG so với thiết bị đã gắn. Null (vd. wizard, Zone chưa tạo) = lắp mới toàn bộ.
   final String? zoneId;
 
+  /// Trang trại của Zone: có thì gateway đã có của trang trại được tính là sẵn có (không dự toán mua thêm).
+  final String? farmId;
+
   /// Chu vi bao lồi của ranh giới Zone (m) nếu có; không có thì giả định hình chữ nhật 1:2.
   final double? perimeterM;
 
@@ -29,6 +32,7 @@ class ZoneHoneycombEstimateCard extends StatefulWidget {
     this.measurementParameters = const [],
     this.measurementSource = 'Chưa xác định nhu cầu đo của Zone',
     this.zoneId,
+    this.farmId,
     this.perimeterM,
     this.onEstimate,
   });
@@ -64,15 +68,21 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
     try {
       final zoneId = widget.zoneId;
       // Thiết bị đã gắn phải tải được mới tính: không được coi lỗi tải là "chưa có thiết bị" vì sẽ dự toán thừa.
+      final farmId = widget.farmId;
       final results = await Future.wait<Object>([
         DeploymentApi.getHardwareItems(),
         if (zoneId != null) DeploymentApi.getZoneDevices(zoneId),
+        if (farmId != null) DeploymentApi.getFarmGatewaysRaw(farmId),
       ]);
       final raw = results[0] as List<Map<String, dynamic>>;
-      if (zoneId != null)
+      if (zoneId != null || farmId != null) {
         installed = ZoneInstalledDevices.fromJson(
-          results[1] as List<Map<String, dynamic>>,
+          zoneId != null ? results[1] as List<Map<String, dynamic>> : const [],
+          farmGateways: farmId != null
+              ? results.last as List<Map<String, dynamic>>
+              : const [],
         );
+      }
       catalog = HoneycombCatalog.fromHardwareItems(raw);
       if (kDebugMode) {
         debugPrint('[Dự toán IoT] ${raw.length} bản ghi danh mục:');
@@ -739,13 +749,13 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
                       ],
                     ),
                   ),
-                  if (widget.zoneId != null)
+                  if (widget.zoneId != null || widget.farmId != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         est.installed.isEmpty
-                            ? 'Zone chưa gắn thiết bị nào: dự toán lắp mới toàn bộ.'
-                            : 'Đã gắn trong Zone: ${est.installed.gateways} gateway, ${est.installed.sensorNodes} node cảm biến, ${est.installed.actuatorNodes} node van/bơm. Dự toán chỉ tính phần bổ sung.',
+                            ? 'Zone chưa gắn thiết bị nào và trang trại chưa có gateway: dự toán lắp mới toàn bộ.'
+                            : 'Đã có: ${est.installed.gateways} gateway${est.installed.farmGateways > 0 ? ' (${est.installed.farmGateways} thuộc trang trại)' : ''}, ${est.installed.sensorNodes} node cảm biến, ${est.installed.actuatorNodes} node van/bơm trong Zone. Dự toán chỉ tính phần bổ sung.',
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF0369A1),

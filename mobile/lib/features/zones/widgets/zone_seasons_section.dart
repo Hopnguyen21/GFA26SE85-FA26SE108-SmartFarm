@@ -12,6 +12,7 @@ import '../zone_auto_season.dart'
 import '../zone_operations_screens.dart';
 import 'record_yield_dialog.dart';
 import 'change_stage_dialog.dart';
+import 'zone_yield_card.dart' show isHarvestStageSeason;
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -330,10 +331,11 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
     final seasonId = validId(s['seasonId'] ?? s['plantingSeasonId']);
     final profileId = validId(s['growthProfileId']);
     final yieldKg = s['actualYieldKg'];
-    final canRecord =
-        canYield &&
-        (statusCode == 'InProgress' || statusCode == 'Completed') &&
-        seasonId != null;
+    final isHarvest =
+        statusCode == 'Completed' ||
+        (statusCode == 'InProgress' &&
+            isHarvestStageSeason(s, zone: widget.zone));
+    final canRecord = canYield && isHarvest && seasonId != null;
     final progress = s['progressPercent'] ?? s['progress'];
     final timeProgress = seasonTimeProgress(s);
     final isOwner = context.read<FarmProvider>().currentRole == 'OWNER';

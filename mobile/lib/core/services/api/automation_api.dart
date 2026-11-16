@@ -37,6 +37,21 @@ abstract final class AutomationApi {
     );
   }
 
+  /// GET /control/environmental-configs?zoneId=: cấu hình ngưỡng điều khiển ĐÃ LƯU của Zone (độ ẩm đất min/max, nhiệt độ tối đa...).
+  /// null khi Zone chưa có cấu hình.
+  static Future<Map<String, dynamic>?> getEnvironmentalConfig(
+    String zoneId,
+  ) async {
+    final configs = ApiService._asMapList(
+      ApiService._decodeOrThrow(
+        await ApiService._getWithAuth(
+          '${ApiService.baseUrl}/api/v1/control/environmental-configs?zoneId=$zoneId',
+        ),
+      ),
+    );
+    return configs.isEmpty ? null : configs.first;
+  }
+
   static Future<void> updateEnvironmentalThresholds(
     String zoneId, {
     required double minSoil,

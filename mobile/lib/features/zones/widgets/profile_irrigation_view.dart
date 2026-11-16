@@ -87,14 +87,69 @@ class ProfileIrrigationView extends StatelessWidget {
                     )
                   else
                     for (final x in st.sessions)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(
-                          '${x.enabled ? '•' : '◦'} ${describeProfileSession(x)}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: x.enabled ? const Color(0xFF0F172A) : _muted,
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: x.enabled
+                              ? (x.title.toLowerCase().contains('sáng')
+                                    ? const Color(0xFFFFFBEB)
+                                    : x.title.toLowerCase().contains('trưa')
+                                    ? const Color(0xFFFFF1F2)
+                                    : const Color(0xFFEEF2FF))
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: x.enabled
+                                ? (x.title.toLowerCase().contains('sáng')
+                                      ? const Color(0xFFFDE68A)
+                                      : x.title.toLowerCase().contains('trưa')
+                                      ? const Color(0xFFFECDD3)
+                                      : const Color(0xFFC7D2FE))
+                                : const Color(0xFFE2E8F0),
                           ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              x.title.toLowerCase().contains('sáng')
+                                  ? Icons.wb_twilight
+                                  : x.title.toLowerCase().contains('trưa')
+                                  ? Icons.wb_sunny
+                                  : Icons.nights_stay,
+                              size: 13,
+                              color: x.enabled
+                                  ? (x.title.toLowerCase().contains('sáng')
+                                        ? const Color(0xFFD97706)
+                                        : x.title.toLowerCase().contains('trưa')
+                                        ? const Color(0xFFE11D48)
+                                        : const Color(0xFF4F46E5))
+                                  : _muted,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                describeProfileSession(x),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: x.enabled
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: x.enabled
+                                      ? const Color(0xFF0F172A)
+                                      : _muted,
+                                ),
+                              ),
+                            ),
+                            if (!x.enabled)
+                              const Text(
+                                'Tắt',
+                                style: TextStyle(fontSize: 10, color: _muted),
+                              ),
+                          ],
                         ),
                       ),
                   if (st.fromCrop)

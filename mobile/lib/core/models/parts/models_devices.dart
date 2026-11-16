@@ -8,6 +8,13 @@ class ActuatorModel {
   bool isRunning;
   int remainingMinutes;
 
+  /// Node (thiết bị) chứa actuator này và cổng relay trên node đó; một node van nhiều cổng sinh nhiều actuator cùng tên.
+  final String deviceId;
+  final int? relayChannel;
+
+  /// Trạng thái thô backend trả (ON/OFF/MAINTENANCE/...).
+  final String status;
+
   ActuatorModel({
     required this.actuatorId,
     required this.zoneId,
@@ -15,6 +22,9 @@ class ActuatorModel {
     required this.actuatorType,
     this.isRunning = false,
     this.remainingMinutes = 0,
+    this.deviceId = '',
+    this.relayChannel,
+    this.status = '',
   });
 
   factory ActuatorModel.fromJson(
@@ -49,6 +59,9 @@ class ActuatorModel {
       actuatorType: type,
       isRunning: isRunning,
       remainingMinutes: (remainingSec / 60).ceil(),
+      deviceId: json['deviceId']?.toString() ?? '',
+      relayChannel: (json['relayChannel'] as num?)?.toInt(),
+      status: state,
     );
   }
 }
@@ -82,9 +95,10 @@ class DeviceHealthModel {
   String get healthStatus {
     final seen = lastSeenAt;
     if (seen == null) return 'OFFLINE';
+    final interval = expectedIntervalSeconds > 0 ? expectedIntervalSeconds : 60;
     final diffSec = DateTime.now().difference(seen).inSeconds;
-    if (diffSec <= expectedIntervalSeconds * 3) return 'ONLINE';
-    if (diffSec <= expectedIntervalSeconds * 12) return 'WARNING';
+    if (diffSec <= interval * 3) return 'ONLINE';
+    if (diffSec <= interval * 12) return 'WARNING';
     return 'OFFLINE';
   }
 

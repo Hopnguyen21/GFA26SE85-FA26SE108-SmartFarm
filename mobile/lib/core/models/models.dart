@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import 'geo_polygon.dart';
 import '../utils/ai_text.dart';
+import '../utils/crop_emoji.dart';
 import '../utils/cron_utils.dart';
 import '../utils/json_utils.dart';
 import '../utils/profile_name.dart';

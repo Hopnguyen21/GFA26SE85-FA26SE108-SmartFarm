@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import 'widgets/zone_crop_plan_edit_panel.dart';
 import 'widgets/record_yield_dialog.dart';
+import '../../core/widgets/mini_gis_map_picker.dart' show pointInPolygon;
+import 'widgets/zone_yield_card.dart' show isHarvestStageSeason;
 import 'zone_auto_season.dart' show hasRunningSeason, seasonCropLabel;
 import '../crops/widgets/create_season_sheet.dart';
 import '../irrigation/season_irrigation_calendar_screen.dart';

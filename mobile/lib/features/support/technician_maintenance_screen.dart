@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart' show BusinessParameters, ZoneModel;
-import '../../core/models/iot_deployment.dart' show deploymentStatusLabels;
+import '../../core/models/iot_deployment.dart'
+    show deploymentStatusLabels, Quotation;
 import '../devices/widgets/deployment_progress_bar.dart'
     show deploymentStatusColor;
 import 'quotation_editor.dart' show formatMoney;
@@ -15,6 +16,8 @@ import '../../core/widgets/summary_tile.dart';
 import '../devices/deployment_screens.dart' show DeploymentRequestDetailScreen;
 import '../devices/widgets/install_progress_card.dart';
 import 'node_placement_logic.dart';
+import 'install_voucher_card.dart';
+import 'install_voucher_logic.dart';
 import 'node_placement_screen.dart';
 import 'placed_nodes_screen.dart';
 import 'install_flow_stepper.dart';
@@ -649,6 +652,12 @@ class _ServiceRequestDetailScreenState
   String? _quoteDep; // nhãn tỷ lệ cọc của báo giá này
   String? _quoteRem;
   bool _quoteKnown = false;
+  Quotation?
+  _quotation; // báo giá/hợp đồng hiện tại (dòng thiết bị dùng lập phiếu xuất kho)
+  InstallVoucher? _voucher; // phiếu xuất kho của hợp đồng (null: chưa có)
+  bool _voucherKnown =
+      false; // đã đọc được phiếu từ backend (lỗi/đang tải = khoá)
+  String? _voucherError;
   int? _nodes; // số node đã chấm trên bản đồ của Zone (null: không tải được)
 
   @override
@@ -687,9 +696,11 @@ class _ServiceRequestDetailScreenState
       setState(() {
         _quoteStatus = null;
         _quoteKnown = false;
+        _voucherKnown = false;
       });
     }
     final zoneId = '${r['zoneId'] ?? ''}';
+    Quotation? quotationRead;
     String? quote;
     String? depLabel;
     String? remLabel;
@@ -699,6 +710,7 @@ class _ServiceRequestDetailScreenState
       () async {
         try {
           final qo = await SupportApi.getQuotation(widget.requestId);
+          quotationRead = qo;
           quote = effectiveQuotationStatus(qo?.status, r);
           depLabel = qo?.depositLabel;
           remLabel = qo?.remainingLabel;
@@ -715,6 +727,25 @@ class _ServiceRequestDetailScreenState
         } catch (_) {}
       }(),
     ]);
+    // Phiếu xuất kho của hợp đồng (Luồng 1): đọc lỗi thì khoá, không coi là "chưa có".
+    InstallVoucher? voucher;
+    var voucherKnown = false;
+    String? voucherError;
+    final q = quotationRead;
+    final farmId = '${r['farmId'] ?? ''}';
+    if (q != null && farmId.isNotEmpty) {
+      try {
+        voucher = await loadInstallVoucher(
+          farmId: farmId,
+          zoneId: zoneId,
+          quotationId: q.id,
+          serviceRequestId: widget.requestId,
+        );
+        voucherKnown = true;
+      } catch (e) {
+        voucherError = e.toString().replaceFirst('Exception: ', '');
+      }
+    }
     if (!mounted) return;
     setState(() {
       _quoteStatus = quote;
@@ -722,6 +753,10 @@ class _ServiceRequestDetailScreenState
       _quoteRem = remLabel;
       _quoteKnown = known;
       _nodes = nodes;
+      _quotation = quotationRead;
+      _voucher = voucher;
+      _voucherKnown = voucherKnown;
+      _voucherError = voucherError;
     });
   }
 
@@ -760,6 +795,10 @@ class _ServiceRequestDetailScreenState
       depositLabel: _quoteDep,
       remainingLabel: _quoteRem,
       deploymentStatus: _depStatus,
+      voucherPhase: _voucherKnown
+          ? (_voucher?.phase ?? VoucherPhase.none)
+          : null,
+      voucherCode: _voucher?.code,
       linkValid:
           _depStatus != null &&
           depId.isNotEmpty &&
@@ -772,12 +811,25 @@ class _ServiceRequestDetailScreenState
   Future<void> _openNodes(Map<String, dynamic> r) async {
     String? freshStatus;
     var fresh = false;
+    InstallVoucher? freshVoucher;
+    var voucherFresh = false;
     try {
-      freshStatus = effectiveQuotationStatus(
-        (await SupportApi.getQuotation(widget.requestId))?.status,
-        r,
-      );
+      final fq = await SupportApi.getQuotation(widget.requestId);
+      freshStatus = effectiveQuotationStatus(fq?.status, r);
       fresh = true;
+      if (fq != null) {
+        try {
+          freshVoucher = await loadInstallVoucher(
+            farmId: '${r['farmId'] ?? ''}',
+            zoneId: '${r['zoneId'] ?? ''}',
+            quotationId: fq.id,
+            serviceRequestId: widget.requestId,
+          );
+          voucherFresh = true;
+        } catch (_) {
+          // Đọc phiếu lỗi thì KHÔNG mở (không dùng trạng thái duyệt cũ).
+        }
+      }
     } catch (_) {
       // Đọc lại lỗi thì KHÔNG mở (đóng cổng): cờ trên danh sách phiếu có thể đã cũ nên không dùng làm căn cứ ở bước mở này.
       freshStatus = null;
@@ -787,6 +839,8 @@ class _ServiceRequestDetailScreenState
     setState(() {
       _quoteStatus = freshStatus;
       _quoteKnown = fresh;
+      _voucher = freshVoucher;
+      _voucherKnown = voucherFresh;
     });
     final gate = _gate(r, quotationStatus: freshStatus, quotationLoaded: fresh);
     if (!gate.allowed) {
@@ -873,7 +927,7 @@ class _ServiceRequestDetailScreenState
                 ? 'Khảo sát & Bắt đầu lắp đặt'
                 : _depStatus == 'PlanConfirmed'
                 ? 'Bắt đầu lắp đặt'
-                : 'Xác nhận kế hoạch',
+                : 'Bắt đầu lắp đặt',
           ),
         ),
       // Hoàn tất lắp đặt: chỉ khi backend báo triển khai đang "Đang lắp đặt" (backend còn kiểm tra thiết bị đã gán Zone + kết nối thành công).
@@ -928,48 +982,6 @@ class _ServiceRequestDetailScreenState
     ];
   }
 
-  /// Kế hoạch thiết bị của đợt triển khai trống: hỏi có mở màn lập kế hoạch không. Trả true nếu đã chặn.
-  Future<bool> _planIsEmpty(String depId) async {
-    try {
-      final dep = await DeploymentApi.getDeploymentRequest(
-        depId,
-        technician: true,
-      );
-      if (dep.planItems.isNotEmpty || !mounted) return false;
-    } catch (_) {
-      return false; // không đọc được thì để backend quyết định
-    }
-    final open = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Chưa có kế hoạch thiết bị'),
-        content: const Text(
-          'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Để sau'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Lập kế hoạch'),
-          ),
-        ],
-      ),
-    );
-    if (open == true && mounted) {
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              DeploymentRequestDetailScreen(requestId: depId, technician: true),
-        ),
-      );
-    }
-    return true;
-  }
-
   /// "Xác nhận kế hoạch" / "Bắt đầu lắp đặt" (đã cọc 30%):
   /// Tự động chuyển tuần tự: Submitted -> Accepted -> Surveyed -> PlanConfirmed -> Installing.
   /// Giúp KTV 1 chạm bắt đầu gắn node mà không bị kẹt ở các bước trung gian khi Owner đã cọc.
@@ -982,7 +994,7 @@ class _ServiceRequestDetailScreenState
         ? 'Khảo sát & Bắt đầu lắp đặt?'
         : _depStatus == 'PlanConfirmed'
         ? 'Bắt đầu lắp đặt?'
-        : 'Xác nhận kế hoạch?';
+        : 'Bắt đầu lắp đặt?';
 
     if (!mounted) return;
     final ok = await showDialog<bool>(
@@ -1562,6 +1574,10 @@ class _ServiceRequestDetailScreenState
                       closed: isClosedStatus(serviceStatusOf(r)),
                       depositLabel: _quoteDep,
                       remainingLabel: _quoteRem,
+                      voucherRequired: true,
+                      voucherPhase: _voucherKnown
+                          ? (_voucher?.phase ?? VoucherPhase.none)
+                          : null,
                     )
                   : null,
               extraActions: _fieldButtons(r),
@@ -1580,6 +1596,18 @@ class _ServiceRequestDetailScreenState
                   ),
                 ),
               ),
+            ),
+          // Luồng 1: phiếu xuất kho thiết bị theo hợp đồng, Admin duyệt rồi mới gắn Node (chỉ khi Owner đã ký + cọc).
+          if (isInstall && _depositPaid)
+            InstallVoucherCard(
+              serviceRequestId: widget.requestId,
+              farmId: '${r['farmId'] ?? ''}',
+              zoneId: '${r['zoneId'] ?? ''}',
+              quotation: _quotation,
+              voucher: _voucher,
+              loaded: _voucherKnown,
+              loadError: _voucherError,
+              onChanged: () => _loadExtras(r),
             ),
           if (isInstall)
             Card(

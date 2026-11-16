@@ -128,6 +128,8 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   DateTime get lastTelemetryReceivedAt => _lastTelemetryReceivedAt;
 
   bool _pollInFlight = false;
+  DateTime?
+  _lastAllZonesTelemetryAt; // lần gần nhất tải số đo cho MỌI Zone (không chỉ Zone đang chọn)
   bool _lifecycleObserverAdded = false;
 
   // Ứng dụng ở nền thì ngừng hỏi số đo (tiết kiệm pin/dữ liệu) và hỏi lại ngay khi quay lại.
