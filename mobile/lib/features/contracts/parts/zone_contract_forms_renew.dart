@@ -218,6 +218,11 @@ class _RenewSheetState extends State<_RenewSheet> {
             ),
             const SizedBox(height: 12),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF047857),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: const Size.fromHeight(44),
+              ),
               onPressed: _busy ? null : _submit,
               child: _busy
                   ? const SizedBox(

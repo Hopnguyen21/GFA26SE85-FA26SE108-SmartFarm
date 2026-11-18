@@ -124,17 +124,17 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     List<Widget> children,
   ) => Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(12),
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
+          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
       ],
     ),
@@ -143,14 +143,21 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 15, color: _green),
-            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 14, color: _green),
+            ),
+            const SizedBox(width: 8),
             // Expanded: tiêu đề dài (vd. "HỒ SƠ CANH TÁC (gắn trực tiếp cho Zone)") xuống dòng thay vì tràn ở màn hẹp/chữ lớn.
             Expanded(
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   color: _green,
                   letterSpacing: 0.4,
@@ -159,14 +166,14 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         ...children,
       ],
     ),
   );
 
   Widget _row(String label, Object? value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
+    padding: const EdgeInsets.symmetric(vertical: 3.5),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -174,7 +181,11 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
           width: 140,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12, color: _muted),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         Expanded(
@@ -183,7 +194,7 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: _val(value) == '—' ? _muted : _ink,
+              color: _val(value) == '—' ? const Color(0xFF94A3B8) : _ink,
             ),
           ),
         ),

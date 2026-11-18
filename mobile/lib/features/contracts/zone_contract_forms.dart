@@ -61,6 +61,14 @@ InputDecoration _dec(String label, {String? hint, String? helper}) =>
       hintText: hint,
       helperText: helper,
       helperMaxLines: 2,
-      border: const OutlineInputBorder(),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF047857), width: 1.5),
+      ),
       isDense: true,
     );

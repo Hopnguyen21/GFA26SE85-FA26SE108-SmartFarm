@@ -602,7 +602,15 @@ class _StockOutDetailScreenState extends State<_StockOutDetailScreen> {
   Widget build(BuildContext context) {
     final d = widget.doc;
     return Scaffold(
-      appBar: AppBar(title: Text('Phiếu xuất kho #${d.code}')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        title: Text(
+          'Phiếu xuất kho #${d.code}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

@@ -704,8 +704,20 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(46),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
                       onPressed: _saving || _running != null ? null : _submit,
-                      child: Text(_saving ? 'Đang tạo…' : 'Tạo vụ trồng'),
+                      child: Text(
+                        _saving ? 'Đang tạo…' : 'Tạo vụ trồng',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
                     ),
                   ),
                 ],

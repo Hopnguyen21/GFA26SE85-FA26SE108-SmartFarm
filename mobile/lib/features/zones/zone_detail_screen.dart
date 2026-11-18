@@ -115,7 +115,12 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
   Widget _missingZoneScaffold(FarmProvider provider) {
     final err = provider.syncError;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.zone.name)),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        title: Text(widget.zone.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -159,7 +164,12 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
       // Zone không còn trong dữ liệu vừa tải (bị lưu trữ/xóa, mất quyền, hoặc tải lỗi): không hiển thị Zone khác, không crash.
       if (provider.isLoadingApi) {
         return Scaffold(
-          appBar: AppBar(title: Text(widget.zone.name)),
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF062326),
+            foregroundColor: Colors.white,
+            title: Text(widget.zone.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
           body: const Center(child: CircularProgressIndicator()),
         );
       }
@@ -200,29 +210,40 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 48, 20, 52),
+                    padding: const EdgeInsets.fromLTRB(16, 40, 16, 44),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 52,
-                          height: 52,
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
                             color: const Color(
                               0xFF10B981,
-                            ).withValues(alpha: 0.2),
+                            ).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: const Color(
-                                0xFF10B981,
-                              ).withValues(alpha: 0.5),
+                                0xFF34D399,
+                              ).withValues(alpha: 0.4),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: const Center(
-                            child: Text('🌱', style: TextStyle(fontSize: 26)),
+                            child: Icon(
+                              Icons.eco_rounded,
+                              color: Color(0xFF34D399),
+                              size: 26,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,42 +254,63 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                                 zone.name,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15.5,
+                                  letterSpacing: -0.3,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 2),
                               Row(
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
+                                      horizontal: 6,
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(
                                         0xFF10B981,
-                                      ).withValues(alpha: 0.2),
+                                      ).withValues(alpha: 0.22),
                                       borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      zone.currentStage,
-                                      style: const TextStyle(
-                                        color: Color(0xFF6EE7B7),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFF34D399,
+                                        ).withValues(alpha: 0.45),
+                                        width: 0.8,
                                       ),
                                     ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 4.5,
+                                          height: 4.5,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF34D399),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3.5),
+                                        Text(
+                                          zone.currentStage,
+                                          style: const TextStyle(
+                                            color: Color(0xFF6EE7B7),
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
                                       '${zone.farmName} ➔ ${zone.fieldName} ➔ Zone Chi tiết',
                                       style: const TextStyle(
-                                        color: Color(0xFFFCD34D),
-                                        fontSize: 11,
+                                        color: Color(0xFFA7F3D0),
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w600,
                                       ),
                                       maxLines: 1,
@@ -282,7 +324,8 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                                 '${zone.areaM2.toInt()} m² • Phụ trách: ${_workerNames(provider, zone)}',
                                 style: const TextStyle(
                                   color: Color(0xFF94A3B8),
-                                  fontSize: 11,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -369,20 +412,25 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
               controller: _tabController,
               isScrollable: _showAdminTab,
               tabAlignment: _showAdminTab ? TabAlignment.start : null,
-              indicatorColor: const Color(0xFF10B981),
+              indicatorColor: const Color(0xFF34D399),
               indicatorWeight: 3,
-              labelColor: const Color(0xFF10B981),
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelColor: const Color(0xFF34D399),
               unselectedLabelColor: const Color(0xFF94A3B8),
               labelStyle: const TextStyle(
-                fontSize: 12,
+                fontSize: 12.5,
                 fontWeight: FontWeight.bold,
               ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
               tabs: [
-                Tab(text: 'Vi khí hậu'),
-                Tab(text: 'Thiết bị'),
-                Tab(text: 'Canh tác'),
-                Tab(text: 'Triển khai IoT'),
-                if (_showAdminTab) Tab(text: 'Hợp đồng & Hỗ trợ'),
+                const Tab(text: 'Vi khí hậu'),
+                const Tab(text: 'Thiết bị'),
+                const Tab(text: 'Canh tác'),
+                const Tab(text: 'Triển khai IoT'),
+                if (_showAdminTab) const Tab(text: 'Hợp đồng & Hỗ trợ'),
               ],
             ),
           ),
@@ -433,10 +481,18 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
               ),
               backgroundColor: const Color(0xFF062326),
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.psychology, size: 20),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+              ),
+              icon: const Icon(Icons.psychology, size: 20, color: Color(0xFF34D399)),
               label: const Text(
                 'Hỏi AI Zone',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
               ),
             )
           : null,

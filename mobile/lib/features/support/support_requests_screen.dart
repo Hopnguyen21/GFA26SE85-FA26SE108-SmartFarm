@@ -449,7 +449,12 @@ Future<void> showServiceRequestDetail(
     context,
     MaterialPageRoute(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Hợp đồng & thanh toán')),
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          title: const Text('Hợp đồng & thanh toán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [

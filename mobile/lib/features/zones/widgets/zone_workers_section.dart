@@ -109,17 +109,24 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.person_pin_circle,
-                size: 16,
-                color: Color(0xFF0284C7),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.person_pin_circle,
+                  size: 14,
+                  color: Color(0xFF0284C7),
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'NHÂN CÔNG / NGƯỜI PHỤ TRÁCH ZONE NÀY',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0284C7),
                     letterSpacing: 0.4,

@@ -77,12 +77,19 @@ class _TechnicianGatewayToolsScreenState
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
           title: const Text(
             'Gateway, Node & Linh kiện',
-            style: TextStyle(fontSize: 15),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           bottom: const TabBar(
+            indicatorColor: Color(0xFF10B981),
+            labelColor: Colors.white,
+            unselectedLabelColor: Color(0xFF94A3B8),
+            indicatorWeight: 3,
             tabs: [
               Tab(text: 'Gateway / Node'),
               Tab(text: 'Kho linh kiện'),

@@ -246,14 +246,21 @@ class _ZoneYieldCardState extends State<ZoneYieldCard> {
       key: const Key('zone_yield_card'),
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF119653), Color(0xFF0B6F3C)],
+          colors: [Color(0xFF15803D), Color(0xFF047857)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF047857).withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: DefaultTextStyle(
         style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -370,21 +377,28 @@ class _ZoneYieldCardState extends State<ZoneYieldCard> {
               ),
             ),
             if (canRecord) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   key: const Key('yield_open'),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF119653),
-                    minimumSize: const Size.fromHeight(44),
+                    foregroundColor: const Color(0xFF15803D),
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 2,
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                    ),
                   ),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text(
                     'Nhập / Cập nhật sản lượng thu hoạch (kg)',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   onPressed: id == null ? null : () => _record(s),
                 ),

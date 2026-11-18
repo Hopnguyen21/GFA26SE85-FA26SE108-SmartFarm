@@ -14,9 +14,13 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
           OutlinedButton.icon(
             key: const Key('open_alert_center'),
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(46),
-              foregroundColor: const Color(0xFF119653),
-              side: const BorderSide(color: Color(0xFF119653)),
+              minimumSize: const Size.fromHeight(48),
+              foregroundColor: const Color(0xFF15803D),
+              side: const BorderSide(color: Color(0xFF15803D), width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              backgroundColor: const Color(0xFFF0FDF4),
             ),
             onPressed: () => Navigator.push(
               context,
@@ -24,7 +28,7 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                 builder: (_) => ZoneAlertCenterScreen(zone: zone),
               ),
             ),
-            icon: const Icon(Icons.notifications_active_outlined, size: 18),
+            icon: const Icon(Icons.notifications_active_outlined, size: 19),
             label: const Text(
               'Cảnh báo & quy tắc của Zone',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),

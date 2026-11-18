@@ -53,38 +53,8 @@ extension _ProfileScreenMenu on ProfileScreen {
           ),
         },
       ],
-      if (isOwner)
-        {
-          'icon': Icons.route_outlined,
-          'label': 'Tiến độ thiết lập CF1',
-          'color': const Color(0xFF0F766E),
-          'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const Cf1ProgressScreen()),
-          ),
-        },
-      // OWNER only: báo cáo VietGAP (Backend ReportsController chỉ cho phép FarmOwner)
-      if (isOwner)
-        {
-          'icon': Icons.assessment_outlined,
-          'label': 'Báo cáo & Xuất dữ liệu VietGAP',
-          'color': const Color(0xFF10B981),
-          'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ReportsScreen()),
-          ),
-        },
       // OWNER: thiết bị (kỹ thuật viên đã có sẵn hai tab Khảo Sát và Thiết Bị cho việc này)
       if (isOwner) ...[
-        {
-          'icon': Icons.qr_code_scanner,
-          'label': 'Lắp đặt thiết bị IoT cho Zone',
-          'color': const Color(0xFF10B981),
-          'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProvisioningScreen()),
-          ),
-        },
         {
           'icon': Icons.router,
           'label': 'Sức khỏe & Quản lý Thiết bị (Gateway / Node)',
@@ -145,15 +115,6 @@ extension _ProfileScreenMenu on ProfileScreen {
           'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const BillsScreen()),
-          ),
-        },
-        {
-          'icon': Icons.badge_outlined,
-          'label': 'Quản lý Nông dân & Phân quyền (Farmer)',
-          'color': const Color(0xFF0D9488),
-          'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const WorkforceScreen()),
           ),
         },
       ],

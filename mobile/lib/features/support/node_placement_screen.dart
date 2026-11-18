@@ -2459,14 +2459,25 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text('Gắn Node · ${_zone?.name ?? 'Zone'}'),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Gắn Node · ${_zone?.name ?? 'Zone'}',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         actions: [
           // Chỉ hiện khi máy chủ đã lưu vị trí của ít nhất một Node.
           if (_saved.isNotEmpty)
             IconButton(
               tooltip: 'Xem Node đã chấm và tình trạng',
-              icon: const Icon(Icons.visibility_outlined),
+              icon: const Icon(Icons.visibility_outlined, color: Colors.white),
               onPressed: () => Navigator.push<void>(
                 context,
                 MaterialPageRoute(
@@ -2480,7 +2491,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
             ),
           IconButton(
             tooltip: 'Tải lại',
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loading ? null : _load,
           ),
         ],

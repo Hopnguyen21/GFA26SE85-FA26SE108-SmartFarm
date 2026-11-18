@@ -184,19 +184,48 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
   Widget _banner(
     String text, {
     Color color = _muted,
-    Color bg = const Color(0xFFF8FAFC),
+    Color bg = const Color(0xFFF0FDF4),
   }) => Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(10),
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(
       color: bg,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFBBF7D0)),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF062326).withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 12, color: color, height: 1.4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.eco_rounded, size: 16, color: Color(0xFF047857)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: color == _muted ? const Color(0xFF14532D) : color,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -219,7 +248,7 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
             !_profileLoading
         ? '\nKhông xác định được giai đoạn "${z.currentStage}" trong hồ sơ của Zone nên chưa đánh giá ngưỡng.'
         : '';
-    return _banner('$season\n$profile$stageNote', bg: Colors.white);
+    return _banner('$season\n$profile$stageNote');
   }
 
   @override
@@ -336,15 +365,25 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
       color = _amber;
     }
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,

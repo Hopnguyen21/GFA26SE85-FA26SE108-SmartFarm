@@ -494,7 +494,7 @@ class _SeasonIrrigationCalendarScreenState
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF064E3B),
+        backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [

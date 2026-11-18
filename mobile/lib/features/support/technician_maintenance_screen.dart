@@ -250,7 +250,11 @@ class _TechnicianMaintenanceScreenState
   Widget build(BuildContext context) {
     if (!_isTech) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Yêu cầu dịch vụ')),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          title: const Text('Yêu cầu dịch vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         body: const Center(child: Text('Chức năng dành cho Kỹ thuật viên.')),
       );
     }
@@ -260,10 +264,12 @@ class _TechnicianMaintenanceScreenState
     return Scaffold(
       backgroundColor: AppColors.surfaceMuted,
       appBar: AppBar(
-        title: const Text('Yêu cầu dịch vụ'),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        title: const Text('Yêu cầu dịch vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Làm mới',
             onPressed: _loading ? null : _load,
           ),
@@ -1632,14 +1638,17 @@ class _ServiceRequestDetailScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
         title: Text(
           _req != null && serviceKindOf(_req!) == ServiceKind.installation
               ? 'Chi tiết lắp đặt'
               : 'Chi tiết yêu cầu',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Làm mới',
             onPressed: _loading || _busy ? null : _load,
           ),

@@ -203,97 +203,7 @@ extension _LandingScreenStateHome on _LandingScreenState {
     );
   }
 
-  /// Dải bốn chỉ số nổi bật (như web); ô cuối nêu tỷ lệ tạm ứng / nghiệm thu theo cấu hình Platform.
-  Widget _buildMetricsRibbon() {
-    Widget cell(String big, Color bigColor, String title, String sub) =>
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-            child: Column(
-              children: [
-                Text(
-                  big,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: bigColor,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFD1FAE5),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  sub,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFFA7F3D0),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF065F46), Color(0xFF047857), Color(0xFF065F46)],
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              cell(
-                '1,200+',
-                Colors.white,
-                'Trạm Cảm Biến & Node LoRa',
-                'Thời lượng pin 3 năm liên tục',
-              ),
-              cell(
-                '150+',
-                const Color(0xFFFCD34D),
-                'Hợp Tác Xã & Doanh Nghiệp',
-                'Trên 18 tỉnh thành toàn quốc',
-              ),
-            ],
-          ),
-          const Divider(height: 1, color: Color(0x4D6EE7B7)),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              cell(
-                '1.4M+',
-                const Color(0xFFA7F3D0),
-                'Bản Ghi Vi Khí Hậu / Ngày',
-                'Xử lý TimescaleDB Hypertable',
-              ),
-              cell(
-                '100%',
-                Colors.white,
-                'Hợp Đồng & Nghiệm Thu Số',
-                'Tạm ứng ${BusinessParameters.active.depositLabel} - Hoàn tất ${BusinessParameters.active.remainingLabel}',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Thanh điều hướng tới các mục (tương đương nav Giải pháp / Thiết bị LoRa / Quy trình VietGAP / Triển khai GIS / Khách hàng).
+  /// Thanh điều hướng tới các mục (tương đương nav Giải pháp / Thiết bị LoRa / Quy trình VietGAP / Triển khai GIS ).
   Widget _buildNavChips() {
     Widget chip(String label, GlobalKey key) => Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -317,7 +227,6 @@ extension _LandingScreenStateHome on _LandingScreenState {
         children: [
           chip('Giải pháp', _solutionsKey),
           chip('Thiết bị LoRa', _hardwareKey),
-          chip('Quy trình VietGAP', _pillarsKey),
           chip('Triển khai GIS', _workflowKey),
           chip('Khách hàng', _testimonialsKey),
         ],
@@ -336,8 +245,8 @@ extension _LandingScreenStateHome on _LandingScreenState {
       required String action,
       required VoidCallback onTap,
     }) => Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFFECFDF5), Colors.white],
@@ -347,71 +256,53 @@ extension _LandingScreenStateHome on _LandingScreenState {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFA7F3D0)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
+      // Gọn cho màn hẹp: biểu tượng bên trái, tiêu đề + mô tả bên phải, cả thẻ là vùng chạm (không còn dòng liên kết riêng).
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconFg, size: 21),
             ),
-            child: Icon(icon, color: iconFg, size: 22),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            desc,
-            style: const TextStyle(
-              fontSize: 12.5,
-              height: 1.45,
-              color: Color(0xFF475569),
-            ),
-          ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text(
-                      action,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: _green,
-                      ),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 16, color: _green),
+                  const SizedBox(height: 3),
+                  Text(
+                    desc,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 
-    void openTab(int tab) {
-      _rebuild(() => _activeTabIndex = tab);
-      // Chờ khung hình kế tiếp để nội dung tab hiện rồi mới cuộn tới.
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _scrollTo(_pillarsKey),
-      );
-    }
+    void openTab(int tab) => _scrollTo(_workflowKey);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,12 +410,7 @@ extension _LandingScreenStateHome on _LandingScreenState {
 // Cột liên kết chân trang như web: "Sản phẩm & Giải pháp" và "Cổng Dịch vụ".
 extension _LandingScreenStateFooterLinks on _LandingScreenState {
   Widget _buildFooterLinks(BuildContext context) {
-    void goTab(int tab) {
-      _rebuild(() => _activeTabIndex = tab);
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _scrollTo(_pillarsKey),
-      );
-    }
+    void goTab(int tab) => _scrollTo(_solutionsKey);
 
     Widget link(String text, VoidCallback onTap) => InkWell(
       onTap: onTap,

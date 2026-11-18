@@ -322,16 +322,24 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
         if (!didPop) Navigator.pop(context, _changed);
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          elevation: 0,
           title: Text(
             'Chi tiết hợp đồng #${c.contractNumber}',
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           actions: [
             IconButton(
               tooltip: 'Tải lại',
               onPressed: _loading ? null : _reload,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh, color: Colors.white),
             ),
           ],
         ),
@@ -341,6 +349,8 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     c.status == 'Expired' ||
                     c.isExpiringSoon)
             ? FloatingActionButton.extended(
+                backgroundColor: const Color(0xFF047857),
+                foregroundColor: Colors.white,
                 icon: const Icon(Icons.autorenew),
                 label: const Text('Gia hạn'),
                 onPressed: () async {

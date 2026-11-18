@@ -220,7 +220,11 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
     if (_loadError != null) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(title: const Text('Lịch tưới')),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          title: const Text('Lịch tưới', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -245,7 +249,11 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
     if (widget.profile.growthStages.isEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(title: const Text('Lịch tưới')),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          title: const Text('Lịch tưới', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(24),

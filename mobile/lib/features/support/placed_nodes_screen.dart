@@ -341,17 +341,24 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
     final selected = n.id == _selected;
     final seen = n.lastSeen;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: selected ? AppColors.info.withValues(alpha: 0.06) : Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.radius),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(
           color: selected ? AppColors.info : AppColors.border,
           width: selected ? 1.6 : 1,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radius),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         onTap: () {
           setState(() => _selected = n.id);
           _map.move(LatLng(n.lat, n.lng), 19);
@@ -457,7 +464,7 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
         titleSpacing: 0,
         title: Text(

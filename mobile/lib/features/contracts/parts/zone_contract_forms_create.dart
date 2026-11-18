@@ -501,10 +501,14 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     if (context.watch<FarmProvider>().currentRole == 'OWNER' ||
         !context.watch<FarmProvider>().canManageFarmStructure) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          elevation: 0,
           title: const Text(
             'Tạo hợp đồng Zone',
-            style: TextStyle(fontSize: 15),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
         body: const AppEmptyState(
@@ -515,8 +519,15 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       );
     }
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Tạo hợp đồng Zone', style: TextStyle(fontSize: 15)),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Tạo hợp đồng Zone',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

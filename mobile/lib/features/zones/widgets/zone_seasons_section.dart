@@ -218,13 +218,20 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
         children: [
           Row(
             children: [
-              const Icon(Icons.eco_outlined, size: 16, color: _green),
-              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.eco_outlined, size: 14, color: _green),
+              ),
+              const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'VỤ TRỒNG CỦA ZONE NÀY',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w800,
                     color: _green,
                     letterSpacing: 0.4,
@@ -293,6 +300,18 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                       )
                     : FilledButton.icon(
                         onPressed: _loading ? null : _create,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF15803D),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                         icon: const Icon(Icons.add, size: 18),
                         label: const Text('Tạo vụ trồng cho Zone này'),
                       ),
@@ -362,13 +381,23 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: statusCode == 'InProgress'
+            ? const Color(0xFFF0FDF4)
+            : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: statusCode == 'InProgress'
               ? const Color(0xFFA7F3D0)
               : const Color(0xFFE2E8F0),
+          width: statusCode == 'InProgress' ? 1.3 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,6 +496,18 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                 ),
               if (canStart)
                 FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF15803D),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                   icon: const Icon(Icons.play_arrow, size: 18),
                   label: const Text('Bắt đầu vụ'),
                   onPressed: () => _startSeason(s, seasonId),

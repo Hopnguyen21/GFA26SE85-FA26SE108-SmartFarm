@@ -21,7 +21,20 @@ class _SeasonProfilePreviewState extends State<SeasonProfilePreview> {
   ]);
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Xem hồ sơ & lịch tưới')),
+    backgroundColor: const Color(0xFFF8FAFC),
+    appBar: AppBar(
+      backgroundColor: const Color(0xFF062326),
+      foregroundColor: Colors.white,
+      elevation: 0,
+      title: const Text(
+        'Xem hồ sơ & lịch tưới',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    ),
     body: FutureBuilder<List<Object>>(
       future: _data,
       builder: (context, snapshot) {
@@ -47,20 +60,60 @@ class _SeasonProfilePreviewState extends State<SeasonProfilePreview> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text(
-              'Khi tạo vụ, hệ thống sao chép hồ sơ và lịch tưới để tùy chỉnh riêng cho Zone.',
-            ),
-            for (final json in stages) ...[
-              const SizedBox(height: 12),
-              Text(
-                '${json['name']} · ${json['durationDays']} ngày',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
               ),
-              for (final requirement in StageDraft.fromJson(json).requirements)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(describeRequirementDraft(requirement)),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Color(0xFF047857)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Khi tạo vụ, hệ thống sao chép hồ sơ và lịch tưới để tùy chỉnh riêng cho Zone.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF065F46)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final json in stages) ...[
+              Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${json['name']} · ${json['durationDays']} ngày',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      for (final requirement in StageDraft.fromJson(json).requirements)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            describeRequirementDraft(requirement),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ],
             const Divider(height: 32),
             ProfileIrrigationView(schedule: schedule),

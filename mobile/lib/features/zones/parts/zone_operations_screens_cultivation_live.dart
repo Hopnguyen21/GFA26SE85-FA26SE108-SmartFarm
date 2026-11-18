@@ -41,11 +41,18 @@ class _ZoneCultivationLiveState extends State<ZoneCultivationLive> {
     Color border = const Color(0xFFE2E8F0),
   }) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(15),
     decoration: BoxDecoration(
       color: color,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x080F172A),
+          blurRadius: 10,
+          offset: Offset(0, 3),
+        ),
+      ],
     ),
     child: child,
   );

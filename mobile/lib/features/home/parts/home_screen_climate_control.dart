@@ -178,234 +178,105 @@ extension _HomeScreenClimateControl on HomeScreen {
     ];
   }
 
+  /// Lịch tưới của cây trong Zone đang chọn: một thẻ gọn mở lịch tưới theo vụ (điều khiển từng rơ-le nằm trong màn Zone).
   List<Widget> _quickControlSection(
     BuildContext context,
     FarmProvider farmProvider,
     ZoneModel zone,
   ) {
+    final crop = zone.currentCrop.trim();
     return [
-      // Quick Control Section (CF3)
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'ĐIỀU KHIỂN RƠ-LE BƠM/QUẠT',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: farmProvider.currentZoneActuators.isNotEmpty
-                    ? const Color(0xFFECFDF5)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                relaySummary(farmProvider.currentZoneActuators),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: farmProvider.currentZoneActuators.isNotEmpty
-                      ? const Color(0xFF047857)
-                      : const Color(0xFF64748B),
-                ),
-              ),
-            ),
-          ],
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Text(
+          'LỊCH TƯỚI CỦA CÂY',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF64748B),
+            letterSpacing: 0.5,
+          ),
         ),
       ),
-
-      const SizedBox(height: 10),
-
+      const SizedBox(height: 8),
       if (farmProvider.actuators.isNotEmpty && farmProvider.canEmergencyStop)
         const Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: EmergencyStopButton(),
         ),
-
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: farmProvider.currentZoneActuators.isEmpty
-            ? Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 20,
-                  horizontal: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.devices_other,
-                        size: 28,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Khu vực "${farmProvider.currentZone.name}" chưa có thiết bị rơ-le',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Không có thiết bị bơm/van/quạt nào được gán cho khu vực này trong cơ sở dữ liệu.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: farmProvider.currentZoneActuators.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final act = farmProvider.currentZoneActuators[index];
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            key: const Key('home_irrigation_calendar'),
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SeasonIrrigationCalendarScreen(zone: zone),
+              ),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: act.isRunning
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFE2E8F0),
-                        width: act.isRunning ? 1.5 : 1,
-                      ),
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
+                    child: const Icon(
+                      Icons.calendar_month,
+                      size: 22,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: act.isRunning
-                                ? const Color(0xFFECFDF5)
-                                : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            act.actuatorType == 'PUMP'
-                                ? Icons.water
-                                : act.actuatorType == 'FAN'
-                                ? Icons.wind_power
-                                : act.actuatorType == 'VALVE'
-                                ? Icons.tune
-                                : Icons.lightbulb,
-                            color: act.isRunning
-                                ? const Color(0xFF047857)
-                                : const Color(0xFF64748B),
-                            size: 22,
+                        Text(
+                          crop.isEmpty
+                              ? 'Lịch tưới · ${zone.name}'
+                              : 'Lịch tưới · $crop',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                act.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              if (actuatorPlaceLabel(
-                                    act,
-                                    farmProvider.currentZoneActuators,
-                                  )
-                                  case final place?)
-                                Text(
-                                  place,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              const SizedBox(height: 2),
-                              Text(
-                                actuatorNotReadyReason(act) ??
-                                    (act.isRunning
-                                        ? 'Đang bật (${act.remainingMinutes} phút còn lại)'
-                                        : 'Đang tắt'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: act.isRunning
-                                      ? const Color(0xFF047857)
-                                      : const Color(0xFF94A3B8),
-                                  fontWeight: act.isRunning
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          '${zone.name} · xem và chỉnh ca tưới theo giai đoạn',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
                           ),
-                        ),
-                        Switch.adaptive(
-                          value: act.isRunning,
-                          activeThumbColor: const Color(0xFF10B981),
-                          // Node offline/đang bảo trì: backend từ chối lệnh (409) nên khóa công tắc và nêu lý do ở dòng trạng thái.
-                          onChanged: actuatorNotReadyReason(act) != null
-                              ? null
-                              : (_) {
-                                  if (!farmProvider.canControlZone(
-                                    act.zoneId,
-                                  )) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          '⚠️ Bạn chưa được cấp quyền điều khiển thiết bị tại khu vực này!',
-                                        ),
-                                        backgroundColor: Color(0xFFE11D48),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  toggleActuatorWithFeedback(
-                                    context,
-                                    farmProvider,
-                                    act.actuatorId,
-                                  );
-                                },
                         ),
                       ],
                     ),
-                  );
-                },
+                  ),
+                  const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+                ],
               ),
+            ),
+          ),
+        ),
       ),
-
-      const SizedBox(height: 24),
+      const SizedBox(height: 16),
     ];
   }
 }

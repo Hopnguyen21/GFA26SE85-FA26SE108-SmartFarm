@@ -84,29 +84,30 @@ class EmergencyStopButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: _red,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          minimumSize: const Size.fromHeight(38),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         onPressed: busy ? null : () => _confirmAndStop(context, provider),
         icon: busy
             ? const SizedBox(
-                width: 18,
-                height: 18,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
               )
-            : const Icon(Icons.power_settings_new, size: 20),
+            : const Icon(Icons.power_settings_new, size: 18),
         label: Text(
           zoneId == null
               ? 'DỪNG KHẨN CẤP TẤT CẢ (E-STOP)'
               : 'DỪNG KHẨN CẤP ZONE NÀY',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 13,
+            fontSize: 12.5,
             letterSpacing: 0.3,
           ),
         ),

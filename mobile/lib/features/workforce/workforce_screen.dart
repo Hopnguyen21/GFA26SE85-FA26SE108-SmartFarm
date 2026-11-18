@@ -200,7 +200,12 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
     final provider = context.watch<FarmProvider>();
     if (provider.currentRole != 'OWNER') {
       return Scaffold(
-        appBar: AppBar(title: const Text('Quản lý Nhân công')),
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          title: const Text('Quản lý Nhân công', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         body: const Center(
           child: Text('Chỉ chủ trang trại được quản lý nhân công.'),
         ),
@@ -213,9 +218,14 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
         .toList();
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: widget.embedded
           ? null
-          : AppBar(title: const Text('Quản lý Nhân công')),
+          : AppBar(
+              backgroundColor: const Color(0xFF062326),
+              foregroundColor: Colors.white,
+              title: const Text('Quản lý Nhân công', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
       floatingActionButton: provider.farms.isEmpty
           ? null
           : FloatingActionButton.extended(

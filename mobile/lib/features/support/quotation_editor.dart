@@ -1063,11 +1063,15 @@ class _QuotationEditorState extends State<QuotationEditor> {
     final chosen = _chosen.length;
     final allSelected = chosen == _lines.length;
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
         title: Text(
           _ro
               ? 'Hợp đồng triển khai IoT (đã khóa)'
               : 'Bảng dự toán thiết bị & hợp đồng lắp đặt',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
       body: Form(

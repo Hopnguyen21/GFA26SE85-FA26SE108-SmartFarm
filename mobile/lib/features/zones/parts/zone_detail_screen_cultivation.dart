@@ -53,14 +53,23 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                   );
                   await _refreshCultivation(provider);
                 },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: const Color(0xFF15803D),
+                  side: const BorderSide(color: Color(0xFF15803D), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  backgroundColor: const Color(0xFFF0FDF4),
+                ),
                 icon: const Icon(
                   Icons.menu_book_rounded,
-                  size: 16,
-                  color: Color(0xFF10B981),
+                  size: 18,
+                  color: Color(0xFF15803D),
                 ),
                 label: const Text(
                   'Hồ sơ canh tác của Zone',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                 ),
               ),
             ),
@@ -76,16 +85,21 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
               ),
             ),
           ],
-          const SizedBox(height: 4),
-          TextButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CropProfilesScreen()),
-            ),
-            icon: const Icon(Icons.menu_book_rounded, size: 16),
-            label: const Text(
-              'Mở Thư viện cây trồng',
-              style: TextStyle(fontSize: 12),
+          const SizedBox(height: 6),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CropProfilesScreen()),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF047857),
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+              ),
+              icon: const Icon(Icons.local_florist_outlined, size: 16),
+              label: const Text(
+                'Mở Thư viện cây trồng',
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -175,24 +189,40 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => SafeArea(
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              MediaQuery.of(ctx).viewInsets.bottom + 16,
+              20,
+              12,
+              20,
+              MediaQuery.of(ctx).viewInsets.bottom + 20,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
                 Text(
                   'Phân công nhân công cho ${zone.name}',
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -204,16 +234,18 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                 for (final w in farmWorkers) ...[
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
+                    activeColor: const Color(0xFF15803D),
                     title: Text(
                       w.name,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         fontSize: 13,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     subtitle: Text(
                       '${w.email}\n${draft[w.farmerId] == null ? 'Chưa được phân công Zone này' : (draft[w.farmerId] == true ? 'Xem, nhận việc & điều khiển thiết bị' : 'Chỉ xem & nhận việc')}',
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                     isThreeLine: true,
                     value: draft[w.farmerId] != null,
@@ -224,19 +256,32 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                   if (draft[w.farmerId] != null)
                     SwitchListTile(
                       contentPadding: const EdgeInsets.only(left: 24),
+                      activeThumbColor: const Color(0xFF15803D),
                       title: const Text(
                         'Quyền điều khiển thiết bị',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       value: draft[w.farmerId] == true,
                       onChanged: (v) => setLocal(() => draft[w.farmerId] = v),
                     ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF15803D),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
+                    ),
                     child: const Text('Lưu phân công'),
                   ),
                 ),
