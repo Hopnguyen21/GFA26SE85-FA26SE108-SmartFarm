@@ -21,6 +21,7 @@ import '../contracts/contracts_depreciation_screen.dart';
 import '../bills/bills_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 import '../devices/technician_gateway_tools_screen.dart';
+import '../inventory/stock_out_screen.dart';
 
 part 'parts/profile_screen_widgets.dart';
 part 'parts/profile_screen_menu.dart';
@@ -47,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
         : 'Nông Dân Thực Địa (Field Worker)';
 
     final roleColor = provider.currentRole == 'OWNER'
-        ? const Color(0xFF059669)
+        ? const Color(0xFF047857)
         : provider.currentRole == 'TECHNICIAN'
         ? const Color(0xFF0284C7)
         : const Color(0xFFD97706);
@@ -67,10 +68,6 @@ class ProfileScreen extends StatelessWidget {
         .join();
     final userPhoneRaw = me?['phone']?.toString() ?? '';
     final userPhone = userPhoneRaw.isEmpty ? 'Chưa cập nhật' : userPhoneRaw;
-    final userIdRaw = me?['userId']?.toString() ?? '';
-    final empCode = userIdRaw.length >= 8
-        ? userIdRaw.substring(0, 8).toUpperCase()
-        : '—';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -171,17 +168,18 @@ class ProfileScreen extends StatelessWidget {
                             horizontal: 12,
                             vertical: 4,
                           ),
+                          // Nền header tối: chữ trắng trên nền pha màu vai trò (trước đây chữ xanh đậm trên nền xanh đậm, gần như không đọc được).
                           decoration: BoxDecoration(
-                            color: roleColor.withValues(alpha: 0.2),
+                            color: roleColor.withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: roleColor.withValues(alpha: 0.5),
+                              color: Colors.white.withValues(alpha: 0.35),
                             ),
                           ),
                           child: Text(
                             roleLabel,
-                            style: TextStyle(
-                              color: roleColor,
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
@@ -236,9 +234,7 @@ class ProfileScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: _buildSectionHeader(
-                          'THÔNG TIN TÀI KHOẢN (ĐỒNG BỘ BACKEND & DEMO)',
-                        ),
+                        child: _buildSectionHeader('THÔNG TIN TÀI KHOẢN'),
                       ),
                       const SizedBox(width: 8),
                       TextButton.icon(
@@ -277,7 +273,6 @@ class ProfileScreen extends StatelessWidget {
                     _infoItem(Icons.person_outline, 'Họ và tên', userName),
                     _infoItem(Icons.email_outlined, 'Email', userEmail),
                     _infoItem(Icons.phone_outlined, 'Điện thoại', userPhone),
-                    _infoItem(Icons.badge_outlined, 'Mã tài khoản', empCode),
                   ]),
 
                   const SizedBox(height: 16),
@@ -331,7 +326,7 @@ class ProfileScreen extends StatelessWidget {
                             'OWNER',
                             '👑 Chủ Trang Trại',
                             'Toàn quyền: xem, điều khiển, quản lý tổ chức',
-                            const Color(0xFF059669),
+                            const Color(0xFF047857),
                           ),
                           const Divider(height: 16),
                           _roleOption(

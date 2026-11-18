@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/farm_provider.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Nút Dừng khẩn cấp (E-Stop, BR-CANCEL-01): tắt toàn bộ rơ-le bơm/quạt/van/đèn.
 /// [zoneId] = null → toàn bộ trang trại trong tenant; có giá trị → chỉ Zone đó.
@@ -61,9 +62,7 @@ class EmergencyStopButton extends StatelessWidget {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            'Dừng khẩn cấp thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
+          content: Text('Dừng khẩn cấp thất bại: ${userFacingError(e)}'),
           backgroundColor: const Color(0xFF92400E),
         ),
       );

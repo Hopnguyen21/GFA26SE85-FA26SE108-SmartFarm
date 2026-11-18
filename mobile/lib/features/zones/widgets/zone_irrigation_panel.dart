@@ -10,6 +10,7 @@ import '../actuator_labels.dart';
 import 'profile_irrigation_view.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
 import '../../irrigation/season_irrigation_logic.dart' show syncSourceText;
+import '../../../core/utils/user_error.dart';
 
 const _muted = Color(0xFF64748B);
 
@@ -59,7 +60,7 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
     });
   }
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   Future<void> _load() async {
     final profileId = _profileId;

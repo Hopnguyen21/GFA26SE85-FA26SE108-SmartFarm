@@ -15,7 +15,8 @@ extension FarmProviderAlertsTasks on FarmProvider {
 
   Future<void> fetchNotifications() async {
     try {
-      final apiNotifs = await TaskApi.getNotifications();
+      // 100 = tối đa backend cho phép mỗi trang; mặc định 20 làm thông báo cũ hơn không xem được.
+      final apiNotifs = await TaskApi.getNotifications(pageSize: 100);
       // Gán cả khi rỗng: thông báo đã xóa trên máy chủ không được giữ lại trên máy.
       _notifications
         ..clear()
@@ -99,7 +100,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
       _notify();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 
@@ -114,7 +115,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
       _notify();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 
@@ -146,7 +147,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
       _notify();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 }

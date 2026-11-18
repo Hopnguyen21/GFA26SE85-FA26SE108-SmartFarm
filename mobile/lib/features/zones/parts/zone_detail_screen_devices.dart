@@ -55,7 +55,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                 style: TextStyle(
                   fontSize: 11,
                   color: provider.canControlZone(widget.zone.zoneId)
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : const Color(0xFF94A3B8),
                 ),
               ),
@@ -269,7 +269,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
             child: Icon(
               icon,
               color: act.isRunning
-                  ? const Color(0xFF059669)
+                  ? const Color(0xFF047857)
                   : const Color(0xFF64748B),
               size: 22,
             ),
@@ -307,7 +307,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                   style: TextStyle(
                     fontSize: 11,
                     color: act.isRunning
-                        ? const Color(0xFF059669)
+                        ? const Color(0xFF047857)
                         : const Color(0xFF94A3B8),
                     fontWeight: FontWeight.w500,
                   ),

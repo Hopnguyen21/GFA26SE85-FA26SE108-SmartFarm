@@ -104,7 +104,7 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                         ),
                         child: const Icon(
                           Icons.add_business,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF047857),
                           size: 24,
                         ),
                       ),
@@ -776,7 +776,7 @@ void _showCreateZoneDialogImpl(BuildContext context, FarmProvider provider) {
                                       backgroundColor:
                                           warning == null &&
                                               season?.created != false
-                                          ? const Color(0xFF059669)
+                                          ? const Color(0xFF047857)
                                           : const Color(0xFFD97706),
                                       behavior: SnackBarBehavior.floating,
                                       duration: const Duration(seconds: 7),

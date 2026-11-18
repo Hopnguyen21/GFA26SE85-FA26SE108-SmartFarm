@@ -4,11 +4,16 @@ import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import 'zone_access_logic.dart';
+import '../../core/utils/user_error.dart';
 
 /// Quản lý nhân công theo Farm: mời Farmer đã có tài khoản, theo dõi lời mời, cấp quyền Zone.
 /// Mọi dữ liệu đi qua API; ứng dụng không tự tạo tài khoản hay mật khẩu nhân công.
 class WorkforceScreen extends StatefulWidget {
-  const WorkforceScreen({super.key});
+  final String? initialFarmId;
+
+  /// true = nhúng trong màn khác (tab Công việc): không vẽ AppBar riêng.
+  final bool embedded;
+  const WorkforceScreen({super.key, this.initialFarmId, this.embedded = false});
 
   @override
   State<WorkforceScreen> createState() => _WorkforceScreenState();
@@ -19,12 +24,22 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
   bool _busy = false;
   String? _error;
 
-  String _message(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _message(Object e) => userFacingError(e);
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadInvitations());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (widget.initialFarmId != null && widget.initialFarmId!.isNotEmpty) {
+        final provider = context.read<FarmProvider>();
+        if (provider.selectedFarmId != widget.initialFarmId) {
+          provider.selectFarm(widget.initialFarmId!);
+          await provider.fetchFromApi();
+        }
+      }
+      if (mounted) _loadInvitations();
+    });
   }
 
   Future<void> _loadInvitations() async {
@@ -198,7 +213,9 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
         .toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Quản lý Nhân công')),
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: const Text('Quản lý Nhân công')),
       floatingActionButton: provider.farms.isEmpty
           ? null
           : FloatingActionButton.extended(
@@ -261,23 +278,61 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                 ),
               ),
             for (final m in members)
-              Card(
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(
+                      0xFF047857,
+                    ).withValues(alpha: 0.1),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: Color(0xFF047857),
+                      size: 20,
+                    ),
+                  ),
                   title: Text(
                     m.name,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                       fontSize: 14,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                   subtitle: Text(
                     '${m.email}\n${_accessSummary(m, zones)}',
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   isThreeLine: true,
-                  trailing: TextButton(
+                  trailing: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF047857),
+                    ),
                     onPressed: _busy ? null : () => _editZones(m, zones),
-                    child: const Text('Quyền Zone'),
+                    icon: const Icon(Icons.tune, size: 16),
+                    label: const Text(
+                      'Quyền Zone',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ),
@@ -287,22 +342,60 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             for (final inv in _invitations)
-              Card(
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(
+                      0xFFF59E0B,
+                    ).withValues(alpha: 0.1),
+                    child: const Icon(
+                      Icons.mail_outline,
+                      color: Color(0xFFD97706),
+                      size: 20,
+                    ),
+                  ),
                   title: Text(
                     inv['email']?.toString() ?? '',
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   subtitle: Text(
                     inv['status']?.toString() ?? '',
-                    style: const TextStyle(fontSize: 11),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   trailing: inv['status'] == 'Pending'
                       ? Wrap(
                           children: [
                             IconButton(
                               tooltip: 'Gửi lại',
-                              icon: const Icon(Icons.refresh, size: 20),
+                              icon: const Icon(
+                                Icons.refresh,
+                                size: 20,
+                                color: Color(0xFF047857),
+                              ),
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {
@@ -315,7 +408,11 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
                             ),
                             IconButton(
                               tooltip: 'Hủy',
-                              icon: const Icon(Icons.close, size: 20),
+                              icon: const Icon(
+                                Icons.close,
+                                size: 20,
+                                color: Color(0xFFDC2626),
+                              ),
                               onPressed: _busy
                                   ? null
                                   : () => _run(() async {

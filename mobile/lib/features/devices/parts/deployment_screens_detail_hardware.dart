@@ -7,11 +7,7 @@ extension _DeploymentRequestDetailScreenStateHardware
     if (r.status != 'Installing' && _gateways.isEmpty && _devices.isEmpty)
       return const [];
     final installing = r.status == 'Installing';
-    // Kỹ thuật viên: chưa có phiếu xuất kho được Admin duyệt thì không cấp phát/gán thiết bị (Luồng 1).
-    final voucherBlock = widget.technician && installing
-        ? voucherBlockMessage(_voucherPhase, code: _voucherCode)
-        : null;
-    final canProvision = installing && voucherBlock == null;
+    final canProvision = installing;
     return [
       const Divider(height: 24),
       const Text(
@@ -29,21 +25,6 @@ extension _DeploymentRequestDetailScreenStateHardware
           leading: const Icon(Icons.router),
           title: Text('${g.gatewaySerial} · ${g.macAddress}'),
           subtitle: Text('Trạng thái: ${g.status}'),
-        ),
-      if (voucherBlock != null)
-        Container(
-          key: const Key('hardware_voucher_lock'),
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFFCD34D)),
-          ),
-          child: Text(
-            voucherBlock,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
-          ),
         ),
       if (canProvision)
         Row(
@@ -90,7 +71,7 @@ extension _DeploymentRequestDetailScreenStateHardware
                 color: t == null
                     ? const Color(0xFF64748B)
                     : (t.succeeded
-                          ? const Color(0xFF059669)
+                          ? const Color(0xFF047857)
                           : const Color(0xFFDC2626)),
               ),
             ),
@@ -124,70 +105,15 @@ extension _DeploymentRequestDetailScreenStateHardware
     );
   }
 
-  Future<List<String?>?> _form(String title, List<String> labels) async {
-    final controllers = [for (final _ in labels) TextEditingController()];
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < labels.length; i++)
-                TextField(
-                  controller: controllers[i],
-                  decoration: InputDecoration(labelText: labels[i]),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Gửi'),
-          ),
-        ],
-      ),
-    );
-    final values = [for (final c in controllers) c.text.trim()];
-    for (final c in controllers) {
-      c.dispose();
-    }
-    if (ok != true) return null;
-    if (values.any((v) => v.isEmpty)) {
-      if (mounted) _toast(context, 'Cần nhập đủ các trường.');
-      return null;
-    }
-    return values;
-  }
-
+  /// Backend đã tắt cấp phát Gateway tay (`POST /gateways` trả 410): Gateway thật tự đăng ký rồi KTV kích hoạt cho yêu cầu;
+  /// chưa có phần cứng thì mô phỏng. Xong tải lại chi tiết triển khai.
   Future<void> _provisionGateway(DeploymentRequest r) async {
-    final v = await _form('Cấp phát Gateway', [
-      'MAC address',
-      'Serial',
-      'Băng tần (vd 868MHz)',
-      'Phiên bản firmware',
-      'MQTT client ID',
-      'Fingerprint chứng chỉ client',
-    ]);
-    if (v == null || !mounted) return;
-    await _act(
-      () async => DeploymentApi.provisionGateway(
-        deploymentRequestId: r.requestId,
-        farmId: r.farmId,
-        macAddress: v[0]!,
-        gatewaySerial: v[1]!,
-        frequencyBand: v[2]!,
-        firmwareVersion: v[3]!,
-        mqttClientId: v[4]!,
-        clientCertificateFingerprint: v[5]!,
-      ),
+    final done = await showGatewayActivationSheet(
+      context,
+      farmId: r.farmId,
+      deploymentRequestId: r.requestId,
     );
+    if (done && mounted) await _load();
   }
 
   Future<void> _provisionNodes(DeploymentRequest r) async {

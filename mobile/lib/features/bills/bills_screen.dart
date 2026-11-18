@@ -5,6 +5,7 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../support/quotation_editor.dart' show formatMoney;
 import 'bill_dialogs.dart';
+import '../../core/utils/user_error.dart';
 
 const _kGreen = Color(0xFF119653);
 
@@ -110,7 +111,7 @@ class _BillsScreenState extends State<BillsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -149,7 +150,7 @@ class _BillsScreenState extends State<BillsScreen> {
       return true;
     } catch (e) {
       if (mounted) {
-        _toast(e.toString().replaceFirst('Exception: ', ''), error: true);
+        _toast(userFacingError(e), error: true);
       }
       return false;
     }
@@ -437,18 +438,29 @@ class _BillsScreenState extends State<BillsScreen> {
   Widget _summary(double total, double paid, double remaining) {
     Widget cell(String label, double v, Color c) => Expanded(
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
             ),
             const SizedBox(height: 2),
             FittedBox(
@@ -457,7 +469,7 @@ class _BillsScreenState extends State<BillsScreen> {
               child: Text(
                 formatMoney(v),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w800,
                   color: c,
                 ),
@@ -468,13 +480,13 @@ class _BillsScreenState extends State<BillsScreen> {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           cell('Tổng', total, const Color(0xFF0F172A)),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           cell('Đã thu', paid, const Color(0xFF047857)),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           cell('Còn lại', remaining, const Color(0xFFD97706)),
         ],
       ),
@@ -491,14 +503,21 @@ class _BillsScreenState extends State<BillsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _openDetail(b),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -508,7 +527,7 @@ class _BillsScreenState extends State<BillsScreen> {
                     child: Text(
                       b.billCode,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF0369A1),
                       ),
@@ -517,11 +536,12 @@ class _BillsScreenState extends State<BillsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 9,
-                      vertical: 3,
+                      vertical: 3.5,
                     ),
                     decoration: BoxDecoration(
                       color: st.bg,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: st.fg.withValues(alpha: 0.2)),
                     ),
                     child: Text(
                       st.text,

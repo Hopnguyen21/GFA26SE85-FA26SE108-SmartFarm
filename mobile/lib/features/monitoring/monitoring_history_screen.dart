@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/export_utils.dart';
+import '../../core/utils/user_error.dart';
 
 class MonitoringHistoryScreen extends StatefulWidget {
   const MonitoringHistoryScreen({super.key});
@@ -87,7 +88,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
       }
     } catch (e) {
       if (!mounted || seq != _historySeq) return;
-      _historyError = 'Không tải được lịch sử đo: $e';
+      _historyError = 'Không tải được lịch sử đo: ${userFacingError(e)}';
     }
     if (mounted && seq == _historySeq) {
       setState(() {
@@ -124,11 +125,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Xuất CSV thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-          ),
+          SnackBar(content: Text('Xuất CSV thất bại: ${userFacingError(e)}')),
         );
       }
     } finally {
@@ -237,7 +234,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
               ),
             ),
             Text(
-              'Historical Analytics & Safe-Zone Bounds',
+              'Phân tích chuỗi thời gian & ngưỡng an toàn cây trồng',
               style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
@@ -535,13 +532,34 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Tổng quan thống kê trong ngày',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.analytics_outlined,
+                        size: 16,
+                        color: Color(0xFF047857),
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Tổng quan thống kê trong khoảng thời gian',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -550,17 +568,20 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                       _buildStatItem(
                         'Cao nhất',
                         '${currentData.reduce((a, b) => a > b ? a : b)}$unit',
-                        Colors.red[600]!,
+                        const Color(0xFFDC2626),
+                        Icons.arrow_upward,
                       ),
                       _buildStatItem(
                         'Thấp nhất',
                         '${currentData.reduce((a, b) => a < b ? a : b)}$unit',
-                        Colors.blue[600]!,
+                        const Color(0xFF2563EB),
+                        Icons.arrow_downward,
                       ),
                       _buildStatItem(
                         'Trung bình',
                         '${(currentData.reduce((a, b) => a + b) / currentData.length).toStringAsFixed(1)}$unit',
-                        const Color(0xFF10B981),
+                        const Color(0xFF047857),
+                        Icons.functions,
                       ),
                     ],
                   ),
@@ -591,10 +612,26 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? color : Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? color : const Color(0xFFCBD5E1),
+              color: isSelected ? color : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.5 : 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -604,7 +641,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.bold,
                   color: isSelected ? Colors.white : const Color(0xFF334155),
                 ),
@@ -616,23 +653,47 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: color,
+  Widget _buildStatItem(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

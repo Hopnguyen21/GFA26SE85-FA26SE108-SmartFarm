@@ -410,7 +410,8 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                 children: [
                   Text(
                     title,
-                    maxLines: 1,
+                    // 2 dòng: "Bản đồ GIS & Nô…", "Cảnh báo vi khí …" bị cắt khi chỉ 1 dòng.
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 12,

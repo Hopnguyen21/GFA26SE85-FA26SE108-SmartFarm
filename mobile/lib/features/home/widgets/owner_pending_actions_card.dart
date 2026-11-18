@@ -6,11 +6,14 @@ import '../../support/service_board_logic.dart';
 import '../../support/support_requests_screen.dart';
 
 /// Thẻ "Việc cần bạn xử lý" trên trang chủ Owner: các yêu cầu lắp đặt đang chờ chính Owner (ký hợp đồng + cọc 30%,
-/// ký nghiệm thu + 70%), mọi Zone của trang trại. Bấm vào một dòng để mở thẳng hợp đồng. Không có việc chờ hoặc đọc lỗi thì ẩn
+/// ký nghiệm thu + 70%) CỦA ĐÚNG ZONE đang chọn ([zoneId]); hợp đồng của Zone khác chỉ hiện khi chọn Zone đó. Bấm vào một dòng để mở thẳng hợp đồng. Không có việc chờ hoặc đọc lỗi thì ẩn
 /// (không hiện số giả).
 class OwnerPendingActionsCard extends StatefulWidget {
   final List<ZoneModel> zones;
-  const OwnerPendingActionsCard({super.key, required this.zones});
+
+  /// Zone đang chọn trên trang chủ: chỉ hiện việc của Zone này. Null/rỗng = hiện của mọi Zone.
+  final String? zoneId;
+  const OwnerPendingActionsCard({super.key, required this.zones, this.zoneId});
 
   @override
   State<OwnerPendingActionsCard> createState() =>
@@ -34,7 +37,12 @@ class _OwnerPendingActionsCardState extends State<OwnerPendingActionsCard> {
 
   Future<void> _load() async {
     try {
-      final all = await SupportApi.getServiceRequests();
+      final wanted = (widget.zoneId ?? '').toLowerCase();
+      final all = [
+        for (final r in await SupportApi.getServiceRequests())
+          if (wanted.isEmpty || '${r['zoneId'] ?? ''}'.toLowerCase() == wanted)
+            r,
+      ];
       final infos = await Future.wait([
         for (final r in all) loadOwnerRequestInfo(r),
       ]);

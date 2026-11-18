@@ -1,5 +1,6 @@
 import '../../core/services/api_service.dart';
 import 'zone_crop_plan_logic.dart';
+import '../../core/utils/user_error.dart';
 
 /// Kết quả chuẩn bị hồ sơ để gắn vào Zone. KHÔNG tạo vụ mùa: hồ sơ được gắn trực tiếp vào Zone qua API Zone.
 class ZoneProfilePrepareResult {
@@ -17,7 +18,7 @@ class ZoneProfilePrepareResult {
   bool get ok => error == null && profileId != null;
 }
 
-String _msg(Object e) => e.toString().replaceFirst('Exception: ', '');
+String _msg(Object e) => userFacingError(e);
 
 /// Chuẩn bị hồ sơ cho Zone theo lựa chọn:
 ///  - hồ sơ có sẵn: dùng thẳng mã hồ sơ, không gọi API nào;

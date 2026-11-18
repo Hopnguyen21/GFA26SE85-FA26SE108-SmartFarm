@@ -82,7 +82,7 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionBadge('TASK WORKSPACE'),
+          _sectionBadge('KHÔNG GIAN CÔNG VIỆC'),
           const SizedBox(height: 6),
           const Text(
             'Công việc Thực địa của Nông dân',
@@ -109,25 +109,32 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
               child: Row(
                 children: [
                   for (final f in _TaskFilter.values)
-                    GestureDetector(
-                      onTap: () => _rebuild(() => _filter = f),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _filter == f ? Colors.white : null,
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                        child: Text(
-                          '${labels[f]} (${counts[f]})',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _filter == f
-                                ? const Color(0xFF0F172A)
-                                : const Color(0xFF475569),
+                    Semantics(
+                      button: true,
+                      selected: _filter == f,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _rebuild(() => _filter = f),
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _filter == f ? Colors.white : null,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Text(
+                            '${labels[f]} (${counts[f]})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _filter == f
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFF475569),
+                            ),
                           ),
                         ),
                       ),

@@ -44,7 +44,7 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       onTap: () async {
         await Navigator.push(
           context,
@@ -62,8 +62,15 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -177,7 +184,7 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                                 ? const Color(0xFFECFDF5)
                                 : const Color(0xFFFFFBEB),
                             allOnline
-                                ? const Color(0xFF059669)
+                                ? const Color(0xFF047857)
                                 : const Color(0xFFD97706),
                           ),
                           if (minBattery != null)
@@ -188,7 +195,7 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                                   : const Color(0xFFECFDF5),
                               minBattery < 20
                                   ? const Color(0xFFDC2626)
-                                  : const Color(0xFF059669),
+                                  : const Color(0xFF047857),
                             ),
                           if (worstRssi != null)
                             _chip(

@@ -8,6 +8,7 @@ import '../../core/widgets/mini_gis_map_picker.dart';
 import '../../core/services/api_service.dart';
 import '../ai/ai_screen.dart';
 import '../support/support_requests_screen.dart';
+import '../workforce/workforce_screen.dart';
 // ZonePendingActionsBanner (thông báo việc đang chờ Owner) nằm trong cùng tệp trên.
 import '../crops/crop_profiles_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
@@ -28,6 +29,7 @@ import 'widgets/zone_irrigation_page.dart';
 import 'widgets/actuator_feedback.dart';
 import 'honeycomb_estimate.dart';
 import 'widgets/zone_iot_plan_tab.dart';
+import '../../core/utils/user_error.dart';
 
 part 'parts/zone_detail_screen_climate.dart';
 part 'parts/zone_detail_screen_devices.dart';
@@ -311,7 +313,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                               ? 'Đã lưu trữ Zone.'
                               : 'Đã cập nhật Zone.',
                         ),
-                        backgroundColor: const Color(0xFF059669),
+                        backgroundColor: const Color(0xFF047857),
                       ),
                     );
                     if (result == 'archived') Navigator.of(context).pop();

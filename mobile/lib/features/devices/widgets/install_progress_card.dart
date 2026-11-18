@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/state_views.dart';
 import '../deployment_board_logic.dart';
 import 'deployment_progress_bar.dart';
+import 'survey_dialog.dart';
 
 /// Khối "Tiến độ lắp đặt" trong chi tiết phiếu dịch vụ loại lắp đặt: cho kỹ thuật viên nhận, khảo sát, xác nhận kế hoạch
 /// và bắt đầu lắp đặt ngay trên phiếu. Các bước sau (cấp phát thiết bị, kiểm tra kết nối, hoàn tất, thất bại) và
@@ -20,6 +21,9 @@ class InstallProgressCard extends StatefulWidget {
   /// Báo trạng thái triển khai đọc được (null nếu không đọc được hoặc liên kết sai) để màn chi tiết vẽ thanh quy trình.
   final void Function(String? status)? onStatus;
 
+  /// Báo khảo sát thực địa đã có kết quả KHẢ THI chưa (màn chứa dùng để mở/khoá phần xem và gửi hợp đồng).
+  final void Function(bool feasibleDone)? onSurvey;
+
   /// Dòng tiêu đề của khung thao tác (việc tiếp theo) và các nút thêm của màn chứa (Chấm Node, khoá chờ cọc…).
   final String? headline;
   final List<Widget> extraActions;
@@ -34,6 +38,7 @@ class InstallProgressCard extends StatefulWidget {
     this.farmId,
     this.zoneId,
     this.onStatus,
+    this.onSurvey,
   });
 
   @override
@@ -69,6 +74,9 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
       );
       if (mounted) setState(() => _d = d);
       if (mounted) widget.onStatus?.call(_linkInvalid(d) ? null : d.status);
+      if (mounted) {
+        widget.onSurvey?.call(d.surveys.isNotEmpty && d.latestSurveyFeasible);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     } finally {
@@ -122,6 +130,20 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     await _run(action);
   }
 
+  /// Hộp thoại khảo sát thực địa (điều kiện địa điểm + ghi chú, bắt buộc); lưu qua backend rồi tải lại.
+  Future<void> _doSurvey(DeploymentRequest d) async {
+    final input = await askSurvey(context, site: d.context);
+    if (input == null || !mounted) return;
+    await _run(
+      () => DeploymentApi.surveyDeploymentRequest(
+        d.requestId,
+        isFeasible: input.feasible,
+        siteConditions: input.siteConditions,
+        notes: input.notes,
+      ),
+    );
+  }
+
   List<Widget> _buttons(DeploymentRequest d) {
     if (widget.depositPaid) return const [];
     Widget primary(String label, VoidCallback onTap) =>
@@ -139,9 +161,12 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           ),
         ];
       case 'Accepted':
-        return const []; // không còn nút nhập khảo sát thực địa thủ công
+        // Sau khi nhận yêu cầu: KTV điền khảo sát thực địa thật; có kết quả mới được xem/xác nhận hợp đồng.
+        return [primary('Khảo sát thực địa', () => _doSurvey(d))];
       case 'Surveyed':
         return [
+          if (!d.latestSurveyFeasible)
+            primary('Khảo sát lại', () => _doSurvey(d)),
           // Kế hoạch tự được xác nhận khi KTV gửi hợp đồng: không còn nút "Xác nhận kế hoạch".
           if (!d.latestSurveyFeasible)
             const Text(
@@ -156,10 +181,15 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
   }
 
   String? _info(DeploymentRequest d) => switch (d.status) {
-    'Submitted' || 'Accepted' => null, // nút đã tự mô tả bước
+    'Submitted' => null, // nút đã tự mô tả bước
+    'Accepted' =>
+      'Điền khảo sát thực địa trước; có kết quả khả thi mới xem và gửi được hợp đồng.',
     'PlanConfirmed' =>
       'Cần chủ trang trại đã ký hợp đồng và đóng cọc trước khi bắt đầu lắp đặt.',
-    'Surveyed' => 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.',
+    'Surveyed' =>
+      d.surveys.isEmpty
+          ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.'
+          : 'Khảo sát thực địa: ${d.surveys.last.isFeasible ? 'khả thi' : 'KHÔNG khả thi'} · ${d.surveys.last.siteConditions} · ${d.surveys.last.notes}. ${d.latestSurveyFeasible ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.' : ''}',
     'Installing' =>
       'Cấp phát thiết bị, kiểm tra kết nối rồi hoàn tất trong chi tiết triển khai.',
     'Completed' =>
@@ -179,7 +209,7 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           FilledButton(
             onPressed: b.onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
+              backgroundColor: const Color(0xFF047857),
               foregroundColor: Colors.white,
             ),
             child: b.child,

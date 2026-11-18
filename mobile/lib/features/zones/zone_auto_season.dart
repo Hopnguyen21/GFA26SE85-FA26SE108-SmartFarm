@@ -1,4 +1,5 @@
 import '../../core/services/api_service.dart';
+import '../../core/utils/user_error.dart';
 
 /// Số ngày dự kiến mặc định của vụ tạo kèm Zone (giống web).
 const autoSeasonDays = 90;
@@ -83,8 +84,7 @@ Future<AutoSeasonResult> autoCreateSeasonForNewZone({
   } catch (e) {
     return (
       created: false,
-      message:
-          'Chưa tạo được vụ trồng: ${e.toString().replaceFirst('Exception: ', '')}',
+      message: 'Chưa tạo được vụ trồng: ${userFacingError(e)}',
     );
   }
 }
@@ -107,11 +107,7 @@ Future<StartSeasonResult> startSeasonForZone(
     await (start ?? CropApi.startPlantingSeason)(zoneId, seasonId);
     return (ok: true, message: 'Đã bắt đầu vụ: vụ chuyển sang đang canh tác.');
   } catch (e) {
-    return (
-      ok: false,
-      message:
-          'Chưa bắt đầu được vụ: ${e.toString().replaceFirst('Exception: ', '')}',
-    );
+    return (ok: false, message: 'Chưa bắt đầu được vụ: ${userFacingError(e)}');
   }
 }
 

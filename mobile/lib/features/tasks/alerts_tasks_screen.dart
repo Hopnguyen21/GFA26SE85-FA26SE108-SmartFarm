@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'widgets/task_actions.dart';
+import 'notification_navigation.dart';
+import '../../core/models/models.dart';
+import '../../core/widgets/paged_list.dart';
+import '../../core/utils/paging.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/providers/farm_provider.dart';
@@ -10,6 +14,17 @@ part 'parts/alerts_tasks_screen_notifications_tab.dart';
 part 'parts/alerts_tasks_screen_alerts_tab.dart';
 part 'parts/alerts_tasks_screen_tasks_tab.dart';
 part 'parts/alerts_tasks_screen_quick_assign.dart';
+
+/// Danh sách Nhiệm vụ (giao việc nhanh, trạng thái, phân trang) dùng riêng, không kèm AppBar/TabBar của màn Thông báo.
+class TasksTabView extends StatelessWidget {
+  const TasksTabView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<FarmProvider>(context);
+    return const AlertsTasksScreen()._tasksTab(context, provider).first;
+  }
+}
 
 class AlertsTasksScreen extends StatelessWidget {
   /// 0 = Thông báo, 1 = Cảnh báo, 2 = Nhiệm vụ.

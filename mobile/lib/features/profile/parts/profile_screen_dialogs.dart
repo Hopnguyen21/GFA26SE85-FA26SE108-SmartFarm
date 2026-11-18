@@ -175,7 +175,7 @@ extension _ProfileScreenDialogs on ProfileScreen {
                                   : 'Không thể cập nhật hồ sơ, vui lòng thử lại',
                             ),
                             backgroundColor: ok
-                                ? const Color(0xFF059669)
+                                ? const Color(0xFF047857)
                                 : Colors.red,
                           ),
                         );

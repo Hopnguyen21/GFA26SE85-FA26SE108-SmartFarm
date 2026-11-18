@@ -17,6 +17,9 @@ import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/export_utils.dart';
+import '../../core/utils/paging.dart';
+import '../../core/widgets/paged_list.dart';
+import '../../core/utils/user_error.dart';
 part 'parts/zone_operations_screens_actuator_history.dart';
 part 'parts/zone_operations_screens_nodes.dart';
 part 'parts/zone_operations_screens_planting_seasons.dart';
@@ -29,10 +32,10 @@ part 'parts/zone_operations_screens_cultivation_live.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 const _red = Color(0xFFDC2626);
 
-String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+String _err(Object e) => userFacingError(e);
 
 void _toast(BuildContext context, String msg, {bool error = false}) {
   ScaffoldMessenger.of(context).showSnackBar(

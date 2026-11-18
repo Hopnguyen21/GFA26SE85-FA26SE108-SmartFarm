@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
+import '../../core/utils/user_error.dart';
 
 part 'parts/schedules_automation_screen_lists.dart';
 part 'parts/schedules_automation_screen_create_rule.dart';
@@ -59,7 +60,7 @@ class _SchedulesAutomationScreenState extends State<SchedulesAutomationScreen>
               ),
             ),
             Text(
-              'Schedules & WHEN-IF-THEN AutoRules',
+              'Lịch định kỳ & luật tự động (nếu – thì)',
               style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],

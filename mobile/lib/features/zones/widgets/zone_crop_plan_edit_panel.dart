@@ -10,6 +10,7 @@ import 'own_profile_editor.dart';
 import 'stage_draft_tile.dart';
 import 'zone_crop_plan_section.dart';
 import 'zone_profile_detail_page.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Hồ sơ canh tác của Zone khi SỬA Zone. Hồ sơ được lưu TRỰC TIẾP trên Zone (Zone.GrowthProfileId), không qua vụ mùa:
 /// mở lại Zone là tải đúng hồ sơ từ máy chủ. Chọn/đổi/gỡ hồ sơ không tạo hay đổi vụ mùa; vụ mùa giữ hồ sơ riêng của nó.
@@ -48,7 +49,7 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
     super.dispose();
   }
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   Future<void> _load() async {
     setState(() {

@@ -267,7 +267,7 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                                     content: Text(
                                       'Đã lưu ranh giới GIS của Zone.',
                                     ),
-                                    backgroundColor: Color(0xFF059669),
+                                    backgroundColor: Color(0xFF047857),
                                     duration: Duration(seconds: 2),
                                   ),
                                 );
@@ -277,7 +277,7 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                                 messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      'Không lưu được ranh giới: ${e.toString().replaceFirst('Exception: ', '')}',
+                                      'Không lưu được ranh giới: ${userFacingError(e)}',
                                     ),
                                     backgroundColor: const Color(0xFFDC2626),
                                   ),
@@ -302,7 +302,7 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                         ),
                       ),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF059669),
+                        backgroundColor: const Color(0xFF047857),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 6,

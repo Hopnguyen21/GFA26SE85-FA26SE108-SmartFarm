@@ -119,9 +119,7 @@ extension _SchedulesAutomationScreenStateCreateSchedule
                 } catch (e) {
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                        e.toString().replaceFirst('Exception: ', ''),
-                      ),
+                      content: Text(userFacingError(e)),
                       backgroundColor: const Color(0xFFEF4444),
                     ),
                   );

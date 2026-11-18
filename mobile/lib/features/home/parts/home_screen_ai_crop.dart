@@ -104,7 +104,7 @@ extension _HomeScreenAiCrop on HomeScreen {
                                   zone.currentStage,
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF059669),
+                                    color: Color(0xFF047857),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

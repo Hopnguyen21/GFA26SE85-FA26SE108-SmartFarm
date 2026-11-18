@@ -1,13 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'quotation_editor.dart';
+import 'acceptance_report.dart';
+import 'acceptance_report_flow.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/iot_deployment.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/app_role.dart';
+import '../../core/utils/paging.dart';
+import '../../core/widgets/paged_list.dart';
+import '../../core/widgets/state_views.dart';
 import 'service_board_logic.dart';
+import '../../core/utils/user_error.dart';
 import 'technician_maintenance_screen.dart'
     show serviceStatusLabels, serviceStatusColor, serviceStatusOf;
 
@@ -68,7 +74,7 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
           _gen++;
         });
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -170,13 +176,12 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
                       value: null,
                       child: Text('Không liên kết'),
                     ),
-                    for (final d in deployments.where(
-                      (d) => d.zoneId == zoneId,
-                    ))
+                    for (final (i, d)
+                        in deployments.where((d) => d.zoneId == zoneId).indexed)
                       DropdownMenuItem<String?>(
                         value: d.requestId,
                         child: Text(
-                          '${d.requestId.substring(0, 8)} · ${deploymentStatusLabels[d.status] ?? d.status}',
+                          'Yêu cầu lắp đặt IoT ${i + 1} · ${deploymentStatusLabels[d.status] ?? d.status}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -275,9 +280,11 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
       await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Tạo yêu cầu thất bại: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tạo yêu cầu thất bại: ${userFacingError(e)}'),
+          ),
+        );
       }
     }
   }
@@ -323,21 +330,30 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
             ? ListView(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      widget.zone == null
-                          ? 'Chưa có yêu cầu hỗ trợ nào.'
-                          : 'Zone này chưa có yêu cầu hỗ trợ nào.',
+                    padding: const EdgeInsets.only(top: 48),
+                    child: AppEmptyState(
+                      icon: Icons.support_agent_outlined,
+                      message: widget.zone == null
+                          ? 'Chưa có yêu cầu hỗ trợ nào.\nGửi yêu cầu để kỹ thuật viên lắp đặt hoặc bảo trì thiết bị.'
+                          : 'Zone này chưa có yêu cầu hỗ trợ nào.\nGửi yêu cầu để kỹ thuật viên lắp đặt hoặc bảo trì thiết bị.',
+                      actionLabel: 'Gửi yêu cầu hỗ trợ',
+                      onAction: _create,
                     ),
                   ),
                 ],
               )
-            : ListView.separated(
+            : PagedList<Map<String, dynamic>>(
                 padding: const EdgeInsets.all(12),
-                itemCount: _requests.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, i) {
-                  final r = _requests[i];
+                items: sortNewestFirst(_requests, (r) {
+                  final own = parseTime(r['createdAtUtc']);
+                  if (own != null) return own;
+                  final h = r['history'];
+                  return h is List && h.isNotEmpty && h.first is Map
+                      ? parseTime((h.first as Map)['createdAtUtc'])
+                      : null;
+                }),
+                itemGap: 8,
+                itemBuilder: (context, r) {
                   return OwnerRequestCard(
                     key: ValueKey('${r['id']}-$_gen'),
                     request: r,
@@ -506,12 +522,17 @@ class _OwnerRequestCardState extends State<OwnerRequestCard> {
   Widget _badge(String text, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(10),
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
     child: Text(
       text,
-      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.bold,
+        color: color,
+      ),
     ),
   );
 
@@ -528,132 +549,158 @@ class _OwnerRequestCardState extends State<OwnerRequestCard> {
     final title = install
         ? serviceTitle(r)
         : (kServiceFailureCodes['${r['failureCode']}'] ?? serviceTitle(r));
-    return Card(
+    return Container(
       margin: EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async {
-          await showServiceRequestDetail(
-            context,
-            r,
-            zone: widget.zone,
-            onChanged: () {
-              _reload();
-              widget.onChanged?.call();
-            },
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _badge(
-                    install ? 'Lắp đặt thiết bị mới' : 'Bảo trì / sửa chữa',
-                    install ? const Color(0xFF0369A1) : const Color(0xFFD97706),
-                  ),
-                  _badge(
-                    'Dịch vụ: ${serviceStatusLabels[status] ?? status}',
-                    serviceStatusColor(status),
-                  ),
-                  if (_info.known)
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            await showServiceRequestDetail(
+              context,
+              r,
+              zone: widget.zone,
+              onChanged: () {
+                _reload();
+                widget.onChanged?.call();
+              },
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
                     _badge(
-                      contractStageLabel(
-                        _info.status ?? q?.status,
-                        depositLabel: q?.depositLabel,
-                      ),
-                      const Color(0xFF475569),
+                      install ? 'Lắp đặt thiết bị mới' : 'Bảo trì / sửa chữa',
+                      install
+                          ? const Color(0xFF0369A1)
+                          : const Color(0xFFD97706),
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                    _badge(
+                      'Dịch vụ: ${serviceStatusLabels[status] ?? status}',
+                      serviceStatusColor(status),
+                    ),
+                    if (_info.known)
+                      _badge(
+                        contractStageLabel(
+                          _info.status ?? q?.status,
+                          depositLabel: q?.depositLabel,
+                        ),
+                        const Color(0xFF475569),
+                      ),
+                  ],
                 ),
-              ),
-              if (widget.zoneName.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    widget.zoneName,
-                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              if (desc.isNotEmpty && desc != title && desc != '$title.')
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    desc,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                if (widget.zoneName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      widget.zoneName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
                   ),
-                ),
-              if (q != null && _info.known)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Tổng HĐ: ${formatMoney(q.totalAmount)} · Cọc ${q.depositLabel}: ${formatMoney(q.deposit30)}',
-                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                if (desc.isNotEmpty && desc != title && desc != '$title.')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      desc,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
                   ),
-                ),
-              if (next != null)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(top: 10),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: next.needsAction
-                        ? const Color(0xFFFEF3C7)
-                        : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
+                if (q != null && _info.known)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Tổng HĐ: ${formatMoney(q.totalAmount)} · Cọc ${q.depositLabel}: ${formatMoney(q.deposit30)}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                if (next != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
                       color: next.needsAction
-                          ? const Color(0xFFF59E0B)
-                          : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        next.needsAction
-                            ? Icons.pending_actions
-                            : Icons.hourglass_empty,
-                        size: 16,
+                          ? const Color(0xFFFEF3C7)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
                         color: next.needsAction
-                            ? const Color(0xFFB45309)
-                            : Colors.black45,
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFE2E8F0),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
                           next.needsAction
-                              ? '${next.text} · bấm để xem hợp đồng'
-                              : next.text,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: next.needsAction
-                                ? const Color(0xFF92400E)
-                                : Colors.black54,
+                              ? Icons.pending_actions
+                              : Icons.hourglass_empty,
+                          size: 16,
+                          color: next.needsAction
+                              ? const Color(0xFFB45309)
+                              : Colors.black45,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            next.needsAction
+                                ? '${next.text} · bấm để xem hợp đồng'
+                                : next.text,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: next.needsAction
+                                  ? const Color(0xFF92400E)
+                                  : Colors.black54,
+                            ),
                           ),
                         ),
-                      ),
-                      if (next.needsAction)
-                        const Icon(Icons.chevron_right, size: 18),
-                    ],
+                        if (next.needsAction)
+                          const Icon(Icons.chevron_right, size: 18),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -806,6 +853,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
   bool _loading = true;
   bool _busy = false;
   int? _nodeCount;
+  AcceptanceReport?
+  _report; // biên bản nghiệm thu KTV lập (Owner xem trước khi ký)
   String? _ownerName;
   String? _error;
   ServicePayment? _lastPayment;
@@ -823,9 +872,16 @@ class _QuotationPanelState extends State<QuotationPanel> {
       (!ApiService.isAuthenticated &&
           context.read<FarmProvider>().currentRole == 'OWNER');
 
-  /// Tiêu đề hợp đồng như web: "Hợp đồng lắp đặt IoT #MÃ-PHIẾU (viết hoa)".
-  String get _contractTitle =>
-      'Hợp đồng lắp đặt IoT #${widget.serviceRequestId.toUpperCase()}';
+  /// Tiêu đề hợp đồng: kèm tên Zone/nông trại (không hiện mã nội bộ của phiếu).
+  String get _contractTitle {
+    final where = [
+      if ((widget.zoneName ?? '').trim().isNotEmpty) widget.zoneName!.trim(),
+      if ((widget.farmName ?? '').trim().isNotEmpty) widget.farmName!.trim(),
+    ].join(' · ');
+    return where.isEmpty
+        ? 'Hợp đồng lắp đặt IoT'
+        : 'Hợp đồng lắp đặt IoT · $where';
+  }
 
   /// Mở bảng hợp đồng ở chế độ chỉ xem (đã ký hoặc đã cọc nên không sửa được).
   Future<void> _viewLocked() async {
@@ -866,6 +922,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
       unawaited(BusinessParametersStore.refresh());
       final q = await SupportApi.getQuotation(widget.serviceRequestId);
       String? depStatus;
+      String ktvNote = '';
       final depId = widget.deploymentRequestId;
       if ((_isOwner || _isTechnician) && depId != null && depId.isNotEmpty) {
         try {
@@ -879,6 +936,12 @@ class _QuotationPanelState extends State<QuotationPanel> {
           if (deployment.farmId == service['farmId'] &&
               deployment.zoneId == service['zoneId']) {
             depStatus = deployment.status;
+            ktvNote =
+                deployment.history
+                    .where((h) => h.decisionType == 'DeploymentCompleted')
+                    .map((h) => h.notes ?? '')
+                    .lastOrNull ??
+                '';
           }
         } catch (_) {}
       }
@@ -903,8 +966,13 @@ class _QuotationPanelState extends State<QuotationPanel> {
           }
         } catch (_) {}
       }
+      AcceptanceReport? report;
+      if (_isOwner && (depStatus == 'Completed' || q?.status == 'Completed')) {
+        report = await _loadReport(ktvNote);
+      }
       if (mounted) {
         setState(() {
+          _report = report;
           _quotation = q;
           _deploymentStatus = depStatus;
           _nodeCount = nodes;
@@ -916,9 +984,26 @@ class _QuotationPanelState extends State<QuotationPanel> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Biên bản nghiệm thu cho Owner: Zone/farm/field + Node đã gắn (kèm vị trí, kết nối) + ghi chú KTV. Lỗi tải → null.
+  Future<AcceptanceReport?> _loadReport(String note) async {
+    try {
+      final service = await SupportApi.getServiceRequest(
+        widget.serviceRequestId,
+      );
+      return await loadAcceptanceReport(
+        farmId: widget.zone?.farmId ?? '${service['farmId'] ?? ''}',
+        zoneId: widget.zone?.zoneId ?? '${service['zoneId'] ?? ''}',
+        zone: widget.zone,
+        note: note,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
@@ -949,6 +1034,12 @@ class _QuotationPanelState extends State<QuotationPanel> {
   String _method30 = 'BANK_TRANSFER';
   String _method70 = 'BANK_TRANSFER';
   bool _agreed = false;
+
+  /// Owner đã xem biên bản và BẤM XÁC NHẬN NGHIỆM THU (bước của app trước khi mở thanh toán phần còn lại; backend ký nghiệm thu và
+  /// thanh toán trong một lệnh). Nhớ theo yêu cầu trong phiên làm việc.
+  static final Set<String> _acceptanceConfirmedIds = {};
+  bool get _acceptanceConfirmed =>
+      _acceptanceConfirmedIds.contains(widget.serviceRequestId);
   String? _signError;
   String? _okMessage;
   ServicePayment? _receipt30;
@@ -962,6 +1053,13 @@ class _QuotationPanelState extends State<QuotationPanel> {
   }
 
   Future<void> _sign({required bool deposit}) async {
+    if (!deposit && !_acceptanceConfirmed) {
+      setState(
+        () => _signError =
+            'Hãy xem biên bản và bấm "Xác nhận nghiệm thu" trước khi thanh toán.',
+      );
+      return;
+    }
     final signer = (deposit ? _signer30 : _signer70).text.trim();
     final method = deposit ? _method30 : _method70;
     if (signer.isEmpty) {
@@ -1007,7 +1105,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
       widget.onChanged?.call();
       if (mounted) await _showReceipt(payment);
     } catch (e) {
-      if (mounted) setState(() => _signError = 'Không ghi nhận được: $e');
+      if (mounted)
+        setState(
+          () => _signError = 'Không ghi nhận được: ${userFacingError(e)}',
+        );
       // Có thể do Admin vừa đổi tỷ lệ cọc (409): tải lại báo giá để Owner thấy số tiền mới trước khi ký lại.
       if (mounted && deposit) await _load();
     } finally {
@@ -1133,7 +1234,6 @@ class _QuotationPanelState extends State<QuotationPanel> {
     required TextEditingController signer,
     required String method,
     required ValueChanged<String> onMethod,
-    required String transferNote,
     String signerLabel = 'Họ tên người ký',
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1164,7 +1264,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Text(
-            'Nội dung chuyển khoản (VietQR): $transferNote\nGiao dịch mô phỏng, không trừ tiền thật.',
+            'Thanh toán bằng chuyển khoản (VietQR).\nGiao dịch mô phỏng, không trừ tiền thật.',
             style: const TextStyle(fontSize: 13, height: 1.4),
           ),
         ),
@@ -1248,7 +1348,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
     required String lockedButton,
     required String footer,
   }) {
-    const green = Color(0xFF059669);
+    const green = Color(0xFF047857);
     Widget cell(String l, String v, {bool strong = false}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Column(
@@ -1410,7 +1510,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionHeader(title, 'Đã ký & cọc $_dep', const Color(0xFF059669)),
+            _sectionHeader(title, 'Đã ký & cọc $_dep', const Color(0xFF047857)),
             const SizedBox(height: 8),
             _doneCard(
               title: 'ĐÃ KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC THÀNH CÔNG',
@@ -1440,7 +1540,6 @@ class _QuotationPanelState extends State<QuotationPanel> {
         signer: _signer30,
         method: _method30,
         onMethod: (m) => _method30 = m,
-        transferNote: 'COC30 #$_shortId',
       ),
       const SizedBox(height: 8),
       for (final t in _terms)
@@ -1482,10 +1581,6 @@ class _QuotationPanelState extends State<QuotationPanel> {
     ]);
   }
 
-  String get _shortId => widget.serviceRequestId.length > 8
-      ? widget.serviceRequestId.substring(0, 8).toUpperCase()
-      : widget.serviceRequestId.toUpperCase();
-
   /// Mục 2 như web: nghiệm thu + thanh toán 70% còn lại.
   Widget _ownerFinalSection(Quotation q) {
     // Chỉ hiện khi kỹ thuật viên đã bấm "Hoàn tất lắp đặt" (backend: triển khai Completed) hoặc đã nghiệm thu xong.
@@ -1494,7 +1589,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
     }
     final title =
         '2. Biên bản Nghiệm thu Công trình & Thanh toán $_rem còn lại';
-    const green = Color(0xFF059669);
+    const green = Color(0xFF047857);
     if (q.status == 'Completed') {
       return Container(
         margin: const EdgeInsets.only(top: 12),
@@ -1507,6 +1602,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
               const Color(0xFF047857),
             ),
             const SizedBox(height: 8),
+            if (_report != null) ...[
+              AcceptanceReportView(report: _report!),
+              const SizedBox(height: 8),
+            ],
             _doneCard(
               title: 'ĐÃ KÝ NGHIỆM THU & QUYẾT TOÁN 100% CÔNG TRÌNH',
               lockChip: 'Đã khóa hoàn tất',
@@ -1526,6 +1625,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
     }
     final signed = q.status != 'SentToOwner';
     return _sectionCard(green, title, [
+      if (signed && _report != null) ...[
+        AcceptanceReportView(report: _report!),
+        const SizedBox(height: 8),
+      ],
       if (!signed)
         Container(
           width: double.infinity,
@@ -1549,10 +1652,54 @@ class _QuotationPanelState extends State<QuotationPanel> {
     ], badge: signed ? 'Chờ Nghiệm Thu' : 'Khóa Nghiệm thu');
   }
 
+  /// Bước "Xác nhận nghiệm thu": Owner xem biên bản KTV lập (Node, vị trí, kết nối, ghi chú) rồi xác nhận; sau đó mới mở thanh toán phần còn lại.
+  Widget _acceptanceConfirmCard() => Container(
+    key: const ValueKey('acceptance-confirm-card'),
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFECFDF5),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFA7F3D0)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'XÁC NHẬN NGHIỆM THU',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Kỹ thuật viên đã hoàn tất lắp đặt. Hãy xem Biên bản nghiệm thu phía trên (Node, vị trí, kết nối, ghi chú) rồi xác nhận nghiệm thu. Sau khi xác nhận mới mở bước thanh toán $_rem còn lại.',
+          style: const TextStyle(fontSize: 12.5, height: 1.4),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            key: const ValueKey('confirm-acceptance'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF047857),
+            ),
+            onPressed: _busy
+                ? null
+                : () => setState(() {
+                    _acceptanceConfirmedIds.add(widget.serviceRequestId);
+                    _signError = null;
+                  }),
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
+            label: const Text('XÁC NHẬN NGHIỆM THU'),
+          ),
+        ),
+      ],
+    ),
+  );
+
   /// Form nghiệm thu khi đã cọc: tiến độ chấm node, số tiền 70%, người ký, phương thức, cảnh báo triển khai, nút ký.
   List<Widget> _finalForm(Quotation q) {
     final ready = _deploymentStatus == 'Completed';
-    const green = Color(0xFF059669);
+    const green = Color(0xFF047857);
     return [
       Container(
         width: double.infinity,
@@ -1626,13 +1773,14 @@ class _QuotationPanelState extends State<QuotationPanel> {
               ),
             ),
             const SizedBox(height: 10),
-            _paymentForm(
-              signer: _signer70,
-              method: _method70,
-              onMethod: (m) => _method70 = m,
-              transferNote: 'NT70 #$_shortId',
-              signerLabel: 'Họ tên Người ký Biên bản Nghiệm thu *',
-            ),
+            if (ready && !_acceptanceConfirmed) _acceptanceConfirmCard(),
+            if (!ready || _acceptanceConfirmed)
+              _paymentForm(
+                signer: _signer70,
+                method: _method70,
+                onMethod: (m) => _method70 = m,
+                signerLabel: 'Họ tên Người ký Biên bản Nghiệm thu *',
+              ),
             if (!ready)
               Container(
                 width: double.infinity,
@@ -1667,22 +1815,25 @@ class _QuotationPanelState extends State<QuotationPanel> {
               ),
             _errorBox(),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: green,
-                  disabledBackgroundColor: const Color(0xFFCBD5E1),
-                ),
-                onPressed: _busy || !ready ? null : () => _sign(deposit: false),
-                child: Text(
-                  _busy
-                      ? 'Đang xác nhận Ký Nghiệm thu & Ghi nhận $_rem...'
-                      : 'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN $_rem CÒN LẠI (${_money(q.remaining70)})',
-                  textAlign: TextAlign.center,
+            if (!ready || _acceptanceConfirmed)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: green,
+                    disabledBackgroundColor: const Color(0xFFCBD5E1),
+                  ),
+                  onPressed: _busy || !ready
+                      ? null
+                      : () => _sign(deposit: false),
+                  child: Text(
+                    _busy
+                        ? 'Đang xác nhận Ký Nghiệm thu & Ghi nhận $_rem...'
+                        : 'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN $_rem CÒN LẠI (${_money(q.remaining70)})',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -1707,14 +1858,16 @@ class _QuotationPanelState extends State<QuotationPanel> {
       } catch (e) {
         draftFailed = true;
         if (mounted)
-          _snack('Không lấy được dự toán của Owner, bạn có thể nhập tay: $e');
+          _snack(
+            'Không lấy được dự toán của Owner, bạn có thể nhập tay: ${userFacingError(e)}',
+          );
       } finally {
         if (mounted) setState(() => _busy = false);
       }
       if (!mounted) return;
       if (fromEstimate.isEmpty && !draftFailed) {
         _snack(
-          'Owner chưa lưu dự toán thiết bị cho yêu cầu này nên bảng hợp đồng để trống (app không tự tính thay). Thêm hạng mục từ kho hoặc nhập ngoài.',
+          'Owner chưa lưu dự toán thiết bị cho yêu cầu này nên bảng hợp đồng để trống (app không tự tính thay). Thêm thiết bị từ kho.',
         );
       } else if (fromEstimate.isNotEmpty) {
         _snack(
@@ -1751,7 +1904,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
         } catch (e) {
           if (mounted) {
             _snack(
-              'Đã gửi hợp đồng nhưng chưa tự xác nhận được kế hoạch: ${e.toString().replaceFirst('Exception: ', '')}',
+              'Đã gửi hợp đồng nhưng chưa tự xác nhận được kế hoạch: ${userFacingError(e)}',
             );
           }
         }
@@ -1759,7 +1912,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
       await _load();
       widget.onChanged?.call();
     } catch (e) {
-      if (mounted) _snack('Không lập được báo giá: $e');
+      if (mounted) _snack('Không lập được báo giá: ${userFacingError(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1795,7 +1948,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
               const Icon(
                 Icons.description_outlined,
                 size: 20,
-                color: Color(0xFF059669),
+                color: Color(0xFF047857),
               ),
               const SizedBox(width: 8),
               const Expanded(
@@ -1862,7 +2015,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
                   const Icon(
                     Icons.check_circle,
                     size: 18,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -1979,7 +2132,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
                 color: signed
-                    ? const Color(0xFF059669)
+                    ? const Color(0xFF047857)
                     : const Color(0xFFFDE68A),
                 borderRadius: BorderRadius.circular(5),
               ),
@@ -1997,9 +2150,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
           ],
           const SizedBox(height: 4),
           SelectableText(
-            'Mã hợp đồng: ${q.id}'
-            '${q.createdAtUtc != null ? ' • Ngày lập: ${formatContractDate(q.createdAtUtc!)}' : ''}'
-            ' • Trạng thái: ${_statusText[q.status] ?? q.status}',
+            '${q.createdAtUtc != null ? 'Ngày lập: ${formatContractDate(q.createdAtUtc!)} • ' : ''}'
+            'Trạng thái: ${_statusText[q.status] ?? q.status}',
             style: const TextStyle(fontSize: 10.5, color: Color(0xFF92400E)),
           ),
           const SizedBox(height: 8),

@@ -67,17 +67,19 @@ extension _SchedulesAutomationScreenStateLists
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: rule.isActive
-              ? const Color(0xFF10B981).withValues(alpha: 0.4)
+              ? const Color(0xFF10B981).withValues(alpha: 0.5)
               : const Color(0xFFE2E8F0),
           width: rule.isActive ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
+            color: rule.isActive
+                ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.03),
+            blurRadius: rule.isActive ? 8 : 4,
             offset: const Offset(0, 2),
           ),
         ],
@@ -281,16 +283,19 @@ extension _SchedulesAutomationScreenStateLists
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: sch.isActive
-              ? const Color(0xFF062326).withValues(alpha: 0.3)
+              ? const Color(0xFF10B981).withValues(alpha: 0.5)
               : const Color(0xFFE2E8F0),
+          width: sch.isActive ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
+            color: sch.isActive
+                ? const Color(0xFF10B981).withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.03),
+            blurRadius: sch.isActive ? 8 : 4,
             offset: const Offset(0, 2),
           ),
         ],

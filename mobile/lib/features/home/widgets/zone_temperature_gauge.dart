@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../zone_sensor_thresholds.dart' show requirementFor;
+import '../../../core/utils/user_error.dart';
 import '../../zones/zone_climate_logic.dart'
     show currentStageOfZone, normalizeParameterCode;
 import '../../zones/zone_crop_plan_logic.dart'
@@ -128,7 +129,7 @@ class _ZoneTemperatureGaugeState extends State<ZoneTemperatureGauge> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -189,7 +190,7 @@ class _ZoneTemperatureGaugeState extends State<ZoneTemperatureGauge> {
     final isOptimal = t >= safe.min && t <= safe.max;
     final isHot = t > safe.max;
     final color = isOptimal
-        ? const Color(0xFF059669)
+        ? const Color(0xFF047857)
         : (isHot ? const Color(0xFFDC2626) : const Color(0xFF2563EB));
     double frac(double v) => ((v - scale.min) / span).clamp(0.0, 1.0);
 
@@ -298,7 +299,7 @@ class _ZoneTemperatureGaugeState extends State<ZoneTemperatureGauge> {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF059669),
+                  color: Color(0xFF047857),
                 ),
               ),
               Text(

@@ -72,7 +72,7 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                   colors: [
                     Color(0xFF0F766E),
                     Color(0xFF10B981),
-                    Color(0xFF059669),
+                    Color(0xFF047857),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -599,7 +599,7 @@ class _HoneycombTopologyCardState extends State<HoneycombTopologyCard> {
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildQuoteRow(
                           icon: Icons.radio,
-                          iconColor: const Color(0xFF059669),
+                          iconColor: const Color(0xFF047857),
                           title: 'Sensor Node × ${sim.sensors}',
                           amount: sim.sensors * sim.sensorUnitPrice,
                         ),

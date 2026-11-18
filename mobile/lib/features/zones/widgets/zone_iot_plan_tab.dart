@@ -7,6 +7,7 @@ import '../../devices/deployment_screens.dart';
 import '../../crops/widgets/create_season_sheet.dart';
 import '../../devices/deployment_request_send_screen.dart';
 import 'zone_honeycomb_estimate_card.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Tab "Triển khai IoT" của Zone, dữ liệu 100% từ backend:
 /// - GET  /zones/{id}/iot-requirements       → nhu cầu đo theo cây/diện tích của Zone
@@ -153,8 +154,15 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
     child: child,
   );
@@ -208,7 +216,7 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
                     Column(
                       children: [
                         Text(
-                          'Không tải được kế hoạch IoT: ${snap.error.toString().replaceFirst('Exception: ', '')}',
+                          'Không tải được kế hoạch IoT: ${userFacingError(snap.error!)}',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFFDC2626),

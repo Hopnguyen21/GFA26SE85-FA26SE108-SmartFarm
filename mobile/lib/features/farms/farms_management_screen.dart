@@ -42,7 +42,7 @@ class FarmsManagementScreen extends StatelessWidget {
               ),
             ),
             Text(
-              'Multi-Farm & Hierarchical Zoning (Issue 5)',
+              'Hệ thống quản lý nông trại & khu vực canh tác',
               style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
@@ -217,7 +217,7 @@ class FarmsManagementScreen extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF059669).withValues(alpha: 0.3),
+                      color: const Color(0xFF047857).withValues(alpha: 0.3),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -232,12 +232,12 @@ class FarmsManagementScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF059669).withValues(alpha: 0.1),
+                          color: const Color(0xFF047857).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.assignment_turned_in_outlined,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF047857),
                           size: 20,
                         ),
                       ),
@@ -340,13 +340,15 @@ class FarmsManagementScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'PHÂN KHU THỬA ĐẤT (FIELDS)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF64748B),
-                    letterSpacing: 0.8,
+                Expanded(
+                  child: Text(
+                    'PHÂN KHU THỬA ĐẤT (FIELDS)',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF64748B),
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ),
                 if (provider.canManageFarmStructure)
@@ -430,13 +432,15 @@ class FarmsManagementScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'CÁC NHÀ MÀNG TRONG LÔ / TRANG TRẠI (ZONES)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF64748B),
-                    letterSpacing: 0.8,
+                Expanded(
+                  child: Text(
+                    'CÁC NHÀ MÀNG TRONG LÔ / TRANG TRẠI (ZONES)',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF64748B),
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ),
                 if (provider.canManageFarmStructure)

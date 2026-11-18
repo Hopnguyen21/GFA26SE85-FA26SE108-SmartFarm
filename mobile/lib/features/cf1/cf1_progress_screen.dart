@@ -157,7 +157,20 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
   Widget build(BuildContext context) {
     final owner = context.watch<FarmProvider>().canManageFarmStructure;
     return Scaffold(
-      appBar: AppBar(title: const Text('Tiến độ thiết lập CF1')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'Tiến độ thiết lập CF1',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: !owner
           ? const AppEmptyState(
               icon: Icons.lock_outline,
@@ -169,55 +182,94 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   if (_loading) const LinearProgressIndicator(),
-                  Card(
-                    color: const Color(0xFF064E3B).withValues(alpha: 0.08),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(
-                        color: Color(0xFF10B981),
-                        width: 1,
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF064E3B), Color(0xFF0D4A35)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF064E3B,
+                          ).withValues(alpha: 0.25),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        child: Icon(Icons.auto_awesome, size: 20),
-                      ),
-                      title: const Text(
-                        'Wizard thiết lập trọn gói (1 chạm)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF064E3B),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const FarmSetupWizardScreen(),
+                          ),
                         ),
-                      ),
-                      subtitle: const Text(
-                        'Khởi tạo nhanh Trang trại → Lô đất → Zone → Vụ trồng → Yêu cầu IoT trong 1 giao dịch.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: Color(0xFF10B981),
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const FarmSetupWizardScreen(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.auto_awesome,
+                                  color: Color(0xFF34D399),
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Wizard thiết lập trọn gói (1 chạm)',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                    Text(
+                                      'Khởi tạo nhanh Trang trại → Lô đất → Zone → Vụ trồng → Yêu cầu IoT trong 1 giao dịch.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFFA7F3D0),
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 14,
+                                color: Color(0xFF34D399),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
                   for (var i = 0; i < _steps.length; i++)
                     _card(i + 1, _steps[i]),
                   const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(top: 8, bottom: 16),
                     child: Text(
                       'Trạng thái lấy từ máy chủ. "Chưa tải được" nghĩa là chưa đọc được dữ liệu của bước đó, '
                       'không phải đã hoàn tất.',
@@ -232,27 +284,133 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
 
   Widget _card(int n, _Step s) {
     final c = _color(s.state);
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: c.withValues(alpha: 0.12),
-          child: Icon(s.icon, color: c, size: 20),
+    final isDone = s.state == Cf1StepState.done;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDone
+              ? const Color(0xFF10B981).withValues(alpha: 0.35)
+              : const Color(0xFFE2E8F0),
+          width: isDone ? 1.5 : 1,
         ),
-        title: Text(
-          '$n. ${s.title}',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () =>
+              Navigator.push(context, MaterialPageRoute(builder: s.open)),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: c.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(child: Icon(s.icon, color: c, size: 20)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$n. ${s.title}',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: c.withValues(alpha: 0.3),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              cf1StateLabel(s.state),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: c,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        s.hint,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          height: 1.35,
+                        ),
+                      ),
+                      if (s.detail != null) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            s.detail!,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 13,
+                  color: Color(0xFF94A3B8),
+                ),
+              ],
+            ),
+          ),
         ),
-        subtitle: Text(
-          '${s.hint}${s.detail == null ? '' : '\n${s.detail}'}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        isThreeLine: true,
-        trailing: Text(
-          cf1StateLabel(s.state),
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: c),
-        ),
-        onTap: () =>
-            Navigator.push(context, MaterialPageRoute(builder: s.open)),
       ),
     );
   }

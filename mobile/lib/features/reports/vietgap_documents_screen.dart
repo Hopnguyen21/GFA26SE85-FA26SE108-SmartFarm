@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/models/agriculture_document.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/user_error.dart';
 part 'parts/vietgap_documents_screen_review.dart';
 
 const _green = Color(0xFF10B981);
@@ -85,7 +86,7 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
       );
       await _openDocument(doc);
     } catch (error) {
-      _message('Tải tài liệu thất bại: $error');
+      _message('Tải tài liệu thất bại: ${userFacingError(error)}');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }

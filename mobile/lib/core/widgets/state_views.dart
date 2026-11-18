@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/user_error.dart';
 
 /// Chữ lỗi gọn cho người dùng: bỏ tiền tố "Exception: " của lỗi kỹ thuật.
-String friendlyError(Object error) =>
-    error.toString().replaceFirst('Exception: ', '');
+String friendlyError(Object error) => userFacingError(error);
 
 /// Trạng thái đang tải dùng chung (thay cho các CircularProgressIndicator rải rác).
 class AppLoading extends StatelessWidget {

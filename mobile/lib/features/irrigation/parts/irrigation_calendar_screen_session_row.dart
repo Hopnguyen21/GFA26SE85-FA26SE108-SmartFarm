@@ -47,26 +47,29 @@ extension _IrrigationCalendarScreenStateSessionRow
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      s.title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: s.enabled
-                            ? const Color(0xFF0F172A)
-                            : const Color(0xFF94A3B8),
-                        decoration: s.enabled
-                            ? null
-                            : TextDecoration.lineThrough,
+                    Flexible(
+                      child: Text(
+                        s.title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: s.enabled
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF94A3B8),
+                          decoration: s.enabled
+                              ? null
+                              : TextDecoration.lineThrough,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       s.enabled ? '${s.durationMinutes} phút' : 'Đã tắt',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: s.enabled
-                            ? const Color(0xFF059669)
+                            ? const Color(0xFF047857)
                             : const Color(0xFF94A3B8),
                       ),
                     ),

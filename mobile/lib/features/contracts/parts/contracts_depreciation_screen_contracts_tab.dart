@@ -64,7 +64,7 @@ extension _ContractsDepreciationScreenStateContractsTab
                   title: 'Giá Trị HĐ/Tháng',
                   value: currencyFormat.format(totalMonthlyRent),
                   icon: Icons.payments_outlined,
-                  iconColor: const Color(0xFF059669),
+                  iconColor: const Color(0xFF047857),
                   subText:
                       '${_contracts.where((c) => c.isActive).length} hợp đồng hoạt động',
                 ),
@@ -142,7 +142,7 @@ extension _ContractsDepreciationScreenStateContractsTab
 
   Widget _buildContractCard(ZoneContractModel contract, bool isOwner) {
     Color statusBg = const Color(0xFFECFDF5);
-    Color statusColor = const Color(0xFF059669);
+    Color statusColor = const Color(0xFF047857);
     if (!contract.isActive) {
       statusBg = const Color(0xFFF1F5F9);
       statusColor = const Color(0xFF64748B);
@@ -155,7 +155,7 @@ extension _ContractsDepreciationScreenStateContractsTab
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: contract.isExpiringSoon
               ? const Color(0xFFF59E0B)
@@ -164,18 +164,20 @@ extension _ContractsDepreciationScreenStateContractsTab
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
+            color: contract.isExpiringSoon
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                : Colors.black.withValues(alpha: 0.03),
+            blurRadius: contract.isExpiringSoon ? 10 : 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: () => _showContractDetailsModal(contract),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -289,7 +291,7 @@ extension _ContractsDepreciationScreenStateContractsTab
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF059669),
+                            color: Color(0xFF047857),
                           ),
                         ),
                       ],
@@ -383,7 +385,7 @@ extension _ContractsDepreciationScreenStateContractsTab
                                     ? Icons.autorenew
                                     : Icons.add_circle_outline,
                                 size: 14,
-                                color: const Color(0xFF059669),
+                                color: const Color(0xFF047857),
                               ),
                               label: Text(
                                 contract.isInEffect()
@@ -391,13 +393,13 @@ extension _ContractsDepreciationScreenStateContractsTab
                                     : 'Tạo yêu cầu mới',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF059669),
+                                  color: Color(0xFF047857),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(
-                                  color: Color(0xFF059669),
+                                  color: Color(0xFF047857),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,

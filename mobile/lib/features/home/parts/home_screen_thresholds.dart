@@ -13,7 +13,7 @@ extension _HomeScreenThresholds on HomeScreen {
     try {
       saved = await AutomationApi.getEnvironmentalConfig(zone.zoneId);
     } catch (e) {
-      loadError = e.toString().replaceFirst('Exception: ', '');
+      loadError = userFacingError(e);
     }
     if (!context.mounted) return;
     double? numOf(String k) {
@@ -69,7 +69,7 @@ extension _HomeScreenThresholds on HomeScreen {
                         ),
                         child: const Icon(
                           Icons.tune,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF047857),
                           size: 22,
                         ),
                       ),
@@ -328,7 +328,7 @@ extension _HomeScreenThresholds on HomeScreen {
                                 content: Text(
                                   '✅ Đã lưu ngưỡng cho ${zone.name}: bật quạt khi > ${maxTemp.toInt()}°C, độ ẩm đất ${minSoil.toInt()}–${maxSoil.toInt()}%.',
                                 ),
-                                backgroundColor: const Color(0xFF059669),
+                                backgroundColor: const Color(0xFF047857),
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),

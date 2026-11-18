@@ -311,66 +311,95 @@ class _RequestCard extends StatelessWidget {
     final hint = deploymentNextStepHint(r.status);
     final failed = r.status == 'MaintenanceRequired';
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _statusChip(r.status),
-              ),
-              if (where != null && where.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _line(Icons.place_outlined, where),
-              ],
-              const SizedBox(height: 4),
-              _line(Icons.crop_square_outlined, detail),
-              const SizedBox(height: 4),
-              _line(Icons.devices_other_outlined, plan),
-              if (hint != null) ...[
-                const SizedBox(height: 8),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.arrow_forward,
-                      size: 14,
-                      color: failed ? AppColors.danger : AppColors.info,
-                    ),
-                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        hint,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: failed ? AppColors.danger : AppColors.info,
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Flexible(child: _statusChip(r.status)),
                   ],
                 ),
+                if (where != null && where.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _line(Icons.place_outlined, where),
+                ],
+                const SizedBox(height: 4),
+                _line(Icons.crop_square_outlined, detail),
+                const SizedBox(height: 4),
+                _line(Icons.devices_other_outlined, plan),
+                if (hint != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: failed ? AppColors.dangerSoft : AppColors.infoSoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: failed ? AppColors.danger : AppColors.info,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            hint,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: failed ? AppColors.danger : AppColors.info,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                DeploymentProgressBar(status: r.status, compact: true),
               ],
-              const SizedBox(height: 10),
-              DeploymentProgressBar(status: r.status, compact: true),
-            ],
+            ),
           ),
         ),
       ),

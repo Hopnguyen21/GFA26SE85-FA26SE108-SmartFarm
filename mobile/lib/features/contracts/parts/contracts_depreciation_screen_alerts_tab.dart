@@ -112,7 +112,7 @@ extension _ContractsDepreciationScreenStateAlertsTab
                             'Giá trị hợp đồng: ${currencyFormat.format(alert.totalContractValueVnd)}',
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF059669),
+                              color: Color(0xFF047857),
                               fontWeight: FontWeight.bold,
                             ),
                           ),

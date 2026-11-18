@@ -7,7 +7,8 @@ abstract final class AppColors {
   // Thương hiệu
   static const Color ink = Color(0xFF062326); // nền AppBar, nút chính
   static const Color primary = Color(0xFF10B981); // xanh nhấn (emerald)
-  static const Color primaryDark = Color(0xFF059669);
+  // Đậm hơn emerald-600 (3.8:1) để chữ nhỏ (thành tiền, nhãn xanh) đạt tương phản 5.5:1 trên nền trắng (WCAG AA 4.5:1).
+  static const Color primaryDark = Color(0xFF047857);
   static const Color primarySoft = Color(0xFFECFDF5);
 
   // Chữ & viền (slate)
@@ -115,7 +116,8 @@ ThemeData buildAppTheme() {
         borderSide: const BorderSide(color: AppColors.danger, width: 1.8),
       ),
       labelStyle: const TextStyle(color: AppColors.textMuted),
-      hintStyle: const TextStyle(color: AppColors.textFaint),
+      // Gợi ý trong ô nhập là chữ đọc được: dùng textMuted (4.8:1), không dùng textFaint (2.6:1, không đạt AA).
+      hintStyle: const TextStyle(color: AppColors.textMuted),
       helperMaxLines: 3,
       errorMaxLines: 3,
     ),

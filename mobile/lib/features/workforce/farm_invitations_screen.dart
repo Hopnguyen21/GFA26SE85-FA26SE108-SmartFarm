@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/user_error.dart';
 
 /// Farmer xem và trả lời lời mời tham gia Farm. Chấp nhận chỉ đưa Farmer vào Farm, không tự cấp quyền Zone.
 class FarmInvitationsScreen extends StatefulWidget {
@@ -33,8 +34,7 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
         _error = null;
       });
     } catch (e) {
-      if (mounted)
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -61,8 +61,7 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
       );
       await _load();
     } catch (e) {
-      if (mounted)
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -71,78 +70,202 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Lời mời tham gia Farm')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Lời Mời Tham Gia Farm',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             if (_error != null)
-              Text(
-                _error!,
-                style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontSize: 12,
+                  ),
+                ),
               ),
             if (_loading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(color: Color(0xFF10B981)),
                 ),
               ),
             if (!_loading && _items.isEmpty && _error == null)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Bạn chưa có lời mời nào.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            for (final inv in _items)
-              Card(
+              Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 48,
+                    horizontal: 24,
+                  ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        inv['farmName']?.toString() ?? 'Trang trại',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.mail_outline,
+                          size: 32,
+                          color: Color(0xFF94A3B8),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Hết hạn: ${_date(inv['expiresAtUtc'])}',
-                        style: const TextStyle(
-                          fontSize: 12,
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Bạn chưa có lời mời nào.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF64748B),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _respond(inv['id'].toString(), false),
-                              child: const Text('Từ chối'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _respond(inv['id'].toString(), true),
-                              child: const Text('Chấp nhận'),
-                            ),
-                          ),
-                        ],
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
+                ),
+              ),
+            for (final inv in _items)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: const Icon(
+                            Icons.agriculture,
+                            color: Color(0xFF047857),
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                inv['farmName']?.toString() ?? 'Trang trại',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.schedule,
+                                    size: 12,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Hết hạn: ${_date(inv['expiresAtUtc'])}',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFDC2626),
+                              side: const BorderSide(color: Color(0xFFFECACA)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            onPressed: _busy
+                                ? null
+                                : () => _respond(inv['id'].toString(), false),
+                            child: const Text(
+                              'Từ chối',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF047857),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            onPressed: _busy
+                                ? null
+                                : () => _respond(inv['id'].toString(), true),
+                            child: const Text(
+                              'Chấp nhận',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
           ],

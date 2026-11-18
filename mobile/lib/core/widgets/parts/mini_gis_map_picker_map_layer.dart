@@ -66,7 +66,7 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                           : const Color(0xFF10B981).withValues(alpha: 0.16),
                       borderColor: isFieldLevel
                           ? const Color(0xFF0284C7)
-                          : const Color(0xFF059669),
+                          : const Color(0xFF047857),
                       borderStrokeWidth: 1.8,
                     );
                   })

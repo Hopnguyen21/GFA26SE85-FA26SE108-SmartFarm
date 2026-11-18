@@ -44,10 +44,12 @@ List<QuotationItem> quotationItemsFromEstimate(
       continue;
     }
     final (category, unit) = shape(l.role);
+    // Chỉ dựng theo LOẠI + SỐ LƯỢNG đúng đề xuất (mã trống); kỹ thuật viên chọn thiết bị cụ thể từ kho ở bước lập hợp đồng.
+    // Đơn giá chỉ là giá tham khảo của thiết bị dự toán, được thay bằng giá của thiết bị được chọn.
     items.add(
       line(
-        code: item.code,
-        name: item.name,
+        code: '',
+        name: l.role.label,
         category: category,
         unit: unit,
         quantity: l.quantity,

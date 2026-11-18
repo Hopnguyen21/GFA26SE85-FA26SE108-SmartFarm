@@ -6,12 +6,13 @@ import '../../core/services/api_service.dart';
 import '../../core/widgets/state_views.dart';
 import '../ai/ai_screen.dart';
 import 'alert_rules_logic.dart';
+import '../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
 const _green = Color(0xFF119653);
 
-String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+String _err(Object e) => userFacingError(e);
 
 /// Trung tâm cảnh báo của một Zone (như web): quy tắc cảnh báo an toàn (thêm/sửa/bật tắt/xóa) và nhật ký cảnh báo
 /// (xác nhận, đóng kèm hành động đã làm, chẩn đoán AI). Dữ liệu thật từ backend; Farmer chỉ xem quy tắc.
@@ -225,16 +226,24 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
     final zone = _zoneFrom(context.watch<FarmProvider>());
     final open = _alerts.where((a) => '${a['status']}' == 'Open').length;
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: Text(
           'Cảnh báo & Quy tắc · ${zone.name}',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         actions: [
           IconButton(
             tooltip: 'Tải lại',
             onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
           ),
         ],
       ),
@@ -308,16 +317,31 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
         const Icon(Icons.shield_outlined, color: Colors.white, size: 26),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(
-            open > 0
-                ? '$open cảnh báo đang mở cần xử lý'
-                : 'Không có cảnh báo đang mở',
-            key: const Key('alert_summary'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'TRUNG TÂM CẢNH BÁO NÔNG NGHIỆP',
+                style: TextStyle(
+                  color: Color(0xFFD1FAE5),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10.5,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                open > 0
+                    ? '$open cảnh báo đang mở cần xử lý'
+                    : 'An toàn 100% · không có cảnh báo đang mở',
+                key: const Key('alert_summary'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -346,7 +370,7 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Quy tắc cảnh báo an toàn (${_rules.length})',
+                    'Cấu hình Quy tắc Cảnh báo An toàn Zone (${_rules.length} luật phù hợp)',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -360,7 +384,10 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
                     style: TextButton.styleFrom(foregroundColor: Colors.white),
                     onPressed: _rulesNote != null ? null : () => _openEditor(),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Thêm', style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      'Thêm quy tắc mới',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
               ],
             ),
@@ -379,7 +406,7 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
               padding: const EdgeInsets.all(14),
               child: Text(
                 canEdit
-                    ? 'Chưa có quy tắc nào cho giai đoạn hiện tại. Bấm "Thêm" để tạo.'
+                    ? 'Chưa có luật cảnh báo nào được cấu hình cho Zone (theo giai đoạn hiện tại). Bấm "Thêm quy tắc mới" để thiết lập ngưỡng an toàn!'
                     : 'Chưa có quy tắc nào cho giai đoạn hiện tại.',
                 key: const Key('rules_empty'),
                 style: const TextStyle(fontSize: 12, color: _muted),
@@ -433,11 +460,30 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Switch(
-              value: active,
-              onChanged: canEdit && !system && !busy
-                  ? (v) => _toggle(r, v)
-                  : null,
+            Tooltip(
+              message: active ? 'Đang bật' : 'Đang tắt',
+              child: Switch(
+                value: active,
+                onChanged: canEdit && !system && !busy
+                    ? (v) => _toggle(r, v)
+                    : null,
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(right: 8, top: 2),
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: parameterColor(code).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: parameterColor(code).withValues(alpha: 0.35),
+                ),
+              ),
+              child: Icon(
+                parameterIcon(code),
+                size: 16,
+                color: parameterColor(code),
+              ),
             ),
             Expanded(
               child: Column(
@@ -457,7 +503,7 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
                         ),
                       ),
                       _badge(
-                        severityLabel(sev),
+                        severityCode(sev),
                         sev == 'Critical'
                             ? const Color(0xFFDC2626)
                             : const Color(0xFFD97706),
@@ -472,6 +518,10 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
                     ],
                   ),
                   const SizedBox(height: 3),
+                  Text(
+                    'Tham số: ${parameterLabel(code)}',
+                    style: const TextStyle(fontSize: 11, color: _muted),
+                  ),
                   Text(
                     'Dải an toàn: [${n(min)} – ${n(max)}] $unit · chờ ${r['cooldownMinutes']} phút',
                     style: const TextStyle(fontSize: 11, color: _muted),
@@ -492,13 +542,13 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
             ),
             if (canEdit && !system) ...[
               IconButton(
-                tooltip: 'Sửa quy tắc',
+                tooltip: 'Sửa luật',
                 visualDensity: VisualDensity.compact,
                 onPressed: busy ? null : () => _openEditor(r),
                 icon: const Icon(Icons.edit_outlined, size: 18),
               ),
               IconButton(
-                tooltip: 'Xóa quy tắc',
+                tooltip: 'Xóa luật',
                 visualDensity: VisualDensity.compact,
                 onPressed: busy ? null : () => _delete(r),
                 icon: const Icon(
@@ -573,14 +623,6 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(
-                '#${id.length >= 8 ? id.substring(0, 8) : id}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: _muted,
-                  fontFamily: 'monospace',
-                ),
-              ),
               _badge(alertStatusLabels[status] ?? status, statusColor),
               _badge(
                 severityLabel(sev),
@@ -804,7 +846,9 @@ class _RuleEditorState extends State<_RuleEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _editing ? 'Chỉnh sửa quy tắc cảnh báo' : 'Thêm quy tắc cảnh báo',
+              _editing
+                  ? 'Chỉnh sửa Quy tắc Cảnh báo Zone'
+                  : 'Thêm Quy tắc Cảnh báo Vi khí hậu Mới',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
@@ -820,7 +864,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                 isExpanded: true,
                 initialValue: _param,
                 decoration: const InputDecoration(
-                  labelText: 'Tham số theo dõi',
+                  labelText: 'Tham số Cảm biến *',
                   border: OutlineInputBorder(),
                 ),
                 items: [
@@ -858,7 +902,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                       ),
                       decoration: InputDecoration(
                         labelText:
-                            'Thấp nhất ${_param == null ? '' : parameterUnit(_param!)}',
+                            'Ngưỡng MIN (Dưới ngưỡng sẽ kích hoạt) ${_param == null ? '' : parameterUnit(_param!)}',
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -874,7 +918,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                       ),
                       decoration: InputDecoration(
                         labelText:
-                            'Cao nhất ${_param == null ? '' : parameterUnit(_param!)}',
+                            'Ngưỡng MAX (Vượt ngưỡng sẽ kích hoạt) ${_param == null ? '' : parameterUnit(_param!)}',
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -882,20 +926,19 @@ class _RuleEditorState extends State<_RuleEditor> {
                 ],
               ),
               const SizedBox(height: 10),
-              SegmentedButton<String>(
+              DropdownButtonFormField<String>(
                 key: const Key('rule_severity'),
-                segments: [
-                  for (final e in alertSeverities.entries)
-                    ButtonSegment(
-                      value: e.key,
-                      label: Text(
-                        e.value,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
+                isExpanded: true,
+                initialValue: _severity,
+                decoration: const InputDecoration(
+                  labelText: 'Mức độ Nghiêm trọng *',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final e in alertSeverityFormLabels.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
                 ],
-                selected: {_severity},
-                onSelectionChanged: (s) => setState(() => _severity = s.first),
+                onChanged: (v) => setState(() => _severity = v ?? _severity),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -946,7 +989,9 @@ class _RuleEditorState extends State<_RuleEditor> {
                     onPressed: _saving || (!_editing && avail.isEmpty)
                         ? null
                         : _save,
-                    child: Text(_saving ? 'Đang lưu...' : 'Lưu quy tắc'),
+                    child: Text(
+                      _saving ? 'Đang lưu...' : 'Lưu Quy tắc Cảnh báo',
+                    ),
                   ),
                 ),
               ],
@@ -965,3 +1010,24 @@ class _RuleEditorState extends State<_RuleEditor> {
     super.dispose();
   }
 }
+
+/// Biểu tượng và màu theo tham số (như các thẻ chỉ số của trang web).
+IconData parameterIcon(String code) => switch (code) {
+  'Temperature' => Icons.thermostat,
+  'SoilMoisture' => Icons.water_drop_outlined,
+  'AirHumidity' => Icons.air,
+  'LightIntensity' => Icons.wb_sunny_outlined,
+  'Ph' => Icons.science_outlined,
+  'Ec' => Icons.bolt,
+  _ => Icons.sensors,
+};
+
+Color parameterColor(String code) => switch (code) {
+  'Temperature' => const Color(0xFFEA580C),
+  'SoilMoisture' => const Color(0xFF0284C7),
+  'AirHumidity' => const Color(0xFF0D9488),
+  'LightIntensity' => const Color(0xFFCA8A04),
+  'Ph' => const Color(0xFF7C3AED),
+  'Ec' => const Color(0xFF047857),
+  _ => const Color(0xFF64748B),
+};

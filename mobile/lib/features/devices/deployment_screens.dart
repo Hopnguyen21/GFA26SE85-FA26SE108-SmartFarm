@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../core/models/iot_deployment.dart';
+import '../../core/models/models.dart' show BusinessParameters;
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/paging.dart';
+import '../../core/widgets/paged_list.dart';
 import '../../core/widgets/section_card.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/summary_tile.dart';
 import '../zones/honeycomb_estimate.dart';
 import 'deployment_board_logic.dart';
-import '../support/install_voucher_card.dart'
-    show loadVoucherPhaseForDeployment;
-import '../support/install_voucher_logic.dart';
+import '../support/acceptance_report.dart';
+import '../support/acceptance_report_flow.dart';
+import '../support/gateway_activation_flow.dart';
 import 'widgets/cancel_deployment_dialog.dart';
 import 'widgets/deployment_progress_bar.dart';
+import '../../core/utils/user_error.dart';
 import '../zones/widgets/zone_honeycomb_estimate_card.dart'
     show measurementLabel;
 part 'parts/deployment_screens_owner_list.dart';
@@ -50,10 +54,14 @@ Future<bool> _confirm(BuildContext context, String title, String body) async =>
     false;
 
 Widget _statusChip(String status) => Container(
-  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
   decoration: BoxDecoration(
     color: _statusColor(status).withValues(alpha: 0.12),
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(
+      color: _statusColor(status).withValues(alpha: 0.3),
+      width: 0.8,
+    ),
   ),
   child: Text(
     deploymentStatusLabels[status] ?? status,

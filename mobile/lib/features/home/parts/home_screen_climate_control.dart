@@ -33,27 +33,46 @@ extension _HomeScreenClimateControl on HomeScreen {
               ),
             ),
             const SizedBox(width: 6),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF10B981),
-                    shape: BoxShape.circle,
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+              decoration: BoxDecoration(
+                color: zone.telemetryIsFresh
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: zone.telemetryIsFresh
+                      ? const Color(0xFFA7F3D0)
+                      : const Color(0xFFCBD5E1),
+                  width: 0.8,
                 ),
-                const SizedBox(width: 4),
-                const Text(
-                  '10s/lần',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF10B981),
-                    fontWeight: FontWeight.bold,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: zone.telemetryIsFresh
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF94A3B8),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Text(
+                    zone.telemetryIsFresh ? 'LoRa 10s/lần' : 'Chờ gói tin',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: zone.telemetryIsFresh
+                          ? const Color(0xFF047857)
+                          : const Color(0xFF64748B),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -77,7 +96,7 @@ extension _HomeScreenClimateControl on HomeScreen {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.20,
+          childAspectRatio: 1.14,
           children: [
             _buildSensorCard(
               context: context,
@@ -123,7 +142,7 @@ extension _HomeScreenClimateControl on HomeScreen {
               value: zone.telemetryIsFresh ? '${zone.currentHumidity}%' : '—',
               target: thresholdCaption(zone, 'AirHumidity', '%'),
               icon: Icons.cloud,
-              iconColor: const Color(0xFF059669),
+              iconColor: const Color(0xFF047857),
               bgColor: const Color(0xFFF0FDF4),
               isWarning: outOfRange(
                 zone,
@@ -198,7 +217,7 @@ extension _HomeScreenClimateControl on HomeScreen {
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: farmProvider.currentZoneActuators.isNotEmpty
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : const Color(0xFF64748B),
                 ),
               ),
@@ -303,7 +322,7 @@ extension _HomeScreenClimateControl on HomeScreen {
                                 ? Icons.tune
                                 : Icons.lightbulb,
                             color: act.isRunning
-                                ? const Color(0xFF059669)
+                                ? const Color(0xFF047857)
                                 : const Color(0xFF64748B),
                             size: 22,
                           ),
@@ -342,7 +361,7 @@ extension _HomeScreenClimateControl on HomeScreen {
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: act.isRunning
-                                      ? const Color(0xFF059669)
+                                      ? const Color(0xFF047857)
                                       : const Color(0xFF94A3B8),
                                   fontWeight: act.isRunning
                                       ? FontWeight.bold

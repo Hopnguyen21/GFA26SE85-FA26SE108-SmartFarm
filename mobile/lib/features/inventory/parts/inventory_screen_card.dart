@@ -107,14 +107,14 @@ extension _InventoryScreenStateCard on _InventoryScreenState {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check, size: 12, color: Color(0xFF059669)),
+                        Icon(Icons.check, size: 12, color: Color(0xFF047857)),
                         SizedBox(width: 4),
                         Text(
                           'ĐỦ ĐỊNH MỨC',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF059669),
+                            color: Color(0xFF047857),
                           ),
                         ),
                       ],

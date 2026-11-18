@@ -21,10 +21,18 @@ class ZoneProfilePage extends StatelessWidget {
             .firstOrNull ??
         zone;
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: Text(
           'Hồ sơ canh tác · ${live.name}',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       body: SingleChildScrollView(

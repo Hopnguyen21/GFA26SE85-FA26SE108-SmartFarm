@@ -48,7 +48,7 @@ extension _FarmerDashboardZones on _FarmerDashboardScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionBadge('ASSIGNED GREENHOUSES'),
+          _sectionBadge('KHU VỰC ĐƯỢC GIAO'),
           const SizedBox(height: 6),
           Text(
             'Khu vực Nhà màng Phân công Kỹ thuật (${zones.length})',

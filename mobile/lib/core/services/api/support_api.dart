@@ -99,6 +99,18 @@ abstract final class SupportApi {
         as Map<String, dynamic>,
   );
 
+  /// Gói dịch vụ chuẩn đang bán (Admin/KTV đọc được): kỹ thuật viên tích chọn vào hợp đồng lắp đặt. Không gồm gói tùy chỉnh riêng.
+  static Future<List<Map<String, dynamic>>> getContractPackages() async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/contract-packages?activeOnly=true&isCustom=false',
+    );
+    if (resp == null || resp.statusCode != 200) {
+      throw Exception(ApiService._apiErrorMessage(resp));
+    }
+    return (jsonDecode(utf8.decode(resp.bodyBytes)) as List)
+        .cast<Map<String, dynamic>>();
+  }
+
   // ─── Service requests (Hỗ trợ kỹ thuật) ─────────────────────────────
   static Future<List<Map<String, dynamic>>> getServiceRequests() async {
     final resp = await ApiService._getWithAuth(

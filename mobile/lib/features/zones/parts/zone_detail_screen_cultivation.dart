@@ -112,15 +112,54 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
   ) async {
     // Danh sách lấy từ Farm sở hữu Zone này (zone.farmId), không phải Farm đang chọn toàn cục.
     if (!provider.canManageFarmStructure) return;
-    final farmWorkers = provider.farmersForFarm(zone.farmId);
+    var farmWorkers = provider.farmersForFarm(zone.farmId);
     if (farmWorkers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Trang trại chưa có nhân công. Hãy vào Quản lý Nhân công để mời Farmer trước.',
+      if (provider.selectedFarmId.toLowerCase() != zone.farmId.toLowerCase()) {
+        provider.selectFarm(zone.farmId);
+      }
+      await provider.fetchFromApi();
+      if (!context.mounted) return;
+      farmWorkers = provider.farmersForFarm(zone.farmId);
+    }
+    if (farmWorkers.isEmpty) {
+      final farmName = provider.farms
+          .where((f) => f.farmId.toLowerCase() == zone.farmId.toLowerCase())
+          .map((f) => f.name)
+          .firstOrNull;
+      final invite = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text(
+            'Trang trại chưa có nhân công',
+            style: TextStyle(fontSize: 15),
           ),
+          content: Text(
+            '${farmName == null ? 'Trang trại của Zone này' : 'Trang trại "$farmName"'} chưa có Farmer nào đang hoạt động. '
+            'Nhân công gắn với từng trang trại: Farmer của trang trại khác không phân công được. '
+            'Hãy mời Farmer vào đúng trang trại này (lời mời cần được Farmer chấp nhận), rồi quay lại phân công Zone.',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Để sau'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Mời nhân công'),
+            ),
+          ],
         ),
       );
+      if (invite != true || !context.mounted) return;
+      // Màn Quản lý Nhân công làm việc trên trang trại đang chọn: chọn đúng trang trại của Zone trước khi mở.
+      provider.selectFarm(zone.farmId);
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => WorkforceScreen(initialFarmId: zone.farmId),
+        ),
+      );
+      await _refreshCultivation(provider);
       return;
     }
 
@@ -237,9 +276,7 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
         ]);
         ok.add(w.name);
       } catch (e) {
-        failed.add(
-          '${w.name}: ${e.toString().replaceFirst('Exception: ', '')}',
-        );
+        failed.add('${w.name}: ${userFacingError(e)}');
       }
     }
     // Luôn tải lại để giao diện phản ánh đúng backend (kể cả khi có thao tác lỗi).
@@ -254,7 +291,7 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
       SnackBar(
         content: Text(message),
         backgroundColor: failed.isEmpty
-            ? const Color(0xFF059669)
+            ? const Color(0xFF047857)
             : const Color(0xFFD97706),
         duration: Duration(seconds: failed.isEmpty ? 4 : 8),
       ),

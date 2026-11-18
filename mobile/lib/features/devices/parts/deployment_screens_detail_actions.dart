@@ -83,17 +83,7 @@ extension _DeploymentRequestDetailScreenStateActions
             ),
           );
         case 'Installing':
-          buttons.add(
-            btn(
-              'Hoàn tất lắp đặt',
-              () => _act(
-                () async => DeploymentApi.completeDeploymentRequest(id),
-                confirmTitle: 'Hoàn tất',
-                confirmBody:
-                    'Backend chỉ chấp nhận khi mọi thiết bị theo kế hoạch đã gán Zone và có lần kiểm tra kết nối thành công mới nhất.',
-              ),
-            ),
-          );
+          buttons.add(btn('Hoàn tất lắp đặt', () => _completeWithReport(r)));
           buttons.add(
             btn('Báo thất bại & chuyển bảo trì', () => _fail(r), danger: true),
           );
@@ -119,7 +109,7 @@ extension _DeploymentRequestDetailScreenStateActions
       try {
         catalogue = await DeploymentApi.getDeploymentPlanModels(r.requestId);
       } catch (e) {
-        catalogueError = e.toString().replaceFirst('Exception: ', '');
+        catalogueError = userFacingError(e);
       }
       if (!mounted) return;
     }

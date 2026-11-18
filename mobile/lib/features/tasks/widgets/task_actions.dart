@@ -141,7 +141,7 @@ class _TaskActionsState extends State<TaskActions> {
     bool primary = false,
     bool danger = false,
   }) {
-    final color = danger ? const Color(0xFFDC2626) : const Color(0xFF059669);
+    final color = danger ? const Color(0xFFDC2626) : const Color(0xFF047857);
     final style = const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold);
     return primary
         ? ElevatedButton(
@@ -288,7 +288,7 @@ class _AssigneesSheetState extends State<_AssigneesSheet> {
       SnackBar(
         content: Text(error ?? ok),
         backgroundColor: error == null
-            ? const Color(0xFF059669)
+            ? const Color(0xFF047857)
             : const Color(0xFFDC2626),
       ),
     );

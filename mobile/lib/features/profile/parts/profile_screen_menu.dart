@@ -109,7 +109,7 @@ extension _ProfileScreenMenu on ProfileScreen {
         {
           'icon': Icons.corporate_fare,
           'label': 'Quản lý Trang trại & Zone',
-          'color': const Color(0xFF059669),
+          'color': const Color(0xFF047857),
           'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const FarmsManagementScreen()),
@@ -130,7 +130,7 @@ extension _ProfileScreenMenu on ProfileScreen {
         {
           'icon': Icons.assignment_outlined,
           'label': 'Hợp đồng Zone & Khấu hao Thiết bị',
-          'color': const Color(0xFF059669),
+          'color': const Color(0xFF047857),
           'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -178,6 +178,15 @@ extension _ProfileScreenMenu on ProfileScreen {
             ),
           ),
         },
+        {
+          'icon': Icons.outbox_outlined,
+          'label': 'Phiếu xuất kho thiết bị IoT',
+          'color': const Color(0xFF0F766E),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const StockOutScreen()),
+          ),
+        },
       ],
       // Tất cả: thông báo, MQTT, trợ giúp
       {
@@ -194,7 +203,7 @@ extension _ProfileScreenMenu on ProfileScreen {
         {
           'icon': Icons.wifi_outlined,
           'label': 'Trạng thái kết nối MQTT',
-          'color': const Color(0xFF059669),
+          'color': const Color(0xFF047857),
           'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const MqttStatusScreen()),

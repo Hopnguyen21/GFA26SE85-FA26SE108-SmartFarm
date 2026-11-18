@@ -163,7 +163,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Trợ lý AI Nông học VietGAP',
+                    'Trợ lý AI Nông học',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -172,7 +172,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'Vi khí hậu thời gian thực · đề xuất tưới thông minh',
+                    'Vi khí hậu & đề xuất tưới',
                     style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     overflow: TextOverflow.ellipsis,
                   ),

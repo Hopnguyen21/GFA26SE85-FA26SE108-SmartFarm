@@ -253,7 +253,7 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
                                     ? AppColors.danger
                                     : (n.actuator
                                           ? const Color(0xFF0284C7)
-                                          : const Color(0xFF059669)),
+                                          : const Color(0xFF047857)),
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: n.id == _selected
@@ -455,8 +455,17 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text('Node đã chấm · ${_zone?.name ?? 'Zone'}'),
+        backgroundColor: const Color(0xFF0F172A),
+        foregroundColor: Colors.white,
+        titleSpacing: 0,
+        title: Text(
+          'Node đã chấm · ${_zone?.name ?? 'Zone'}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
         actions: [
           IconButton(
             tooltip: 'Tải lại',

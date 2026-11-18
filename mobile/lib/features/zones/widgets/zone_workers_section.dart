@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/farm_provider.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -65,10 +66,7 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
       await provider.fetchFromApi();
     } catch (e) {
       if (mounted)
-        setState(
-          () => _error =
-              'Không gỡ được: ${e.toString().replaceFirst('Exception: ', '')}',
-        );
+        setState(() => _error = 'Không gỡ được: ${userFacingError(e)}');
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -96,8 +94,15 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,6 +152,19 @@ class _ZoneWorkersSectionState extends State<ZoneWorkersSection> {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: const Color(0xFFE0F2FE),
+                    child: Text(
+                      w.name.isNotEmpty ? w.name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0369A1),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

@@ -16,15 +16,29 @@ extension _ContractsDepreciationScreenStateCommon
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: iconColor),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 15, color: iconColor),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -47,8 +61,8 @@ extension _ContractsDepreciationScreenStateCommon
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
                 color: Color(0xFF0F172A),
               ),
             ),
@@ -70,13 +84,13 @@ extension _ContractsDepreciationScreenStateCommon
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF062326) : Colors.white,
+          color: isSelected ? const Color(0xFF047857) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF062326)
+                ? const Color(0xFF047857)
                 : const Color(0xFFCBD5E1),
           ),
         ),
@@ -84,7 +98,7 @@ extension _ContractsDepreciationScreenStateCommon
           label,
           style: TextStyle(
             fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
             color: isSelected ? Colors.white : const Color(0xFF475569),
           ),
         ),

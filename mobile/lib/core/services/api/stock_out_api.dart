@@ -35,6 +35,16 @@ abstract final class StockOutApi {
         as Map,
   );
 
+  /// Xóa phiếu (backend chỉ cho khi Bản nháp hoặc Đã hủy).
+  static Future<void> delete(String farmId, String stockOutId) async {
+    ApiService._decodeOrThrow(
+      await ApiService._deleteWithAuth(
+        '${ApiService.baseUrl}/api/v1/farms/$farmId/stock-outs/$stockOutId',
+      ),
+      ok: const {200, 204},
+    );
+  }
+
   /// Đổi trạng thái: `Pending` = gửi Admin duyệt. (Duyệt/Hoàn thành là việc của Admin trên web, app không gọi.)
   static Future<Map<String, dynamic>> setStatus(
     String farmId,

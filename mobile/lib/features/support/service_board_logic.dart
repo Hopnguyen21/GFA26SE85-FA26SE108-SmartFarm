@@ -3,7 +3,6 @@
 library;
 
 import '../../core/models/models.dart' show BusinessParameters;
-import 'install_voucher_logic.dart' show VoucherPhase;
 
 /// Mã lỗi của yêu cầu lắp đặt: `INSTALLATION` do luồng triển khai IoT tạo, `NEW_INSTALL` do cổng dịch vụ tạo.
 const installationFailureCodes = {'INSTALLATION', 'NEW_INSTALL'};
@@ -25,6 +24,17 @@ enum ServiceFilter {
 
   final String label;
   const ServiceFilter(this.label);
+}
+
+/// "Zone · Trang trại" lấy từ chính phiếu (backend trả `zoneName`/`farmName`); null khi phiếu không có tên.
+/// Phải ưu tiên nguồn này: tra theo danh sách Zone đã tải không đủ vì kỹ thuật viên chỉ tải Zone của một trang trại và mất quyền
+/// đọc Zone của trang trại khi phiếu đã đóng.
+String? serviceWhereOf(Map<String, dynamic> r) {
+  final parts = [
+    for (final k in ['zoneName', 'farmName'])
+      if ('${r[k] ?? ''}'.trim().isNotEmpty) '${r[k]}'.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
 }
 
 /// Yêu cầu đã giải quyết/đóng: kỹ thuật viên không còn việc phải làm.
@@ -142,9 +152,6 @@ String installNextAction({
   required bool closed,
   String? depositLabel,
   String? remainingLabel,
-  // Luồng 1: bắt buộc có phiếu xuất kho được Admin duyệt trước khi gắn Node. [voucherPhase] null = chưa đọc được.
-  bool voucherRequired = false,
-  VoucherPhase? voucherPhase,
 }) {
   final depLbl = depositLabel ?? BusinessParameters.active.depositLabel;
   final remLbl = remainingLabel ?? BusinessParameters.active.remainingLabel;
@@ -161,14 +168,6 @@ String installNextAction({
   final signed =
       quotationStatus == 'SignedByOwner' || quotationStatus == 'DepositPaid';
   if (signed) {
-    if (voucherRequired && voucherPhase != VoucherPhase.approved) {
-      return switch (voucherPhase) {
-        null => 'Tải lại để xem phiếu xuất kho của hợp đồng',
-        VoucherPhase.draft => 'Gửi phiếu xuất kho cho Admin duyệt',
-        VoucherPhase.pending => 'Chờ Admin duyệt phiếu xuất kho',
-        _ => 'Tạo phiếu xuất kho thiết bị và gửi Admin duyệt',
-      };
-    }
     return 'Gắn Node, lưu vị trí, ghi kết nối rồi hoàn tất';
   }
   final hasQuote =

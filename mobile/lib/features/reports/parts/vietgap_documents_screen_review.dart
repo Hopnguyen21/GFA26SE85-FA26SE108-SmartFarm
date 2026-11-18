@@ -84,7 +84,9 @@ class _VietGapDocumentReviewScreenState
         _syncMeta(doc);
       });
     } catch (error) {
-      _showMessage('Không tải được chi tiết tài liệu: $error');
+      _showMessage(
+        'Không tải được chi tiết tài liệu: ${userFacingError(error)}',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -203,7 +205,7 @@ class _VietGapDocumentReviewScreenState
             : 'Đã lưu ở trạng thái cần chỉnh sửa; chưa dùng cho AI.',
       );
     } catch (error) {
-      _showMessage('Không lưu được rà soát: $error');
+      _showMessage('Không lưu được rà soát: ${userFacingError(error)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -230,7 +232,7 @@ class _VietGapDocumentReviewScreenState
         _showMessage('Đã tải file nhưng không mở được: ${result.message}');
       }
     } catch (error) {
-      _showMessage('Không tải/mở được file gốc: $error');
+      _showMessage('Không tải/mở được file gốc: ${userFacingError(error)}');
     } finally {
       if (mounted) setState(() => _downloading = false);
     }

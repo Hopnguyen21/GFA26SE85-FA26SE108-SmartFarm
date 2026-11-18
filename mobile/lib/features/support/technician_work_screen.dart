@@ -14,7 +14,19 @@ class TechnicianWorkScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surfaceMuted,
-      appBar: AppBar(title: const Text('Công việc')),
+      appBar: AppBar(
+        title: const Text(
+          'Công Việc Kỹ Thuật',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: const TechnicianMaintenanceScreen(embedded: true),
     );
   }

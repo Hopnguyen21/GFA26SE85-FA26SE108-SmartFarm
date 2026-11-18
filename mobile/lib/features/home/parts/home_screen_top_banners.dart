@@ -268,11 +268,13 @@ extension _HomeScreenTopBanners on HomeScreen {
                     children: [
                       Image.asset(
                         'assets/images/banner.jpg',
-                        height: 230,
+                        // Giải mã ảnh theo kích thước hiển thị thay vì nguyên bản (nhẹ bộ nhớ, dựng nhanh hơn).
+                        cacheWidth: 900,
+                        height: 140,
                         width: double.infinity,
                         fit: BoxFit.cover,
                         errorBuilder: (ctx, err, stack) => Container(
-                          height: 230,
+                          height: 140,
                           color: const Color(0xFF062326),
                           child: const Center(
                             child: Icon(
@@ -357,7 +359,7 @@ extension _HomeScreenTopBanners on HomeScreen {
                           ),
                           decoration: BoxDecoration(
                             color: zone.telemetryIsFresh
-                                ? const Color(0xFF059669)
+                                ? const Color(0xFF047857)
                                 : const Color(0xFF64748B),
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -418,166 +420,8 @@ extension _HomeScreenTopBanners on HomeScreen {
                     ],
                   ),
                 ),
-                // Live Telemetry Mini Bar (Matching FE Hero Banner)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 10,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(19),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Độ ẩm đất',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              zone.telemetryIsFresh
-                                  ? '${zone.currentSoilMoisture}%'
-                                  : '—',
-                              style: const TextStyle(
-                                color: Color(0xFF047857),
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              zone.telemetryIsFresh
-                                  ? 'Dữ liệu mới'
-                                  : 'Chưa có dữ liệu',
-                              style: const TextStyle(
-                                color: Color(0xFF10B981),
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 26,
-                        color: const Color(0xFFE2E8F0),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Nhiệt độ KK',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              zone.telemetryIsFresh
-                                  ? '${zone.currentTemp}°C'
-                                  : '—',
-                              style: const TextStyle(
-                                color: Color(0xFF0F172A),
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              zone.telemetryIsFresh
-                                  ? 'Dữ liệu mới'
-                                  : 'Chưa có dữ liệu',
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 26,
-                        color: const Color(0xFFE2E8F0),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Trạng thái Bơm',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Builder(
-                              builder: (context) {
-                                final currentActs =
-                                    farmProvider.currentZoneActuators;
-                                final runningAct = currentActs
-                                    .where((a) => a.isRunning)
-                                    .firstOrNull;
-                                final hasRunning = runningAct != null;
-                                final isEmpty = currentActs.isEmpty;
-                                final statusText = hasRunning
-                                    ? 'AUTO ON'
-                                    : (isEmpty ? 'CHƯA GÁN' : 'SẴN SÀNG');
-                                final statusColor = hasRunning
-                                    ? const Color(0xFF0284C7)
-                                    : (isEmpty
-                                          ? const Color(0xFF94A3B8)
-                                          : const Color(0xFF059669));
-                                final subText = hasRunning
-                                    ? '${runningAct.name} (${runningAct.remainingMinutes}p)'
-                                    : (isEmpty
-                                          ? '0 kênh'
-                                          : relaySummary(currentActs));
-                                final subColor = hasRunning
-                                    ? const Color(0xFF0284C7)
-                                    : const Color(0xFF64748B);
-
-                                return Column(
-                                  children: [
-                                    Text(
-                                      statusText,
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      subText,
-                                      style: TextStyle(
-                                        color: subColor,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
+                  padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

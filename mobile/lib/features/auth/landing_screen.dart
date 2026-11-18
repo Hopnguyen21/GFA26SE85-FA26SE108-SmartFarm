@@ -429,7 +429,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                     'Bơm Tưới',
                                     'AUTO ON',
                                     'Van #1 (12p)',
-                                    const Color(0xFF059669),
+                                    const Color(0xFF047857),
                                   ),
                                 ),
                               ],

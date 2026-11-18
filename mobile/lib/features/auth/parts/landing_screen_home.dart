@@ -60,7 +60,7 @@ extension _LandingScreenStateHome on _LandingScreenState {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(radius: 4, backgroundColor: Color(0xFF059669)),
+                  CircleAvatar(radius: 4, backgroundColor: Color(0xFF047857)),
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -533,7 +533,7 @@ extension _LandingScreenStateFooterLinks on _LandingScreenState {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF059669)),
+            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF047857)),
             const SizedBox(width: 4),
             Expanded(
               child: Text(

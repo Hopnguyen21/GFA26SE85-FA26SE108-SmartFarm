@@ -31,7 +31,7 @@ String formatContractDate(DateTime value) {
 }
 
 /// Bảng dự toán thiết bị & hợp đồng lắp đặt, theo bảng trên web: khung đầu hợp đồng, ô điều khoản bắt buộc, bảng dòng
-/// (chọn, mã, tên và mô tả, ĐVT, đơn giá, VAT, số lượng, thành tiền), thêm từ kho / nhập ngoài / chọn tất cả,
+/// (chọn, mã, tên và mô tả, ĐVT, đơn giá, VAT, số lượng, thành tiền), thêm từ kho / chọn tất cả,
 /// tổng và hai đợt thanh toán (cọc 30%, nghiệm thu 70%).
 /// [readOnly]: hợp đồng đã ký hoặc đã cọc, chỉ xem, không sửa.
 class QuotationEditor extends StatefulWidget {
@@ -73,6 +73,9 @@ class _Line {
   final vat = TextEditingController(text: '8');
   String category = 'HARDWARE';
   bool selected = true; // dòng không chọn không đưa vào hợp đồng
+
+  /// Dòng dựng từ dự toán chỉ có LOẠI + số lượng: chưa chọn thiết bị cụ thể từ kho (gửi hợp đồng phải chọn xong).
+  bool pendingDevice = false;
 
   _Line([QuotationItem? item]) {
     if (item == null) return;
@@ -118,15 +121,37 @@ class _Line {
   }
 }
 
-const _categoryLabels = <String, String>{
-  'HARDWARE': 'Thiết bị',
-  'GATEWAY': 'Gateway',
+/// Thử nghiệm (ui-ux-pro-max): xanh #15803D (5.0:1 trên nền trắng) chỉ cho màn này.
+const _brandGreen = Color(0xFF15803D);
+
+/// Tên LOẠI của dòng thiết bị dựng từ dự toán: bảng báo giá chỉ giữ loại + số lượng đề xuất, thiết bị cụ thể chọn từ kho.
+const _deviceRoleLabels = <String, String>{
+  'GATEWAY': 'Gateway LoRa',
   'SENSOR_NODE': 'Node cảm biến',
-  'ACTUATOR_NODE': 'Node chấp hành',
-  'ACCESSORY': 'Vật tư',
-  'SERVICE': 'Dịch vụ lắp đặt',
-  'LABOR': 'Công lắp đặt',
+  'ACTUATOR_NODE': 'Node điều khiển van/bơm',
+  'ACCESSORY': 'Vật tư phụ kiện',
 };
+
+/// Dòng dựng từ dự toán (Owner đã lưu hoặc tính trên máy): thiết bị dự toán chỉ là gợi ý nên bỏ mã/tên cụ thể, giữ loại,
+/// số lượng và đơn giá tham khảo; kỹ thuật viên chọn thiết bị thật từ kho bằng dropdown (đổi giá theo thiết bị đã chọn).
+_Line _lineFromEstimate(QuotationItem i) {
+  final line = _Line(i);
+  final label = _deviceRoleLabels[i.category];
+  if (label != null) {
+    line.code.clear();
+    line.name.text = label;
+    line.pendingDevice = true;
+  }
+  return line;
+}
+
+/// Loại dòng báo giá của GÓI DỊCH VỤ (tích chọn ở mục "Gói dịch vụ"); không phải thiết bị nên không tạo chỗ chấm Node.
+const kPackageCategory = 'SERVICE_PACKAGE';
+
+/// Mã dòng của một gói: PKG- + toàn bộ mã gói (để nhận lại đúng gói đã tích khi mở hợp đồng đã lưu; không cắt ngắn vì
+/// các gói thường có tiền tố mã giống nhau).
+String packageLineCode(Object? packageId) =>
+    'PKG-${'${packageId ?? ''}'.replaceAll('-', '').toUpperCase()}';
 
 class _QuotationEditorState extends State<QuotationEditor> {
   final _form = GlobalKey<FormState>();
@@ -134,6 +159,10 @@ class _QuotationEditorState extends State<QuotationEditor> {
   final _removed = <_Line>[];
   late final TextEditingController _terms;
   bool _loadingStock = false;
+  List<Map<String, dynamic>> _stock = const [];
+  List<Map<String, dynamic>> _packages = const [];
+  bool _loadingPackages = false;
+  String? _packagesError;
 
   bool get _ro => widget.readOnly;
 
@@ -144,9 +173,12 @@ class _QuotationEditorState extends State<QuotationEditor> {
         widget.initial?.items.map((i) => _Line(i)).toList() ??
         [
           for (final i in widget.estimateItems ?? const <QuotationItem>[])
-            _Line(i),
+            _lineFromEstimate(i),
         ];
-    if (_lines.isEmpty) _lines.add(_Line());
+    if (!_ro) {
+      _loadPackages();
+      _loadStockSilently();
+    }
     final saved = widget.initial?.contractTerms?.trim() ?? '';
     _terms = TextEditingController(
       text: saved.isNotEmpty ? saved : widget.initial?.notes,
@@ -184,6 +216,183 @@ class _QuotationEditorState extends State<QuotationEditor> {
 
   Iterable<_Line> get _chosen => _lines.where((l) => l.selected);
 
+  /// Các dòng GÓI đang được chọn (đã nằm trong tiền hàng và VAT của hợp đồng).
+  Iterable<_Line> get _chosenPackages =>
+      _chosen.where((l) => l.category == kPackageCategory);
+
+  Future<void> _loadPackages() async {
+    setState(() {
+      _loadingPackages = true;
+      _packagesError = null;
+    });
+    try {
+      final list = await SupportApi.getContractPackages();
+      if (mounted) setState(() => _packages = list);
+    } catch (e) {
+      if (mounted) setState(() => _packagesError = friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _loadingPackages = false);
+    }
+  }
+
+  _Line? _packageLine(Map<String, dynamic> p) => _lines
+      .where(
+        (l) =>
+            l.category == kPackageCategory &&
+            l.code.text.trim().toUpperCase() == packageLineCode(p['id']),
+      )
+      .firstOrNull;
+
+  /// Tích gói: thêm một dòng "Gói" (SL 1, đơn giá của gói, cùng VAT với các dòng khác) vào hợp đồng; bỏ tích thì bỏ chọn dòng đó.
+  void _togglePackage(Map<String, dynamic> p, bool on) {
+    setState(() {
+      final existing = _packageLine(p);
+      if (existing != null) {
+        existing.selected = on;
+        return;
+      }
+      if (!on) return;
+      final months = (p['durationMonths'] as num?)?.toInt() ?? 0;
+      final zones = (p['maxZones'] as num?)?.toInt() ?? 0;
+      final desc = '${p['description'] ?? ''}'.trim();
+      final vatText = _lines
+          .where((l) => l.category != kPackageCategory && !l.isBlank)
+          .map((l) => l.vat.text.trim())
+          .firstOrNull;
+      final line = _Line()
+        ..code.text = packageLineCode(p['id'])
+        ..name.text = '${p['packageName'] ?? 'Gói dịch vụ'}'
+        ..category = kPackageCategory
+        ..unit.text = 'Gói'
+        ..price.text = _num((p['price'] as num?) ?? 0)
+        ..vat.text = (vatText == null || vatText.isEmpty) ? '8' : vatText
+        ..notes.text = [
+          if (months > 0) '$months tháng',
+          if (zones > 0) 'tối đa $zones Zone',
+          if (desc.isNotEmpty) desc,
+        ].join(' · ');
+      if (_lines.length == 1 && _lines.first.isBlank) {
+        _removed.add(_lines.removeAt(0));
+      }
+      _lines.add(line);
+    });
+  }
+
+  Widget _packagesCard() {
+    final active = [
+      for (final p in _packages)
+        if ('${p['status'] ?? 'Active'}'.toLowerCase() == 'active') p,
+    ];
+    final picked = _chosenPackages.length;
+    String info(Map<String, dynamic> p) => [
+      if (((p['durationMonths'] as num?) ?? 0) > 0)
+        '${(p['durationMonths'] as num).toInt()} tháng',
+      if (((p['maxZones'] as num?) ?? 0) > 0)
+        'tối đa ${(p['maxZones'] as num).toInt()} Zone',
+    ].join(' · ');
+    // Card (là Material) để ExpansionTile/ListTile vẽ được hiệu ứng chạm.
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      elevation: 0,
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: PageStorageKey('packages-card'),
+          initiallyExpanded: picked > 0,
+          maintainState: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+          childrenPadding: const EdgeInsets.fromLTRB(4, 0, 12, 8),
+          dense: true,
+          title: const Text(
+            'Gói dịch vụ đi kèm',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+          ),
+          subtitle: Text(
+            picked > 0
+                ? 'Đã chọn $picked gói'
+                : 'Tích để thêm gói vào hợp đồng',
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          ),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_loadingPackages)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: LinearProgressIndicator(),
+              )
+            else if (_packagesError != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Không tải được danh sách gói: $_packagesError',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.danger,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadPackages,
+                    child: const Text('Thử lại'),
+                  ),
+                ],
+              )
+            else if (active.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 6, left: 8),
+                child: Text(
+                  'Chưa có gói dịch vụ nào đang bán.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                ),
+              )
+            else
+              for (final p in active)
+                // ListTile cần Material tổ tiên để vẽ nền/hiệu ứng chạm.
+                Material(
+                  type: MaterialType.transparency,
+                  child: CheckboxListTile(
+                    key: ValueKey('pkg-${p['id']}'),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    value: _packageLine(p)?.selected ?? false,
+                    onChanged: (v) => _togglePackage(p, v ?? false),
+                    title: Text(
+                      '${p['packageName']}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: info(p).isEmpty
+                        ? null
+                        : Text(info(p), style: const TextStyle(fontSize: 12)),
+                    secondary: Text(
+                      formatMoney(((p['price'] as num?) ?? 0).toDouble()),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                        color: _brandGreen,
+                      ),
+                    ),
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
   double get _net => _ro && widget.initial != null
       ? widget.initial!.subtotal
       : _chosen.fold(0, (s, l) => s + l.net);
@@ -201,15 +410,23 @@ class _QuotationEditorState extends State<QuotationEditor> {
     String? Function(String?)? validator,
     bool number = false,
   }) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 6),
     child: TextFormField(
       controller: c,
       enabled: !_ro,
-      decoration: InputDecoration(labelText: label, isDense: true),
+      style: const TextStyle(fontSize: 13.5),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      ),
       keyboardType: number
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      validator: (v) => line.selected ? (validator ?? _required)(v) : null,
+      // Dòng dựng theo loại chưa có mã: không báo lỗi ô ẩn, mà chặn bằng thông báo "Chọn thiết bị từ kho" khi gửi.
+      validator: (v) => line.selected && !(line.pendingDevice && c == line.code)
+          ? (validator ?? _required)(v)
+          : null,
       onChanged: (_) => setState(() {}),
     ),
   );
@@ -223,17 +440,19 @@ class _QuotationEditorState extends State<QuotationEditor> {
       setState(() => line.quantity.text = '$n');
     }
 
+    Widget btn(String tip, IconData icon, int d) => IconButton(
+      tooltip: tip,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 40),
+      icon: Icon(icon, size: 22),
+      onPressed: () => step(d),
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          tooltip: 'Giảm số lượng',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.remove_circle_outline),
-          onPressed: () => step(-1),
-        ),
+        btn('Giảm số lượng', Icons.remove_circle_outline, -1),
         SizedBox(
-          width: 92,
+          width: 42,
           child: _field(
             line,
             line.quantity,
@@ -242,34 +461,210 @@ class _QuotationEditorState extends State<QuotationEditor> {
             validator: (v) => _number(v, quantity: true),
           ),
         ),
-        IconButton(
-          tooltip: 'Tăng số lượng',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.add_circle_outline),
-          onPressed: () => step(1),
-        ),
+        btn('Tăng số lượng', Icons.add_circle_outline, 1),
       ],
     );
   }
 
   /// Chọn thiết bị từ kho (hộp chọn có tìm kiếm, lọc chủng loại, tồn kho; chọn lại món đã có thì tăng số lượng).
-  Future<void> _addFromStock() async {
-    if (_loadingStock || _ro) return;
+  /// Tải kho CHÍNH cho hộp chọn; null khi lỗi (đã báo bằng SnackBar).
+  Future<List<Map<String, dynamic>>?> _loadMainStock() async {
     setState(() => _loadingStock = true);
-    List<Map<String, dynamic>> stock;
     try {
-      stock = await DeploymentApi.getHardwareItems();
+      // Danh mục báo giá lấy từ kho CHÍNH: bỏ các dòng đang ở kho KTV (cùng mã với dòng kho chính sau khi chuyển kho) để không bị trùng món.
+      final list = _mainOnly(await DeploymentApi.getHardwareItems());
+      if (mounted) _stock = list;
+      return list;
     } catch (e) {
       if (mounted) {
-        setState(() => _loadingStock = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
-      return;
+      return null;
+    } finally {
+      if (mounted) setState(() => _loadingStock = false);
     }
-    if (!mounted) return;
-    setState(() => _loadingStock = false);
+  }
+
+  /// Kho CHÍNH (bỏ dòng ở kho kỹ thuật viên, mỗi mã một dòng) từ danh sách thô của API.
+  List<Map<String, dynamic>> _mainOnly(List<Map<String, dynamic>> raw) {
+    final seen = <String>{};
+    return [
+      for (final h in raw)
+        if ('${h['status'] ?? ''}'.toLowerCase() != 'intechnicianstock' &&
+            seen.add('${h['code'] ?? h['id']}'.toLowerCase()))
+          h,
+    ];
+  }
+
+  /// Tải kho để dropdown "Thiết bị từ kho" có dữ liệu; lỗi thì bỏ qua (dropdown báo chưa có kho, vẫn thêm tay được).
+  Future<void> _loadStockSilently() async {
+    try {
+      final list = _mainOnly(await DeploymentApi.getHardwareItems());
+      if (mounted) setState(() => _stock = list);
+    } catch (_) {}
+  }
+
+  static const _deviceCategories = {
+    'GATEWAY',
+    'SENSOR_NODE',
+    'ACTUATOR_NODE',
+    'ACCESSORY',
+  };
+
+  /// Thiết bị trong kho phù hợp với loại của dòng (gateway / node cảm biến / node van-bơm / vật tư).
+  List<Map<String, dynamic>> _candidatesFor(_Line line) => [
+    for (final s in _stock)
+      if (_stockMatches(line.category, s)) s,
+  ];
+
+  bool _stockMatches(String category, Map<String, dynamic> s) {
+    final c = '${s['category'] ?? ''}'.toUpperCase();
+    final r = '${s['estimateRole'] ?? ''}'.toLowerCase();
+    return switch (category) {
+      'GATEWAY' => r == 'gateway' || c.contains('GATEWAY'),
+      'SENSOR_NODE' => r == 'sensornode' || c.contains('SENSOR'),
+      'ACTUATOR_NODE' =>
+        r == 'actuatornode' ||
+            c.contains('VALVE') ||
+            c.contains('PUMP') ||
+            c.contains('ACTUATOR'),
+      'ACCESSORY' =>
+        r == 'installkit' ||
+            [
+              'ACCESSORY',
+              'KIT',
+              'CABLE',
+              'PERIPHERAL',
+              'SPARE',
+            ].any(c.contains),
+      _ => true,
+    };
+  }
+
+  /// Chọn thiết bị từ kho cho dòng: thay mã/tên/đơn giá/ĐVT bằng của thiết bị, GIỮ số lượng; thành tiền tự tính lại.
+  void _applyDevice(_Line line, Map<String, dynamic> item) {
+    final price = (item['unitPrice'] as num?)?.toDouble() ?? 0;
+    final model = '${item['model'] ?? ''}'.trim();
+    final maker = '${item['manufacturer'] ?? ''}'.trim();
+    final old = line.notes.text.trim();
+    setState(() {
+      line.code.text = '${item['code'] ?? ''}'.trim();
+      line.name.text = '${item['name'] ?? ''}';
+      // Thiết bị chưa có giá thì để trống để kỹ thuật viên nhập, không giữ giá của thiết bị khác.
+      line.price.text = price > 0 ? _num(price) : '';
+      line.unit.text = switch (line.category) {
+        'GATEWAY' => 'Trạm',
+        'SENSOR_NODE' || 'ACTUATOR_NODE' => 'Node',
+        _ => 'Bộ',
+      };
+      line.notes.text = [
+        if (model.isNotEmpty)
+          'Model: $model${maker.isEmpty ? '' : ' ($maker)'}',
+        if (old.startsWith('Cần ')) old,
+      ].join(' · ');
+      line.pendingDevice = false;
+    });
+  }
+
+  /// Dropdown chọn thiết bị từ kho cho dòng thiết bị/vật tư: chọn xong tính lại đơn giá và thành tiền.
+  Widget _deviceDropdown(_Line line) {
+    final cands = _candidatesFor(line);
+    final cur = line.code.text.trim().toLowerCase();
+    final match = cands
+        .where((s) => '${s['code'] ?? ''}'.toLowerCase() == cur)
+        .firstOrNull;
+    final value = match == null ? null : '${match['code']}';
+    String money(Map<String, dynamic> s) {
+      final p = (s['unitPrice'] as num?)?.toDouble() ?? 0;
+      return p > 0 ? formatMoney(p) : 'chưa có giá';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, top: 12, bottom: 6),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('dev-${identityHashCode(line)}-$value-${cands.length}'),
+        initialValue: value,
+        isExpanded: true,
+        itemHeight: null,
+        decoration: const InputDecoration(
+          labelText: 'Thiết bị từ kho',
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        ),
+        hint: Text(
+          cands.isEmpty
+              ? 'Kho chưa có thiết bị phù hợp'
+              : (cur.isEmpty
+                    ? 'Chọn thiết bị từ kho'
+                    : '${line.code.text.trim()} (không có trong kho)'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        items: [
+          for (final s in cands)
+            DropdownMenuItem(
+              value: '${s['code']}',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${s['name'] ?? s['code']}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    Text(
+                      '${s['code']} · ${money(s)}'
+                      '${s['quantityInStock'] == null ? '' : ' · Tồn: ${s['quantityInStock']}'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+        selectedItemBuilder: (_) => [
+          for (final s in cands)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${s['code']} · ${s['name'] ?? ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+        ],
+        onChanged: cands.isEmpty
+            ? null
+            : (code) {
+                final s = cands
+                    .where((e) => '${e['code']}' == code)
+                    .firstOrNull;
+                if (s != null) _applyDevice(line, s);
+              },
+        validator: (v) => line.selected && line.pendingDevice && v == null
+            ? 'Cần chọn thiết bị từ kho cho dòng này'
+            : null,
+      ),
+    );
+  }
+
+  Future<void> _addFromStock() async {
+    if (_loadingStock || _ro) return;
+    final stock = await _loadMainStock();
+    if (stock == null || !mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -350,6 +745,31 @@ class _QuotationEditorState extends State<QuotationEditor> {
       );
       return;
     }
+    // Chỉ dòng THIẾT BỊ lấy giá từ kho mới bắt buộc có đơn giá (gói dịch vụ giá 0 hoặc dòng dịch vụ không bị chặn).
+    final noPrice = _chosen
+        .where((l) => _deviceCategories.contains(l.category) && l._price <= 0)
+        .toList();
+    if (noPrice.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Chưa có đơn giá trong kho cho: ${noPrice.map((l) => l.name.text.trim()).join(', ')}. Chọn thiết bị khác hoặc báo Admin cập nhật giá.',
+          ),
+        ),
+      );
+      return;
+    }
+    final pending = _chosen.where((l) => l.pendingDevice).toList();
+    if (pending.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Chọn thiết bị cụ thể từ kho cho: ${pending.map((l) => l.name.text.trim()).join(', ')}.',
+          ),
+        ),
+      );
+      return;
+    }
     final text = _terms.text.trim();
     Navigator.pop(
       context,
@@ -357,33 +777,39 @@ class _QuotationEditorState extends State<QuotationEditor> {
     );
   }
 
-  /// Một dòng thiết bị/vật tư: tên + mô tả + thành tiền ở đầu; chế độ chỉ đọc là một dòng tóm tắt (ĐVT · đơn giá · VAT · SL),
-  /// chế độ sửa có ô Đơn giá / ĐVT / VAT và bộ chỉnh số lượng; mã/tên/loại/ghi chú nằm trong "Sửa chi tiết".
+  /// Một dòng của bảng báo giá, gọn như bảng bên web: mã · tên và THÀNH TIỀN ở đầu hàng, rồi (chế độ sửa) dropdown thiết bị từ
+  /// kho + Đơn giá · VAT · SL trên một hàng; chế độ chỉ đọc là một dòng "SL ĐVT × đơn giá · VAT". ĐVT/mã/tên/loại/ghi chú
+  /// nằm trong "Sửa chi tiết". Các hàng nằm chung một khung, ngăn bằng đường kẻ mảnh.
   Widget _lineCard(_Line line) {
     final index = _lines.indexOf(line) + 1;
     final name = line.name.text.trim();
     final desc = line.notes.text.trim();
     final code = line.code.text.trim();
     final total = line.total.isFinite ? formatMoney(line.total) : '—';
+    final pending = line.pendingDevice && line.selected;
     Widget chip(String text) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 12.5)),
+      child: Text(text, style: const TextStyle(fontSize: 12)),
     );
-    return Card(
+    // Material (không phải Container có màu) để "Sửa chi tiết" (ListTile) vẽ hiệu ứng chạm được.
+    return Material(
       key: ObjectKey(line),
-      color: line.selected ? null : AppColors.surfaceMuted,
+      color: pending
+          ? const Color(0xFFFFFBEB)
+          : (line.selected ? Colors.white : AppColors.surfaceMuted),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 8, 10, 8),
+        padding: const EdgeInsets.fromLTRB(2, 6, 6, 6),
         child: Column(
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Checkbox(
+                  visualDensity: VisualDensity.compact,
                   value: line.selected,
                   onChanged: _ro
                       ? null
@@ -391,202 +817,128 @@ class _QuotationEditorState extends State<QuotationEditor> {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 8, right: 8),
+                    padding: const EdgeInsets.only(top: 6),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          code.isEmpty ? 'Hạng mục $index' : code,
-                          style: const TextStyle(
+                          line.pendingDevice
+                              ? 'Chưa chọn thiết bị'
+                              : (code.isEmpty ? 'Hạng mục $index' : code),
+                          style: TextStyle(
                             fontFamily: 'monospace',
-                            fontSize: 12,
-                            color: AppColors.textMuted,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: line.pendingDevice
+                                ? AppColors.warning
+                                : AppColors.textMuted,
                           ),
                         ),
-                        const SizedBox(height: 2),
                         Text(
                           name.isEmpty ? 'Chưa nhập tên hạng mục' : name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: 13.5,
                             height: 1.25,
                           ),
                         ),
                         if (desc.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Text(
-                              desc,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                height: 1.3,
-                                fontStyle: FontStyle.italic,
-                                color: AppColors.textMuted,
-                              ),
+                          Text(
+                            desc,
+                            maxLines: _ro ? 3 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              height: 1.3,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textMuted,
                             ),
                           ),
                       ],
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 104),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        total,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: _brandGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 if (!_ro)
                   IconButton(
                     tooltip: 'Xóa hạng mục',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.close, color: AppColors.danger),
-                    onPressed: _lines.length == 1
-                        ? null
-                        : () => setState(() {
-                            _lines.remove(line);
-                            _removed.add(line);
-                          }),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 34,
+                      minHeight: 34,
+                    ),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 19,
+                      color: AppColors.danger,
+                    ),
+                    onPressed: () => setState(() {
+                      _lines.remove(line);
+                      _removed.add(line);
+                    }),
                   ),
               ],
             ),
             if (_ro)
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 0, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          chip(line.unit.text.trim()),
-                          chip('Đơn giá ${formatMoney(line._price)}'),
-                          chip('VAT ${line.vat.text.trim()}%'),
-                          chip('SL ${line.quantity.text.trim()}'),
-                        ],
+                padding: const EdgeInsets.fromLTRB(40, 2, 0, 2),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '${line.quantity.text.trim()} ${line.unit.text.trim()} × ${formatMoney(line._price)}',
+                        style: const TextStyle(fontSize: 12.5),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      total,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
-                  ],
+                      chip('VAT ${line.vat.text.trim()}%'),
+                    ],
+                  ),
                 ),
               )
             else ...[
+              if (_deviceCategories.contains(line.category))
+                _deviceDropdown(line),
               Padding(
-                padding: const EdgeInsets.only(left: 8, top: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 5,
-                      child: _field(
-                        line,
-                        line.price,
-                        'Đơn giá (đ)',
-                        number: true,
-                        validator: (v) => _number(v),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    SizedBox(width: 84, child: _field(line, line.unit, 'ĐVT')),
-                    const SizedBox(width: 6),
-                    SizedBox(
-                      width: 84,
-                      child: _field(
-                        line,
-                        line.vat,
-                        'VAT %',
-                        number: true,
-                        validator: (v) => _number(v, vat: true),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.only(left: 8, top: 2),
                 child: Row(
                   children: [
-                    _quantityField(line),
                     Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            total,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                              color: AppColors.primaryDark,
-                            ),
-                          ),
+                      child: Text(
+                        line._price > 0
+                            ? 'Đơn giá ${formatMoney(line._price)} · VAT ${line.vat.text.trim()}%'
+                            : 'Chưa có đơn giá trong kho',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: line._price > 0
+                              ? AppColors.textMuted
+                              : AppColors.danger,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Theme(
-                data: Theme.of(
-                  context,
-                ).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  key: PageStorageKey(line),
-                  initiallyExpanded: line.isBlank,
-                  maintainState: true,
-                  tilePadding: const EdgeInsets.only(left: 8, right: 4),
-                  dense: true,
-                  title: const Text(
-                    'Sửa chi tiết (mã, tên, loại, ghi chú)',
-                    style: TextStyle(fontSize: 13.5),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Column(
-                        children: [
-                          _field(line, line.code, 'Mã hạng mục'),
-                          _field(
-                            line,
-                            line.name,
-                            'Tên thiết bị / vật tư / công việc',
-                          ),
-                          DropdownButtonFormField<String>(
-                            initialValue: line.category,
-                            isDense: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Loại hạng mục',
-                              isDense: true,
-                            ),
-                            items:
-                                {
-                                      ...['HARDWARE', 'ACCESSORY', 'LABOR'],
-                                      line.category,
-                                    }
-                                    .map(
-                                      (v) => DropdownMenuItem(
-                                        value: v,
-                                        child: Text(_categoryLabels[v] ?? v),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (v) => setState(
-                              () => line.category = v ?? line.category,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _field(
-                            line,
-                            line.notes,
-                            'Mô tả / ghi chú hạng mục',
-                            validator: (_) => null,
-                          ),
-                        ],
-                      ),
-                    ),
+                    _quantityField(line),
                   ],
                 ),
               ),
@@ -648,7 +1000,7 @@ class _QuotationEditorState extends State<QuotationEditor> {
   Widget _banner() => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: AppColors.primaryDark,
+      color: _brandGreen,
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(
@@ -725,7 +1077,6 @@ class _QuotationEditorState extends State<QuotationEditor> {
           children: [
             _banner(),
             if (widget.initial case final q?) ...[
-              SelectableText('Mã hợp đồng: ${q.id}'),
               if (q.createdAtUtc != null)
                 Text('Ngày lập: ${formatContractDate(q.createdAtUtc!)}'),
               if (_ro &&
@@ -791,11 +1142,6 @@ class _QuotationEditorState extends State<QuotationEditor> {
                     icon: const Icon(Icons.warehouse_outlined, size: 18),
                     label: const Text('Thêm thiết bị từ kho'),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () => setState(() => _lines.add(_Line())),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Nhập ngoài'),
-                  ),
                   TextButton(
                     onPressed: () => setState(() {
                       for (final l in _lines) {
@@ -807,7 +1153,32 @@ class _QuotationEditorState extends State<QuotationEditor> {
                 ],
               ),
             ],
-            for (final line in _lines) _lineCard(line),
+            Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  if (_lines.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Chưa có hạng mục nào. Bấm "Thêm thiết bị từ kho" để thêm.',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ),
+                  for (var k = 0; k < _lines.length; k++) ...[
+                    if (k > 0)
+                      const Divider(height: 1, color: AppColors.border),
+                    _lineCard(_lines[k]),
+                  ],
+                ],
+              ),
+            ),
+            if (!_ro) _packagesCard(),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
@@ -819,6 +1190,11 @@ class _QuotationEditorState extends State<QuotationEditor> {
               child: Column(
                 children: [
                   _moneyRow('Tiền hàng chưa thuế', _net),
+                  if (_chosenPackages.isNotEmpty)
+                    _moneyRow(
+                      '  trong đó gói dịch vụ (${_chosenPackages.length} gói)',
+                      _chosenPackages.fold<double>(0, (s, l) => s + l.net),
+                    ),
                   _moneyRow('Thuế VAT', _vat),
                   const Divider(),
                   _moneyRow('TỔNG GIÁ TRỊ HỢP ĐỒNG', _total, strong: true),
@@ -1027,7 +1403,7 @@ class _StockPickerState extends State<_StockPicker> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: stock > 0
-                                    ? AppColors.primaryDark
+                                    ? _brandGreen
                                     : AppColors.danger,
                               ),
                             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/models.dart';
 import '../../core/services/api_service.dart';
 import '../zones/profile_irrigation_logic.dart';
+import '../../core/utils/user_error.dart';
 
 part 'parts/irrigation_calendar_screen_logic.dart';
 part 'parts/irrigation_calendar_screen_session_row.dart';
@@ -94,7 +95,8 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
   void _rebuild(VoidCallback fn) => setState(fn);
 
   int _selectedCalendarDay = 1;
-  int _selectedMonthBlock = 1; // 1 = Ngày 1-30, 2 = Ngày 31-60, 3 = Ngày 61+
+  String _stageFilter =
+      'ALL'; // 'ALL' hoặc chỉ số giai đoạn của hồ sơ (như bộ lọc giai đoạn của web)
   // Lịch tưới lấy từ backend theo giai đoạn của hồ sơ (không lưu cục bộ).
   ProfileSchedule? _schedule;
   String? _loadError;
@@ -105,6 +107,103 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
   void initState() {
     super.initState();
     _loadSchedule();
+  }
+
+  static const _sessionDotColors = [
+    Color(0xFFF59E0B),
+    Color(0xFFF43F5E),
+    Color(0xFF6366F1),
+    Color(0xFF14B8A6),
+    Color(0xFF8B5CF6),
+  ];
+
+  /// Ô một ngày trong lưới (như web): số ngày, dấu "đã lưu trong hồ sơ", chấm theo ca đang bật và tên giai đoạn.
+  Widget _profileDayCell(DefaultCropProfile profile, int dayNum) {
+    final selected = dayNum == _selectedCalendarDay;
+    final stageIdx = _getStageIndexForDay(profile, dayNum);
+    final color = _getStageColor(stageIdx);
+    final sessions = _getSessionsForDay(dayNum);
+    final saved = _isStageSavedInProfile(dayNum);
+    final stageName = profile.growthStages[stageIdx].name;
+    return InkWell(
+      key: ValueKey('profile_day_$dayNum'),
+      onTap: () => setState(() => _selectedCalendarDay = dayNum),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 68,
+        constraints: const BoxConstraints(minHeight: 62),
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFECFDF5) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    'N$dayNum',
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: selected
+                          ? const Color(0xFF065F46)
+                          : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                if (saved)
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF59E0B),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 2,
+              runSpacing: 2,
+              children: [
+                for (var i = 0; i < sessions.length && i < 5; i++)
+                  if (sessions[i].enabled)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: _sessionDotColors[i % _sessionDotColors.length],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              stageName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -159,10 +258,12 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
     }
     final profile = widget.profile;
     final totalDays = profile.totalCycleDays > 0 ? profile.totalCycleDays : 30;
-    final totalMonths = (totalDays / 30).ceil();
-    final startDay = (_selectedMonthBlock - 1) * 30 + 1;
-    final endDay = (_selectedMonthBlock * 30).clamp(1, totalDays);
-    final daysInCurrentBlock = (endDay - startDay + 1);
+    final visibleDays = <int>[
+      for (var d = 1; d <= totalDays; d++)
+        if (_stageFilter == 'ALL' ||
+            _getStageIndexForDay(profile, d).toString() == _stageFilter)
+          d,
+    ];
 
     final selectedStage = _getStageForDay(profile, _selectedCalendarDay)!;
     final stageIdx = _getStageIndexForDay(profile, _selectedCalendarDay);
@@ -227,84 +328,93 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner tóm tắt vụ mùa
+            // Thẻ tiêu đề như web: tên lịch, hồ sơ cây, tiến trình và chế độ sửa
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                  colors: [Color(0xFFECFDF5), Color(0xFFF0FDFA), Colors.white],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF047857).withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Text(
-                              profile.emoji.isNotEmpty ? profile.emoji : '🌱',
-                              style: const TextStyle(fontSize: 22),
-                            ),
-                            const SizedBox(width: 8),
-                            const Flexible(
-                              child: Text(
-                                'LỊCH TƯỚI CẢ THÁNG & VỤ MÙA',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                      Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF059669), Color(0xFF047857)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.calendar_month,
+                          color: Colors.white,
+                          size: 22,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Tổng $totalDays ngày',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Cuốn Lịch Tưới 3 Ca ($totalDays Ngày Canh Tác)',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD1FAE5),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${profile.name}${profile.variety.isNotEmpty ? ' (${profile.variety})' : ''}',
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF065F46),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Kế hoạch tưới nước chuẩn VietGAP cho "${profile.name}". Bấm vào từng ngày để xem và chỉnh sửa giờ bắt đầu, thời lượng hoặc bật/tắt từng ca tưới.',
+                    'Hiển thị tiến trình Ngày 1 đến Ngày $totalDays theo các giai đoạn của hồ sơ. Các ngày cùng giai đoạn dùng chung ca tưới; chạm một ngày để xem và chỉnh giờ bắt đầu, thời lượng hoặc bật/tắt từng ca.',
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFFE2E8F0),
+                      color: Color(0xFF64748B),
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
@@ -323,209 +433,281 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Bộ chọn tháng canh tác (nếu chu kỳ > 30 ngày)
-            if (totalMonths > 1) ...[
-              const Text(
-                'CHỌN THÁNG CANH TÁC',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(totalMonths, (mIdx) {
-                    final blockNum = mIdx + 1;
-                    final isCurrentBlock = _selectedMonthBlock == blockNum;
-                    final bStart = (blockNum - 1) * 30 + 1;
-                    final bEnd = (blockNum * 30).clamp(1, totalDays);
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          'Tháng $blockNum (Ngày $bStart – $bEnd)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isCurrentBlock
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: isCurrentBlock
-                                ? Colors.white
-                                : const Color(0xFF334155),
-                          ),
-                        ),
-                        selected: isCurrentBlock,
-                        selectedColor: const Color(0xFF10B981),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(
-                            color: isCurrentBlock
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedMonthBlock = blockNum;
-                              if (_selectedCalendarDay < bStart ||
-                                  _selectedCalendarDay > bEnd) {
-                                _selectedCalendarDay = bStart;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            // Lưới ngày trong tháng (Calendar Grid)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'LƯỚI NGÀY TRONG THÁNG (NGÀY $startDay – $endDay)',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
-                      letterSpacing: 0.5,
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Nhấn để xem & sửa',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: daysInCurrentBlock,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  crossAxisSpacing: 6,
-                  mainAxisSpacing: 6,
-                  childAspectRatio: 0.85,
-                ),
-                itemBuilder: (context, idx) {
-                  final dayNum = startDay + idx;
-                  final isSelected = dayNum == _selectedCalendarDay;
-                  final dStageIdx = _getStageIndexForDay(profile, dayNum);
-                  final dColor = _getStageColor(dStageIdx);
-                  final dBg = _getStageBgColor(dStageIdx);
-                  final dSessions = _getSessionsForDay(dayNum);
-                  final dActiveCount = dSessions.where((s) => s.enabled).length;
-                  final dCustomized = _isStageSavedInProfile(dayNum);
-
-                  return InkWell(
-                    onTap: () => setState(() => _selectedCalendarDay = dayNum),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF064E3B) : dBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFF10B981)
-                              : dColor.withValues(alpha: 0.3),
-                          width: isSelected ? 2 : 1,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _canEditSchedule
+                              ? Icons.verified_user
+                              : Icons.lock_outline,
+                          size: 13,
+                          color: const Color(0xFF047857),
                         ),
-                      ),
-                      child: Stack(
-                        children: [
-                          Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'N$dayNum',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : const Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Icon(
-                                  Icons.water_drop,
-                                  size: 13,
-                                  color: isSelected
-                                      ? const Color(0xFF34D399)
-                                      : dColor,
-                                ),
-                                Text(
-                                  '$dActiveCount ca',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected
-                                        ? const Color(0xFFE2E8F0)
-                                        : dColor,
-                                  ),
-                                ),
-                              ],
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            _canEditSchedule
+                                ? 'Hồ sơ riêng của trang trại • chỉnh được, không đổi thư viện gốc'
+                                : 'Hồ sơ hệ thống • chỉ xem',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
                             ),
                           ),
-                          if (dCustomized)
-                            Positioned(
-                              top: 3,
-                              right: 3,
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFF59E0B),
-                                  shape: BoxShape.circle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // Tổng quan các giai đoạn của hồ sơ (chạm để lọc lưới ngày, như web)
+            const Text(
+              'GIAI ĐOẠN SINH TRƯỞNG',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF475569),
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: profile.growthStages.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 2.0,
+              ),
+              itemBuilder: (context, i) {
+                final st = profile.growthStages[i];
+                final from = profile.growthStages
+                    .take(i)
+                    .fold<int>(1, (sum, x) => sum + x.durationDays);
+                final to = from + st.durationDays - 1;
+                final color = _getStageColor(i);
+                final selected = _stageFilter == '$i';
+                return InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () =>
+                      setState(() => _stageFilter = selected ? 'ALL' : '$i'),
+                  child: Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: _getStageBgColor(i),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: selected ? color : color.withValues(alpha: 0.35),
+                        width: selected ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Giai đoạn ${i + 1}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
                                 ),
                               ),
                             ),
-                        ],
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Ngày $from - $to',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: color.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          st.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // Bộ lọc và chú thích
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  label: Text(
+                    'Tất cả ($totalDays ngày)',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: _stageFilter == 'ALL'
+                          ? Colors.white
+                          : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  selected: _stageFilter == 'ALL',
+                  selectedColor: const Color(0xFF0F172A),
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _stageFilter = 'ALL'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: _sessionDotColors[i],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Ca ${i + 1}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF59E0B),
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Đã lưu trong hồ sơ',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Lưới các ngày của cả chu kỳ (lọc theo giai đoạn)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF047857), Color(0xFF0D9488)],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(17),
+                        topRight: Radius.circular(17),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'LƯỚI LỊCH TƯỚI $totalDays NGÀY',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${visibleDays.length} / $totalDays ngày',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final dayNum in visibleDays)
+                          _profileDayCell(profile, dayNum),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -576,21 +758,22 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 2,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: [
-                                      Flexible(
-                                        child: Text(
-                                          'LỊCH TƯỚI NGÀY $_selectedCalendarDay',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF0F172A),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
+                                      Text(
+                                        'Chi tiết Lịch Tưới Ngày $_selectedCalendarDay',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A),
                                         ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       if (isCustomized) ...[
-                                        const SizedBox(width: 6),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 5,
@@ -608,7 +791,7 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
                                             ),
                                           ),
                                           child: const Text(
-                                            'Lưu trong hồ sơ',
+                                            'ĐÃ LƯU TRONG HỒ SƠ',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -679,12 +862,15 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Tổng: $totalDailyMinutes phút (${totalDailyWaterMl}ml)',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF059669),
+                        Flexible(
+                          child: Text(
+                            'Tổng: $totalDailyMinutes phút (${totalDailyWaterMl}ml)',
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF047857),
+                            ),
                           ),
                         ),
                       ],
@@ -696,13 +882,15 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'CÁC CA TƯỚI TRONG NGÀY',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF64748B),
-                          letterSpacing: 0.5,
+                      const Flexible(
+                        child: Text(
+                          'CÁC CA TƯỚI TRONG NGÀY',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                       TextButton.icon(

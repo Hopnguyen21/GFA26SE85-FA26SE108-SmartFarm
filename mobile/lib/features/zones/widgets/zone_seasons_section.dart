@@ -13,10 +13,11 @@ import '../zone_operations_screens.dart';
 import 'record_yield_dialog.dart';
 import 'change_stage_dialog.dart';
 import 'zone_yield_card.dart' show isHarvestStageSeason;
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 
 const _statusVi = {
   'Planned': ('Dự kiến', Color(0xFF0284C7)),
@@ -166,7 +167,7 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -202,8 +203,15 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,8 +363,12 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: statusCode == 'InProgress'
+              ? const Color(0xFFA7F3D0)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,12 +385,20 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                   ),
                 ),
               ),
-              Text(
-                status.$1,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: status.$2,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: status.$2.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: status.$2.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  status.$1,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: status.$2,
+                  ),
                 ),
               ),
             ],

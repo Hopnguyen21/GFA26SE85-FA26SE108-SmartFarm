@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Một giai đoạn trên thanh tiến độ.
 typedef StageStep = ({String name, bool done, bool current});
@@ -97,7 +98,7 @@ class _ZoneStageProgressState extends State<ZoneStageProgress> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -133,7 +134,7 @@ class _ZoneStageProgressState extends State<ZoneStageProgress> {
               'Chi tiết >',
               style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFF059669),
+                color: Color(0xFF047857),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -187,13 +188,13 @@ class _ZoneStageProgressState extends State<ZoneStageProgress> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: s.current
-                    ? const Color(0xFF059669)
+                    ? const Color(0xFF047857)
                     : s.done
                     ? const Color(0xFFECFDF5)
                     : const Color(0xFFF1F5F9),
                 border: Border.all(
                   color: s.current
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : s.done
                       ? const Color(0xFF10B981)
                       : const Color(0xFFCBD5E1),
@@ -205,7 +206,7 @@ class _ZoneStageProgressState extends State<ZoneStageProgress> {
                     ? const Icon(
                         Icons.check,
                         size: 10,
-                        color: Color(0xFF059669),
+                        color: Color(0xFF047857),
                       )
                     : s.current
                     ? Container(
@@ -236,7 +237,7 @@ class _ZoneStageProgressState extends State<ZoneStageProgress> {
                   fontSize: 8.5,
                   fontWeight: s.current ? FontWeight.bold : FontWeight.w500,
                   color: s.current
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : s.done
                       ? const Color(0xFF334155)
                       : const Color(0xFF94A3B8),

@@ -391,53 +391,195 @@ class _GISMapScreenState extends State<GISMapScreen> {
           // ── Panel thông tin Zone được chọn ────────────────────────────────
           if (selected != null)
             Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        selected.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Thửa đất: ${selected.fieldName.isEmpty ? '—' : selected.fieldName}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      Text(
-                        'Cây trồng: ${selected.currentCrop}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      Text(
-                        'Diện tích: ${selected.areaM2 > 0 ? '${selected.areaM2.toStringAsFixed(0)} m²' : '—'}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      if (isTech)
-                        const SizedBox.shrink()
-                      else if (selected.telemetryIsFresh)
-                        Text(
-                          'Ẩm đất ${selected.currentSoilMoisture}% · ${selected.currentTemp}°C · Ẩm KK ${selected.currentHumidity}%',
-                          style: const TextStyle(fontSize: 12),
-                        )
-                      else
-                        const Text(
-                          'Chưa có số đo mới từ cảm biến.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF92400E),
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF047857,
+                            ).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.grid_view_rounded,
+                            color: Color(0xFF047857),
+                            size: 18,
                           ),
                         ),
-                    ],
-                  ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            selected.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          onPressed: () {
+                            setState(() => _selectedZoneId = null);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          'Thửa đất: ${selected.fieldName.isEmpty ? '—' : selected.fieldName}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        Text(
+                          'Cây trồng: ${selected.currentCrop}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        Text(
+                          'Diện tích: ${selected.areaM2 > 0 ? '${selected.areaM2.toStringAsFixed(0)} m²' : '—'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (isTech)
+                      const SizedBox.shrink()
+                    else if (selected.telemetryIsFresh)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.sensors,
+                              size: 14,
+                              color: Color(0xFF059669),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Ẩm đất ${selected.currentSoilMoisture}% · ${selected.currentTemp}°C · Ẩm KK ${selected.currentHumidity}%',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF065F46),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCD34D)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.sensors_off_outlined,
+                              size: 14,
+                              color: Color(0xFFB45309),
+                            ),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Chưa có số đo mới từ cảm biến.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF047857),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ZoneDetailScreen(zone: selected!),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.arrow_forward, size: 16),
+                        label: const Text(
+                          'Xem chi tiết Zone',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -464,6 +606,12 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      shadowColor: Colors.black26,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -492,6 +640,12 @@ class _MissingGeoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      shadowColor: Colors.black26,
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -542,6 +696,12 @@ class _NoGeometryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasItems = fieldsNoGeo.isNotEmpty || zonesNoGeo.isNotEmpty;
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      shadowColor: Colors.black26,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(

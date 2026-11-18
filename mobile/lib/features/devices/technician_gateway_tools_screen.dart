@@ -7,6 +7,7 @@ import '../../core/services/api_service.dart';
 import '../zones/zone_operations_screens.dart';
 import 'widgets/device_actions_sheet.dart' show promptText;
 import 'widgets/device_config_dialogs.dart';
+import '../../core/utils/user_error.dart';
 
 /// Công cụ kỹ thuật viên trước đây chỉ có trên Web: cấu hình gateway, cấu hình cảm biến node,
 /// xem cấu hình firmware, thử kết nối, cập nhật toạ độ node hàng loạt và kho linh kiện cá nhân.
@@ -151,12 +152,12 @@ void _snack(BuildContext context, String m, {bool error = false}) {
       content: Text(m),
       backgroundColor: error
           ? const Color(0xFFDC2626)
-          : const Color(0xFF059669),
+          : const Color(0xFF047857),
     ),
   );
 }
 
-String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+String _err(Object e) => userFacingError(e);
 
 class _GatewayCard extends StatefulWidget {
   final _GatewayBundle bundle;
@@ -396,7 +397,7 @@ class _GatewayCardState extends State<_GatewayCard> {
                 Icon(
                   Icons.router,
                   color: online
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : const Color(0xFF64748B),
                 ),
                 const SizedBox(width: 8),

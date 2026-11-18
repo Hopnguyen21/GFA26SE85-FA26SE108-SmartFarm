@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/services/api_service.dart';
 import 'profile_irrigation_logic.dart';
 import 'zone_crop_plan_logic.dart';
+import '../../core/utils/user_error.dart';
 
 /// Tải và giữ trạng thái chọn cây/giống/hồ sơ cho form Zone. Dữ liệu hoàn toàn từ API (không có cây/hồ sơ mẫu).
 class ZoneCropPlanController extends ChangeNotifier {
@@ -48,7 +49,7 @@ class ZoneCropPlanController extends ChangeNotifier {
     super.dispose();
   }
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   Future<void> loadCrops() async {
     loadingCrops = true;

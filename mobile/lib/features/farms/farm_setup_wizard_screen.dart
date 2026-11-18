@@ -799,14 +799,14 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.water_drop, size: 14, color: Color(0xFF059669)),
+              Icon(Icons.water_drop, size: 14, color: Color(0xFF047857)),
               SizedBox(width: 4),
               Text(
                 'Xem lịch tưới mẫu VietGAP của hồ sơ này ➔',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF059669),
+                  color: Color(0xFF047857),
                 ),
               ),
             ],
@@ -1288,10 +1288,18 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     final provider = context.watch<FarmProvider>();
     if (!provider.canManageFarmStructure) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          elevation: 0,
           title: const Text(
             'Thiết lập trang trại',
-            style: TextStyle(fontSize: 15),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         body: const AppEmptyState(
@@ -1328,10 +1336,18 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'Thiết lập trang trại',
-          style: TextStyle(fontSize: 15),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       body: Column(
@@ -1427,10 +1443,18 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
     final zoneId = outcome.idOf('zoneId');
     final missing = outcome.missing;
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: Text(
           outcome.isComplete ? 'Hoàn tất thiết lập' : 'Đã tạo một phần',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       body: ListView(

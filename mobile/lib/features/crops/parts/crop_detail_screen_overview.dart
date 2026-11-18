@@ -25,7 +25,7 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                   '🏆',
                   'Tiêu chuẩn',
                   profile.standardType,
-                  const Color(0xFF059669),
+                  const Color(0xFF047857),
                   const Color(0xFFECFDF5),
                 ),
               ),

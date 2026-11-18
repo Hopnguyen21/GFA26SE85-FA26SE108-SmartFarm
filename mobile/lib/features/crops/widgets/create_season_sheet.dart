@@ -6,6 +6,7 @@ import '../../zones/zone_auto_season.dart' show autoSeasonDays, minSeasonDays;
 import '../../zones/zone_operations_screens.dart'
     show ZonePlantingSeasonsScreen;
 import 'season_profile_preview.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Tạo vụ trồng cho một Zone (Owner). Cây của Zone chỉ được gán khi tạo vụ:
 /// Zone chưa có cây thì vụ mới gán cây; Zone đang có cây khác thì phải tích xác nhận đổi cây.
@@ -203,7 +204,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Không tải được danh sách cây: $e';
+        _error = 'Không tải được danh sách cây: ${userFacingError(e)}';
         _loading = false;
       });
     }
@@ -262,10 +263,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       if (mounted && _cropId == id) setState(() => _varieties = v);
     } catch (e) {
       if (mounted)
-        setState(
-          () => _error =
-              'Không tải được giống: ${e.toString().replaceFirst('Exception: ', '')}',
-        );
+        setState(() => _error = 'Không tải được giống: ${userFacingError(e)}');
     }
   }
 
@@ -441,7 +439,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = userFacingError(e);
         });
         await _refreshRunning();
       }
@@ -735,7 +733,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFF059669),
+                color: Color(0xFF047857),
               ),
             ),
             SizedBox(width: 10),
@@ -772,7 +770,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF059669),
+                      color: const Color(0xFF047857),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(
@@ -808,7 +806,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                 ),
               ),
@@ -852,7 +850,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF047857),
                         ),
                       ),
                     ],
@@ -999,7 +997,7 @@ class _NewFarmingSeasonDialogState extends State<_NewFarmingSeasonDialog> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = userFacingError(e);
         });
       }
     }

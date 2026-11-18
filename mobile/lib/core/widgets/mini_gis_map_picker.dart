@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
 import 'zone_default_box.dart';
+import '../utils/user_error.dart';
 
 part 'parts/mini_gis_map_picker_map_layer.dart';
 part 'parts/mini_gis_map_picker_overlays.dart';

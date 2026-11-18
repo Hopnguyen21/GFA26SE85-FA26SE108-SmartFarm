@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/export_utils.dart';
+import '../../core/utils/user_error.dart';
 
 /// Gom các bucket (theo zone/tháng) thành tổng theo zone.
 Map<String, double> sumBucketsByZone(Map<String, dynamic>? report) {
@@ -79,7 +80,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       });
     } catch (e) {
       if (mounted) {
-        final msg = e.toString().replaceFirst('Exception: ', '');
+        final msg = userFacingError(e);
         final is403 =
             msg.contains('403') ||
             msg.toLowerCase().contains('forbidden') ||
@@ -117,11 +118,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Xuất Excel thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-          ),
+          SnackBar(content: Text('Xuất Excel thất bại: ${userFacingError(e)}')),
         );
       }
     } finally {
@@ -326,8 +323,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               barRods: [
                 BarChartRodData(
                   toY: entries[i].value,
-                  color: const Color(0xFF062326),
-                  width: 14,
+                  color: const Color(0xFF047857),
+                  width: 16,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(4),
+                  ),
                 ),
               ],
             ),
@@ -341,8 +341,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,18 +360,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                       color: Color(0xFF64748B),
                     ),
                   ),
                 ),
-                Icon(icon, size: 16, color: color),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 15, color: color),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 17,
+                color: color,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -378,6 +397,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

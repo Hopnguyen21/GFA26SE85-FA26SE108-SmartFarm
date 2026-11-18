@@ -5,6 +5,7 @@ import '../../../core/providers/farm_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../zone_auto_season.dart' show seasonCropLabel;
 import 'record_yield_dialog.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Kiểm tra xem một vụ mùa (hoặc giai đoạn hiện tại) đã đến giai đoạn thu hoạch chưa.
 bool isHarvestStageSeason(
@@ -201,7 +202,7 @@ class _ZoneYieldCardState extends State<ZoneYieldCard> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }

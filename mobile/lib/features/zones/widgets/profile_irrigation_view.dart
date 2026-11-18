@@ -71,7 +71,7 @@ class ProfileIrrigationView extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10.5,
                           color: st.fromProfile
-                              ? const Color(0xFF059669)
+                              ? const Color(0xFF047857)
                               : _muted,
                         ),
                       ),

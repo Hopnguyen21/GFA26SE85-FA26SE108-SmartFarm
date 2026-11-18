@@ -32,6 +32,16 @@ const alertSeverities = <String, String>{
 
 String severityLabel(String s) => alertSeverities[s] ?? s;
 
+/// Nhãn mức độ như trang web: WARNING / CRITICAL (INFO cho mức thông tin của backend).
+String severityCode(String s) => s.toUpperCase();
+
+/// Tên mức độ trong biểu mẫu như web: "Cảnh báo (WARNING)", "Nguy hiểm khẩn cấp (CRITICAL)".
+const alertSeverityFormLabels = <String, String>{
+  'Info': 'Thông tin (INFO)',
+  'Warning': 'Cảnh báo (WARNING)',
+  'Critical': 'Nguy hiểm khẩn cấp (CRITICAL)',
+};
+
 const alertStatusLabels = <String, String>{
   'Open': 'Đang mở',
   'Acknowledged': 'Đã xác nhận',

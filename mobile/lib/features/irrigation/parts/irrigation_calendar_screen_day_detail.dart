@@ -164,20 +164,22 @@ extension _IrrigationCalendarScreenStateDayDetail
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
+        color: const Color(0xFFD1FAE5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.white),
+          Icon(icon, size: 14, color: const Color(0xFF047857)),
           const SizedBox(width: 5),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
+          Flexible(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF065F46),
+              ),
             ),
           ),
         ],

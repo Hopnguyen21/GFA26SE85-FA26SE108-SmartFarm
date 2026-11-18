@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/user_error.dart';
 
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 
-String _clean(Object e) => e.toString().replaceFirst('Exception: ', '');
+String _clean(Object e) => userFacingError(e);
 
 /// Hộp thoại chuyển giai đoạn sinh trưởng của một vụ ĐANG CANH TÁC (Owner). Trả về true nếu đã chuyển.
 /// Giai đoạn lấy từ hồ sơ của vụ; backend từ chối giai đoạn không thuộc hồ sơ hoặc trùng giai đoạn hiện tại.
@@ -108,9 +109,10 @@ class _ChangeStageDialogState extends State<_ChangeStageDialog> {
   Widget build(BuildContext context) {
     final stages = _stages;
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         'Chuyển giai đoạn · ${widget.season['name'] ?? ''}',
-        style: const TextStyle(fontSize: 16),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       content: SizedBox(
         width: double.maxFinite,
@@ -147,9 +149,11 @@ class _ChangeStageDialogState extends State<_ChangeStageDialog> {
                       controller: _notes,
                       maxLength: 1000,
                       enabled: !_saving,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Ghi chú (không bắt buộc)',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     if (_saveError != null)
@@ -170,6 +174,12 @@ class _ChangeStageDialogState extends State<_ChangeStageDialog> {
           child: const Text('Hủy'),
         ),
         FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF047857),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
           onPressed: _saving || _selected == null ? null : _save,
           child: Text(_saving ? 'Đang lưu...' : 'Chuyển giai đoạn'),
         ),

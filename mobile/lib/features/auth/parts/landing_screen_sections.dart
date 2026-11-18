@@ -98,7 +98,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
           title: 'Central LoRa Gateway ESP32-S3 Dual Antenna',
           desc:
               'Kết nối đến 128 sensor node thực địa trong bán kính 2.5km không cần kéo dây mạng.',
-          color: const Color(0xFF059669),
+          color: const Color(0xFF047857),
         ),
         const SizedBox(height: 8),
         _buildHardwareCard(
@@ -456,7 +456,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
             height: 34,
             decoration: BoxDecoration(
               color: isHighlight
-                  ? const Color(0xFF059669)
+                  ? const Color(0xFF047857)
                   : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -604,7 +604,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
             children: [
               CircleAvatar(
                 radius: 13,
-                backgroundColor: const Color(0xFF059669),
+                backgroundColor: const Color(0xFF047857),
                 child: Text(
                   author.split(' ').last.substring(0, 1),
                   style: const TextStyle(
@@ -763,7 +763,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
             children: [
               Row(
                 children: [
-                  Icon(Icons.eco, color: Color(0xFF059669), size: 16),
+                  Icon(Icons.eco, color: Color(0xFF047857), size: 16),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -781,7 +781,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
               SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.phone, size: 12, color: Color(0xFF059669)),
+                  Icon(Icons.phone, size: 12, color: Color(0xFF047857)),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -801,7 +801,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   Icon(
                     Icons.email_outlined,
                     size: 12,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   SizedBox(width: 5),
                   Expanded(
@@ -822,7 +822,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   Icon(
                     Icons.location_on_outlined,
                     size: 12,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   SizedBox(width: 5),
                   Expanded(

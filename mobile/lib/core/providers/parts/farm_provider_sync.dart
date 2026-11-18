@@ -17,7 +17,7 @@ extension FarmProviderSync on FarmProvider {
     _inventoryItems.clear();
   }
 
-  Future<void> _loadInventoryAndRules() async {
+  Future<void> _loadInventory() async {
     try {
       final items = await TaskApi.getInventory(_selectedFarmId);
       _inventoryItems
@@ -26,23 +26,23 @@ extension FarmProviderSync on FarmProvider {
     } catch (_) {
       _inventoryItems.clear();
     }
-    if (_zones.isEmpty) {
-      _automationRules.clear();
-      return;
-    }
-    // Tải song song toàn bộ luật tự động hoá của các Zone
-    final zoneRulesList = await Future.wait(
-      _zones.map(
-        (z) => AutomationApi.getAutoRules(
-          z.zoneId,
-        ).catchError((_) => <Map<String, dynamic>>[]),
-      ),
-    );
+  }
+
+  /// Luật tự động hoá THÔ của mọi Zone (tải song song); lỗi từng Zone thì coi như Zone đó chưa có luật.
+  Future<List<List<Map<String, dynamic>>>> _fetchRulesRaw() => Future.wait(
+    _zones.map(
+      (z) => AutomationApi.getAutoRules(
+        z.zoneId,
+      ).catchError((_) => <Map<String, dynamic>>[]),
+    ),
+  );
+
+  /// Dựng luật từ dữ liệu thô; cần danh sách actuator đã có để gắn tên thiết bị.
+  void _applyRules(List<List<Map<String, dynamic>>> zoneRulesList) {
     final rules = <AutomationRuleModel>[];
-    for (int i = 0; i < _zones.length; i++) {
+    for (int i = 0; i < _zones.length && i < zoneRulesList.length; i++) {
       final z = _zones[i];
-      final zoneRules = zoneRulesList[i];
-      for (final r in zoneRules) {
+      for (final r in zoneRulesList[i]) {
         final actuator = _actuators
             .where((a) => a.actuatorId == r['actuatorId']?.toString())
             .firstOrNull;
@@ -58,6 +58,15 @@ extension FarmProviderSync on FarmProvider {
     _automationRules
       ..clear()
       ..addAll(rules);
+  }
+
+  Future<void> _loadInventoryAndRules() async {
+    await _loadInventory();
+    if (_zones.isEmpty) {
+      _automationRules.clear();
+      return;
+    }
+    _applyRules(await _fetchRulesRaw());
   }
 
   Future<void> fetchFromApi() async {
@@ -88,21 +97,32 @@ extension FarmProviderSync on FarmProvider {
           _selectedFarmId = _farms.first.farmId;
         }
 
-        // 2. Tải song song dữ liệu cấp Farm: Thời tiết, Thửa đất, Nhân sự (nếu Owner), Cảnh báo, Tác vụ, Thông báo
-        final farmLevelResults = await Future.wait([
-          FarmApi.getFarmWeather(_selectedFarmId).catchError((_) => null),
-          FarmApi.getFields(
-            _selectedFarmId,
-          ).then<List<FieldModel>?>((v) => v).catchError((Object e) {
-            _structureError =
-                'Không tải được Thửa đất: ${e.toString().replaceFirst('Exception: ', '')}';
-            return null;
-          }),
-          if (_currentRole == 'OWNER')
-            FarmApi.getFarmers().catchError((_) => <FarmerModel>[])
-          else
-            Future.value(<FarmerModel>[]),
-          TaskApi.getAlerts(_selectedFarmId).catchError((_) => <AlertModel>[]),
+        // KTV chỉ làm việc qua API triển khai/kho; dữ liệu vận hành của farm (thời tiết, cảnh báo, actuator, telemetry, luật)
+        // thuộc Owner/Farmer nên gọi sẽ nhận 403 hàng loạt.
+        final isTech =
+            parseAppRole(ApiService.userRole) == AppRole.platformTechnician;
+
+        // 2. Chỉ Thửa đất (để tải Zone) và nhân sự (để gắn người phụ trách vào Zone) chặn việc hiện Zone. Thời tiết (API ngoài,
+        // thường chậm nhất), cảnh báo, tác vụ, thông báo chạy song song và được áp sau, không làm trễ Zone.
+        final fieldsFuture = FarmApi.getFields(_selectedFarmId)
+            .then<List<FieldModel>?>((v) => v)
+            .catchError((Object e) {
+              _structureError =
+                  'Không tải được Thửa đất: ${userFacingError(e)}';
+              return null;
+            });
+        final farmersFuture = _currentRole == 'OWNER'
+            ? FarmApi.getFarmers().catchError((_) => <FarmerModel>[])
+            : Future.value(<FarmerModel>[]);
+        final extrasFuture = Future.wait([
+          isTech
+              ? Future<Map<String, dynamic>?>.value(null)
+              : FarmApi.getFarmWeather(_selectedFarmId).catchError((_) => null),
+          isTech
+              ? Future.value(<AlertModel>[])
+              : TaskApi.getAlerts(
+                  _selectedFarmId,
+                ).catchError((_) => <AlertModel>[]),
           if (parseAppRole(ApiService.userRole) == AppRole.farmOwner ||
               parseAppRole(ApiService.userRole) == AppRole.farmer)
             TaskApi.getTasks(_selectedFarmId).catchError((_) => <TaskModel>[])
@@ -111,26 +131,15 @@ extension FarmProviderSync on FarmProvider {
           fetchNotifications().catchError((_) {}),
         ]);
 
-        _farmWeather = farmLevelResults[0] as Map<String, dynamic>?;
         // Tải lỗi → GIỮ danh sách đang có (không biến thành rỗng) và báo lỗi qua structureError.
-        final apiFields =
-            (farmLevelResults[1] as List<FieldModel>?) ?? _fields.toList();
-        final apiFarmers = farmLevelResults[2] as List<FarmerModel>;
-        final apiAlerts = farmLevelResults[3] as List<AlertModel>;
-        final apiTasks = farmLevelResults[4] as List<TaskModel>;
-
+        final apiFields = (await fieldsFuture) ?? _fields.toList();
+        final apiFarmers = await farmersFuture;
         _fields
           ..clear()
           ..addAll(apiFields);
         _farmers
           ..clear()
           ..addAll(apiFarmers);
-        _alerts
-          ..clear()
-          ..addAll(apiAlerts);
-        _tasks
-          ..clear()
-          ..addAll(apiTasks.map(_withZoneName));
 
         // 3. Tải song song các Zones của toàn bộ Fields
         final zonesPerField = await Future.wait(
@@ -143,7 +152,7 @@ extension FarmProviderSync on FarmProvider {
                   fieldName: field.name,
                 ).catchError((Object e) {
                   _structureError ??=
-                      'Không tải được Zone của lô "${field.name}": ${e.toString().replaceFirst('Exception: ', '')}';
+                      'Không tải được Zone của lô "${field.name}": ${userFacingError(e)}';
                   // Giữ Zone đã có của lô này thay vì xoá.
                   return _zones
                       .where((z) => z.fieldId == field.fieldId)
@@ -162,80 +171,111 @@ extension FarmProviderSync on FarmProvider {
         _isLoadingApi = false;
         _notify();
 
-        // 4. Đồng bộ song song Thiết bị chấp hành và Cây trồng từ DB cho từng Zone
-        if (_zones.isNotEmpty) {
-          final zoneDetails = await Future.wait(
-            _zones.map((z) async {
-              // Lỗi tải thiết bị KHÔNG được coi là "Zone không có thiết bị": trả null để giữ danh sách cũ và ghi nhận lỗi.
-              final actsFuture = FarmApi.fetchZoneActuators(z.zoneId)
-                  .then<List<ActuatorModel>?>((v) => v)
-                  .catchError((Object e) {
-                    _actuatorErrors[z.zoneId.toLowerCase()] = e
-                        .toString()
-                        .replaceFirst('Exception: ', '');
-                    return null;
-                  });
-              final ctxFuture = AiApi.getAiContext(
-                z.zoneId,
-              ).catchError((_) => null);
-              final res = await Future.wait([actsFuture, ctxFuture]);
-              return (
-                zoneId: z.zoneId,
-                acts: res[0] as List<ActuatorModel>?,
-                ctx: res[1] as Map<String, dynamic>?,
-              );
-            }),
-          );
-
-          for (final d in zoneDetails) {
-            final acts = d.acts;
-            if (acts != null) {
-              final idLower = d.zoneId.toLowerCase();
-              _actuators.removeWhere((a) => a.zoneId.toLowerCase() == idLower);
-              _actuators.addAll(acts);
-              _actuatorErrors.remove(idLower);
-            }
-            final ctx = d.ctx;
-            if (ctx != null && ctx['cropName'] != null) {
-              final idx = _zones.indexWhere((z) => z.zoneId == d.zoneId);
-              if (idx != -1) {
-                final z = _zones[idx];
-                // Zone API là nguồn chính của cây/giai đoạn (cây kèm giống, vd "Cà Chua (Beef F1)"); ngữ cảnh AI chỉ bù khi Zone API không có.
-                final hasCrop = !z.currentCrop.startsWith('Chưa gán cây');
-                final hasStage =
-                    z.seasonStatus == 'InProgress' &&
-                    !z.currentStage.startsWith('Chưa có vụ');
-                final reqs = ctx['requirements'];
-                _zones[idx] = z.copyWith(
-                  currentCrop: hasCrop ? null : ctx['cropName'].toString(),
-                  currentStage: hasStage
-                      ? null
-                      : (ctx['growthStageName']?.toString() ?? z.currentStage),
-                  cropContextIsDbBacked: true,
-                  appliedRequirements: reqs is List
-                      ? [
-                          for (final r in reqs)
-                            if (r is Map) Map<String, dynamic>.from(r),
-                        ]
-                      : const [],
-                );
-              }
-            }
-          }
+        // 4-5. Cảnh báo/tác vụ/thời tiết (đã tải song song từ trên) và dữ liệu vận hành sâu của Zone (thiết bị chấp hành, ngữ cảnh AI,
+        // số đo, kho, luật) chạy ĐỒNG THỜI thay vì nối đuôi nhau.
+        Future<void> applyFarmExtras() async {
+          final r = await extrasFuture;
+          _farmWeather = r[0] as Map<String, dynamic>?;
+          _alerts
+            ..clear()
+            ..addAll(r[1] as List<AlertModel>);
+          _tasks
+            ..clear()
+            ..addAll((r[2] as List<TaskModel>).map(_withZoneName));
+          _notify();
         }
 
-        // Số đo mới nhất cho MỌI Zone (trước đây chỉ Zone đang chọn có số đo, các Zone khác hiện 0/—).
-        await refreshAllZonesTelemetry();
-
-        // 5. Tải song song kho vật tư và luật tự động hoá
-        await _loadInventoryAndRules();
+        await Future.wait([
+          applyFarmExtras(),
+          if (!isTech) _syncOperationalData(),
+        ]);
       }
     } catch (e) {
       // Lỗi mạng/máy chủ: GIỮ dữ liệu đang có, báo lỗi thay vì xoá như thể tài khoản trống.
-      _syncError = e.toString().replaceFirst('Exception: ', '');
+      _syncError = userFacingError(e);
     } finally {
       _isLoadingApi = false;
       _notify();
+    }
+  }
+
+  /// Dữ liệu vận hành của Zone (không dành cho KTV). Kho, số đo và luật thô chỉ cần danh sách Zone nên tải CÙNG LÚC với thiết bị
+  /// chấp hành/ngữ cảnh AI; luật chỉ được dựng sau khi có actuator (để gắn tên thiết bị).
+  Future<void> _syncOperationalData() async {
+    final inventoryFuture = _loadInventory();
+    final rulesFuture = _fetchRulesRaw();
+    final telemetryFuture = refreshAllZonesTelemetry();
+    await _syncZoneActuatorsAndContext();
+    await Future.wait([inventoryFuture, telemetryFuture]);
+    final rules = await rulesFuture;
+    if (_zones.isEmpty) {
+      _automationRules.clear();
+    } else {
+      _applyRules(rules);
+    }
+  }
+
+  /// Thiết bị chấp hành và cây trồng/ngữ cảnh AI của từng Zone (tải song song).
+  Future<void> _syncZoneActuatorsAndContext() async {
+    if (_zones.isNotEmpty) {
+      final zoneDetails = await Future.wait(
+        _zones.map((z) async {
+          // Lỗi tải thiết bị KHÔNG được coi là "Zone không có thiết bị": trả null để giữ danh sách cũ và ghi nhận lỗi.
+          final actsFuture = FarmApi.fetchZoneActuators(z.zoneId)
+              .then<List<ActuatorModel>?>((v) => v)
+              .catchError((Object e) {
+                _actuatorErrors[z.zoneId.toLowerCase()] = e
+                    .toString()
+                    .replaceFirst('Exception: ', '');
+                return null;
+              });
+          final ctxFuture = AiApi.getAiContext(
+            z.zoneId,
+          ).catchError((_) => null);
+          final res = await Future.wait([actsFuture, ctxFuture]);
+          return (
+            zoneId: z.zoneId,
+            acts: res[0] as List<ActuatorModel>?,
+            ctx: res[1] as Map<String, dynamic>?,
+          );
+        }),
+      );
+
+      for (final d in zoneDetails) {
+        final acts = d.acts;
+        if (acts != null) {
+          final idLower = d.zoneId.toLowerCase();
+          _actuators.removeWhere((a) => a.zoneId.toLowerCase() == idLower);
+          _actuators.addAll(acts);
+          _actuatorErrors.remove(idLower);
+        }
+        final ctx = d.ctx;
+        if (ctx != null && ctx['cropName'] != null) {
+          final idx = _zones.indexWhere((z) => z.zoneId == d.zoneId);
+          if (idx != -1) {
+            final z = _zones[idx];
+            // Zone API là nguồn chính của cây/giai đoạn (cây kèm giống, vd "Cà Chua (Beef F1)"); ngữ cảnh AI chỉ bù khi Zone API không có.
+            final hasCrop = !z.currentCrop.startsWith('Chưa gán cây');
+            final hasStage =
+                z.seasonStatus == 'InProgress' &&
+                !z.currentStage.startsWith('Chưa có vụ');
+            final reqs = ctx['requirements'];
+            _zones[idx] = z.copyWith(
+              currentCrop: hasCrop ? null : ctx['cropName'].toString(),
+              currentStage: hasStage
+                  ? null
+                  : (ctx['growthStageName']?.toString() ?? z.currentStage),
+              cropContextIsDbBacked: true,
+              appliedRequirements: reqs is List
+                  ? [
+                      for (final r in reqs)
+                        if (r is Map) Map<String, dynamic>.from(r),
+                    ]
+                  : const [],
+            );
+          }
+        }
+      }
     }
   }
 
@@ -301,6 +341,15 @@ extension FarmProviderSync on FarmProvider {
     }
     // Cập nhật vi khí hậu thực tế từ trạm cảm biến LoRa mỗi 5 giây
     _realtimeTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      // KTV không có quyền đọc telemetry của farm (403): không hỏi.
+      if (parseAppRole(ApiService.userRole) == AppRole.platformTechnician) {
+        // Chỉ làm mới THÔNG BÁO (mỗi ~30 giây) để KTV thấy việc mới được giao/cọc/nghiệm thu mà không cần mở lại app.
+        _techNotifTick++;
+        if (_techNotifTick % 6 == 0 && ApiService.isAuthenticated) {
+          unawaited(fetchNotifications());
+        }
+        return;
+      }
       // Lần hỏi trước chưa xong (mạng chậm) thì bỏ lượt này, tránh dồn nhiều yêu cầu chồng nhau.
       if (_pollInFlight) return;
       final lastAll = _lastAllZonesTelemetryAt;

@@ -21,7 +21,7 @@ abstract final class AiApi {
       }
       return (data: null, error: ApiService._apiErrorMessage(resp));
     } catch (e) {
-      return (data: null, error: e.toString().replaceFirst('Exception: ', ''));
+      return (data: null, error: userFacingError(e));
     }
   }
 
@@ -115,7 +115,7 @@ abstract final class AiApi {
       }
       return {'success': false, 'message': 'Lỗi máy chủ (${resp.statusCode})'};
     } catch (e) {
-      return {'success': false, 'message': 'Lỗi mạng: $e'};
+      return {'success': false, 'message': 'Lỗi mạng: ${userFacingError(e)}'};
     }
   }
 

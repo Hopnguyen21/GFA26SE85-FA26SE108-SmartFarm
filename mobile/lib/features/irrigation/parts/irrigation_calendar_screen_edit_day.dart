@@ -203,7 +203,7 @@ extension _IrrigationCalendarScreenStateEditDay
                                           const Icon(
                                             Icons.timer_outlined,
                                             size: 16,
-                                            color: Color(0xFF059669),
+                                            color: Color(0xFF047857),
                                           ),
                                           const SizedBox(width: 6),
                                           Text(

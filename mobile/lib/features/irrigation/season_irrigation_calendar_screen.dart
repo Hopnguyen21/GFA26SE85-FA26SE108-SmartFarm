@@ -3,10 +3,11 @@ import '../../core/models/models.dart';
 import '../../core/services/api_service.dart';
 import '../zones/profile_irrigation_logic.dart';
 import 'season_irrigation_logic.dart';
+import '../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 const _amber = Color(0xFFD97706);
 
 class StageInfo {
@@ -40,7 +41,7 @@ StageInfo getStageInfo(int dayNum, int maxDays) {
       id: 'STAGE_1',
       name: 'Giai đoạn 1: Cây con & Hồi xanh',
       shortName: 'Cây con',
-      color: const Color(0xFF059669),
+      color: const Color(0xFF047857),
       bgColor: const Color(0xFFECFDF5),
       borderColor: const Color(0xFFA7F3D0),
       rangeText: 'Ngày 1 - Ngày $d1',
@@ -183,7 +184,7 @@ class _SeasonIrrigationCalendarScreenState
   List<ProfileSession> _activeDaySessions = [];
   bool _hasUnsavedChanges = false;
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   @override
   void initState() {
@@ -655,7 +656,7 @@ class _SeasonIrrigationCalendarScreenState
         border: Border.all(color: const Color(0xFFA7F3D0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF059669).withValues(alpha: 0.06),
+            color: const Color(0xFF047857).withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -672,12 +673,12 @@ class _SeasonIrrigationCalendarScreenState
                 height: 44,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF059669), Color(0xFF047857)],
+                    colors: [Color(0xFF047857), Color(0xFF047857)],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF059669).withValues(alpha: 0.3),
+                      color: const Color(0xFF047857).withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -835,12 +836,14 @@ class _SeasonIrrigationCalendarScreenState
                     children: [
                       const Icon(Icons.auto_awesome, size: 13, color: _green),
                       const SizedBox(width: 4),
-                      Text(
-                        'Hôm nay: Ngày $todayNum/${c.totalDays} (${todayStage.shortName})',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF065F46),
+                      Flexible(
+                        child: Text(
+                          'Hôm nay: Ngày $todayNum/${c.totalDays} (${todayStage.shortName})',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF065F46),
+                          ),
                         ),
                       ),
                     ],
@@ -858,12 +861,14 @@ class _SeasonIrrigationCalendarScreenState
                   children: [
                     const Icon(Icons.verified_user, size: 13, color: _green),
                     const SizedBox(width: 4),
-                    Text(
-                      'Tùy chỉnh riêng cho Zone ${widget.zone.name}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _ink,
+                    Flexible(
+                      child: Text(
+                        'Tùy chỉnh riêng cho Zone ${widget.zone.name}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _ink,
+                        ),
                       ),
                     ),
                   ],
@@ -904,7 +909,7 @@ class _SeasonIrrigationCalendarScreenState
             crossAxisCount: 2,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 2.3,
+            childAspectRatio: 2.0,
           ),
           itemCount: stages.length,
           itemBuilder: (context, idx) {
@@ -934,20 +939,29 @@ class _SeasonIrrigationCalendarScreenState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          st.shortName,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: st.color,
+                        Flexible(
+                          child: Text(
+                            st.shortName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: st.color,
+                            ),
                           ),
                         ),
-                        Text(
-                          st.rangeText,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            color: st.color.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w600,
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            st.rangeText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: st.color.withValues(alpha: 0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -978,66 +992,54 @@ class _SeasonIrrigationCalendarScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
           children: [
-            Wrap(
-              spacing: 6,
-              children: [
-                ChoiceChip(
-                  label: Text(
-                    'Tất cả (${c.totalDays} ngày)',
-                    style: const TextStyle(fontSize: 11.5),
-                  ),
-                  selected: _stageFilter == 'ALL',
-                  selectedColor: const Color(0xFF0F172A),
-                  labelStyle: TextStyle(
-                    color: _stageFilter == 'ALL' ? Colors.white : _ink,
+            ChoiceChip(
+              label: Text(
+                'Tất cả (${c.totalDays} ngày)',
+                style: const TextStyle(fontSize: 11.5),
+              ),
+              selected: _stageFilter == 'ALL',
+              selectedColor: const Color(0xFF0F172A),
+              labelStyle: TextStyle(
+                color: _stageFilter == 'ALL' ? Colors.white : _ink,
+                fontWeight: FontWeight.bold,
+              ),
+              onSelected: (_) => setState(() => _stageFilter = 'ALL'),
+            ),
+            if (todayNum != null)
+              ActionChip(
+                avatar: const Icon(Icons.my_location, size: 14, color: _green),
+                label: Text(
+                  'Hôm nay (Ngày $todayNum)',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: _green,
                     fontWeight: FontWeight.bold,
                   ),
-                  onSelected: (_) => setState(() => _stageFilter = 'ALL'),
                 ),
-                if (todayNum != null)
-                  ActionChip(
-                    avatar: const Icon(
-                      Icons.my_location,
-                      size: 14,
-                      color: _green,
-                    ),
-                    label: Text(
-                      'Hôm nay (Ngày $todayNum)',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: _green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    backgroundColor: const Color(0xFFD1FAE5),
-                    side: const BorderSide(color: Color(0xFFA7F3D0)),
-                    onPressed: () {
-                      _onSelectDay(todayNum);
-                      setState(() => _stageFilter = 'ALL');
-                    },
-                  ),
-              ],
-            ),
+                backgroundColor: const Color(0xFFD1FAE5),
+                side: const BorderSide(color: Color(0xFFA7F3D0)),
+                onPressed: () {
+                  _onSelectDay(todayNum);
+                  setState(() => _stageFilter = 'ALL');
+                },
+              ),
           ],
         ),
         const SizedBox(height: 6),
-        // Legend row
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _legendDot(const Color(0xFFF59E0B), 'Ca Sáng (Khởi động)'),
-              const SizedBox(width: 10),
-              _legendDot(const Color(0xFFF43F5E), 'Ca Trưa (Hạ nhiệt)'),
-              const SizedBox(width: 10),
-              _legendDot(const Color(0xFF6366F1), 'Ca Chiều (Bổ sung)'),
-              const SizedBox(width: 10),
-              _legendDot(_green, 'Đã tùy biến'),
-            ],
-          ),
+        // Chú thích: tự xuống dòng để thấy đủ 4 mục trên màn hẹp.
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            _legendDot(const Color(0xFFF59E0B), 'Ca Sáng (Khởi động)'),
+            _legendDot(const Color(0xFFF43F5E), 'Ca Trưa (Hạ nhiệt)'),
+            _legendDot(const Color(0xFF6366F1), 'Ca Chiều (Bổ sung)'),
+            _legendDot(_green, 'Đã tùy biến'),
+          ],
         ),
       ],
     );
@@ -1082,7 +1084,7 @@ class _SeasonIrrigationCalendarScreenState
               gradient: LinearGradient(
                 colors: [
                   Color(0xFF047857),
-                  Color(0xFF059669),
+                  Color(0xFF047857),
                   Color(0xFF0D9488),
                 ],
               ),
@@ -1094,25 +1096,32 @@ class _SeasonIrrigationCalendarScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: Color(0xFFFDE68A),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'LƯỚI LỊCH TƯỚI ${c.totalDays} NGÀY VỤ MÙA',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+                Flexible(
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 14,
+                        color: Color(0xFFFDE68A),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'LƯỚI LỊCH TƯỚI ${c.totalDays} NGÀY VỤ MÙA',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${days.length} / ${c.totalDays} ngày',
                   style: const TextStyle(fontSize: 11, color: Colors.white70),
@@ -1154,7 +1163,7 @@ class _SeasonIrrigationCalendarScreenState
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: 68,
-        height: 72,
+        constraints: const BoxConstraints(minHeight: 72),
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
           color: isSelected
@@ -1183,7 +1192,7 @@ class _SeasonIrrigationCalendarScreenState
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Top: Day number + customized indicator
             Row(
@@ -1219,6 +1228,7 @@ class _SeasonIrrigationCalendarScreenState
             ),
 
             // Mid: Date + day of week
+            const SizedBox(height: 2),
             Text(
               '$displayDate $dayOfWeek',
               style: TextStyle(
@@ -1229,6 +1239,7 @@ class _SeasonIrrigationCalendarScreenState
             ),
 
             // Bottom: 3 Session indicator dots + Stage short pill
+            const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1424,6 +1435,20 @@ class _SeasonIrrigationCalendarScreenState
           ),
           const SizedBox(height: 12),
 
+          if (!canEdit)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Bạn chỉ xem được lịch tưới này (chỉ Chủ trang trại được chỉnh sửa).',
+                style: TextStyle(fontSize: 12, color: _muted, height: 1.35),
+              ),
+            ),
           // Batch Action Buttons
           if (canEdit)
             Wrap(
@@ -1541,7 +1566,7 @@ class _SeasonIrrigationCalendarScreenState
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: _hasUnsavedChanges
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : const Color(0xFF0F172A),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1596,35 +1621,42 @@ class _SeasonIrrigationCalendarScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: session.enabled,
-                    activeColor: themeColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
+              Flexible(
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: session.enabled,
+                      activeColor: themeColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: canEdit
+                          ? (val) => _toggleSession(index, val ?? false)
+                          : null,
                     ),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    onChanged: canEdit
-                        ? (val) => _toggleSession(index, val ?? false)
-                        : null,
-                  ),
-                  Icon(
-                    icon,
-                    size: 17,
-                    color: session.enabled ? themeColor : _muted,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    sessionTypeTitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: session.enabled ? _ink : _muted,
+                    Icon(
+                      icon,
+                      size: 17,
+                      color: session.enabled ? themeColor : _muted,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        sessionTypeTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: session.enabled ? _ink : _muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 6),
               InkWell(
                 onTap: canEdit && session.enabled
                     ? () => _pickTime(index)
@@ -1679,11 +1711,14 @@ class _SeasonIrrigationCalendarScreenState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Thời lượng tưới:',
-                      style: TextStyle(fontSize: 12, color: _ink),
+                    Flexible(
+                      child: Text(
+                        'Thời lượng tưới:',
+                        style: const TextStyle(fontSize: 12, color: _ink),
+                      ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         _stepperButton(
                           icon: Icons.remove,
@@ -1717,11 +1752,14 @@ class _SeasonIrrigationCalendarScreenState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Liều lượng nước:',
-                      style: TextStyle(fontSize: 12, color: _ink),
+                    Flexible(
+                      child: Text(
+                        'Liều lượng nước:',
+                        style: const TextStyle(fontSize: 12, color: _ink),
+                      ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         _stepperButton(
                           icon: Icons.remove,
@@ -1808,6 +1846,15 @@ class _SeasonIrrigationCalendarScreenState
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '• ${staleReasonText(r)}',
+                style: const TextStyle(fontSize: 11.5, color: _ink),
+              ),
+            ),
+          // Ngày đã tùy chỉnh nhưng nằm ngoài vụ hiện tại không có trong lưới: nêu rõ để không bị ẩn.
+          for (final d in c.outOfRangeDays)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '• Ngày ${d.dayNumber} (ngoài vụ): ${d.enabledCount} ca đã tùy chỉnh, không nằm trong lưới ${c.totalDays} ngày.',
                 style: const TextStyle(fontSize: 11.5, color: _ink),
               ),
             ),

@@ -4,7 +4,6 @@ library;
 
 import '../../core/models/iot_deployment.dart';
 import '../../core/models/models.dart' show BusinessParameters;
-import 'install_voucher_logic.dart';
 
 enum NodeKind { gateway, sensor, actuator }
 
@@ -211,9 +210,6 @@ enum NodePlacementBlock {
 
   /// Triển khai gắn kèm không đọc được hoặc sai Farm/Zone/mã liên kết.
   wrongLink,
-
-  /// Phiếu xuất kho thiết bị của hợp đồng chưa được Admin duyệt (chưa có, nháp, chờ duyệt, bị hủy) hoặc chưa đọc được.
-  stockOut,
 }
 
 class NodePlacementGate {
@@ -258,10 +254,6 @@ NodePlacementGate checkNodePlacement({
   required String? quotationStatus,
   required String? deploymentStatus,
   required bool linkValid,
-
-  /// Giai đoạn phiếu xuất kho của hợp đồng (null = chưa đọc được: khoá). Chỉ được gắn Node khi [VoucherPhase.approved].
-  required VoucherPhase? voucherPhase,
-  String? voucherCode,
   String? depositLabel,
   String? remainingLabel,
 }) {
@@ -298,11 +290,7 @@ NodePlacementGate checkNodePlacement({
           : 'Triển khai đã ${deploymentStatus == 'Cancelled' ? 'bị hủy' : 'chuyển sang bảo trì'}, không thể gắn thêm Node.',
     );
   }
-  // Luồng 1: KTV tạo phiếu xuất kho các thiết bị trong hợp đồng, gửi Admin; Admin duyệt rồi mới được gắn/chấm Node.
-  final voucherMsg = voucherBlockMessage(voucherPhase, code: voucherCode);
-  if (voucherMsg != null) {
-    return NodePlacementGate.deny(NodePlacementBlock.stockOut, voucherMsg);
-  }
+  // Phiếu xuất kho là chức năng riêng (Kho & Xuất kho), không chặn gắn Node: cọc xong là gắn được.
   return const NodePlacementGate.allow();
 }
 

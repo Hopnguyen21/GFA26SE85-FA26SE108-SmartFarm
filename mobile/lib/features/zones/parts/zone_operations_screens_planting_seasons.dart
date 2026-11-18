@@ -51,12 +51,16 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
     final canRecordYield = role == 'OWNER' || role == 'FARMER';
     final isOwner = role == 'OWNER';
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       floatingActionButton: isOwner && !_hasRunning
           ? FloatingActionButton.extended(
-              backgroundColor: const Color(0xFF062326),
+              backgroundColor: const Color(0xFF047857),
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
-              label: const Text('Tạo vụ trồng'),
+              label: const Text(
+                'Tạo vụ trồng',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onPressed: () async {
                 final created = await showCreateSeasonSheet(context, zone);
                 if (created == true && context.mounted) {
@@ -69,12 +73,19 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
       appBar: AppBar(
         title: Text(
           'Vụ trồng · ${zone.name}',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             tooltip: 'Xuất Excel tổng kết vụ',
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const Icon(Icons.file_download_outlined, color: Colors.white),
             onPressed: () => _export(context),
           ),
         ],

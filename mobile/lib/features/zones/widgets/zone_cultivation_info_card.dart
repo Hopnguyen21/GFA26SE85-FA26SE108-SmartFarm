@@ -3,10 +3,11 @@ import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/utils/json_utils.dart';
 import '../../../core/utils/profile_name.dart';
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 
 String _val(Object? v) {
   final s = '${v ?? ''}'.trim();
@@ -42,7 +43,7 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
   // Vụ trồng hiện tại của Zone: vụ đang canh tác, nếu không có thì vụ dự kiến. null = chưa có.
   Map<String, dynamic>? _season;
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   @override
   void initState() {
@@ -127,8 +128,15 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
