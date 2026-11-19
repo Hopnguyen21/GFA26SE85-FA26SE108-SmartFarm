@@ -17,7 +17,7 @@ class FormSection extends StatelessWidget {
     required this.children,
     this.subtitle,
     this.trailing,
-    this.accent = const Color(0xFF059669),
+    this.accent = const Color(0xFF047857),
   });
 
   @override

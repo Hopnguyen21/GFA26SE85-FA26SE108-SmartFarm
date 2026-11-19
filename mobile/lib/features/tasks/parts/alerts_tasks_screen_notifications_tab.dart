@@ -25,13 +25,13 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
             )
           : RefreshIndicator(
               onRefresh: farmProvider.fetchNotifications,
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: farmProvider.notifications.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final notif = farmProvider.notifications[index];
+              child: PagedList<AppNotificationModel>(
+                items: sortNewestFirst(
+                  farmProvider.notifications,
+                  (n) => parseTime(n.createdAt),
+                ),
+                itemGap: 10,
+                itemBuilder: (context, notif) {
                   final isCritical = notif.severity == 'Critical';
                   final isWarning = notif.severity == 'Warning';
 
@@ -75,9 +75,17 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                       farmProvider.deleteNotification(notif.notificationId);
                     },
                     child: InkWell(
-                      onTap: () => farmProvider.markNotificationAsRead(
-                        notif.notificationId,
-                      ),
+                      onTap: () {
+                        farmProvider.markNotificationAsRead(
+                          notif.notificationId,
+                        );
+                        openNotificationTarget(
+                          context,
+                          type: notif.type,
+                          referenceId: notif.referenceId,
+                          role: farmProvider.currentRole,
+                        );
+                      },
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.all(14),
@@ -165,16 +173,35 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        notif.type,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: badgeColor,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: badgeColor.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            5,
+                                          ),
+                                          border: Border.all(
+                                            color: badgeColor.withValues(
+                                              alpha: 0.25,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          notificationTypeLabel(notif.type),
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: badgeColor,
+                                          ),
                                         ),
                                       ),
                                       Text(
-                                        notif.createdAt,
+                                        notificationTimeLabel(notif.createdAt),
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: Color(0xFF94A3B8),

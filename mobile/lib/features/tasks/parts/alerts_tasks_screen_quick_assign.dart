@@ -92,7 +92,7 @@ extension _AlertsTasksScreenQuickAssign on AlertsTasksScreen {
                         ),
                         child: const Icon(
                           Icons.assignment_add,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF047857),
                           size: 22,
                         ),
                       ),
@@ -467,7 +467,7 @@ extension _AlertsTasksScreenQuickAssign on AlertsTasksScreen {
                                 content: Text(
                                   '📋 Đã giao việc cho ${targetFarmer.name}!',
                                 ),
-                                backgroundColor: const Color(0xFF059669),
+                                backgroundColor: const Color(0xFF047857),
                               ),
                             );
                           },

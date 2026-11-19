@@ -380,7 +380,11 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
               children: [
                 Row(
                   children: const [
-                    Icon(Icons.receipt_long, color: Color(0xFF10B981), size: 22),
+                    Icon(
+                      Icons.receipt_long,
+                      color: Color(0xFF10B981),
+                      size: 22,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Phiếu Nhập Kho & Lịch Sử',
@@ -418,11 +422,18 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: const [
-                          Icon(Icons.inbox_outlined, size: 48, color: Color(0xFF94A3B8)),
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 48,
+                            color: Color(0xFF94A3B8),
+                          ),
                           SizedBox(height: 8),
                           Text(
                             'Chưa có phiếu nhập kho nào.',
-                            style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -434,11 +445,16 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                     itemBuilder: (lCtx, index) {
                       final item = list[index];
                       final code = item['stockInCode']?.toString() ?? 'PNK';
-                      final supplier = item['supplierName']?.toString() ?? 'Nội bộ';
-                      final status = item['statusText']?.toString() ?? 'Đã hoàn thành';
-                      final totalAmount = (item['totalAmount'] as num?)?.toDouble() ?? 0;
+                      final supplier =
+                          item['supplierName']?.toString() ?? 'Nội bộ';
+                      final status =
+                          item['statusText']?.toString() ?? 'Đã hoàn thành';
+                      final totalAmount =
+                          (item['totalAmount'] as num?)?.toDouble() ?? 0;
                       final details = (item['details'] as List?) ?? [];
-                      final isCompleted = status.contains('hoàn thành') || status == 'Completed';
+                      final isCompleted =
+                          status.contains('hoàn thành') ||
+                          status == 'Completed';
 
                       return Container(
                         padding: const EdgeInsets.all(12),
@@ -462,9 +478,14 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: isCompleted ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                    color: isCompleted
+                                        ? const Color(0xFFDCFCE7)
+                                        : const Color(0xFFFEF3C7),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
@@ -472,7 +493,9 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: isCompleted ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                                      color: isCompleted
+                                          ? const Color(0xFF15803D)
+                                          : const Color(0xFFB45309),
                                     ),
                                   ),
                                 ),
@@ -481,7 +504,11 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                const Icon(Icons.business_outlined, size: 14, color: Color(0xFF64748B)),
+                                const Icon(
+                                  Icons.business_outlined,
+                                  size: 14,
+                                  color: Color(0xFF64748B),
+                                ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
@@ -509,24 +536,38 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                             const Divider(height: 16),
                             Text(
                               'Chi tiết hàng nhập (${details.length} mục):',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
                             ),
                             const SizedBox(height: 4),
                             for (final d in details)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Text(
                                         '• ${d['itemName'] ?? ''}',
-                                        style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF334155),
+                                        ),
                                       ),
                                     ),
                                     Text(
                                       '${d['quantity'] ?? 0} ${d['unit'] ?? ''}',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F766E),
+                                      ),
                                     ),
                                   ],
                                 ),

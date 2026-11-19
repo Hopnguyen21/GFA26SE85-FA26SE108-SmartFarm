@@ -76,7 +76,8 @@ extension _HomeScreenOwnerActions on HomeScreen {
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
+                      // 2 dòng: "Yêu cầu & Hợp đồng", "Quản lý Nhân công", "Lập lịch tự động" bị cắt "…" khi chỉ 1 dòng.
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13,
@@ -106,8 +107,9 @@ extension _HomeScreenOwnerActions on HomeScreen {
 
     return [
       OwnerPendingActionsCard(
-        key: ValueKey('pending-${farmProvider.allZones.length}'),
+        key: ValueKey('pending-${farmProvider.allZones.length}-${zone.zoneId}'),
         zones: farmProvider.allZones,
+        zoneId: zone.zoneId,
       ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -165,6 +167,37 @@ extension _HomeScreenOwnerActions on HomeScreen {
                       title: 'Hợp đồng Zone',
                       subtitle: 'Hợp đồng & khấu hao',
                       onTap: () => open(const ContractsDepreciationScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: tile(
+                      icon: Icons.people_alt_outlined,
+                      color: const Color(0xFF2563EB),
+                      title: 'Quản lý Nhân công',
+                      subtitle: 'Mời & phân quyền Zone',
+                      onTap: () => open(
+                        WorkforceScreen(
+                          initialFarmId: farmProvider.selectedFarmId,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: tile(
+                      icon: Icons.tune_outlined,
+                      color: const Color(0xFF0D9488),
+                      title: 'Lập lịch tự động',
+                      subtitle: 'Quy tắc & vi khí hậu',
+                      onTap: () => open(const SchedulesAutomationScreen()),
                     ),
                   ),
                 ],

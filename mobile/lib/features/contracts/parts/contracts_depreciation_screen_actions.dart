@@ -74,7 +74,7 @@ extension _ContractsDepreciationScreenStateActions
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã thêm hồ sơ khấu hao.'),
-        backgroundColor: Color(0xFF059669),
+        backgroundColor: Color(0xFF047857),
       ),
     );
     _loadData();

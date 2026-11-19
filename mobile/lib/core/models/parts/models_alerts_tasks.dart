@@ -12,6 +12,9 @@ class AlertModel {
   final String zoneId;
   final String zoneName;
 
+  /// Thời điểm phát sinh (UTC) để sắp xếp mới nhất trước.
+  final DateTime? createdAtUtc;
+
   AlertModel({
     required this.alertId,
     required this.title,
@@ -22,6 +25,7 @@ class AlertModel {
     this.isAcknowledged = false,
     this.zoneId = '',
     this.zoneName = '',
+    this.createdAtUtc,
   });
 
   bool get isBoundaryViolation =>
@@ -69,6 +73,7 @@ class AlertModel {
           json['status']?.toString() == 'Acknowledged',
       zoneId: json['zoneId']?.toString() ?? '',
       zoneName: json['zoneName']?.toString() ?? '',
+      createdAtUtc: parseTime(createdAt),
     );
   }
 }

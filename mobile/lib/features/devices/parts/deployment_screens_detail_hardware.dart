@@ -7,6 +7,7 @@ extension _DeploymentRequestDetailScreenStateHardware
     if (r.status != 'Installing' && _gateways.isEmpty && _devices.isEmpty)
       return const [];
     final installing = r.status == 'Installing';
+    final canProvision = installing;
     return [
       const Divider(height: 24),
       const Text(
@@ -25,7 +26,7 @@ extension _DeploymentRequestDetailScreenStateHardware
           title: Text('${g.gatewaySerial} · ${g.macAddress}'),
           subtitle: Text('Trạng thái: ${g.status}'),
         ),
-      if (installing)
+      if (canProvision)
         Row(
           children: [
             TextButton.icon(
@@ -41,7 +42,7 @@ extension _DeploymentRequestDetailScreenStateHardware
               ),
           ],
         ),
-      for (final d in _devices) _deviceTile(r, d, installing),
+      for (final d in _devices) _deviceTile(r, d, canProvision),
     ];
   }
 
@@ -70,7 +71,7 @@ extension _DeploymentRequestDetailScreenStateHardware
                 color: t == null
                     ? const Color(0xFF64748B)
                     : (t.succeeded
-                          ? const Color(0xFF059669)
+                          ? const Color(0xFF047857)
                           : const Color(0xFFDC2626)),
               ),
             ),
@@ -104,70 +105,15 @@ extension _DeploymentRequestDetailScreenStateHardware
     );
   }
 
-  Future<List<String?>?> _form(String title, List<String> labels) async {
-    final controllers = [for (final _ in labels) TextEditingController()];
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < labels.length; i++)
-                TextField(
-                  controller: controllers[i],
-                  decoration: InputDecoration(labelText: labels[i]),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Gửi'),
-          ),
-        ],
-      ),
-    );
-    final values = [for (final c in controllers) c.text.trim()];
-    for (final c in controllers) {
-      c.dispose();
-    }
-    if (ok != true) return null;
-    if (values.any((v) => v.isEmpty)) {
-      if (mounted) _toast(context, 'Cần nhập đủ các trường.');
-      return null;
-    }
-    return values;
-  }
-
+  /// Backend đã tắt cấp phát Gateway tay (`POST /gateways` trả 410): Gateway thật tự đăng ký rồi KTV kích hoạt cho yêu cầu;
+  /// chưa có phần cứng thì mô phỏng. Xong tải lại chi tiết triển khai.
   Future<void> _provisionGateway(DeploymentRequest r) async {
-    final v = await _form('Cấp phát Gateway', [
-      'MAC address',
-      'Serial',
-      'Băng tần (vd 868MHz)',
-      'Phiên bản firmware',
-      'MQTT client ID',
-      'Fingerprint chứng chỉ client',
-    ]);
-    if (v == null || !mounted) return;
-    await _act(
-      () async => DeploymentApi.provisionGateway(
-        deploymentRequestId: r.requestId,
-        farmId: r.farmId,
-        macAddress: v[0]!,
-        gatewaySerial: v[1]!,
-        frequencyBand: v[2]!,
-        firmwareVersion: v[3]!,
-        mqttClientId: v[4]!,
-        clientCertificateFingerprint: v[5]!,
-      ),
+    final done = await showGatewayActivationSheet(
+      context,
+      farmId: r.farmId,
+      deploymentRequestId: r.requestId,
     );
+    if (done && mounted) await _load();
   }
 
   Future<void> _provisionNodes(DeploymentRequest r) async {

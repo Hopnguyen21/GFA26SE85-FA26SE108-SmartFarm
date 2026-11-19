@@ -112,7 +112,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: const Color(0xFF059669)),
+            Icon(icon, size: 16, color: const Color(0xFF047857)),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -149,7 +149,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
         ? const Color(0xFFE11D48)
         : soon
         ? const Color(0xFFD97706)
-        : const Color(0xFF059669);
+        : const Color(0xFF047857);
     final label = c.statusText.isNotEmpty
         ? c.statusText
         : expired
@@ -322,16 +322,24 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
         if (!didPop) Navigator.pop(context, _changed);
       },
       child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          elevation: 0,
           title: Text(
             'Chi tiết hợp đồng #${c.contractNumber}',
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           actions: [
             IconButton(
               tooltip: 'Tải lại',
               onPressed: _loading ? null : _reload,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh, color: Colors.white),
             ),
           ],
         ),
@@ -341,6 +349,8 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     c.status == 'Expired' ||
                     c.isExpiringSoon)
             ? FloatingActionButton.extended(
+                backgroundColor: const Color(0xFF047857),
+                foregroundColor: Colors.white,
                 icon: const Icon(Icons.autorenew),
                 label: const Text('Gia hạn'),
                 onPressed: () async {
@@ -399,16 +409,22 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     bold: true,
                   ),
               ]),
-              _card(Icons.person_outline, 'Thông tin Khách hàng / Bên thuê', [
-                _row('Đại diện bên thuê', c.lesseeName, bold: true),
-                _row('Số điện thoại', c.lesseePhone ?? '—'),
-                _row('Số CCCD / MST', c.lesseeIdentityNumber ?? '—'),
-                _row('Địa chỉ liên hệ', c.lesseeAddress ?? '—'),
-                _row(
-                  'Ngày ký kết',
-                  c.signedAtUtc != null ? _d(c.signedAtUtc!) : _d(c.startDate),
-                ),
-              ]),
+              _card(
+                Icons.person_outline,
+                'Thông tin Khách hàng (Chủ trang trại)',
+                [
+                  _row('Khách hàng', c.lesseeName, bold: true),
+                  _row('Số điện thoại', c.lesseePhone ?? '—'),
+                  _row('Số CCCD / MST', c.lesseeIdentityNumber ?? '—'),
+                  _row('Địa chỉ liên hệ', c.lesseeAddress ?? '—'),
+                  _row(
+                    'Ngày ký kết',
+                    c.signedAtUtc != null
+                        ? _d(c.signedAtUtc!)
+                        : _d(c.startDate),
+                  ),
+                ],
+              ),
               _card(
                 Icons.payments_outlined,
                 'Bảng tính tiền & thanh toán',
@@ -416,8 +432,10 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                 trailing: 'Đơn vị: VNĐ',
                 [
                   _row(
-                    '1. Đơn giá thuê tháng',
-                    '${_vnd.format(c.monthlyRentVnd)}/tháng',
+                    '1. Phí dịch vụ / tháng',
+                    c.monthlyRentVnd > 0
+                        ? '${_vnd.format(c.monthlyRentVnd)}/tháng'
+                        : 'Chưa thiết lập',
                   ),
                   _row(
                     '2. Tổng giá trị hợp đồng',
@@ -428,7 +446,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
                     _row(
                       'Chiết khấu (${c.discountPercent}%)',
                       '-${_vnd.format(c.discountVnd)}',
-                      color: const Color(0xFF059669),
+                      color: const Color(0xFF047857),
                     ),
                   _row(
                     vatPercent == null

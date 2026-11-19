@@ -94,7 +94,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: const BoxDecoration(
-              color: Color(0xFF062326),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF062326), Color(0xFF0F3E2E)],
+              ),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
@@ -288,10 +292,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     selected: isSelected,
                     onSelected: (_) =>
                         setState(() => _selectedCategory = entry.key),
-                    selectedColor: const Color(0xFF062326),
+                    selectedColor: const Color(0xFF047857),
                     backgroundColor: Colors.white,
                     labelStyle: TextStyle(
-                      fontSize: 11,
+                      fontSize: 11.5,
                       fontWeight: isSelected
                           ? FontWeight.bold
                           : FontWeight.w500,
@@ -303,12 +307,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
                         color: isSelected
-                            ? const Color(0xFF062326)
+                            ? const Color(0xFF047857)
                             : const Color(0xFFE2E8F0),
+                        width: isSelected ? 1.5 : 1,
                       ),
                     ),
                     showCheckmark: false,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   ),
                 );
               }).toList(),

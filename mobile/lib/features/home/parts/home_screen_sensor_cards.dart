@@ -14,6 +14,47 @@ extension _HomeScreenSensorCards on HomeScreen {
     required bool? isWarning,
     required String unit,
   }) {
+    final isNoData = value == '—';
+    String numStr = value;
+    String unitStr = '';
+    if (!isNoData) {
+      if (value.endsWith('°C')) {
+        numStr = value.substring(0, value.length - 2).trim();
+        unitStr = '°C';
+      } else if (value.endsWith('%')) {
+        numStr = value.substring(0, value.length - 1).trim();
+        unitStr = '%';
+      } else if (value.endsWith(' lx')) {
+        numStr = value.substring(0, value.length - 3).trim();
+        unitStr = 'lx';
+      } else if (unit.isNotEmpty && value.endsWith(unit)) {
+        numStr = value.substring(0, value.length - unit.length).trim();
+        unitStr = unit;
+      }
+    }
+
+    final String statusLabel;
+    final Color statusTextColor;
+    final Color statusBgColor;
+
+    if (isNoData) {
+      statusLabel = 'Chờ đo';
+      statusTextColor = const Color(0xFFB45309);
+      statusBgColor = const Color(0xFFFFFBEB);
+    } else if (isWarning == null) {
+      statusLabel = 'Chưa đặt ngưỡng';
+      statusTextColor = const Color(0xFF64748B);
+      statusBgColor = const Color(0xFFF1F5F9);
+    } else if (isWarning == true) {
+      statusLabel = 'Cảnh báo';
+      statusTextColor = const Color(0xFFDC2626);
+      statusBgColor = const Color(0xFFFEF2F2);
+    } else {
+      statusLabel = 'Ổn định';
+      statusTextColor = const Color(0xFF047857);
+      statusBgColor = const Color(0xFFECFDF5);
+    }
+
     return InkWell(
       onTap: zoneId.isNotEmpty
           ? () => _showSensorHistoryModal(
@@ -29,21 +70,35 @@ extension _HomeScreenSensorCards on HomeScreen {
           : null,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: Colors.white,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              isWarning == true
+                  ? const Color(0xFFFFF1F2)
+                  : bgColor.withValues(alpha: 0.35),
+            ],
+          ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isWarning == true
                 ? const Color(0xFFFCA5A5)
-                : const Color(0xFFE2E8F0),
+                : (isNoData
+                      ? const Color(0xFFE2E8F0)
+                      : iconColor.withValues(alpha: 0.22)),
             width: isWarning == true ? 1.5 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: isWarning == true
+                  ? const Color(0xFFEF4444).withValues(alpha: 0.08)
+                  : iconColor.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -60,7 +115,7 @@ extension _HomeScreenSensorCards on HomeScreen {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF475569),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -71,6 +126,10 @@ extension _HomeScreenSensorCards on HomeScreen {
                   decoration: BoxDecoration(
                     color: bgColor,
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: iconColor.withValues(alpha: 0.15),
+                      width: 0.8,
+                    ),
                   ),
                   child: Icon(icon, color: iconColor, size: 15),
                 ),
@@ -84,15 +143,36 @@ extension _HomeScreenSensorCards on HomeScreen {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: isWarning == true
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF0F172A),
-                        letterSpacing: -0.5,
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: numStr,
+                            style: TextStyle(
+                              fontSize: isNoData ? 22 : 23,
+                              fontWeight: FontWeight.w800,
+                              color: isWarning == true
+                                  ? const Color(0xFFDC2626)
+                                  : (isNoData
+                                        ? const Color(0xFF94A3B8)
+                                        : const Color(0xFF0F172A)),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          if (unitStr.isNotEmpty) ...[
+                            const TextSpan(text: ' '),
+                            TextSpan(
+                              text: unitStr,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isWarning == true
+                                    ? const Color(0xFFEF4444)
+                                    : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -105,42 +185,64 @@ extension _HomeScreenSensorCards on HomeScreen {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: value == '—' || isWarning == null
-                          ? const Color(0xFFFFFBEB)
-                          : isWarning == true
-                          ? const Color(0xFFFEF2F2)
-                          : const Color(0xFFECFDF5),
+                      color: statusBgColor,
                       borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      value == '—'
-                          ? 'Thiếu dữ liệu'
-                          : isWarning == null
-                          ? 'Thiếu ngưỡng DB'
-                          : isWarning == true
-                          ? 'Cảnh báo'
-                          : 'Ổn định',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: value == '—' || isWarning == null
-                            ? const Color(0xFFB45309)
-                            : isWarning == true
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF059669),
+                      border: Border.all(
+                        color: statusTextColor.withValues(alpha: 0.15),
+                        width: 0.6,
                       ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 4.5,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            color: statusTextColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 3.5),
+                        Flexible(
+                          child: Text(
+                            statusLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: statusTextColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-            Text(
-              target,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    target,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.show_chart,
+                  size: 13,
+                  color: iconColor.withValues(alpha: 0.5),
+                ),
+              ],
             ),
           ],
         ),
@@ -230,7 +332,7 @@ extension _HomeScreenSensorCards on HomeScreen {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF059669),
+                        color: Color(0xFF047857),
                       ),
                     ),
                   ),

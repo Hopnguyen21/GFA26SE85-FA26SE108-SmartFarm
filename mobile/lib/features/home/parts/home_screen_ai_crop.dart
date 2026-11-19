@@ -65,11 +65,7 @@ extension _HomeScreenAiCrop on HomeScreen {
                       ),
                       child: Center(
                         child: Text(
-                          zone.currentCrop.contains('Cà chua')
-                              ? '🍅'
-                              : zone.currentCrop.contains('Dâu')
-                              ? '🍓'
-                              : '🫑',
+                          cropEmoji(zone.currentCrop),
                           style: const TextStyle(fontSize: 24),
                         ),
                       ),
@@ -108,7 +104,7 @@ extension _HomeScreenAiCrop on HomeScreen {
                                   zone.currentStage,
                                   style: const TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF059669),
+                                    color: Color(0xFF047857),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

@@ -14,6 +14,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) => Padding(
         padding: EdgeInsets.fromLTRB(
@@ -34,9 +37,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
               const SizedBox(height: 12),
               TextField(
                 controller: nameC,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Tên Zone',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 10),
@@ -45,22 +48,29 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Diện tích (m²)',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: notesC,
                 maxLength: 1000,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Ghi chú',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 8),
               FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF047857),
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
                 onPressed: busy
                     ? null
                     : () async {
@@ -123,7 +133,14 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
               const Divider(),
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(foregroundColor: _red),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _red,
+                  side: const BorderSide(color: _red),
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
                 icon: const Icon(Icons.archive_outlined),
                 label: const Text('Lưu trữ Zone'),
                 onPressed: busy
@@ -132,6 +149,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                         final ok = await showDialog<bool>(
                           context: ctx,
                           builder: (d) => AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             title: const Text('Lưu trữ Zone?'),
                             content: Text(
                               'Zone "${zone.name}" sẽ bị ẩn khỏi trang trại. '

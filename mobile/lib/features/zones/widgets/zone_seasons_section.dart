@@ -12,10 +12,12 @@ import '../zone_auto_season.dart'
 import '../zone_operations_screens.dart';
 import 'record_yield_dialog.dart';
 import 'change_stage_dialog.dart';
+import 'zone_yield_card.dart' show isHarvestStageSeason;
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 
 const _statusVi = {
   'Planned': ('Dự kiến', Color(0xFF0284C7)),
@@ -165,7 +167,7 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -201,21 +203,35 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.eco_outlined, size: 16, color: _green),
-              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.eco_outlined, size: 14, color: _green),
+              ),
+              const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'VỤ TRỒNG CỦA ZONE NÀY',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w800,
                     color: _green,
                     letterSpacing: 0.4,
@@ -284,6 +300,18 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                       )
                     : FilledButton.icon(
                         onPressed: _loading ? null : _create,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF15803D),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                         icon: const Icon(Icons.add, size: 18),
                         label: const Text('Tạo vụ trồng cho Zone này'),
                       ),
@@ -330,10 +358,11 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
     final seasonId = validId(s['seasonId'] ?? s['plantingSeasonId']);
     final profileId = validId(s['growthProfileId']);
     final yieldKg = s['actualYieldKg'];
-    final canRecord =
-        canYield &&
-        (statusCode == 'InProgress' || statusCode == 'Completed') &&
-        seasonId != null;
+    final isHarvest =
+        statusCode == 'Completed' ||
+        (statusCode == 'InProgress' &&
+            isHarvestStageSeason(s, zone: widget.zone));
+    final canRecord = canYield && isHarvest && seasonId != null;
     final progress = s['progressPercent'] ?? s['progress'];
     final timeProgress = seasonTimeProgress(s);
     final isOwner = context.read<FarmProvider>().currentRole == 'OWNER';
@@ -352,9 +381,23 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: statusCode == 'InProgress'
+            ? const Color(0xFFF0FDF4)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: statusCode == 'InProgress'
+              ? const Color(0xFFA7F3D0)
+              : const Color(0xFFE2E8F0),
+          width: statusCode == 'InProgress' ? 1.3 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,12 +414,20 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                   ),
                 ),
               ),
-              Text(
-                status.$1,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: status.$2,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: status.$2.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: status.$2.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  status.$1,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: status.$2,
+                  ),
                 ),
               ),
             ],
@@ -445,6 +496,18 @@ class _ZoneSeasonsSectionState extends State<ZoneSeasonsSection> {
                 ),
               if (canStart)
                 FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF15803D),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                   icon: const Icon(Icons.play_arrow, size: 18),
                   label: const Text('Bắt đầu vụ'),
                   onPressed: () => _startSeason(s, seasonId),

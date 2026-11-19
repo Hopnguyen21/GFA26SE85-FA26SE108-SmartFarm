@@ -163,7 +163,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Trợ lý AI Nông học VietGAP',
+                    'Trợ lý AI Nông học',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -172,7 +172,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    'Vi khí hậu thời gian thực · đề xuất tưới thông minh',
+                    'Vi khí hậu & đề xuất tưới',
                     style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -248,38 +248,53 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       ),
       body: zone.zoneId.isEmpty
           ? _buildNoPermissionView(farmProvider)
-          : Column(
-              children: [
-                _buildContextBanner(zone),
-                _buildQueueStrip(farmProvider, queue),
-                if (_isLoadingHistory || _isLoadingContext)
-                  const LinearProgressIndicator(
-                    color: _kAiGreen,
-                    backgroundColor: Color(0xFFECFDF5),
-                    minHeight: 2,
+          : LayoutBuilder(
+              builder: (context, box) => Column(
+                children: [
+                  // Banner + hàng đợi tối đa 40% chiều cao (cuộn được) để khung chat luôn còn chỗ ở cửa sổ thấp.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: box.maxHeight * 0.4),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          _buildContextBanner(zone),
+                          _buildQueueStrip(farmProvider, queue),
+                        ],
+                      ),
+                    ),
                   ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(14),
-                    itemCount:
-                        farmProvider.chatMessages.length + (_isTyping ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (_isTyping &&
-                          index == farmProvider.chatMessages.length) {
-                        return _buildTypingIndicator();
-                      }
-                      final msg = farmProvider.chatMessages[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _buildMessage(msg, farmProvider),
-                      );
-                    },
+                  if (_isLoadingHistory || _isLoadingContext)
+                    const LinearProgressIndicator(
+                      color: _kAiGreen,
+                      backgroundColor: Color(0xFFECFDF5),
+                      minHeight: 2,
+                    ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(14),
+                      itemCount:
+                          farmProvider.chatMessages.length +
+                          (_isTyping ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (_isTyping &&
+                            index == farmProvider.chatMessages.length) {
+                          return _buildTypingIndicator();
+                        }
+                        final msg = farmProvider.chatMessages[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _buildMessage(msg, farmProvider),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                if (!keyboardOpen) _buildQuickPrompts(farmProvider),
-                _buildInputBar(farmProvider),
-              ],
+                  // Chiều cao thấp (cửa sổ nhỏ/web): bỏ gợi ý nhanh để khung chat luôn còn chỗ, không tràn.
+                  if (!keyboardOpen && box.maxHeight >= 740)
+                    _buildQuickPrompts(farmProvider),
+                  _buildInputBar(farmProvider),
+                ],
+              ),
             ),
     );
   }

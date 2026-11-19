@@ -7,6 +7,7 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 
 import 'zone_contract_forms.dart';
+import '../../core/utils/user_error.dart';
 
 part 'parts/contracts_depreciation_screen_contracts_tab.dart';
 part 'parts/contracts_depreciation_screen_depreciations_tab.dart';
@@ -134,7 +135,7 @@ class _ContractsDepreciationScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Không tải được hợp đồng/khấu hao: ${e.toString().replaceFirst('Exception: ', '')}',
+              'Không tải được hợp đồng/khấu hao: ${userFacingError(e)}',
             ),
             backgroundColor: const Color(0xFFDC2626),
             action: SnackBarAction(
@@ -173,7 +174,7 @@ class _ContractsDepreciationScreenState
               ),
             ),
             Text(
-              'Zone Contracts & Device Depreciation',
+              'Hợp đồng Zone & khấu hao thiết bị',
               style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],

@@ -26,9 +26,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
           ZoneNodeSummaryCard(
             zoneId: widget.zone.zoneId,
             zoneName: widget.zone.name,
-            canEditLocations:
-                provider.currentRole == 'OWNER' ||
-                provider.currentRole == 'TECHNICIAN',
+            // Kỹ thuật viên chỉ chấm/sửa vị trí node qua màn Gắn Node của phiếu lắp đặt (có cổng phiếu xuất kho đã duyệt);
+            // ở đây chỉ Owner được sửa toạ độ trực tiếp.
+            canEditLocations: provider.currentRole == 'OWNER',
           ),
 
           const SizedBox(height: 20),
@@ -37,27 +37,53 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'THIẾT BỊ CHẤP HÀNH (${actuators.length})',
-                style: const TextStyle(
+              const Text(
+                'ĐIỀU KHIỂN RƠ-LE BƠM/QUẠT',
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF64748B),
                   letterSpacing: 0.8,
                 ),
               ),
-              Text(
-                provider.canControlZone(widget.zone.zoneId)
-                    ? (provider.currentRole == 'OWNER'
-                          ? 'Toàn quyền'
-                          : 'Được điều khiển')
-                    : 'Chỉ xem',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: provider.canControlZone(widget.zone.zoneId)
-                      ? const Color(0xFF059669)
-                      : const Color(0xFF94A3B8),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                    ),
+                    child: Text(
+                      relaySummary(actuators),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF047857),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    provider.canControlZone(widget.zone.zoneId)
+                        ? (provider.currentRole == 'OWNER'
+                              ? 'Toàn quyền'
+                              : 'Được điều khiển')
+                        : 'Chỉ xem',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: provider.canControlZone(widget.zone.zoneId)
+                          ? const Color(0xFF047857)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -75,14 +101,14 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                 ),
               ),
             ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
 
           if (actuators.isNotEmpty) ...[
             EmergencyStopButton(
               zoneId: widget.zone.zoneId,
               zoneName: widget.zone.name,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
           ],
 
           Wrap(
@@ -112,7 +138,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           if (actuators.isEmpty &&
               provider.actuatorErrorFor(widget.zone.zoneId) != null)
@@ -243,78 +269,147 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
         icon = Icons.lightbulb;
     }
 
+    final place = actuatorPlaceLabel(
+      act,
+      provider.actuators.where((x) => x.zoneId == act.zoneId),
+    );
+    final notReady = actuatorNotReadyReason(act);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: act.isRunning ? const Color(0xFFF0FDF4) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: act.isRunning
               ? const Color(0xFF10B981)
               : const Color(0xFFE2E8F0),
           width: act.isRunning ? 1.5 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: act.isRunning
+                ? const Color(0xFF10B981).withValues(alpha: 0.08)
+                : const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: act.isRunning
                   ? const Color(0xFFECFDF5)
                   : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
               color: act.isRunning
-                  ? const Color(0xFF059669)
+                  ? const Color(0xFF047857)
                   : const Color(0xFF64748B),
-              size: 22,
+              size: 18,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   act.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: 12.5,
+                    height: 1.15,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  act.isRunning
-                      ? '🟢 Đang bật — còn ${act.remainingMinutes} phút'
-                      : '⚫ Đang tắt',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: act.isRunning
-                        ? const Color(0xFF059669)
-                        : const Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w500,
+                if (place != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1.5),
+                    child: Text(
+                      place,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF64748B),
+                        height: 1.15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 5.5,
+                        height: 5.5,
+                        decoration: BoxDecoration(
+                          color: notReady != null
+                              ? const Color(0xFFD97706)
+                              : (act.isRunning
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF94A3B8)),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          notReady ??
+                              (act.isRunning
+                                  ? 'Đang bật — còn ${act.remainingMinutes} phút'
+                                  : 'Đang tắt'),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: notReady != null
+                                ? const Color(0xFFD97706)
+                                : (act.isRunning
+                                      ? const Color(0xFF047857)
+                                      : const Color(0xFF64748B)),
+                            fontWeight: act.isRunning
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            height: 1.15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 6),
           // Không có quyền: vô hiệu hóa công tắc (giải thích ở dòng quyền phía trên) thay vì cho bấm rồi báo lỗi.
-          Switch.adaptive(
-            value: act.isRunning,
-            activeThumbColor: const Color(0xFF10B981),
-            onChanged: provider.canControlZone(act.zoneId)
-                ? (_) {
-                    HapticFeedback.mediumImpact();
-                    toggleActuatorWithFeedback(
-                      context,
-                      provider,
-                      act.actuatorId,
-                    );
-                  }
-                : null,
+          Transform.scale(
+            scale: 0.82,
+            child: Switch.adaptive(
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              value: act.isRunning,
+              activeThumbColor: const Color(0xFF10B981),
+              onChanged:
+                  provider.canControlZone(act.zoneId) && notReady == null
+                  ? (_) {
+                      HapticFeedback.mediumImpact();
+                      toggleActuatorWithFeedback(
+                        context,
+                        provider,
+                        act.actuatorId,
+                      );
+                    }
+                  : null,
+            ),
           ),
         ],
       ),
@@ -323,11 +418,17 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
 
   Widget _toolChip(IconData icon, String label, VoidCallback onTap) {
     return ActionChip(
-      avatar: Icon(icon, size: 16, color: const Color(0xFF065F46)),
+      avatar: Icon(icon, size: 17, color: const Color(0xFF047857)),
       label: Text(
         label,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF064E3B),
+        ),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       backgroundColor: const Color(0xFFECFDF5),
       side: const BorderSide(color: Color(0xFFA7F3D0)),
       onPressed: onTap,

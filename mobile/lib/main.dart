@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,12 +10,14 @@ import 'core/theme/app_theme.dart';
 import 'features/home/home_screen.dart';
 import 'features/ai/ai_screen.dart';
 import 'features/crops/crop_profiles_screen.dart';
-import 'features/devices/device_health_screen.dart';
+import 'features/workforce/work_management_screen.dart';
 import 'features/farms/gis_map_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/farmer/farmer_dashboard_screen.dart';
 import 'features/tasks/alerts_tasks_screen.dart';
 import 'features/support/technician_work_screen.dart';
+import 'features/devices/technician_devices_screen.dart';
+import 'features/tasks/technician_notifications_screen.dart';
 import 'features/auth/landing_screen.dart';
 
 /// Chỉ dùng cho môi trường Debug/Phát triển nội bộ khi làm việc với chứng chỉ tự ký cục bộ.
@@ -201,10 +203,14 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
 
+  /// Các tab đã mở ít nhất một lần. Tab chưa mở KHÔNG được dựng (trước đây IndexedStack dựng cả 5 tab ngay khi vào app:
+  /// bản đồ GIS, trợ lý AI... đều tải dữ liệu và dựng lại theo mỗi lần đồng bộ dù người dùng chưa mở). Mở rồi thì giữ trạng thái.
+  final Set<int> _visitedTabs = {0};
+
   // Owner screens (includes AI)
   static const List<Widget> _ownerScreens = [
     HomeScreen(),
-    CropProfilesScreen(),
+    WorkManagementScreen(),
     GISMapScreen(),
     AiAssistantScreen(),
     ProfileScreen(),
@@ -216,8 +222,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   static const List<Widget> _technicianScreens = [
     // Công việc: một danh sách, mỗi yêu cầu một thẻ; thao tác đổi theo tiến độ (trước cọc, đã cọc, sau hoàn tất).
     TechnicianWorkScreen(),
-    DeviceHealthScreen(),
-    GISMapScreen(),
+    TechnicianDevicesScreen(),
+    TechnicianNotificationsScreen(),
     ProfileScreen(),
   ];
 
@@ -236,6 +242,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   @override
   Widget build(BuildContext context) {
     final farmProvider = Provider.of<FarmProvider>(context);
+    _visitedTabs.add(_currentIndex);
     final role = farmProvider.currentRole;
     final isFarmer = role == 'FARMER';
     final isTech = role == 'TECHNICIAN';
@@ -243,6 +250,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final screens = isFarmer
         ? _farmerScreens
         : (isTech ? _technicianScreens : _ownerScreens);
+    final unreadNotifications = farmProvider.notifications
+        .where((n) => !n.isRead)
+        .length;
     final pendingAlerts = farmProvider.alerts
         .where((a) => !a.isAcknowledged)
         .length;
@@ -299,7 +309,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 ),
               ),
             Expanded(
-              child: IndexedStack(index: _currentIndex, children: screens),
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  for (var i = 0; i < screens.length; i++)
+                    _visitedTabs.contains(i)
+                        ? screens[i]
+                        : const SizedBox.shrink(),
+                ],
+              ),
             ),
           ],
         ),
@@ -310,7 +328,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           },
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: isTech
-              ? const [
+              ? [
                   NavigationDestination(
                     icon: Icon(Icons.home_repair_service_outlined),
                     selectedIcon: Icon(
@@ -328,11 +346,22 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     label: 'Thiết Bị',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.map_outlined),
-                    selectedIcon: Icon(Icons.map, color: Color(0xFF062326)),
-                    label: 'Bản Đồ',
+                    icon: Badge(
+                      isLabelVisible: unreadNotifications > 0,
+                      label: Text('$unreadNotifications'),
+                      child: const Icon(Icons.notifications_outlined),
+                    ),
+                    selectedIcon: Badge(
+                      isLabelVisible: unreadNotifications > 0,
+                      label: Text('$unreadNotifications'),
+                      child: const Icon(
+                        Icons.notifications,
+                        color: Color(0xFF062326),
+                      ),
+                    ),
+                    label: 'Thông Báo',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: Icon(Icons.person_outline),
                     selectedIcon: Icon(Icons.person, color: Color(0xFF062326)),
                     label: 'Hồ Sơ',
@@ -363,13 +392,19 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     icon: Icon(
                       isTech
                           ? Icons.monitor_heart_outlined
-                          : Icons.eco_outlined,
+                          : (isOwner
+                                ? Icons.assignment_ind_outlined
+                                : Icons.eco_outlined),
                     ),
                     selectedIcon: Icon(
-                      isTech ? Icons.monitor_heart : Icons.eco,
+                      isTech
+                          ? Icons.monitor_heart
+                          : (isOwner ? Icons.assignment_ind : Icons.eco),
                       color: const Color(0xFF062326),
                     ),
-                    label: isTech ? 'Thiết Bị' : 'Cây Trồng',
+                    label: isTech
+                        ? 'Thiết Bị'
+                        : (isOwner ? 'Công Việc' : 'Cây Trồng'),
                   ),
                   const NavigationDestination(
                     icon: Icon(Icons.map_outlined),

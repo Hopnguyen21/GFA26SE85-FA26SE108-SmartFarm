@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
 import 'zone_default_box.dart';
+import '../utils/user_error.dart';
 
 part 'parts/mini_gis_map_picker_map_layer.dart';
 part 'parts/mini_gis_map_picker_overlays.dart';
@@ -12,6 +13,55 @@ part 'parts/mini_gis_map_picker_overlays.dart';
 part 'parts/mini_gis_map_picker_geometry.dart';
 part 'parts/mini_gis_map_picker_interaction.dart';
 part 'parts/mini_gis_map_picker_geocode.dart';
+
+/// Một node thiết bị đã được chấm toạ độ GIS, vẽ trên bản đồ (chỉ để xem).
+class MapNodeMarker {
+  final LatLng point;
+  final String label;
+  final String type; // SensorNode | ActuatorNode | ...
+  final String status; // Online | Offline | ...
+  const MapNodeMarker({
+    required this.point,
+    required this.label,
+    required this.type,
+    this.status = '',
+  });
+
+  /// Dựng từ một dòng của GET /zones/{id}/devices/map-locations; null khi thiếu hoặc sai toạ độ.
+  static MapNodeMarker? fromJson(Map<String, dynamic> j) {
+    final lat = (j['latitude'] as num?)?.toDouble();
+    final lng = (j['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+    if (lat.abs() > 90 || lng.abs() > 180 || (lat == 0 && lng == 0))
+      return null;
+    final name = '${j['deviceName'] ?? ''}'.trim();
+    final addr = '${j['hardwareAddress'] ?? ''}'.trim();
+    return MapNodeMarker(
+      point: LatLng(lat, lng),
+      label: name.isNotEmpty ? name : (addr.isNotEmpty ? addr : 'Node'),
+      type: '${j['deviceType'] ?? ''}',
+      status: '${j['status'] ?? ''}',
+    );
+  }
+}
+
+/// Điểm có nằm trong đa giác (ray casting, toạ độ lng/lat) không. Đa giác dưới 3 đỉnh → false.
+bool pointInPolygon(LatLng p, List<LatLng> poly) {
+  if (poly.length < 3) return false;
+  var inside = false;
+  for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    final a = poly[i], b = poly[j];
+    final crosses =
+        (a.latitude > p.latitude) != (b.latitude > p.latitude) &&
+        p.longitude <
+            (b.longitude - a.longitude) *
+                    (p.latitude - a.latitude) /
+                    (b.latitude - a.latitude) +
+                a.longitude;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
 
 class MiniGISMapPicker extends StatefulWidget {
   final LatLng initialCenter;
@@ -50,6 +100,9 @@ class MiniGISMapPicker extends StatefulWidget {
   /// Diện tích tối đa (m²) của ranh giới Zone gợi ý sẵn, thường là phần còn trống của thửa đất. null = không giới hạn.
   final double? maxDefaultAreaM2;
 
+  /// Node thiết bị đã chấm toạ độ (hiển thị trên ranh giới; không sửa được ở đây).
+  final List<MapNodeMarker> nodeMarkers;
+
   const MiniGISMapPicker({
     super.key,
     required this.initialCenter,
@@ -71,6 +124,7 @@ class MiniGISMapPicker extends StatefulWidget {
     this.isReadOnly = false,
     this.emitInitialPolygon = false,
     this.maxDefaultAreaM2,
+    this.nodeMarkers = const [],
   });
 
   @override

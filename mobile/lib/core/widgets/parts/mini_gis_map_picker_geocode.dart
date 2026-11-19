@@ -98,8 +98,7 @@ class _LocationSearchDialogState extends State<_LocationSearchDialog> {
         _message = r.isEmpty ? 'Không tìm thấy địa điểm phù hợp.' : null;
       });
     } catch (e) {
-      if (mounted)
-        setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _message = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

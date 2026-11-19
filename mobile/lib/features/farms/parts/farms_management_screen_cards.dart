@@ -14,40 +14,50 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã chọn: ${farm.name}'),
-            backgroundColor: const Color(0xFF059669),
+            backgroundColor: const Color(0xFF047857),
             duration: const Duration(seconds: 1),
           ),
         );
       },
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: isCurrent ? const Color(0xFFF0FDF4) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isCurrent
                 ? const Color(0xFF10B981)
                 : const Color(0xFFE2E8F0),
             width: isCurrent ? 2 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: isCurrent
+                  ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.03),
+              blurRadius: isCurrent ? 10 : 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
                 color: isCurrent
                     ? const Color(0xFF10B981).withValues(alpha: 0.15)
                     : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.agriculture,
                 color: isCurrent
-                    ? const Color(0xFF059669)
+                    ? const Color(0xFF047857)
                     : const Color(0xFF64748B),
+                size: 22,
               ),
             ),
             const SizedBox(width: 12),
@@ -63,7 +73,7 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 14,
                             color: isCurrent
                                 ? const Color(0xFF065F46)
                                 : const Color(0xFF0F172A),
@@ -74,17 +84,17 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
+                            horizontal: 7,
+                            vertical: 2,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             'Đang chọn',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 10.5,
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
@@ -93,15 +103,15 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     farm.address,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 11.5,
                       color: Color(0xFF64748B),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
                     'Diện tích: ${(farm.totalAreaM2 / 10000).toStringAsFixed(1)} ha (${farm.totalAreaM2.toInt()} m²)',
                     style: const TextStyle(
@@ -114,7 +124,7 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
               ),
             ),
             if (isCurrent)
-              const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20)
+              const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 22)
             else
               const Icon(
                 Icons.radio_button_unchecked,
@@ -219,26 +229,26 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF10B981)
                 : const Color(0xFFE2E8F0),
             width: isSelected ? 2 : 1,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                  : Colors.black.withValues(alpha: 0.03),
+              blurRadius: isSelected ? 10 : 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -271,7 +281,7 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                           zone.name,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -346,13 +356,13 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
                             : '—',
                         const Color(0xFF10B981),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       _buildZoneMiniMetric(
                         Icons.thermostat,
                         zone.telemetryIsFresh ? '${zone.currentTemp}°C' : '—',
                         const Color(0xFFD97706),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       _buildZoneMiniMetric(
                         Icons.crop_square,
                         '${zone.areaM2.toInt()} m²',
@@ -404,19 +414,28 @@ extension _FarmsManagementScreenCards on FarmsManagementScreen {
   }
 
   Widget _buildZoneMiniMetric(IconData icon, String label, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: color,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../../contracts/zone_contract_forms.dart';
 import '../../support/support_requests_screen.dart';
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -58,7 +59,7 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -81,8 +82,15 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +100,7 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
               const Icon(
                 Icons.assignment_outlined,
                 size: 16,
-                color: Color(0xFF059669),
+                color: Color(0xFF047857),
               ),
               const SizedBox(width: 6),
               const Expanded(
@@ -101,7 +109,7 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                     letterSpacing: 0.4,
                   ),
                 ),
@@ -157,13 +165,13 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
                   );
                   if (mounted) await _load();
                 },
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 child: Container(
                   margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Row(
@@ -178,10 +186,11 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
                                   : c.contractNumber,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
+                                fontSize: 13,
                                 color: _ink,
                               ),
                             ),
+                            const SizedBox(height: 2),
                             Text(
                               '${c.startDate.isEmpty ? '—' : c.startDate} → ${c.endDate.isEmpty ? '—' : c.endDate}'
                               '${c.lesseeName.isEmpty ? '' : ' · ${c.lesseeName}'}',
@@ -193,14 +202,23 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
                           ],
                         ),
                       ),
-                      Text(
-                        c.statusText.isEmpty ? c.status : c.statusText,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _muted,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          c.statusText.isEmpty ? c.status : c.statusText,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _muted,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 4),
                       const Icon(Icons.chevron_right, size: 18, color: _muted),
                     ],
                   ),
@@ -208,10 +226,18 @@ class _ZoneContractsSectionState extends State<ZoneContractsSection> {
               ),
           if (widget.canManage)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: 10),
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF047857),
+                    side: const BorderSide(color: Color(0xFF047857)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
                   onPressed: _loading ? null : _create,
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Gửi yêu cầu hỗ trợ kỹ thuật'),

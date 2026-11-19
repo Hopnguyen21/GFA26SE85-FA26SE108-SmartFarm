@@ -13,6 +13,7 @@ import '../models/iot_deployment.dart';
 import 'app_role.dart';
 import 'geocode_result.dart';
 import '../utils/profile_name.dart';
+import '../utils/user_error.dart';
 export 'geocode_result.dart';
 part 'api/deployment_api.dart';
 part 'api/support_api.dart';
@@ -26,6 +27,8 @@ part 'api/contract_api.dart';
 part 'api/document_api.dart';
 part 'api/report_api.dart';
 part 'api/bill_api.dart';
+part 'api/alert_api.dart';
+part 'api/stock_out_api.dart';
 
 class SecurityException implements Exception {
   final String message;

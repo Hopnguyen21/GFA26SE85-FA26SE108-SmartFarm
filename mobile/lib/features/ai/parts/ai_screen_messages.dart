@@ -254,7 +254,7 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF059669),
+                  color: const Color(0xFF047857),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Icon(
@@ -408,7 +408,7 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
                       Icon(
                         Icons.shield_outlined,
                         size: 12,
-                        color: Color(0xFF059669),
+                        color: Color(0xFF047857),
                       ),
                       SizedBox(width: 4),
                       Flexible(
@@ -594,13 +594,26 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
                         fontSize: 12.5,
                         color: Color(0xFF94A3B8),
                       ),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: const BorderSide(
+                          color: _kAiGreen,
+                          width: 1.5,
+                        ),
                       ),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 14,
                         vertical: 11,
                       ),
                     ),
@@ -609,22 +622,24 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
-                  height: 42,
-                  width: 46,
+                  height: 44,
+                  width: 44,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: _kAiGreen,
+                      foregroundColor: Colors.white,
+                      shape: const CircleBorder(),
                       padding: EdgeInsets.zero,
                     ),
                     onPressed: _isTyping
                         ? null
                         : () => _sendMessage(provider, _controller.text),
-                    child: const Icon(Icons.send, size: 17),
+                    child: const Icon(Icons.send_rounded, size: 18),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,7 +649,7 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
                   child: Icon(
                     Icons.lock_outline,
                     size: 11,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                 ),
                 SizedBox(width: 4),

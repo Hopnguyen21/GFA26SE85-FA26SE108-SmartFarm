@@ -57,31 +57,37 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF062326) : Colors.white,
+          color: isSelected ? const Color(0xFF047857) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF062326)
+                ? const Color(0xFF047857)
                 : const Color(0xFFE2E8F0),
-            width: 1,
+            width: isSelected ? 1.5 : 1,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF062326).withValues(alpha: 0.15),
-                    blurRadius: 6,
+                    color: const Color(0xFF047857).withValues(alpha: 0.25),
+                    blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ]
-              : null,
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
         child: Center(
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected ? Colors.white : const Color(0xFF475569),
             ),
@@ -186,7 +192,11 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: const BoxDecoration(
-              color: Color(0xFF062326),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF062326), Color(0xFF0F3E2E)],
+              ),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),

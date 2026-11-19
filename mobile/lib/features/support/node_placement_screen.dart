@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,7 +8,10 @@ import '../../core/services/api_service.dart';
 import '../../core/services/gps_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
+import 'acceptance_report.dart';
+import 'gateway_activation_flow.dart';
 import 'map_zoom_controls.dart';
+import 'node_provisioning_flow.dart';
 import 'node_placement_logic.dart';
 import 'service_board_logic.dart' show effectiveQuotationStatus;
 import 'placed_nodes_screen.dart';
@@ -57,6 +61,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
   _gate; // null = chưa xác nhận được từ backend (đang tải/lỗi): khoá
   List<IotDevice> _devices = [];
   Map<String, Map<String, dynamic>> _deviceRaw = {};
+  Set<String> _farmAddresses =
+      {}; // mọi địa chỉ phần cứng đã có trong trang trại (duy nhất toàn hệ thống)
   List<Map<String, dynamic>> _gateways = [];
   Map<String, Map<String, dynamic>> _saved =
       {}; // vị trí đã lưu trên máy chủ theo deviceId (chữ thường)
@@ -68,6 +74,11 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
   bool _gpsBusy = false;
   bool _completing = false;
   bool _provisioning = false;
+  Map<String, dynamic> _sr =
+      const {}; // phiếu dịch vụ (ghi chú cho báo cáo thực địa)
+  String?
+  _farmName; // tên nông trại/thửa đất đọc từ backend (ZoneModel chỉ có tên mặc định khi tải riêng)
+  String? _fieldName;
   final _map = MapController();
 
   @override
@@ -105,8 +116,29 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         _zone = results[6] as ZoneModel;
       }
       final sr = results[5] as Map<String, dynamic>;
+      _sr = sr;
+      final fieldId = _zone?.fieldId ?? '';
+      // Tên nông trại/thửa đất không đổi trong phiên: chỉ tải khi chưa có (không tải lại sau mỗi lần lưu/cấp phát).
+      if (_farmName == null || _fieldName == null)
+        unawaited(
+          Future.wait([
+            FarmApi.getFarmName(widget.farmId),
+            FarmApi.getFieldName(fieldId),
+          ]).then((n) {
+            if (mounted) {
+              setState(() {
+                _farmName = n[0];
+                _fieldName = n[1];
+              });
+            }
+          }),
+        );
       final dep = results[1] as DeploymentRequest;
       final quotation = results[0] as Quotation?;
+      final farmAddresses = {
+        for (final d in results[2] as List<Map<String, dynamic>>)
+          '${d['hardwareAddress'] ?? ''}'.toUpperCase(),
+      }..remove('');
       final rawDevices = (results[2] as List<Map<String, dynamic>>)
           .where(
             (d) => '${d['deploymentRequestId']}' == widget.deploymentRequestId,
@@ -148,12 +180,18 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           for (final d in rawDevices) '${d['deviceId']}'.toLowerCase(): d,
         };
         _devices = [for (final d in rawDevices) IotDevice.fromJson(d)];
-        _gateways = (results[3] as List<Map<String, dynamic>>)
-            .where(
-              (g) =>
-                  '${g['deploymentRequestId']}' == widget.deploymentRequestId,
-            )
-            .toList();
+        _farmAddresses = farmAddresses;
+        // Gateway đặt ở trang trại phục vụ mọi Zone: dùng cả Gateway đã có của trang trại (đợt lắp đặt trước), Gateway của chính
+        // yêu cầu này đứng đầu. Chỉ khi trang trại chưa có Gateway nào mới phải kích hoạt/mô phỏng.
+        final farmGateways = [...(results[3] as List<Map<String, dynamic>>)];
+        farmGateways.sort((a, b) {
+          int mine(Map<String, dynamic> g) =>
+              '${g['deploymentRequestId']}' == widget.deploymentRequestId
+              ? 0
+              : 1;
+          return mine(a).compareTo(mine(b));
+        });
+        _gateways = farmGateways;
         _saved = saved;
         _loading = false;
         _selected ??= _devices.isEmpty ? null : _devices.first.deviceId;
@@ -187,13 +225,57 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       .where((d) => d.deviceId.toLowerCase() == _selected?.toLowerCase())
       .firstOrNull;
 
+  /// Thiết bị cần định vị: đang chọn, nếu chưa chọn thì lấy Node chờ chấm đầu tiên. Không có thiết bị nào thì
+  /// hướng dẫn cấp phát (backend chỉ lưu vị trí cho thiết bị đã cấp phát) và trả null.
+  IotDevice? _deviceOrGuide() {
+    final sel = _selectedDevice;
+    if (sel != null) return sel;
+    final waiting = _devices.where((x) => !_isPlaced(x)).firstOrNull;
+    final any = waiting ?? _devices.firstOrNull;
+    if (any != null) {
+      setState(() => _selected = any.deviceId);
+      return any;
+    }
+    final slots = contractSlots(_quotation?.items ?? const []);
+    final empty = matchNodeSlots(
+      slots,
+      _devices,
+    ).slots.where((s) => s.device == null).firstOrNull;
+    if (empty == null) {
+      _snack('Chưa có Node nào để định vị.', error: true);
+    } else if (_provisionBlockReason != null) {
+      _snack(_provisionBlockReason!, error: true);
+    } else {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Chưa có Node để định vị'),
+          content: const Text(
+            'Vị trí chỉ lưu được cho thiết bị đã cấp phát. Hãy cấp phát Node đầu tiên, sau đó bạn có thể chạm bản đồ, nhập tọa độ hoặc lấy GPS.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Để sau'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _provisionSlot(empty.slot);
+              },
+              child: const Text('Cấp phát Node'),
+            ),
+          ],
+        ),
+      );
+    }
+    return null;
+  }
+
   /// Lấy GPS hiện tại làm điểm của Node đang chọn; xử lý quyền, GPS lỗi, sai số lớn và điểm ngoài Zone.
   Future<void> _useGps() async {
-    final d = _selectedDevice;
-    if (d == null) {
-      _snack('Hãy chọn một thiết bị trước khi cập nhật vị trí.', error: true);
-      return;
-    }
+    final d = _deviceOrGuide();
+    if (d == null) return;
     if (_gpsBusy) return;
     setState(() => _gpsBusy = true);
     try {
@@ -352,37 +434,52 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     }
   }
 
+  /// Biên bản nghiệm thu dựng từ dữ liệu đang có trên màn (Zone, Node đã cấp phát, vị trí đã lưu, kết nối).
+  AcceptanceReport _currentReport() {
+    final z = _zone;
+    String? real(String? fetched, String? zoneVal, Set<String> placeholders) =>
+        (fetched != null && fetched.isNotEmpty)
+        ? fetched
+        : (zoneVal != null && !placeholders.contains(zoneVal) ? zoneVal : null);
+    return buildAcceptanceReport(
+      farm: real(_farmName, z?.farmName, const {'Nông trại SmartFarm'}),
+      field: real(_fieldName, z?.fieldName, const {'Lô đất'}),
+      zone: z?.name,
+      areaM2: z?.areaM2,
+      devices: _devices,
+      saved: _saved,
+    );
+  }
+
   Future<void> _complete() async {
     if (_completing) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hoàn tất lắp đặt?'),
-        content: Text(
-          'Triển khai sẽ chuyển sang Hoàn tất và Owner được thanh toán ${BusinessParameters.active.remainingLabel} để nghiệm thu. Backend sẽ kiểm tra lại số lượng thiết bị và kết quả kết nối.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Chưa'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hoàn tất'),
-          ),
-        ],
-      ),
+    // KTV lập biên bản nghiệm thu (dữ liệu thật của Zone/Node) + ghi chú rồi mới hoàn tất; Owner xem lại biên bản này.
+    final note = await showAcceptanceReportSheet(
+      context,
+      report: _currentReport(),
+      remainingLabel: BusinessParameters.active.remainingLabel,
     );
-    if (ok != true || !mounted) return;
+    if (note == null || !mounted) return;
     setState(() => _completing = true);
     try {
-      await DeploymentApi.completeDeploymentRequest(widget.deploymentRequestId);
+      await DeploymentApi.completeDeploymentRequest(
+        widget.deploymentRequestId,
+        notes: note,
+      );
       await _load();
       _snack(
         'Đã hoàn tất lắp đặt. Owner có thể thanh toán ${BusinessParameters.active.remainingLabel} và nghiệm thu.',
       );
     } catch (e) {
-      _snack('Chưa hoàn tất được: ${friendlyError(e)}', error: true);
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('completed')) {
+        await _load();
+        _snack(
+          'Đợt triển khai đã ở trạng thái Hoàn tất. Owner có thể thanh toán và nghiệm thu.',
+        );
+      } else {
+        _snack('Chưa hoàn tất được: ${friendlyError(e)}', error: true);
+      }
     } finally {
       if (mounted) setState(() => _completing = false);
     }
@@ -399,7 +496,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           'Cần Tiếp nhận → Khảo sát → Xác nhận kế hoạch → Bắt đầu lắp đặt (ở thẻ "Tiến độ lắp đặt" của yêu cầu) rồi mới cấp phát được thiết bị.';
     }
     if (_gateways.isEmpty) {
-      return 'Chưa có Gateway nào được cấp phát cho yêu cầu này nên chưa cấp phát được Node. Cần cấp phát Gateway trước (bấm "Cấp phát Gateway kết nối" ở trên).';
+      return 'Trang trại chưa có Gateway nào nên chưa cấp phát được Node. Cần kích hoạt Gateway trước (bấm "Cấp phát Gateway kết nối" ở trên).';
     }
     return null;
   }
@@ -419,7 +516,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       }
       return items.first;
     }
-    if (all.isNotEmpty) return all.first;
+    // Không có mẫu cùng loại trong kế hoạch: KHÔNG lấy mẫu khác loại (cảm biến gán cho Node điều khiển); backend tự chọn mẫu đúng loại.
     return null;
   }
 
@@ -438,37 +535,55 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       );
       return;
     }
-    final address = await showDialog<String>(
-      context: context,
-      builder: (_) =>
-          _ProvisionDialog(slotLabel: '${slot.kind.label} · ${slot.label}'),
+    String? createdId;
+    String? createdAddress;
+    final ok = await showNodeProvisionSheet(
+      context,
+      slotLabel: '${slot.kind.label} · ${slot.label}',
+      actuator: slot.kind == NodeKind.actuator,
+      slotCode: slot.code,
+      contractKinds: {
+        for (final s in contractSlots(_quotation?.items ?? const []))
+          if (s.kind == NodeKind.actuator || s.kind == NodeKind.sensor)
+            s.code.trim().toUpperCase(): s.kind == NodeKind.actuator,
+      },
+      usedAddresses: {
+        ..._farmAddresses,
+        for (final d in _devices) d.hardwareAddress,
+      },
+      provision: (node, nodeId) async {
+        final devices = await DeploymentApi.provisionDevices(
+          deploymentRequestId: widget.deploymentRequestId,
+          gatewayId: '${_gateways.first['gatewayId']}',
+          farmId: widget.farmId,
+          nodes: [
+            {
+              'hardwareAddress': nodeId,
+              if (node.hardwareItemId.isNotEmpty)
+                'hardwareItemId': node.hardwareItemId,
+              // Loại Node theo hàng trong kho khi có vai trò rõ (không để cảm biến thành Node điều khiển), không thì theo dòng hợp đồng.
+              'deviceType':
+                  node.roleDeviceType ??
+                  (slot.kind == NodeKind.actuator
+                      ? 'ActuatorNode'
+                      : 'SensorNode'),
+              'deviceModelId': planItem?.deviceModelId ?? node.deviceModelId,
+            },
+          ],
+        );
+        createdAddress = nodeId;
+        createdId = devices.isEmpty ? null : devices.first.deviceId;
+      },
     );
-    if (address == null || !mounted) return;
+    if (!ok || !mounted) return;
     setState(() => _provisioning = true);
     try {
-      final devices = await DeploymentApi.provisionDevices(
-        deploymentRequestId: widget.deploymentRequestId,
-        gatewayId: '${_gateways.first['gatewayId']}',
-        farmId: widget.farmId,
-        nodes: [
-          {
-            'hardwareAddress': address,
-            'deviceType': slot.kind == NodeKind.actuator
-                ? 'ActuatorNode'
-                : 'SensorNode',
-            'deviceModelId': planItem?.deviceModelId,
-          },
-        ],
-      );
       await _load();
       if (!mounted) return;
-      final created = devices.isEmpty ? null : devices.first.deviceId;
-      if (created != null) setState(() => _selected = created);
+      if (createdId != null) setState(() => _selected = createdId);
       _snack(
-        'Đã cấp phát ${address.toUpperCase()}. Chọn thiết bị rồi chạm bản đồ để chấm vị trí.',
+        'Đã cấp phát ${createdAddress?.toUpperCase()}. Chạm bản đồ, nhập tọa độ hoặc lấy GPS để chấm vị trí.',
       );
-    } catch (e) {
-      _snack('Không cấp phát được: ${friendlyError(e)}', error: true);
     } finally {
       if (mounted) setState(() => _provisioning = false);
     }
@@ -515,16 +630,11 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           current = a.status;
         } catch (_) {}
       }
+      // App không tự bịa khảo sát thực địa: chưa khảo sát thì dừng và báo KTV điền.
       if (current == 'Accepted' || current == 'Submitted') {
-        try {
-          final s = await DeploymentApi.surveyDeploymentRequest(
-            depId,
-            isFeasible: true,
-            siteConditions: 'Mặt bằng và nguồn điện sẵn sàng.',
-            notes: 'Khảo sát thực địa đạt chuẩn theo hợp đồng đã cọc.',
-          );
-          current = s.status;
-        } catch (_) {}
+        throw Exception(
+          'Cần tiếp nhận và điền khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
+        );
       }
       if (current == 'Surveyed' ||
           current == 'Accepted' ||
@@ -544,40 +654,22 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     }
   }
 
+  /// "Cấp phát Gateway kết nối": mở bảng kích hoạt Gateway (kho KTV) / mô phỏng; xong tải lại danh sách thiết bị.
   Future<void> _provisionGatewayForDeployment() async {
-    final depId = widget.deploymentRequestId;
     setState(() => _provisioningGateway = true);
     try {
-      final hex = DateTime.now().millisecondsSinceEpoch
-          .toRadixString(16)
-          .padLeft(12, '0');
-      final mac =
-          '${hex.substring(0, 2)}:${hex.substring(2, 4)}:${hex.substring(4, 6)}:${hex.substring(6, 8)}:${hex.substring(8, 10)}:${hex.substring(10, 12)}'
-              .toUpperCase();
-      final serial =
-          'GW-${depId.replaceAll('-', '').substring(0, 8).toUpperCase()}';
-      final cleanDep = depId.replaceAll('-', '').toUpperCase();
-      final hexTime = DateTime.now().millisecondsSinceEpoch
-          .toRadixString(16)
-          .toUpperCase();
-      final fingerprint = (cleanDep + hexTime)
-          .padRight(64, '0')
-          .substring(0, 64);
-      await DeploymentApi.provisionGateway(
-        deploymentRequestId: depId,
+      final done = await showGatewayActivationSheet(
+        context,
         farmId: widget.farmId,
-        macAddress: mac,
-        gatewaySerial: serial,
-        frequencyBand: '433MHz',
-        firmwareVersion: 'v1.0.0',
-        mqttClientId: 'gateway-$serial',
-        clientCertificateFingerprint: fingerprint,
+        deploymentRequestId: widget.deploymentRequestId,
       );
-      _snack('Đã cấp phát Gateway $serial thành công!');
-      await _load();
-      if (mounted) setState(() => _mqtt = true);
+      if (done) {
+        _snack('Đã kích hoạt Gateway cho yêu cầu này.');
+        await _load();
+        unawaited(_refreshMqtt());
+      }
     } catch (e) {
-      _snack('Không cấp phát được Gateway: ${friendlyError(e)}', error: true);
+      _snack('Không kích hoạt được Gateway: ${friendlyError(e)}', error: true);
     } finally {
       if (mounted) setState(() => _provisioningGateway = false);
     }
@@ -641,11 +733,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
 
   /// Nhập tọa độ thủ công cho Node đang chọn (phải nằm trong ranh giới Zone), như web.
   Future<void> _manualCoordinate() async {
-    final d = _selectedDevice;
-    if (d == null) {
-      _snack('Vui lòng chọn Node cần định vị.', error: true);
-      return;
-    }
+    final d = _deviceOrGuide();
+    if (d == null) return;
     final p = await showDialog<LatLng>(
       context: context,
       builder: (_) => _ManualCoordinateDialog(label: d.hardwareAddress),
@@ -656,14 +745,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
 
   /// Đặt điểm (chạm bản đồ / nhập tọa độ) cho thiết bị đang chọn; ngoài ranh giới Zone thì chặn.
   void _placeAt(double lat, double lng, String source) {
-    final d = _selectedDevice;
-    if (d == null) {
-      _snack(
-        'Hãy chọn một thiết bị trong danh sách trước khi chấm điểm.',
-        error: true,
-      );
-      return;
-    }
+    final d = _deviceOrGuide();
+    if (d == null) return;
     final verdict = evaluateFix(
       lat: lat,
       lng: lng,
@@ -736,6 +819,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
               '${p['category']} ${p['type']} ${p['code']} ${p['name']}'
                   .toUpperCase(),
             ) &&
+            // Bo mạch Node (loại "Node …") là thiết bị cấp phát, không phải cảm biến gắn vào Node.
+            !'${p['category']}'.toUpperCase().contains('NODE') &&
             ((p['quantityInStock'] ?? p['quantity'] ?? 0) as num) > 0)
           p,
     ];
@@ -824,7 +909,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
     decoration: const BoxDecoration(
       gradient: LinearGradient(
-        colors: [_webGreen, Color(0xFF059669), Color(0xFF0F766E)],
+        colors: [_webGreen, Color(0xFF047857), Color(0xFF0F766E)],
       ),
     ),
     child: Row(
@@ -867,28 +952,79 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                'Thực địa Chấm Node Phân khu (Zone): ${_zone?.name ?? 'Zone'}',
-                style: const TextStyle(
+              const Text(
+                'Báo cáo thực địa · Chấm Node',
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
                 ),
               ),
-              Text(
-                'Nông trại: ${_zone?.farmName.isNotEmpty == true ? _zone!.farmName : '—'} • Ranh giới GIS Zone màu xanh lá. Chấm thiết bị vào đúng ranh giới của Zone.',
-                style: const TextStyle(
-                  color: Color(0xFFD1FAE5),
-                  fontSize: 11,
-                  height: 1.3,
-                ),
-              ),
+              const SizedBox(height: 4),
+              _reportFacts(),
             ],
           ),
         ),
       ],
     ),
   );
+
+  /// Thông tin báo cáo thực địa: nông trại, thửa đất, Zone, diện tích Zone, số Node và ghi chú. Thiếu dữ liệu thì hiện "—", không điền giá trị giả.
+  Widget _reportFacts() {
+    final z = _zone;
+    String pick(String? fetched, String? fromZone, Set<String> placeholders) {
+      if (fetched != null && fetched.isNotEmpty) return fetched;
+      if (fromZone != null &&
+          fromZone.isNotEmpty &&
+          !placeholders.contains(fromZone)) {
+        return fromZone;
+      }
+      return '—';
+    }
+
+    final farm = pick(_farmName, z?.farmName, const {'Nông trại SmartFarm'});
+    final field = pick(_fieldName, z?.fieldName, const {'Lô đất'});
+    final area = (z?.areaM2 ?? 0) > 0
+        ? '${z!.areaM2.toStringAsFixed(z.areaM2 % 1 == 0 ? 0 : 1)} m²'
+        : '—';
+    final slots = contractSlots(_quotation?.items ?? const []);
+    final total = matchNodeSlots(slots, _devices).slots.length;
+    final placed = _devices.where(_isPlaced).length;
+    final note = '${_sr['inspectionNotes'] ?? _sr['description'] ?? ''}'.trim();
+    Widget fact(String k, String v) => Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$k: ',
+            style: const TextStyle(color: Color(0xFFA7F3D0)),
+          ),
+          TextSpan(
+            text: v,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+      style: const TextStyle(fontSize: 11.5, height: 1.3),
+    );
+    return Column(
+      key: const ValueKey('field-report-facts'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        fact('Nông trại', farm),
+        fact('Thửa đất (Field)', field),
+        fact('Zone', z?.name.isNotEmpty == true ? z!.name : '—'),
+        fact('Diện tích Zone', area),
+        fact(
+          'Node',
+          total > 0 ? 'đã chấm $placed / $total' : 'đã chấm $placed',
+        ),
+        fact('Ghi chú', note.isEmpty ? '—' : note),
+      ],
+    );
+  }
 
   /// Thẻ Gateway hạ tầng ngoài Zone: không chấm lên bản đồ; hiện trạng thái MQTT và nút kết nối.
   Widget _gatewayCard() => _card(
@@ -913,7 +1049,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
               ),
             ),
             _mqtt == true
-                ? _pill('MQTT ONLINE', const Color(0xFF059669), Colors.white)
+                ? _pill('MQTT ONLINE', const Color(0xFF047857), Colors.white)
                 : _pill(
                     'CHƯA KẾT NỐI',
                     const Color(0xFFE2E8F0),
@@ -1317,7 +1453,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
                     ? null
                     : () => _provisionSlot(s),
                 icon: const Icon(Icons.add_circle_outline, size: 18),
-                label: const Text('Cấp phát thiết bị & chấm'),
+                label: const Text('Chọn Node từ kho để cấp phát'),
               ),
             ],
           ),
@@ -1491,7 +1627,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: _selectedDevice == null ? null : _manualCoordinate,
+                onPressed: _manualCoordinate,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF065F46),
                   side: const BorderSide(color: Color(0xFF6EE7B7)),
@@ -1573,7 +1709,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF059669),
+                        color: Color(0xFF047857),
                       ),
                     ),
             ),
@@ -1734,7 +1870,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       final actuator = nodeKindOfDeviceType(d.deviceType) == NodeKind.actuator;
       final color = draft != null
           ? AppColors.warning
-          : (actuator ? const Color(0xFF0284C7) : const Color(0xFF059669));
+          : (actuator ? const Color(0xFF0284C7) : const Color(0xFF047857));
       markers.add(
         Marker(
           point: LatLng(lat, lng),
@@ -1870,13 +2006,20 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
               alignment: Alignment.topLeft,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+                  horizontal: 12,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withValues(alpha: 0.96),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1932,11 +2075,18 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
             left: 8,
             bottom: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.white.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1957,7 +2107,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
                     width: 10,
                     height: 10,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF059669),
+                      color: Color(0xFF047857),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -2031,9 +2181,15 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     children: [
       Expanded(
         child: OutlinedButton.icon(
-          onPressed: (_gpsBusy || _selectedDevice == null || completed)
-              ? null
-              : _useGps,
+          onPressed: completed ? null : _manualCoordinate,
+          icon: const Icon(Icons.edit_location_alt, size: 18),
+          label: const Text('Nhập tọa độ'),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: (_gpsBusy || completed) ? null : _useGps,
           icon: _gpsBusy
               ? const SizedBox(
                   width: 16,
@@ -2303,14 +2459,25 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text('Gắn Node · ${_zone?.name ?? 'Zone'}'),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Gắn Node · ${_zone?.name ?? 'Zone'}',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         actions: [
           // Chỉ hiện khi máy chủ đã lưu vị trí của ít nhất một Node.
           if (_saved.isNotEmpty)
             IconButton(
               tooltip: 'Xem Node đã chấm và tình trạng',
-              icon: const Icon(Icons.visibility_outlined),
+              icon: const Icon(Icons.visibility_outlined, color: Colors.white),
               onPressed: () => Navigator.push<void>(
                 context,
                 MaterialPageRoute(
@@ -2324,7 +2491,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
             ),
           IconButton(
             tooltip: 'Tải lại',
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -2332,6 +2499,53 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       body: _body(),
     );
   }
+
+  /// Lắp đặt đã hoàn tất hoặc việc đã đóng: không gắn thêm Node nữa; xem lại Node đã gắn hoặc quay lại.
+  Widget _finishedView(String message) => Center(
+    key: const ValueKey('placement-finished'),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.check_circle_outline,
+            size: 48,
+            color: Color(0xFF047857),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textMuted,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          FilledButton.icon(
+            onPressed: () => Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PlacedNodesScreen(
+                  zoneId: widget.zoneId,
+                  farmId: widget.farmId,
+                  zone: _zone,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            label: const Text('Xem Node đã gắn'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.maybePop(context),
+            child: const Text('Quay lại'),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _body() {
     if (_loading && _gate == null) {
@@ -2348,6 +2562,11 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     }
     final gate = _gate!;
     if (!gate.allowed) {
+      // Đã hoàn tất/đóng việc không phải LỖI: hiện trạng thái hoàn tất (xem Node đã gắn / quay lại), không có nút "Thử lại".
+      if (gate.block == NodePlacementBlock.deploymentFinished ||
+          gate.block == NodePlacementBlock.serviceFinished) {
+        return _finishedView(gate.message);
+      }
       return AppErrorState(message: gate.message, onRetry: _load);
     }
     final dep = _deployment!;
@@ -2910,82 +3129,6 @@ class _TestDialogState extends State<_TestDialog> {
           child: const Text('Hủy'),
         ),
         FilledButton(onPressed: _submit, child: const Text('Ghi nhận')),
-      ],
-    );
-  }
-}
-
-/// Hộp thoại nhập địa chỉ phần cứng của thiết bị thật để cấp phát (bắt buộc, 3–64 ký tự, không khoảng trắng).
-class _ProvisionDialog extends StatefulWidget {
-  final String slotLabel;
-  const _ProvisionDialog({required this.slotLabel});
-
-  @override
-  State<_ProvisionDialog> createState() => _ProvisionDialogState();
-}
-
-class _ProvisionDialogState extends State<_ProvisionDialog> {
-  final _address = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _address.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final v = _address.text.trim();
-    if (v.length < 3 || v.length > 64 || v.contains(RegExp(r'\s'))) {
-      setState(
-        () => _error =
-            'Nhập địa chỉ phần cứng 3–64 ký tự, không có khoảng trắng.',
-      );
-      return;
-    }
-    Navigator.pop(context, v);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Cấp phát thiết bị', style: TextStyle(fontSize: 15)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.slotLabel,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Nhập địa chỉ phần cứng in trên thiết bị đã lắp. Thiết bị được cấp phát vào Gateway của yêu cầu này qua backend.',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.35,
-              color: AppColors.textMuted,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _address,
-            autofocus: true,
-            textCapitalization: TextCapitalization.characters,
-            decoration: InputDecoration(
-              labelText: 'Địa chỉ phần cứng',
-              errorText: _error,
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Cấp phát')),
       ],
     );
   }

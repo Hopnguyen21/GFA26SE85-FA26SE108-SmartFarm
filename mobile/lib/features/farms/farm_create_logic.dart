@@ -148,7 +148,7 @@ Widget farmPinStatusLine(FarmCreateDraft d) => ListenableBuilder(
       style: TextStyle(
         fontSize: 11,
         color: d.pinConfirmed
-            ? const Color(0xFF059669)
+            ? const Color(0xFF047857)
             : const Color(0xFFB45309),
       ),
     ),
@@ -205,7 +205,7 @@ Future<void> runFarmCreate({
   } else {
     snack(
       'Đã tạo trang trại "$name" và chuyển vùng làm việc.',
-      color: const Color(0xFF059669),
+      color: const Color(0xFF047857),
     );
   }
 }

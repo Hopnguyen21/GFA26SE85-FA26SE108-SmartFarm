@@ -8,7 +8,7 @@ import 'zone_profile_detail_page.dart';
 
 const _muted = Color(0xFF64748B);
 const _ink = Color(0xFF0F172A);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 
 /// Phần "Cây trồng & hồ sơ canh tác" của form Zone: chọn cây, giống, hồ sơ hệ thống, tùy chỉnh bản sao
 /// (giai đoạn, ngưỡng, lịch tưới) hoặc không áp dụng. Mọi dữ liệu đến từ API.

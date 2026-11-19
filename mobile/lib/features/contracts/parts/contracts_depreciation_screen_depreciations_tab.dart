@@ -334,7 +334,7 @@ extension _ContractsDepreciationScreenStateDepreciationsTab
                 '${_depreciations.where((d) => d.remainingMonths > 0).length} đang trích',
                 style: const TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF059669),
+                  color: Color(0xFF047857),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -344,7 +344,9 @@ extension _ContractsDepreciationScreenStateDepreciationsTab
 
           if (filtered.isEmpty)
             _buildEmptyState(
-              'Không tìm thấy thiết bị nào theo bộ lọc.',
+              _depreciations.isEmpty
+                  ? 'Chưa lập hồ sơ khấu hao nào. Hồ sơ chỉ có khi bạn lập cho thiết bị thật trong Zone (app không tự sinh số liệu).'
+                  : 'Không tìm thấy thiết bị nào theo bộ lọc.',
               Icons.memory_outlined,
             )
           else
@@ -427,7 +429,7 @@ extension _ContractsDepreciationScreenStateDepreciationsTab
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: d.remainingMonths > 0
-                        ? const Color(0xFF059669)
+                        ? const Color(0xFF047857)
                         : const Color(0xFF64748B),
                   ),
                 ),
@@ -449,7 +451,7 @@ extension _ContractsDepreciationScreenStateDepreciationsTab
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF059669),
+                  color: Color(0xFF047857),
                 ),
               ),
             ],
@@ -517,7 +519,7 @@ extension _ContractsDepreciationScreenStateDepreciationsTab
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF059669),
+                      color: Color(0xFF047857),
                     ),
                   ),
                 ],

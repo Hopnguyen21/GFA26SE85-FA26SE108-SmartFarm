@@ -244,8 +244,19 @@ class _GrowthStagesScreenState extends State<GrowthStagesScreen> {
   Widget build(BuildContext context) {
     final isOwner = context.read<FarmProvider>().currentRole == 'OWNER';
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontSize: 15)),
+        title: Text(
+          widget.title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: _AsyncList<List<Map<String, dynamic>>>(
         key: ValueKey('$_profileId-$_version'),

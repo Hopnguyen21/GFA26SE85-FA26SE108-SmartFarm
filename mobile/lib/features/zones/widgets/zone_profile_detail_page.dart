@@ -3,6 +3,7 @@ import '../profile_irrigation_logic.dart';
 import '../zone_crop_plan_logic.dart';
 import 'profile_irrigation_view.dart';
 import 'stage_draft_tile.dart';
+import '../../../core/utils/user_error.dart';
 
 const _muted = Color(0xFF64748B);
 const _ink = Color(0xFF0F172A);
@@ -61,8 +62,7 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
       if (!mounted) return;
       setState(() => _schedule = ProfileSchedule.fromJson(json));
     } catch (e) {
-      if (mounted)
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -82,9 +82,16 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'Chi tiết hồ sơ canh tác',
-          style: TextStyle(fontSize: 16),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       bottomNavigationBar: SafeArea(
@@ -99,6 +106,13 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF047857),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  minimumSize: const Size.fromHeight(44),
+                ),
                 onPressed: stages.isEmpty
                     ? null
                     : () => Navigator.pop(context, ProfileDetailResult.apply),
@@ -108,6 +122,14 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
               if (_isSystem) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF047857),
+                    side: const BorderSide(color: Color(0xFF047857)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
                   onPressed: stages.isEmpty
                       ? null
                       : () => Navigator.pop(
@@ -167,8 +189,13 @@ class _ZoneProfileDetailPageState extends State<ZoneProfileDetailPage> {
           for (final st in stages)
             Card(
               margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

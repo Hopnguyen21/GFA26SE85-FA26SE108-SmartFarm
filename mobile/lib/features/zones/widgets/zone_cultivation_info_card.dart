@@ -3,10 +3,11 @@ import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/utils/json_utils.dart';
 import '../../../core/utils/profile_name.dart';
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 
 String _val(Object? v) {
   final s = '${v ?? ''}'.trim();
@@ -42,7 +43,7 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
   // Vụ trồng hiện tại của Zone: vụ đang canh tác, nếu không có thì vụ dự kiến. null = chưa có.
   Map<String, dynamic>? _season;
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   @override
   void initState() {
@@ -123,26 +124,40 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
     List<Widget> children,
   ) => Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(12),
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 15, color: _green),
-            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 14, color: _green),
+            ),
+            const SizedBox(width: 8),
             // Expanded: tiêu đề dài (vd. "HỒ SƠ CANH TÁC (gắn trực tiếp cho Zone)") xuống dòng thay vì tràn ở màn hẹp/chữ lớn.
             Expanded(
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   color: _green,
                   letterSpacing: 0.4,
@@ -151,14 +166,14 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         ...children,
       ],
     ),
   );
 
   Widget _row(String label, Object? value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
+    padding: const EdgeInsets.symmetric(vertical: 3.5),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,7 +181,11 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
           width: 140,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12, color: _muted),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         Expanded(
@@ -175,7 +194,7 @@ class _ZoneCultivationInfoCardState extends State<ZoneCultivationInfoCard> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: _val(value) == '—' ? _muted : _ink,
+              color: _val(value) == '—' ? const Color(0xFF94A3B8) : _ink,
             ),
           ),
         ),

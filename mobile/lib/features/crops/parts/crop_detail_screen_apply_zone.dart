@@ -204,7 +204,7 @@ extension _CropDetailScreenStateApplyZone on _CropDetailScreenState {
                                           'Đã gắn hồ sơ "${profile.name}" cho ${zone.name}. Chưa tạo vụ trồng.',
                                         ),
                                         backgroundColor: const Color(
-                                          0xFF059669,
+                                          0xFF047857,
                                         ),
                                       ),
                                     );

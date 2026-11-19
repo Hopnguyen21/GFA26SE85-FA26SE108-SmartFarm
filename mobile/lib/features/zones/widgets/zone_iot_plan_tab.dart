@@ -7,6 +7,7 @@ import '../../devices/deployment_screens.dart';
 import '../../crops/widgets/create_season_sheet.dart';
 import '../../devices/deployment_request_send_screen.dart';
 import 'zone_honeycomb_estimate_card.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Tab "Triển khai IoT" của Zone, dữ liệu 100% từ backend:
 /// - GET  /zones/{id}/iot-requirements       → nhu cầu đo theo cây/diện tích của Zone
@@ -14,6 +15,7 @@ import 'zone_honeycomb_estimate_card.dart';
 /// Có thêm bảng dự toán (thuật toán Tổ ong, đơn giá từ backend); báo giá chính thức do kỹ thuật viên lập sau khảo sát.
 class ZoneIotPlanTab extends StatefulWidget {
   final String zoneId;
+  final String? farmId;
   final String zoneName;
   final double areaM2;
   final String cropName;
@@ -23,6 +25,7 @@ class ZoneIotPlanTab extends StatefulWidget {
   const ZoneIotPlanTab({
     super.key,
     required this.zoneId,
+    this.farmId,
     required this.zoneName,
     this.areaM2 = 0,
     this.cropName = '',
@@ -151,8 +154,15 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
     child: child,
   );
@@ -206,7 +216,7 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
                     Column(
                       children: [
                         Text(
-                          'Không tải được kế hoạch IoT: ${snap.error.toString().replaceFirst('Exception: ', '')}',
+                          'Không tải được kế hoạch IoT: ${userFacingError(snap.error!)}',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFFDC2626),
@@ -229,6 +239,7 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
                       ZoneHoneycombEstimateCard(
                         key: ValueKey('${widget.zoneId}-$_reloadCount'),
                         zoneId: widget.zoneId,
+                        farmId: widget.farmId,
                         perimeterM: widget.perimeterM,
                         areaM2: widget.areaM2,
                         cropName: widget.cropName,
@@ -305,34 +316,37 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
                       ),
                     for (final r in d.requests)
                       _card(
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            _statusLabel[r.status] ?? r.status,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '${r.planItems.fold<int>(0, (s, i) => s + i.quantity)} thiết bị trong kế hoạch'
-                            '${(r.ownerNotes ?? '').isEmpty ? '' : '\n${r.ownerNotes}'}',
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DeploymentRequestDetailScreen(
-                                  requestId: r.requestId,
-                                  technician: false,
-                                ),
+                        Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              _statusLabel[r.status] ?? r.status,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                               ),
-                            );
-                            if (mounted) _reload();
-                          },
+                            ),
+                            subtitle: Text(
+                              '${r.planItems.fold<int>(0, (s, i) => s + i.quantity)} thiết bị trong kế hoạch'
+                              '${(r.ownerNotes ?? '').isEmpty ? '' : '\n${r.ownerNotes}'}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DeploymentRequestDetailScreen(
+                                    requestId: r.requestId,
+                                    technician: false,
+                                  ),
+                                ),
+                              );
+                              if (mounted) _reload();
+                            },
+                          ),
                         ),
                       ),
                   ],

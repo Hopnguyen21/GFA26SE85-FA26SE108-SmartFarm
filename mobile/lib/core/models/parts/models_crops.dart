@@ -166,30 +166,7 @@ DefaultCropProfile defaultCropProfileFromApi(
   }
   final cropName = '${p['cropName'] ?? crop?['name'] ?? ''}';
   final lower = cropName.toLowerCase();
-  const emojis = {
-    'cà chua': '🍅',
-    'dâu': '🍓',
-    'dưa': '🍈',
-    'ớt': '🌶️',
-    'cà rốt': '🥕',
-    'xà lách': '🥬',
-    'rau': '🥬',
-    'hoa': '🌸',
-    'lúa': '🌾',
-    'ngô': '🌽',
-    'bắp': '🌽',
-    'khoai': '🥔',
-    'cà phê': '☕',
-    'nho': '🍇',
-    'chuối': '🍌',
-  };
-  var emoji = '🌱';
-  for (final e in emojis.entries) {
-    if (lower.contains(e.key)) {
-      emoji = e.value;
-      break;
-    }
-  }
+  final emoji = cropEmoji(cropName);
 
   List<String> pests = const [
     'Bọ trĩ',

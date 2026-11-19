@@ -209,11 +209,36 @@ abstract final class DeploymentApi {
   static Future<DeploymentRequest> confirmDeploymentPlan(String id) =>
       _technicianPost(id, 'confirm');
 
+  /// Kỹ thuật viên gửi hợp đồng = xác nhận kế hoạch: nếu khảo sát thực địa ĐÃ có kết quả khả thi thì tự xác nhận kế hoạch.
+  /// App KHÔNG tự bịa khảo sát thay KTV: chưa tiếp nhận/khảo sát (hoặc khảo sát không khả thi) thì ném lỗi để báo.
+  static Future<DeploymentRequest> autoConfirmPlan(String id) async {
+    final d = await getDeploymentRequest(id, technician: true);
+    if (d.status == 'Submitted' || d.status == 'Accepted') {
+      throw Exception(
+        'Cần tiếp nhận và điền khảo sát thực địa trước khi xác nhận kế hoạch.',
+      );
+    }
+    if (d.status == 'Surveyed') {
+      if (!d.latestSurveyFeasible) {
+        throw Exception(
+          'Khảo sát thực địa không khả thi nên chưa xác nhận kế hoạch được.',
+        );
+      }
+      return confirmDeploymentPlan(id);
+    }
+    return d;
+  }
+
   static Future<DeploymentRequest> startDeploymentInstallation(String id) =>
       _technicianPost(id, 'installation/start');
 
-  static Future<DeploymentRequest> completeDeploymentRequest(String id) =>
-      _technicianPost(id, 'complete');
+  /// Hoàn tất lắp đặt; [notes] = ghi chú nghiệm thu của KTV (backend lưu vào lịch sử quyết định, Owner đọc lại).
+  static Future<DeploymentRequest> completeDeploymentRequest(
+    String id, {
+    String? notes,
+  }) => _technicianPost(id, 'complete', {
+    if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+  });
 
   /// Trả về mã service request bảo trì mà backend tạo khi triển khai thất bại.
   static Future<String> failDeploymentRequest(
@@ -312,33 +337,7 @@ abstract final class DeploymentApi {
         .toList();
   }
 
-  static Future<IotGateway> provisionGateway({
-    required String deploymentRequestId,
-    required String farmId,
-    required String macAddress,
-    required String gatewaySerial,
-    required String frequencyBand,
-    required String firmwareVersion,
-    required String mqttClientId,
-    required String clientCertificateFingerprint,
-  }) async => IotGateway.fromJson(
-    ApiService._decodeOrThrow(
-          await ApiService._postWithAuth(
-            '${ApiService.baseUrl}/api/v1/gateways',
-            {
-              'deploymentRequestId': deploymentRequestId,
-              'farmId': farmId,
-              'macAddress': macAddress,
-              'gatewaySerial': gatewaySerial,
-              'frequencyBand': frequencyBand,
-              'firmwareVersion': firmwareVersion,
-              'mqttClientId': mqttClientId,
-              'clientCertificateFingerprint': clientCertificateFingerprint,
-            },
-          ),
-        )
-        as Map<String, dynamic>,
-  );
+  // Cấp phát Gateway tay (`POST /gateways`) đã bị backend tắt (410): dùng getGatewayEnrollmentByHardware + activateGatewayEnrollment.
 
   static Future<List<IotDevice>> provisionDevices({
     required String deploymentRequestId,
@@ -547,8 +546,16 @@ abstract final class DeploymentApi {
       (await getHardwareItems())
           .where(
             (e) =>
-                e['assignedTechnicianId'] == null &&
-                ((e['quantityInStock'] as num?) ?? 0) > 0,
+                ((e['quantityInStock'] as num?) ?? 0) > 0 &&
+                (e['assignedTechnicianId'] == null ||
+                    e['assignedTechnicianId'] == '') &&
+                !const {
+                  'faulty',
+                  'maintenance',
+                  'deployed',
+                  'retired',
+                  'intechnicianstock',
+                }.contains('${e['status']}'.toLowerCase()),
           )
           .toList();
 
@@ -572,6 +579,158 @@ abstract final class DeploymentApi {
       ),
     );
   }
+
+  /// Báo cáo thiết bị / linh kiện bị lỗi từ kho KTV.
+  static Future<void> reportHardwareFault(String id) async {
+    ApiService._decodeOrThrow(
+      await ApiService._postWithAuth(
+        '${ApiService.baseUrl}/api/v1/platform/hardware-items/$id/report-fault',
+        {},
+      ),
+    );
+  }
+
+  /// Đăng ký (enrollment) của Gateway phần cứng trong kho của KTV; null khi thiết bị chưa tự đăng ký (backend trả 204).
+  /// Gateway thật tự đăng ký khi bật nguồn + có mạng; KTV chỉ KÍCH HOẠT cho yêu cầu (backend đã tắt cấp phát tay `POST /gateways`).
+  static Future<Map<String, dynamic>?> getGatewayEnrollmentByHardware(
+    String hardwareItemId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/gateway-enrollment/by-hardware/$hardwareItemId',
+    );
+    if (resp != null && resp.statusCode == 204) return null;
+    final data = ApiService._decodeOrThrow(resp);
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  /// Kích hoạt Gateway đã đăng ký cho một yêu cầu triển khai (tạo Gateway của đợt lắp đặt). Backend từ chối khi thiết bị chưa
+  /// bắt tay, yêu cầu không thuộc KTV hoặc Farm không khớp: báo đúng lỗi đó.
+  static Future<Map<String, dynamic>> activateGatewayEnrollment(
+    String enrollmentId, {
+    required String farmId,
+    required String deploymentRequestId,
+    String frequencyBand = '433MHz',
+  }) async => Map<String, dynamic>.from(
+    ApiService._decodeOrThrow(
+          await ApiService._postWithAuth(
+            '${ApiService.baseUrl}/api/v1/gateway-enrollment/$enrollmentId/activate',
+            {
+              'farmId': farmId,
+              'deploymentRequestId': deploymentRequestId,
+              'frequencyBand': frequencyBand,
+            },
+          ),
+        )
+        as Map,
+  );
+
+  /// MÔ PHỎNG thiết bị Gateway tự đăng ký: gọi đúng API công khai mà firmware gọi khi bật nguồn (`/gateway-enrollment/auto`),
+  /// dùng MAC của Gateway có thật trong kho KTV. Chỉ để chạy thử khi chưa có phần cứng thật.
+  static Future<Map<String, dynamic>> simulateGatewayAutoEnroll({
+    required String macAddress,
+    required String chipId,
+    String? gatewaySerial,
+    String bootstrapFirmwareVersion = 'sim-1.0.0',
+  }) async => Map<String, dynamic>.from(
+    ApiService._decodeOrThrow(
+          await ApiService._postWithAuth(
+            '${ApiService.baseUrl}/api/v1/gateway-enrollment/auto',
+            {
+              'macAddress': macAddress,
+              'chipId': chipId,
+              'gatewaySerial': ?gatewaySerial,
+              'bootstrapFirmwareVersion': bootstrapFirmwareVersion,
+            },
+          ),
+        )
+        as Map,
+  );
+
+  /// MÔ PHỎNG Gateway ở backend (chỉ môi trường bật SimulatedIot:Enabled; nơi khác trả 404): dựng Gateway mô phỏng trong kho KTV rồi
+  /// tự đăng ký + kích hoạt cho yêu cầu. Dùng khi KTV chưa được Admin giao Gateway nào và cũng chưa có phần cứng thật.
+  static Future<Map<String, dynamic>> simulateGatewayOnBackend({
+    required String farmId,
+    required String deploymentRequestId,
+  }) async => Map<String, dynamic>.from(
+    ApiService._decodeOrThrow(
+          await ApiService._postWithAuth(
+            '${ApiService.baseUrl}/api/v1/gateway-enrollment/simulate',
+            {'farmId': farmId, 'deploymentRequestId': deploymentRequestId},
+          ),
+        )
+        as Map,
+  );
+
+  // ── Chuẩn bị phần cứng (màn Kho & chuẩn bị thiết bị của KTV) ──
+  static Future<List<Map<String, dynamic>>> listHardwarePreparations() async =>
+      ApiService._listOf(
+        ApiService._decodeOrThrow(
+          await ApiService._getWithAuth(
+            '${ApiService.baseUrl}/api/v1/technician/hardware-preparations',
+          ),
+        ),
+      );
+
+  static Future<List<Map<String, dynamic>>>
+  listApprovedFirmwareReleases() async => ApiService._listOf(
+    ApiService._decodeOrThrow(
+      await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/technician/firmware/releases',
+      ),
+    ),
+  );
+
+  static Future<Map<String, dynamic>> _postMap(
+    String path,
+    Map<String, dynamic> body,
+  ) async => Map<String, dynamic>.from(
+    ApiService._decodeOrThrow(
+          await ApiService._postWithAuth('${ApiService.baseUrl}$path', body),
+        )
+        as Map,
+  );
+
+  static Future<Map<String, dynamic>> startHardwarePreparation(
+    String hardwareItemId,
+  ) => _postMap(
+    '/api/v1/technician/hardware-preparations/$hardwareItemId/start',
+    {},
+  );
+
+  static Future<Map<String, dynamic>> advanceHardwarePreparation(
+    String preparationId,
+    String status, {
+    String? nodeId,
+    int? loRaAddress,
+  }) => _postMap(
+    '/api/v1/technician/hardware-preparations/$preparationId/status',
+    {'status': status, 'nodeId': ?nodeId, 'loRaAddress': ?loRaAddress},
+  );
+
+  static Future<Map<String, dynamic>> recordHardwareConnectivityCheck(
+    String preparationId, {
+    required bool passed,
+    required String evidence,
+  }) => _postMap(
+    '/api/v1/technician/hardware-preparations/$preparationId/connectivity-check',
+    {'passed': passed, 'evidence': evidence},
+  );
+
+  static Future<Map<String, dynamic>> recordFirmwareInstallation(
+    String preparationId, {
+    required String firmwareReleaseId,
+    String uploadMethod = 'UsbManual',
+    String result = 'Succeeded',
+    String? notes,
+  }) => _postMap(
+    '/api/v1/technician/hardware-preparations/$preparationId/firmware',
+    {
+      'firmwareReleaseId': firmwareReleaseId,
+      'uploadMethod': uploadMethod,
+      'result': result,
+      'notes': ?notes,
+    },
+  );
 
   static Future<List<Map<String, dynamic>>> getTechnicianSpareParts() async =>
       ApiService._listOf(

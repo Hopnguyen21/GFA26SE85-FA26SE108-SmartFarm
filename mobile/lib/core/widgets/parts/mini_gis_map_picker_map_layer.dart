@@ -8,6 +8,17 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
         options: MapOptions(
           initialCenter: _currentCenter,
           initialZoom: widget.initialZoom,
+          // Xem Zone có node: khung nhìn ôm trọn ranh giới + mọi node (không để node rơi ngoài màn hình).
+          initialCameraFit: widget.isReadOnly && widget.nodeMarkers.isNotEmpty
+              ? CameraFit.coordinates(
+                  coordinates: [
+                    ..._polygonPoints,
+                    for (final n in widget.nodeMarkers) n.point,
+                  ],
+                  padding: const EdgeInsets.all(44),
+                  maxZoom: 19,
+                )
+              : null,
           minZoom: 9.0,
           maxZoom: 20.0,
           interactionOptions: InteractionOptions(
@@ -55,7 +66,7 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                           : const Color(0xFF10B981).withValues(alpha: 0.16),
                       borderColor: isFieldLevel
                           ? const Color(0xFF0284C7)
-                          : const Color(0xFF059669),
+                          : const Color(0xFF047857),
                       borderStrokeWidth: 1.8,
                     );
                   })
@@ -332,6 +343,59 @@ extension _MiniGISMapPickerStateMapLayer on _MiniGISMapPickerState {
                   ),
                 );
               }),
+            ),
+
+          // Node thiết bị đã chấm toạ độ (cảm biến xanh dương, van/bơm cam; offline xám).
+          if (widget.nodeMarkers.isNotEmpty)
+            MarkerLayer(
+              markers: [
+                for (final n in widget.nodeMarkers)
+                  Marker(
+                    point: n.point,
+                    width: 26,
+                    height: 26,
+                    child: Tooltip(
+                      message:
+                          '${n.label}${n.status.isEmpty ? '' : ' · ${n.status}'}',
+                      triggerMode: TooltipTriggerMode.tap,
+                      child: Container(
+                        key: const Key('gis_node_marker'),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              n.status.toLowerCase() == 'online' ||
+                                  n.status.isEmpty
+                              ? (n.type == 'ActuatorNode'
+                                    ? const Color(0xFFEA580C)
+                                    : const Color(0xFF0284C7))
+                              : const Color(0xFF64748B),
+                          // Node nằm ngoài ranh giới Zone: viền đỏ để dễ thấy toạ độ sai.
+                          border: Border.all(
+                            color:
+                                _polygonPoints.length >= 3 &&
+                                    !pointInPolygon(n.point, _polygonPoints)
+                                ? const Color(0xFFDC2626)
+                                : Colors.white,
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          n.type == 'ActuatorNode'
+                              ? Icons.water_drop
+                              : Icons.sensors,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
         ],
       ),

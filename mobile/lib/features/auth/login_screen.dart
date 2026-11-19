@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/api_service.dart';
 import 'register_screen.dart';
 import 'password_screens.dart';
+import '../../core/utils/user_error.dart';
 
 const _green = Color(0xFF119653);
 const _rememberedEmailKey = 'login_remembered_email';
@@ -154,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = 'Lỗi hệ thống: $e');
+        setState(() => _errorMessage = 'Lỗi hệ thống: ${userFacingError(e)}');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -199,30 +201,191 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFFF1F5F9),
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.all(14),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _brandCard(),
-                  const SizedBox(height: 12),
-                  _formCard(),
-                ],
-              ),
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 768;
+              if (isWide) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 880),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 5, child: _brandCardDesktop()),
+                              Expanded(
+                                flex: 6,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(28),
+                                  child: _formContent(isWide: true),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              // Giao diện Mobile / Màn hình hẹp (< 768px): Header gọn gàng + Card đăng nhập
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _brandCardMobile(),
+                        const SizedBox(height: 12),
+                        _formCardMobile(),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  /// Cột thương hiệu của web: logo, tiêu đề, mô tả và ba điểm nổi bật.
-  Widget _brandCard() {
+  /// Banner thương hiệu tinh gọn cho mobile: vừa vặn khung nhìn, không chiếm quá nhiều diện tích.
+  Widget _brandCardMobile() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF064E3B), _green, Color(0xFF047857)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _green.withValues(alpha: 0.25),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Icon(Icons.eco, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SmartFarm SaaS',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Nền tảng Quản lý Nông nghiệp Thông minh Tích hợp AI',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFD1FAE5),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              _chipBadge(Icons.shield_outlined, 'PostgreSQL RLS'),
+              _chipBadge(Icons.sensors, 'LoRa 433MHz'),
+              _chipBadge(Icons.auto_awesome, 'AI Nông học Gemini'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chipBadge(IconData icon, String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: const Color(0xFF6EE7B7)),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFFECFDF5),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// Cột thương hiệu của web (Desktop / Màn hình rộng): logo, tiêu đề, mô tả và ba điểm nổi bật.
+  Widget _brandCardDesktop() {
     Widget bullet(String text) => Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -242,68 +405,72 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+      padding: const EdgeInsets.all(28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           colors: [_green, Color(0xFF047857), Color(0xFF065F46)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Icon(Icons.eco, color: Colors.white, size: 24),
                   ),
-                ),
-                child: const Icon(Icons.eco, color: Colors.white, size: 24),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'SmartFarm SaaS',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
+              const SizedBox(height: 20),
               const Text(
-                'SmartFarm SaaS',
+                'Nền tảng Quản lý Nông nghiệp Thông minh Tích hợp AI',
                 style: TextStyle(
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
+                  height: 1.3,
                 ),
               ),
+              const SizedBox(height: 10),
+              const Text(
+                'Giải pháp SaaS đa người thuê (Multi-tenant) kết hợp viễn thám LoRa 433MHz, tự động hóa điều khiển vi khí hậu thích ứng theo thời kỳ sinh trưởng và Trợ lý AI Nông học Gemini.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFFD1FAE5),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              bullet('Bảo mật Tenant Isolation chuẩn PostgreSQL RLS'),
+              bullet('Cơ chế Crop-aware điều khiển vi khí hậu thông minh'),
+              bullet('Tư vấn Nông học AI RAG chuẩn VietGAP/GlobalGAP'),
             ],
           ),
-          const SizedBox(height: 14),
-          const Text(
-            'Nền tảng Quản lý Nông nghiệp Thông minh Tích hợp AI',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Giải pháp SaaS đa người thuê (Multi-tenant) kết hợp viễn thám LoRa 433MHz, tự động hóa điều khiển vi khí hậu thích ứng theo thời kỳ sinh trưởng và Trợ lý AI Nông học Gemini.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: Color(0xFFD1FAE5),
-              height: 1.45,
-            ),
-          ),
-          bullet('Bảo mật Tenant Isolation chuẩn PostgreSQL RLS'),
-          bullet('Cơ chế Crop-aware điều khiển vi khí hậu thông minh'),
-          bullet('Tư vấn Nông học AI RAG chuẩn VietGAP/GlobalGAP'),
-          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 14),
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
@@ -350,118 +517,124 @@ class _LoginScreenState extends State<LoginScreen> {
     ),
   );
 
-  Widget _formCard() {
+  Widget _formCardMobile() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 18,
+            color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+            blurRadius: 20,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Đăng nhập Hệ thống',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
+      child: _formContent(isWide: false),
+    );
+  }
+
+  Widget _formContent({required bool isWide}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Đăng nhập Hệ thống',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Nhập tài khoản của bạn để truy cập Workspace',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Nhập tài khoản của bạn để truy cập Workspace',
+                    style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: _isLoading ? null : _openRegister,
-                style: TextButton.styleFrom(
-                  foregroundColor: _green,
-                  minimumSize: Size.zero,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  'Đăng ký ngay',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                ),
+            ),
+            TextButton(
+              onPressed: _isLoading ? null : _openRegister,
+              style: TextButton.styleFrom(
+                foregroundColor: _green,
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            ],
-          ),
-          if (_successMessage != null)
-            _banner(
-              text: _successMessage!,
-              icon: Icons.check_circle,
-              bg: const Color(0xFFECFDF5),
-              border: const Color(0xFFA7F3D0),
-              fg: const Color(0xFF065F46),
-            ),
-          if (_errorMessage != null)
-            _banner(
-              text: _errorMessage!,
-              icon: Icons.error_outline,
-              bg: const Color(0xFFFFF1F2),
-              border: const Color(0xFFFECDD3),
-              fg: const Color(0xFFBE123C),
-            ),
-          const SizedBox(height: 18),
-          _label('Email / Tên đăng nhập'),
-          const SizedBox(height: 6),
-          _field(
-            controller: _emailCtrl,
-            hint: 'tenban@example.com',
-            icon: Icons.mail_outline,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 14),
-          _label('Mật khẩu'),
-          const SizedBox(height: 6),
-          _field(
-            controller: _passwordCtrl,
-            hint: 'Mật khẩu của bạn...',
-            icon: Icons.vpn_key_outlined,
-            obscureText: _obscurePassword,
-            onSubmitted: (_) => _login(),
-            suffixIcon: IconButton(
-              tooltip: 'Hiện hoặc ẩn mật khẩu',
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                color: const Color(0xFF94A3B8),
-                size: 18,
+              child: const Text(
+                'Đăng ký ngay',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
               ),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
             ),
+          ],
+        ),
+        if (_successMessage != null)
+          _banner(
+            text: _successMessage!,
+            icon: Icons.check_circle,
+            bg: const Color(0xFFECFDF5),
+            border: const Color(0xFFA7F3D0),
+            fg: const Color(0xFF065F46),
           ),
-          const SizedBox(height: 8),
-          Wrap(
+        if (_errorMessage != null)
+          _banner(
+            text: _errorMessage!,
+            icon: Icons.error_outline,
+            bg: const Color(0xFFFFF1F2),
+            border: const Color(0xFFFECDD3),
+            fg: const Color(0xFFBE123C),
+          ),
+        const SizedBox(height: 18),
+        _label('Email / Tên đăng nhập'),
+        const SizedBox(height: 6),
+        _field(
+          controller: _emailCtrl,
+          hint: 'tenban@example.com',
+          icon: Icons.mail_outline,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 14),
+        _label('Mật khẩu'),
+        const SizedBox(height: 6),
+        _field(
+          controller: _passwordCtrl,
+          hint: 'Mật khẩu của bạn...',
+          icon: Icons.vpn_key_outlined,
+          obscureText: _obscurePassword,
+          onSubmitted: (_) => _login(),
+          suffixIcon: IconButton(
+            tooltip: 'Hiện hoặc ẩn mật khẩu',
+            icon: Icon(
+              _obscurePassword
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+              color: const Color(0xFF94A3B8),
+              size: 18,
+            ),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 6,
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 4,
             children: [
               InkWell(
                 onTap: _isLoading
@@ -472,11 +645,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: 24,
-                      height: 24,
+                      width: 22,
+                      height: 22,
                       child: Checkbox(
                         value: _remember,
                         activeColor: _green,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                         onChanged: _isLoading
                             ? null
@@ -488,159 +665,191 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Ghi nhớ',
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: _isLoading ? null : _openForgotPassword,
-                    child: const Text(
-                      'Quên mật khẩu?',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFB45309),
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Semantics(
+                      button: true,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _isLoading ? null : _openForgotPassword,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 15),
+                          child: Text(
+                            'Quên mật khẩu?',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      '•',
-                      style: TextStyle(color: Color(0xFFCBD5E1)),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _isLoading ? null : _openRegister,
-                    child: const Text(
-                      'Đăng ký?',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: _green,
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(
+                        '•',
+                        style: TextStyle(color: Color(0xFFCBD5E1)),
                       ),
                     ),
-                  ),
-                ],
+                    Semantics(
+                      button: true,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _isLoading ? null : _openRegister,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 15),
+                          child: Text(
+                            'Đăng ký?',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: _green,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          if (!kReleaseMode && _showServerConfig) ...[
-            const SizedBox(height: 14),
-            _label('URL Backend Server'),
-            const SizedBox(height: 6),
-            _field(
-              controller: _serverCtrl,
-              hint: 'http://10.0.2.2:5144',
-              icon: Icons.dns_outlined,
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '• Android emulator: http://10.0.2.2:5144\n• Thiết bị thật (cùng WiFi): http://192.168.x.x:5144',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-                height: 1.5,
-              ),
-            ),
-          ] else if (!kReleaseMode) ...[
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => setState(() => _showServerConfig = true),
-              child: const Text(
-                'Cấu hình địa chỉ máy chủ →',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _green,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _login,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _green,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: _green.withValues(alpha: 0.6),
-                disabledForegroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-                shadowColor: _green.withValues(alpha: 0.35),
-              ),
-              child: _isLoading
-                  ? const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.4,
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Đang xác thực...',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    )
-                  : const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Đăng nhập ngay',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(width: 6),
-                        Icon(Icons.arrow_forward, size: 17),
-                      ],
-                    ),
+        ),
+        if (!kReleaseMode && _showServerConfig) ...[
+          const SizedBox(height: 12),
+          _label('URL Backend Server'),
+          const SizedBox(height: 6),
+          _field(
+            controller: _serverCtrl,
+            hint: 'http://10.0.2.2:5144',
+            icon: Icons.dns_outlined,
+            keyboardType: TextInputType.url,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '• Android emulator: http://10.0.2.2:5144\n• Thiết bị thật (cùng WiFi): http://192.168.x.x:5144',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: Color(0xFF64748B),
+              height: 1.45,
             ),
           ),
-          if (kDebugMode) ...[
-            const SizedBox(height: 20),
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            const SizedBox(height: 14),
-            const Row(
+        ] else if (!kReleaseMode) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _showServerConfig = true),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.how_to_reg, size: 14, color: _green),
-                SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'CHUYỂN NHANH VAI TRÒ (QUICK DEV SWITCH)',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                      color: Color(0xFF94A3B8),
-                    ),
+                Icon(Icons.tune, size: 14, color: _green),
+                SizedBox(width: 4),
+                Text(
+                  'Cấu hình địa chỉ máy chủ →',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _green,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Wrap(
+          ),
+        ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _login,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: _green.withValues(alpha: 0.6),
+              disabledForegroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 2,
+              shadowColor: _green.withValues(alpha: 0.35),
+            ),
+            child: _isLoading
+                ? const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.4,
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Đang xác thực...',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Đăng nhập ngay',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      Icon(Icons.arrow_forward, size: 17),
+                    ],
+                  ),
+          ),
+        ),
+        // Luôn hiển thị 3 tài khoản mẫu theo yêu cầu: "để nguyên 3 nút tk mẫu"
+        const SizedBox(height: 20),
+        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        const SizedBox(height: 14),
+        const Row(
+          children: [
+            Icon(Icons.how_to_reg, size: 14, color: _green),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'CHUYỂN NHANH VAI TRÒ (QUICK SWITCH)',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, c) {
+            final cardWidth = c.maxWidth > 350
+                ? (c.maxWidth - 8) / 2
+                : c.maxWidth;
+            return Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -648,31 +857,37 @@ class _LoginScreenState extends State<LoginScreen> {
                   '1. Technician',
                   'Triển khai & Cấp phát IoT',
                   'technician@smartfarm.demo',
+                  Icons.engineering_outlined,
                   const Color(0xFF0369A1),
                   const Color(0xFFF0F9FF),
                   const Color(0xFFBAE6FD),
+                  cardWidth,
                 ),
                 _roleButton(
                   '2. Farm Owner',
                   'Chủ Nông trang Tenant Root',
                   'owner@smartfarm.demo',
+                  Icons.admin_panel_settings_outlined,
                   const Color(0xFF065F46),
                   const Color(0xFFECFDF5),
                   const Color(0xFFA7F3D0),
+                  cardWidth,
                 ),
                 _roleButton(
                   '3. Farmer / Worker',
                   'Công nhân thực địa',
                   'farmer@smartfarm.demo',
+                  Icons.agriculture_outlined,
                   const Color(0xFF92400E),
                   const Color(0xFFFFFBEB),
                   const Color(0xFFFDE68A),
+                  cardWidth,
                 ),
               ],
-            ),
-          ],
-        ],
-      ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -681,13 +896,15 @@ class _LoginScreenState extends State<LoginScreen> {
     String title,
     String subtitle,
     String email,
+    IconData icon,
     Color fg,
     Color bg,
     Color border,
+    double width,
   ) => SizedBox(
-    width: 168,
+    width: width,
     child: InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       onTap: _isLoading
           ? null
           : () {
@@ -698,25 +915,51 @@ class _LoginScreenState extends State<LoginScreen> {
               _login();
             },
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: fg,
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: border, width: 0.6),
+              ),
+              child: Icon(icon, size: 16, color: fg),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: fg,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: fg.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(fontSize: 11.5, color: fg)),
           ],
         ),
       ),
@@ -742,7 +985,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ValueChanged<String>? onSubmitted,
   }) {
     OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       borderSide: BorderSide(color: c, width: w),
     );
     return TextField(
@@ -752,20 +995,24 @@ class _LoginScreenState extends State<LoginScreen> {
       onSubmitted: onSubmitted,
       enableSuggestions: !obscureText,
       autocorrect: false,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF0F172A),
+      ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF94A3B8)),
+        prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748B)),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white,
-        border: border(const Color(0xFFCBD5E1)),
-        enabledBorder: border(const Color(0xFFCBD5E1)),
-        focusedBorder: border(_green, 1.6),
+        fillColor: const Color(0xFFF8FAFC),
+        border: border(const Color(0xFFE2E8F0)),
+        enabledBorder: border(const Color(0xFFE2E8F0)),
+        focusedBorder: border(_green, 1.8),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 13,
+          horizontal: 14,
+          vertical: 14,
         ),
       ),
     );

@@ -56,46 +56,16 @@ extension _DeploymentRequestDetailScreenStateActions
             ),
           );
         case 'Accepted':
-          buttons.add(btn('Ghi nhận khảo sát địa điểm', () => _survey(r)));
+          // Không còn nút nhập khảo sát thực địa thủ công.
+          break;
         case 'Surveyed':
-          buttons.add(
-            btn(
-              'Điều chỉnh kế hoạch sau khảo sát',
-              () => _editPlan(r, technician: true),
-            ),
-          );
-          buttons.add(btn('Ghi nhận khảo sát khác', () => _survey(r)));
-          if (r.latestSurveyFeasible && r.planItems.isEmpty) {
-            buttons.add(
-              btn(
-                'Xác nhận kế hoạch (cần lập kế hoạch trước)',
-                () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
-                    ),
-                  ),
-                ),
-              ),
-            );
-          } else if (r.latestSurveyFeasible) {
-            buttons.add(
-              btn(
-                'Xác nhận kế hoạch',
-                () => _act(
-                  () async => DeploymentApi.confirmDeploymentPlan(id),
-                  confirmTitle: 'Xác nhận kế hoạch',
-                  confirmBody:
-                      'Kế hoạch sẽ bị khoá và dùng làm căn cứ cấp phát.',
-                ),
-              ),
-            );
-          } else {
+          // Kế hoạch tự được xác nhận khi KTV gửi hợp đồng nên không còn nút "Xác nhận kế hoạch".
+          if (!r.latestSurveyFeasible) {
             buttons.add(
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'Khảo sát mới nhất không khả thi: cần khảo sát khả thi trước khi xác nhận.',
+                  'Khảo sát mới nhất không khả thi: cần khảo sát khả thi trước khi gửi hợp đồng.',
                   style: TextStyle(color: Color(0xFFDC2626), fontSize: 12),
                 ),
               ),
@@ -113,17 +83,7 @@ extension _DeploymentRequestDetailScreenStateActions
             ),
           );
         case 'Installing':
-          buttons.add(
-            btn(
-              'Hoàn tất lắp đặt',
-              () => _act(
-                () async => DeploymentApi.completeDeploymentRequest(id),
-                confirmTitle: 'Hoàn tất',
-                confirmBody:
-                    'Backend chỉ chấp nhận khi mọi thiết bị theo kế hoạch đã gán Zone và có lần kiểm tra kết nối thành công mới nhất.',
-              ),
-            ),
-          );
+          buttons.add(btn('Hoàn tất lắp đặt', () => _completeWithReport(r)));
           buttons.add(
             btn('Báo thất bại & chuyển bảo trì', () => _fail(r), danger: true),
           );
@@ -149,7 +109,7 @@ extension _DeploymentRequestDetailScreenStateActions
       try {
         catalogue = await DeploymentApi.getDeploymentPlanModels(r.requestId);
       } catch (e) {
-        catalogueError = e.toString().replaceFirst('Exception: ', '');
+        catalogueError = userFacingError(e);
       }
       if (!mounted) return;
     }
@@ -280,19 +240,6 @@ extension _DeploymentRequestDetailScreenStateActions
       () async => technician
           ? DeploymentApi.updateTechnicianDeploymentPlan(r.requestId, items)
           : DeploymentApi.updateOwnerDeploymentPlan(r.requestId, items),
-    );
-  }
-
-  Future<void> _survey(DeploymentRequest r) async {
-    final input = await askSurvey(context);
-    if (input == null || !mounted) return;
-    await _act(
-      () async => DeploymentApi.surveyDeploymentRequest(
-        r.requestId,
-        isFeasible: input.feasible,
-        siteConditions: input.siteConditions,
-        notes: input.notes,
-      ),
     );
   }
 

@@ -329,7 +329,7 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                   const Icon(
                     Icons.auto_awesome,
                     size: 16,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   const SizedBox(width: 6),
                   const Expanded(
@@ -430,7 +430,7 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
   Widget _buildQuickPrompts(FarmProvider provider) {
     return Container(
       color: const Color(0xFFF8FAFC),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -439,19 +439,29 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
               'Gợi ý nhanh:',
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
                 color: Color(0xFF64748B),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             for (final (label, question)
                 in _AiAssistantScreenState._quickPrompts)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: ActionChip(
-                  label: Text(label, style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
                   backgroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   onPressed: _isTyping
                       ? null
                       : () => _sendMessage(provider, question),

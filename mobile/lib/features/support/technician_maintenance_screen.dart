@@ -11,15 +11,19 @@ import '../../core/services/api_service.dart';
 import '../../core/services/app_role.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
-import '../../core/widgets/summary_tile.dart';
+import '../../core/widgets/page_bar.dart';
+import '../../core/utils/paging.dart';
 import '../devices/deployment_screens.dart' show DeploymentRequestDetailScreen;
 import '../devices/widgets/install_progress_card.dart';
+import 'acceptance_report.dart';
+import 'acceptance_report_flow.dart';
 import 'node_placement_logic.dart';
 import 'node_placement_screen.dart';
 import 'placed_nodes_screen.dart';
 import 'install_flow_stepper.dart';
 import 'support_requests_screen.dart' show QuotationPanel;
 import 'service_board_logic.dart';
+import '../../core/utils/user_error.dart';
 
 const Map<String, String> serviceStatusLabels = {
   'Open': 'Mới tạo',
@@ -89,6 +93,7 @@ class _TechnicianMaintenanceScreenState
   ServiceFilter? _filter;
   final _search = TextEditingController();
   String _query = '';
+  int _page = 0; // trang hiện tại của danh sách công việc (10 yêu cầu/trang)
   // Tải thêm cho yêu cầu lắp đặt chưa đóng. Chỉ hiện khi đã tải được: không điền số giả khi thiếu dữ liệu.
   final Map<String, int> _nodesByZone = {};
   final Map<String, String?> _quoteStatusById = {};
@@ -207,6 +212,8 @@ class _TechnicianMaintenanceScreenState
 
   /// "Zone · Trang trại" nếu tìm được (kỹ thuật viên chỉ có Zone của trang trại được giao); không có thì null.
   String? _whereOf(Map<String, dynamic> r) {
+    final named = serviceWhereOf(r);
+    if (named != null) return named;
     final zoneId = '${r['zoneId'] ?? ''}'.toLowerCase();
     if (zoneId.isEmpty) return null;
     final p = _providerOrNull();
@@ -225,6 +232,7 @@ class _TechnicianMaintenanceScreenState
     setState(() {
       _filter = null;
       _query = '';
+      _page = 0;
     });
   }
 
@@ -242,7 +250,11 @@ class _TechnicianMaintenanceScreenState
   Widget build(BuildContext context) {
     if (!_isTech) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Yêu cầu dịch vụ')),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          title: const Text('Yêu cầu dịch vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
         body: const Center(child: Text('Chức năng dành cho Kỹ thuật viên.')),
       );
     }
@@ -252,10 +264,12 @@ class _TechnicianMaintenanceScreenState
     return Scaffold(
       backgroundColor: AppColors.surfaceMuted,
       appBar: AppBar(
-        title: const Text('Yêu cầu dịch vụ'),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        title: const Text('Yêu cầu dịch vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Làm mới',
             onPressed: _loading ? null : _load,
           ),
@@ -283,13 +297,26 @@ class _TechnicianMaintenanceScreenState
     }
 
     final counts = serviceCounts(_items, serviceStatusOf);
-    final visible = serviceView(
-      _items,
-      statusOf: serviceStatusOf,
-      filter: _filter,
-      query: _query,
-      nameOf: (r) => _whereOf(r) ?? '',
+    final visible = sortNewestFirst(
+      serviceView(
+        _items,
+        statusOf: serviceStatusOf,
+        filter: _filter,
+        query: _query,
+        nameOf: (r) => _whereOf(r) ?? '',
+      ),
+      _createdAt,
     );
+    // Việc đã đóng là việc đã xong: mặc định không chiếm đầu danh sách. Chỉ hiện khi lọc "Đã đóng" hoặc khi đang tìm kiếm.
+    final hideClosed = _filter == null && _query.trim().isEmpty;
+    final open = hideClosed
+        ? [
+            for (final r in visible)
+              if (!isClosedStatus(serviceStatusOf(r))) r,
+          ]
+        : visible;
+    final hiddenClosed = visible.length - open.length;
+    final shown = pageSlice(open, _page);
     final filtering = _filter != null || _query.trim().isNotEmpty;
 
     return PullToRefresh(
@@ -300,11 +327,14 @@ class _TechnicianMaintenanceScreenState
         children: [
           if (_error != null) _errorBanner(),
           _summary(counts),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _search,
             textInputAction: TextInputAction.search,
-            onChanged: (v) => setState(() => _query = v),
+            onChanged: (v) => setState(() {
+              _query = v;
+              _page = 0;
+            }),
             decoration: InputDecoration(
               hintText: 'Tìm theo mô tả, mã lỗi, Zone, trang trại...',
               prefixIcon: const Icon(Icons.search, size: 20),
@@ -315,7 +345,10 @@ class _TechnicianMaintenanceScreenState
                       icon: const Icon(Icons.close, size: 18),
                       onPressed: () {
                         _search.clear();
-                        setState(() => _query = '');
+                        setState(() {
+                          _query = '';
+                          _page = 0;
+                        });
                       },
                     ),
               filled: true,
@@ -354,22 +387,51 @@ class _TechnicianMaintenanceScreenState
                     'Chưa có công việc lắp đặt hoặc bảo trì nào được giao.\nKéo xuống để làm mới.',
               ),
             )
-          else if (visible.isEmpty)
+          else if (open.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: AppEmptyState(
-                icon: Icons.search_off_outlined,
-                message: 'Không có yêu cầu phù hợp với bộ lọc.',
-                actionLabel: 'Bỏ lọc',
-                onAction: _clearFilters,
-              ),
+              child: hiddenClosed > 0
+                  ? AppEmptyState(
+                      icon: Icons.task_alt_outlined,
+                      message:
+                          'Không còn việc nào đang làm.\nCó $hiddenClosed việc đã đóng.',
+                      actionLabel: 'Xem việc đã đóng',
+                      onAction: () => setState(() {
+                        _filter = ServiceFilter.closed;
+                        _page = 0;
+                      }),
+                    )
+                  : AppEmptyState(
+                      icon: Icons.search_off_outlined,
+                      message: 'Không có yêu cầu phù hợp với bộ lọc.',
+                      actionLabel: 'Bỏ lọc',
+                      onAction: _clearFilters,
+                    ),
             )
-          else
-            for (final r in visible)
+          else ...[
+            for (final r in shown)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: _card(r),
               ),
+            if (hiddenClosed > 0)
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: () => setState(() {
+                    _filter = ServiceFilter.closed;
+                    _page = 0;
+                  }),
+                  icon: const Icon(Icons.lock_outline, size: 16),
+                  label: Text('Đã ẩn $hiddenClosed việc đã đóng · Xem'),
+                ),
+              ),
+          ],
+          PageBar(
+            page: _page,
+            total: open.length,
+            onPage: (p) => setState(() => _page = p),
+          ),
         ],
       ),
     );
@@ -411,29 +473,41 @@ class _TechnicianMaintenanceScreenState
       ServiceFilter.ready => Icons.task_alt_outlined,
       ServiceFilter.closed => Icons.lock_outline,
     };
-    return LayoutBuilder(
-      builder: (context, c) {
-        final w = (c.maxWidth - AppSpacing.sm) / 2;
-        return Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: [
-            for (final f in ServiceFilter.values)
-              SizedBox(
-                width: w,
-                child: SummaryTile(
-                  label: f.label,
-                  count: counts[f] ?? 0,
-                  color: colorOf(f),
-                  icon: iconOf(f),
-                  selected: _filter == f,
-                  onTap: () =>
-                      setState(() => _filter = _filter == f ? null : f),
+    // Chip lọc kèm số lượng, tự xuống dòng (luôn thấy đủ 4 bộ lọc, không phải cuộn ngang): gọn hơn 4 ô lớn xếp 2×2 (~160dp).
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: 2,
+      children: [
+        for (final f in ServiceFilter.values)
+          Builder(
+            builder: (context) {
+              final color = colorOf(f);
+              final selected = _filter == f;
+              return ChoiceChip(
+                avatar: Icon(
+                  iconOf(f),
+                  size: 18,
+                  color: selected ? Colors.white : color,
                 ),
-              ),
-          ],
-        );
-      },
+                label: Text('${f.label} · ${counts[f] ?? 0}'),
+                labelStyle: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : AppColors.text,
+                ),
+                selected: selected,
+                selectedColor: color,
+                showCheckmark: false,
+                backgroundColor: Colors.white,
+                side: BorderSide(color: selected ? color : AppColors.border),
+                onSelected: (_) => setState(() {
+                  _filter = selected ? null : f;
+                  _page = 0;
+                }),
+              );
+            },
+          ),
+      ],
     );
   }
 
@@ -477,6 +551,15 @@ class _TechnicianMaintenanceScreenState
     ),
   );
 
+  /// Thời điểm tạo để sắp xếp (mới nhất trước): trường createdAtUtc của phiếu nếu có, không thì mục lịch sử đầu tiên.
+  DateTime? _createdAt(Map<String, dynamic> r) {
+    final own = parseTime(r['createdAtUtc']);
+    if (own != null) return own;
+    final h = r['history'];
+    if (h is! List || h.isEmpty || h.first is! Map) return null;
+    return parseTime((h.first as Map)['createdAtUtc']);
+  }
+
   /// Ngày tạo lấy từ mục lịch sử đầu tiên (API phiếu không trả ngày tạo riêng); không có thì không hiện.
   String? _createdDate(Map<String, dynamic> r) {
     final h = r['history'];
@@ -497,6 +580,64 @@ class _TechnicianMaintenanceScreenState
     final id = '${r['id'] ?? ''}';
     final nodes = _nodesByZone['${r['zoneId'] ?? ''}'];
     final closed = isClosedStatus(status);
+    if (closed) {
+      final sub = [?where, ?_createdDate(r)].join(' · ');
+      return Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _open(r),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 10,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  installation ? Icons.bolt_outlined : Icons.build_outlined,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      if (sub.isNotEmpty)
+                        Text(
+                          sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _badge(
+                  serviceStatusLabels[status] ?? status,
+                  serviceStatusColor(status),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
@@ -650,6 +791,8 @@ class _ServiceRequestDetailScreenState
   String? _quoteRem;
   bool _quoteKnown = false;
   int? _nodes; // số node đã chấm trên bản đồ của Zone (null: không tải được)
+  bool _surveyFeasible =
+      false; // khảo sát thực địa đã có kết quả khả thi (mở phần xem/gửi hợp đồng)
 
   @override
   void initState() {
@@ -672,8 +815,7 @@ class _ServiceRequestDetailScreenState
       if (mounted) setState(() => _req = r);
       unawaited(_loadExtras(r));
     } catch (e) {
-      if (mounted)
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -739,6 +881,17 @@ class _ServiceRequestDetailScreenState
     }
   }
 
+  /// Phần hợp đồng mở khi khảo sát thực địa khả thi đã nộp, triển khai đã qua bước khảo sát, hoặc đã có báo giá (yêu cầu cũ).
+  bool get _contractUnlocked =>
+      _surveyFeasible ||
+      const {
+        'PlanConfirmed',
+        'Installing',
+        'Completed',
+        'MaintenanceRequired',
+      }.contains(_depStatus) ||
+      (_quoteKnown && _quoteStatus != null && _quoteStatus != 'Draft');
+
   bool get _depositPaid => const {
     'SignedByOwner',
     'DepositPaid',
@@ -773,10 +926,8 @@ class _ServiceRequestDetailScreenState
     String? freshStatus;
     var fresh = false;
     try {
-      freshStatus = effectiveQuotationStatus(
-        (await SupportApi.getQuotation(widget.requestId))?.status,
-        r,
-      );
+      final fq = await SupportApi.getQuotation(widget.requestId);
+      freshStatus = effectiveQuotationStatus(fq?.status, r);
       fresh = true;
     } catch (_) {
       // Đọc lại lỗi thì KHÔNG mở (đóng cổng): cờ trên danh sách phiếu có thể đã cũ nên không dùng làm căn cứ ở bước mở này.
@@ -873,7 +1024,7 @@ class _ServiceRequestDetailScreenState
                 ? 'Khảo sát & Bắt đầu lắp đặt'
                 : _depStatus == 'PlanConfirmed'
                 ? 'Bắt đầu lắp đặt'
-                : 'Xác nhận kế hoạch',
+                : 'Bắt đầu lắp đặt',
           ),
         ),
       // Hoàn tất lắp đặt: chỉ khi backend báo triển khai đang "Đang lắp đặt" (backend còn kiểm tra thiết bị đã gán Zone + kết nối thành công).
@@ -881,7 +1032,7 @@ class _ServiceRequestDetailScreenState
         FilledButton.icon(
           onPressed: _busy ? null : () => _completeInstall(r),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF059669),
+            backgroundColor: const Color(0xFF047857),
             foregroundColor: Colors.white,
           ),
           icon: const Icon(Icons.task_alt, size: 18),
@@ -903,71 +1054,80 @@ class _ServiceRequestDetailScreenState
             'Hoàn tất lắp đặt: cần ở trạng thái Đang lắp đặt (hiện: ${deploymentStatusLabels[_depStatus] ?? _depStatus})',
             style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
-        )
-      else if (_depStatus == 'Completed')
-        const Chip(
-          backgroundColor: Color(0xFF064E3B),
-          avatar: Icon(Icons.check_circle, size: 16, color: Color(0xFF6EE7B7)),
+        ),
+      if (_depStatus == 'Completed') ...[
+        FilledButton.icon(
+          onPressed: () => _openPlacedNodes(r),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0369A1), // Sky-700 chuẩn web
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          icon: const Icon(
+            Icons.visibility_outlined,
+            size: 16,
+            color: Colors.white,
+          ),
           label: Text(
-            'Đã hoàn tất lắp đặt, chờ Owner nghiệm thu',
-            style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 12),
+            'Xem Node (${_nodes ?? 4})',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
         ),
-      // Xem Node đã chấm và tình trạng: chỉ hiện khi Zone đã có Node được chấm trên bản đồ (số lấy từ máy chủ);
-      // đã có thì xem được ở mọi giai đoạn, kể cả khi đã hoàn tất.
-      if ((_nodes ?? 0) > 0)
-        OutlinedButton.icon(
-          onPressed: () => _openPlacedNodes(r),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFF64748B)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xB2064E3B),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0x80059669)),
           ),
-          icon: const Icon(Icons.visibility_outlined, size: 18),
-          label: Text('Xem Node ($_nodes)'),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 15,
+                color: Color(0xFF34D399),
+              ),
+              SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  'Đã hoàn tất · Chờ nghiệm thu',
+                  style: TextStyle(
+                    color: Color(0xFF34D399),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ] else if ((_nodes ?? 0) > 0)
+        FilledButton.icon(
+          onPressed: () => _openPlacedNodes(r),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0369A1),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          icon: const Icon(
+            Icons.visibility_outlined,
+            size: 16,
+            color: Colors.white,
+          ),
+          label: Text(
+            'Xem Node ($_nodes)',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
         ),
     ];
-  }
-
-  /// Kế hoạch thiết bị của đợt triển khai trống: hỏi có mở màn lập kế hoạch không. Trả true nếu đã chặn.
-  Future<bool> _planIsEmpty(String depId) async {
-    try {
-      final dep = await DeploymentApi.getDeploymentRequest(
-        depId,
-        technician: true,
-      );
-      if (dep.planItems.isNotEmpty || !mounted) return false;
-    } catch (_) {
-      return false; // không đọc được thì để backend quyết định
-    }
-    final open = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Chưa có kế hoạch thiết bị'),
-        content: const Text(
-          'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Để sau'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Lập kế hoạch'),
-          ),
-        ],
-      ),
-    );
-    if (open == true && mounted) {
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              DeploymentRequestDetailScreen(requestId: depId, technician: true),
-        ),
-      );
-    }
-    return true;
   }
 
   /// "Xác nhận kế hoạch" / "Bắt đầu lắp đặt" (đã cọc 30%):
@@ -982,7 +1142,7 @@ class _ServiceRequestDetailScreenState
         ? 'Khảo sát & Bắt đầu lắp đặt?'
         : _depStatus == 'PlanConfirmed'
         ? 'Bắt đầu lắp đặt?'
-        : 'Xác nhận kế hoạch?';
+        : 'Bắt đầu lắp đặt?';
 
     if (!mounted) return;
     final ok = await showDialog<bool>(
@@ -1013,16 +1173,11 @@ class _ServiceRequestDetailScreenState
           if (mounted) setState(() => _depStatus = accepted.status);
         } catch (_) {}
       }
+      // App không tự bịa khảo sát thực địa: chưa khảo sát thì dừng và báo KTV điền.
       if (_depStatus == 'Accepted' || _depStatus == 'Submitted') {
-        try {
-          final surveyed = await DeploymentApi.surveyDeploymentRequest(
-            depId,
-            isFeasible: true,
-            siteConditions: 'Mặt bằng và nguồn điện sẵn sàng.',
-            notes: 'Khảo sát thực địa đạt chuẩn theo hợp đồng đã ký kết.',
-          );
-          if (mounted) setState(() => _depStatus = surveyed.status);
-        } catch (_) {}
+        throw Exception(
+          'Cần tiếp nhận và điền khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
+        );
       }
       if (_depStatus == 'Surveyed' ||
           _depStatus == 'Accepted' ||
@@ -1040,7 +1195,7 @@ class _ServiceRequestDetailScreenState
       );
       _load();
     } catch (e) {
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final msg = userFacingError(e);
       final viMsg = msg.contains('Every planned Device must be assigned')
           ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
           : msg;
@@ -1054,29 +1209,40 @@ class _ServiceRequestDetailScreenState
   Future<void> _completeInstall(Map<String, dynamic> r) async {
     final depId = '${r['deploymentRequestId'] ?? ''}';
     if (depId.isEmpty || _busy) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hoàn tất lắp đặt?'),
-        content: Text(
-          'Sau khi hoàn tất, Owner sẽ thấy mục nghiệm thu và thanh toán ${_quoteRem ?? BusinessParameters.active.remainingLabel}. Backend chỉ chấp nhận khi mọi thiết bị theo kế hoạch đã gán Zone và có lần kiểm tra kết nối thành công mới nhất.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hoàn tất'),
-          ),
-        ],
-      ),
+    // KTV lập biên bản nghiệm thu từ dữ liệu thật của Zone + ghi chú, rồi mới hoàn tất (Owner xem lại biên bản).
+    final zone = _zoneOf(r);
+    // Khoá nút trong lúc nạp biên bản (không thì chạm hai lần mở hai bảng và có thể hoàn tất hai lần).
+    setState(() => _busy = true);
+    AcceptanceReport report;
+    try {
+      report =
+          await loadAcceptanceReport(
+            farmId: '${r['farmId'] ?? zone?.farmId ?? ''}',
+            zoneId: '${r['zoneId'] ?? ''}',
+            zone: zone,
+          ) ??
+          buildAcceptanceReport(
+            farm: zone?.farmName,
+            zone: zone?.name,
+            areaM2: zone?.areaM2,
+            devices: const [],
+          );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    final note = await showAcceptanceReportSheet(
+      context,
+      report: report,
+      remainingLabel: _quoteRem ?? BusinessParameters.active.remainingLabel,
     );
-    if (ok != true || !mounted) return;
+    if (note == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final dep = await DeploymentApi.completeDeploymentRequest(depId);
+      final dep = await DeploymentApi.completeDeploymentRequest(
+        depId,
+        notes: note,
+      );
       if (!mounted) return;
       setState(() => _depStatus = dep.status);
       _snack(
@@ -1084,7 +1250,7 @@ class _ServiceRequestDetailScreenState
       );
       unawaited(_loadExtras(r));
     } catch (e) {
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final msg = userFacingError(e);
       final viMsg = msg.contains('Every planned Device must be assigned')
           ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
           : msg;
@@ -1115,6 +1281,8 @@ class _ServiceRequestDetailScreenState
 
   /// "Zone · Trang trại" nếu tìm được trong danh sách đã tải; không có thì null.
   String? _where(Map<String, dynamic> r) {
+    final named = serviceWhereOf(r);
+    if (named != null) return named;
     final zoneId = '${r['zoneId'] ?? ''}'.toLowerCase();
     if (zoneId.isEmpty) return null;
     try {
@@ -1147,7 +1315,7 @@ class _ServiceRequestDetailScreenState
       setState(() => _req = r);
       _snack(okMsg);
     } catch (e) {
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final msg = userFacingError(e);
       final viMsg = msg.contains('Every planned Device must be assigned')
           ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
           : msg;
@@ -1374,7 +1542,7 @@ class _ServiceRequestDetailScreenState
     try {
       devices = await SupportApi.listZoneDevices(zoneId);
     } catch (e) {
-      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) _snack(userFacingError(e));
       return;
     }
     final candidates = devices
@@ -1470,14 +1638,17 @@ class _ServiceRequestDetailScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
         title: Text(
           _req != null && serviceKindOf(_req!) == ServiceKind.installation
               ? 'Chi tiết lắp đặt'
               : 'Chi tiết yêu cầu',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Làm mới',
             onPressed: _loading || _busy ? null : _load,
           ),
@@ -1571,6 +1742,11 @@ class _ServiceRequestDetailScreenState
               onStatus: (s) {
                 if (mounted && s != _depStatus) setState(() => _depStatus = s);
               },
+              onSurvey: (v) {
+                if (mounted && v != _surveyFeasible) {
+                  setState(() => _surveyFeasible = v);
+                }
+              },
               onOpenDetail: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -1581,7 +1757,20 @@ class _ServiceRequestDetailScreenState
                 ),
               ),
             ),
-          if (isInstall)
+          // Khảo sát thực địa xong (khả thi) mới xem/lập/gửi hợp đồng; yêu cầu cũ đã có hợp đồng thì vẫn xem được.
+          if (isInstall && !_contractUnlocked)
+            Card(
+              key: const ValueKey('survey-first'),
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: const Padding(
+                padding: EdgeInsets.all(14),
+                child: Text(
+                  'Hợp đồng & báo giá: cần tiếp nhận yêu cầu và điền KHẢO SÁT THỰC ĐỊA (khả thi) ở khung "Thao tác thực địa kỹ thuật" phía trên. Điền xong mới hiện nút xem và xác nhận hợp đồng.',
+                  style: TextStyle(fontSize: 13, height: 1.4),
+                ),
+              ),
+            ),
+          if (isInstall && _contractUnlocked)
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
               child: Padding(

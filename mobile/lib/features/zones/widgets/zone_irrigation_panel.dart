@@ -6,9 +6,11 @@ import '../../../core/services/api_service.dart';
 import '../../../core/utils/cron_utils.dart';
 import '../profile_irrigation_logic.dart';
 import '../zone_irrigation_logic.dart';
+import '../actuator_labels.dart';
 import 'profile_irrigation_view.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
 import '../../irrigation/season_irrigation_logic.dart' show syncSourceText;
+import '../../../core/utils/user_error.dart';
 
 const _muted = Color(0xFF64748B);
 
@@ -58,7 +60,7 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
     });
   }
 
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   Future<void> _load() async {
     final profileId = _profileId;
@@ -531,7 +533,11 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
               for (final a in usable)
                 DropdownMenuItem(
                   value: a.actuatorId,
-                  child: Text(a.name, overflow: TextOverflow.ellipsis),
+                  // Tên kênh trùng giữa các node ("… #1" của node 1 và node 2): thêm vị trí để phân biệt.
+                  child: Text(
+                    [a.name, ?actuatorPlaceLabel(a, usable)].join(' · '),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: _busy ? null : (v) => setState(() => _actuatorId = v),

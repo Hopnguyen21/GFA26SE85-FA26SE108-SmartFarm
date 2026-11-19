@@ -2,14 +2,30 @@ part of '../home_screen.dart';
 
 extension _HomeScreenThresholds on HomeScreen {
   // ─── Modal Cài Đặt Ngưỡng An Toàn & Kích Hoạt Thiết Bị (Threshold Setting) ───
-  void _showThresholdSettingsModal(BuildContext context, dynamic zone) {
+  Future<void> _showThresholdSettingsModal(
+    BuildContext context,
+    dynamic zone,
+  ) async {
     final provider = Provider.of<FarmProvider>(context, listen: false);
-    double minTemp = 18.0;
-    double maxTemp = 28.0;
-    double minSoil = 60.0;
-    double maxSoil = 80.0;
-    bool autoFan = true;
-    bool autoPump = true;
+    // Giá trị ban đầu là cấu hình ĐÃ LƯU của Zone (control/environmental-configs), không phải số cố định.
+    Map<String, dynamic>? saved;
+    String? loadError;
+    try {
+      saved = await AutomationApi.getEnvironmentalConfig(zone.zoneId);
+    } catch (e) {
+      loadError = userFacingError(e);
+    }
+    if (!context.mounted) return;
+    double? numOf(String k) {
+      final v = (saved?[k] as num?)?.toDouble();
+      return v != null && v > 0 ? v : null;
+    }
+
+    final hasSaved = saved != null;
+    double maxTemp = numOf('maxTemperature') ?? 28.0;
+    double minSoil = numOf('minSoilMoisture') ?? 60.0;
+    double maxSoil = numOf('maxSoilMoisture') ?? 80.0;
+    if (minSoil > maxSoil) minSoil = maxSoil;
 
     showModalBottomSheet(
       context: context,
@@ -53,7 +69,7 @@ extension _HomeScreenThresholds on HomeScreen {
                         ),
                         child: const Icon(
                           Icons.tune,
-                          color: Color(0xFF059669),
+                          color: Color(0xFF047857),
                           size: 22,
                         ),
                       ),
@@ -86,7 +102,22 @@ extension _HomeScreenThresholds on HomeScreen {
 
                   const SizedBox(height: 16),
 
-                  // Nhiệt độ không khí
+                  if (loadError != null || !hasSaved)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        loadError != null
+                            ? 'Không tải được cấu hình đã lưu: $loadError'
+                            : 'Zone chưa có cấu hình ngưỡng đã lưu: các giá trị bên dưới chỉ là gợi ý, bấm "Lưu Ngưỡng" để áp dụng.',
+                        key: const Key('threshold_note'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+
+                  // Nhiệt độ không khí (backend chỉ lưu ngưỡng tối đa dùng để bật quạt)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -100,25 +131,30 @@ extension _HomeScreenThresholds on HomeScreen {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.thermostat,
-                                  color: Color(0xFFEA580C),
-                                  size: 16,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Dải nhiệt độ tối ưu:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                            const Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.thermostat,
+                                    color: Color(0xFFEA580C),
+                                    size: 16,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      'Nhiệt độ tối đa (bật quạt khi vượt):',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             Text(
-                              '${minTemp.toInt()}°C - ${maxTemp.toInt()}°C',
+                              '${maxTemp.toInt()}°C',
+                              key: const Key('threshold_max_temp'),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -127,41 +163,22 @@ extension _HomeScreenThresholds on HomeScreen {
                             ),
                           ],
                         ),
-                        RangeSlider(
-                          values: RangeValues(minTemp, maxTemp),
-                          min: 10,
-                          max: 38,
-                          divisions: 28,
+                        Slider(
+                          value: maxTemp.clamp(15, 40).toDouble(),
+                          min: 15,
+                          max: 40,
+                          divisions: 25,
                           activeColor: const Color(0xFFEA580C),
                           inactiveColor: const Color(0xFFFED7AA),
-                          labels: RangeLabels(
-                            '${minTemp.toInt()}°C',
-                            '${maxTemp.toInt()}°C',
-                          ),
-                          onChanged: (values) {
-                            setModalState(() {
-                              minTemp = values.start;
-                              maxTemp = values.end;
-                            });
-                          },
+                          label: '${maxTemp.toInt()}°C',
+                          onChanged: (v) => setModalState(() => maxTemp = v),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Tự bật Quạt đối lưu khi > Max:',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            Switch(
-                              value: autoFan,
-                              activeThumbColor: const Color(0xFF10B981),
-                              onChanged: (val) =>
-                                  setModalState(() => autoFan = val),
-                            ),
-                          ],
+                        const Text(
+                          'Dải nhiệt độ chuẩn theo giai đoạn nằm ở hồ sơ canh tác của Zone; ngưỡng này chỉ điều khiển quạt.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -228,23 +245,12 @@ extension _HomeScreenThresholds on HomeScreen {
                             });
                           },
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Tự bật Bơm tưới khi < Min:',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            Switch(
-                              value: autoPump,
-                              activeThumbColor: const Color(0xFF10B981),
-                              onChanged: (val) =>
-                                  setModalState(() => autoPump = val),
-                            ),
-                          ],
+                        const Text(
+                          'Tưới tự động theo lịch/AutoRule: mở "Tất cả AutoRule" để bật/tắt.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -315,13 +321,14 @@ extension _HomeScreenThresholds on HomeScreen {
                               );
                               return;
                             }
+                            thresholdsSavedSignal.value++;
                             if (ctx.mounted) Navigator.pop(ctx);
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  '✅ Đã lưu cấu hình ngưỡng cho ${zone.name}: Nhiệt độ ${minTemp.toInt()}–${maxTemp.toInt()}°C, Độ ẩm ${minSoil.toInt()}–${maxSoil.toInt()}%!',
+                                  '✅ Đã lưu ngưỡng cho ${zone.name}: bật quạt khi > ${maxTemp.toInt()}°C, độ ẩm đất ${minSoil.toInt()}–${maxSoil.toInt()}%.',
                                 ),
-                                backgroundColor: const Color(0xFF059669),
+                                backgroundColor: const Color(0xFF047857),
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),

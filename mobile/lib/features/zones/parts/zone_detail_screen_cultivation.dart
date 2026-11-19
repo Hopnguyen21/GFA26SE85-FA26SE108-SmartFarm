@@ -53,14 +53,23 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                   );
                   await _refreshCultivation(provider);
                 },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: const Color(0xFF15803D),
+                  side: const BorderSide(color: Color(0xFF15803D), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  backgroundColor: const Color(0xFFF0FDF4),
+                ),
                 icon: const Icon(
                   Icons.menu_book_rounded,
-                  size: 16,
-                  color: Color(0xFF10B981),
+                  size: 18,
+                  color: Color(0xFF15803D),
                 ),
                 label: const Text(
                   'Hồ sơ canh tác của Zone',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                 ),
               ),
             ),
@@ -76,16 +85,21 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
               ),
             ),
           ],
-          const SizedBox(height: 4),
-          TextButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CropProfilesScreen()),
-            ),
-            icon: const Icon(Icons.menu_book_rounded, size: 16),
-            label: const Text(
-              'Mở Thư viện cây trồng',
-              style: TextStyle(fontSize: 12),
+          const SizedBox(height: 6),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CropProfilesScreen()),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF047857),
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+              ),
+              icon: const Icon(Icons.local_florist_outlined, size: 16),
+              label: const Text(
+                'Mở Thư viện cây trồng',
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -112,15 +126,54 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
   ) async {
     // Danh sách lấy từ Farm sở hữu Zone này (zone.farmId), không phải Farm đang chọn toàn cục.
     if (!provider.canManageFarmStructure) return;
-    final farmWorkers = provider.farmersForFarm(zone.farmId);
+    var farmWorkers = provider.farmersForFarm(zone.farmId);
     if (farmWorkers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Trang trại chưa có nhân công. Hãy vào Quản lý Nhân công để mời Farmer trước.',
+      if (provider.selectedFarmId.toLowerCase() != zone.farmId.toLowerCase()) {
+        provider.selectFarm(zone.farmId);
+      }
+      await provider.fetchFromApi();
+      if (!context.mounted) return;
+      farmWorkers = provider.farmersForFarm(zone.farmId);
+    }
+    if (farmWorkers.isEmpty) {
+      final farmName = provider.farms
+          .where((f) => f.farmId.toLowerCase() == zone.farmId.toLowerCase())
+          .map((f) => f.name)
+          .firstOrNull;
+      final invite = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text(
+            'Trang trại chưa có nhân công',
+            style: TextStyle(fontSize: 15),
           ),
+          content: Text(
+            '${farmName == null ? 'Trang trại của Zone này' : 'Trang trại "$farmName"'} chưa có Farmer nào đang hoạt động. '
+            'Nhân công gắn với từng trang trại: Farmer của trang trại khác không phân công được. '
+            'Hãy mời Farmer vào đúng trang trại này (lời mời cần được Farmer chấp nhận), rồi quay lại phân công Zone.',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Để sau'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Mời nhân công'),
+            ),
+          ],
         ),
       );
+      if (invite != true || !context.mounted) return;
+      // Màn Quản lý Nhân công làm việc trên trang trại đang chọn: chọn đúng trang trại của Zone trước khi mở.
+      provider.selectFarm(zone.farmId);
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => WorkforceScreen(initialFarmId: zone.farmId),
+        ),
+      );
+      await _refreshCultivation(provider);
       return;
     }
 
@@ -136,24 +189,40 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => SafeArea(
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              MediaQuery.of(ctx).viewInsets.bottom + 16,
+              20,
+              12,
+              20,
+              MediaQuery.of(ctx).viewInsets.bottom + 20,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
                 Text(
                   'Phân công nhân công cho ${zone.name}',
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -165,16 +234,18 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                 for (final w in farmWorkers) ...[
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
+                    activeColor: const Color(0xFF15803D),
                     title: Text(
                       w.name,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         fontSize: 13,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     subtitle: Text(
                       '${w.email}\n${draft[w.farmerId] == null ? 'Chưa được phân công Zone này' : (draft[w.farmerId] == true ? 'Xem, nhận việc & điều khiển thiết bị' : 'Chỉ xem & nhận việc')}',
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                     isThreeLine: true,
                     value: draft[w.farmerId] != null,
@@ -185,19 +256,32 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                   if (draft[w.farmerId] != null)
                     SwitchListTile(
                       contentPadding: const EdgeInsets.only(left: 24),
+                      activeThumbColor: const Color(0xFF15803D),
                       title: const Text(
                         'Quyền điều khiển thiết bị',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       value: draft[w.farmerId] == true,
                       onChanged: (v) => setLocal(() => draft[w.farmerId] = v),
                     ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF15803D),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
+                    ),
                     child: const Text('Lưu phân công'),
                   ),
                 ),
@@ -237,9 +321,7 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
         ]);
         ok.add(w.name);
       } catch (e) {
-        failed.add(
-          '${w.name}: ${e.toString().replaceFirst('Exception: ', '')}',
-        );
+        failed.add('${w.name}: ${userFacingError(e)}');
       }
     }
     // Luôn tải lại để giao diện phản ánh đúng backend (kể cả khi có thao tác lỗi).
@@ -254,7 +336,7 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
       SnackBar(
         content: Text(message),
         backgroundColor: failed.isEmpty
-            ? const Color(0xFF059669)
+            ? const Color(0xFF047857)
             : const Color(0xFFD97706),
         duration: Duration(seconds: failed.isEmpty ? 4 : 8),
       ),

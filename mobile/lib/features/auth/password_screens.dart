@@ -1,15 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/export_utils.dart';
+import '../../core/utils/user_error.dart';
 
 String _errText(Object e) => e is UnsupportedApiException
     ? 'Máy chủ SmartFarm chưa hỗ trợ chức năng này (thiếu API backend). Vui lòng liên hệ quản trị viên.'
-    : e.toString().replaceFirst('Exception: ', '');
+    : userFacingError(e);
 
 InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
   labelText: label,
+  labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
   suffixIcon: suffix,
-  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+  filled: true,
+  fillColor: Colors.white,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: Color(0xFF047857), width: 1.5),
+  ),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
 );
 
 /// Quên mật khẩu: bước 1 nhập email, bước 2 nhập mã (token/OTP) + mật khẩu mới.
@@ -105,7 +121,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Quên mật khẩu')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'Quên mật khẩu',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -130,9 +159,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                      ),
                       onPressed: () =>
                           Navigator.pop(context, _email.text.trim()),
-                      child: const Text('Về đăng nhập'),
+                      child: const Text(
+                        'Về đăng nhập',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 )
@@ -149,6 +191,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     const SizedBox(height: 12),
                     if (!_codeSent)
                       FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF047857),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                         onPressed: _busy ? null : _sendCode,
                         child: _busy
                             ? const SizedBox(
@@ -156,9 +205,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
                               )
-                            : const Text('Gửi mã xác nhận'),
+                            : const Text(
+                                'Gửi mã xác nhận',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                       )
                     else ...[
                       const Text(
@@ -304,7 +357,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       onPressed: () => setState(() => _obscure = !_obscure),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Đổi mật khẩu')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text(
+          'Đổi mật khẩu',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -326,8 +392,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     const Text('Đã đổi mật khẩu thành công.'),
                     const SizedBox(height: 16),
                     FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                      ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Xong'),
+                      child: const Text(
+                        'Xong',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 )
@@ -362,14 +441,27 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                       onPressed: _busy ? null : _submit,
                       child: _busy
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
-                          : const Text('Đổi mật khẩu'),
+                          : const Text(
+                              'Đổi mật khẩu',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/api_service.dart';
 import '../zone_operations_screens.dart';
+import '../actuator_labels.dart';
 
 /// Tóm tắt node cảm biến của Zone từ dữ liệu thật (GET /zones/{id}/telemetry/latest-by-device):
 /// số node online/tổng, pin thấp nhất, sóng yếu nhất. Chạm để xem chi tiết từng node.
@@ -28,11 +29,12 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
     () => _future = FarmApi.getLatestTelemetryByDevice(widget.zoneId),
   );
 
-  Widget _chip(String label, Color bg, Color fg) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  Widget _chip(String label, Color bg, Color fg, {Color? border}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
     decoration: BoxDecoration(
       color: bg,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(8),
+      border: border != null ? Border.all(color: border, width: 0.8) : null,
     ),
     child: Text(
       label,
@@ -43,7 +45,7 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       onTap: () async {
         await Navigator.push(
           context,
@@ -61,8 +63,15 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -70,12 +79,15 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0xFFBAE6FD).withValues(alpha: 0.6),
+                ),
               ),
               child: const Icon(
-                Icons.router,
+                Icons.router_outlined,
                 color: Color(0xFF0284C7),
-                size: 28,
+                size: 26,
               ),
             ),
             const SizedBox(width: 14),
@@ -84,10 +96,11 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                 future: _future,
                 builder: (context, snap) {
                   final title = Text(
-                    'Node cảm biến · ${widget.zoneName}',
+                    'Node trong Zone · ${widget.zoneName}',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                      color: Color(0xFF0F172A),
                     ),
                   );
                   if (snap.connectionState != ConnectionState.done) {
@@ -133,9 +146,8 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                       ],
                     );
                   }
-                  final online = nodes
-                      .where((n) => '${n['status']}' == 'Online')
-                      .length;
+                  final counts = countZoneNodes(nodes);
+                  final online = counts.online;
                   final batteries = [
                     for (final n in nodes) (n['batteryLevel'] as num?)?.toInt(),
                   ].whereType<int>();
@@ -167,12 +179,17 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                         runSpacing: 4,
                         children: [
                           _chip(
+                            '${counts.total} node: ${counts.sensors} cảm biến · ${counts.actuators} điều khiển${counts.simulated > 0 ? ' (${counts.simulated} giả lập)' : ''}',
+                            const Color(0xFFF1F5F9),
+                            const Color(0xFF334155),
+                          ),
+                          _chip(
                             '● $online/${nodes.length} online',
                             allOnline
                                 ? const Color(0xFFECFDF5)
                                 : const Color(0xFFFFFBEB),
                             allOnline
-                                ? const Color(0xFF059669)
+                                ? const Color(0xFF047857)
                                 : const Color(0xFFD97706),
                           ),
                           if (minBattery != null)
@@ -183,7 +200,7 @@ class _ZoneNodeSummaryCardState extends State<ZoneNodeSummaryCard> {
                                   : const Color(0xFFECFDF5),
                               minBattery < 20
                                   ? const Color(0xFFDC2626)
-                                  : const Color(0xFF059669),
+                                  : const Color(0xFF047857),
                             ),
                           if (worstRssi != null)
                             _chip(

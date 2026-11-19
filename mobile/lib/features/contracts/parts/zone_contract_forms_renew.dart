@@ -34,8 +34,11 @@ class _RenewSheet extends StatefulWidget {
 class _RenewSheetState extends State<_RenewSheet> {
   String _preset = '1_YEAR';
   DateTime? _customEnd;
+  // Hợp đồng sinh từ báo giá lắp đặt chưa có phí dịch vụ/tháng (0): để trống cho người dùng nhập, không điền sẵn 0.
   late final _rent = TextEditingController(
-    text: widget.contract.monthlyRentVnd.toStringAsFixed(0),
+    text: widget.contract.monthlyRentVnd > 0
+        ? widget.contract.monthlyRentVnd.toStringAsFixed(0)
+        : '',
   );
   final _discount = TextEditingController();
   String _discountType = 'AUTO'; // AUTO | PERCENT | AMOUNT
@@ -70,7 +73,11 @@ class _RenewSheetState extends State<_RenewSheet> {
   Future<void> _submit() async {
     final rent = _money(_rent);
     if (rent == null || rent <= 0)
-      return _snack(context, 'Giá trị phải > 0.', error: true);
+      return _snack(
+        context,
+        'Nhập phí dịch vụ / tháng (lớn hơn 0) để gia hạn.',
+        error: true,
+      );
     if (_preset == 'CUSTOM' &&
         (_customEnd == null || !_customEnd!.isAfter(_baseEnd))) {
       return _snack(
@@ -168,7 +175,7 @@ class _RenewSheetState extends State<_RenewSheet> {
             TextField(
               controller: _rent,
               keyboardType: TextInputType.number,
-              decoration: _dec('Giá trị / tháng (₫)'),
+              decoration: _dec('Phí dịch vụ / tháng (₫)'),
             ),
             const SizedBox(height: 10),
             SegmentedButton<String>(
@@ -199,7 +206,7 @@ class _RenewSheetState extends State<_RenewSheet> {
             ],
             const SizedBox(height: 8),
             Text(
-              'Gia hạn $months tháng đến ${_dmy.format(_newEnd)} · thành tiền trước chiết khấu ${_vnd.format(raw)}.'
+              'Gia hạn $months tháng đến ${_dmy.format(_newEnd)} · phí gia hạn = phí dịch vụ/tháng × $months tháng = ${_vnd.format(raw)} (trước chiết khấu).'
               '${_discountType == 'AUTO' ? ' Backend tự giảm ${BusinessParameters.fmt(BusinessParametersStore.current.repeatPurchaseDiscountPercent)}% (ký lại trong 60 ngày) hoặc ${BusinessParameters.fmt(BusinessParametersStore.current.renewalDiscountPercent)}%.' : ''}',
               style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
             ),
@@ -211,6 +218,11 @@ class _RenewSheetState extends State<_RenewSheet> {
             ),
             const SizedBox(height: 12),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF047857),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: const Size.fromHeight(44),
+              ),
               onPressed: _busy ? null : _submit,
               child: _busy
                   ? const SizedBox(

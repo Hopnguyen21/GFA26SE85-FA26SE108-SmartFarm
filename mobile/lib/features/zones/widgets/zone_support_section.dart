@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
 import '../../support/support_requests_screen.dart' show OwnerRequestCard;
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -69,7 +70,7 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = userFacingError(e);
         _loading = false;
       });
     }
@@ -82,14 +83,13 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
       builder: (_) => _SupportRequestDialog(zone: widget.zone),
     );
     if (created == null || !mounted) return;
-    final id = '${created['id'] ?? ''}';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Đã gửi yêu cầu hỗ trợ kỹ thuật${id.length >= 8 ? ' (mã ${id.substring(0, 8)})' : ''}'
+          'Đã gửi yêu cầu hỗ trợ kỹ thuật'
           ' · trạng thái: ${created['status'] ?? '—'}',
         ),
-        backgroundColor: const Color(0xFF059669),
+        backgroundColor: const Color(0xFF047857),
       ),
     );
     await _load();
@@ -102,8 +102,15 @@ class _ZoneSupportSectionState extends State<ZoneSupportSection> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,7 +256,7 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _devicesError = e.toString().replaceFirst('Exception: ', '');
+        _devicesError = userFacingError(e);
         _loadingDevices = false;
       });
     }
@@ -284,7 +291,7 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = userFacingError(e);
         });
       }
     }
@@ -293,28 +300,47 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text(
         'Gửi yêu cầu hỗ trợ kỹ thuật',
-        style: TextStyle(fontSize: 16),
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${widget.zone.farmName} › ${widget.zone.name}',
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: _ink,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 14, color: _muted),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${widget.zone.farmName} › ${widget.zone.name}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _code,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Loại sự cố *'),
+              decoration: InputDecoration(
+                labelText: 'Loại sự cố *',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               items: [
                 for (final e in zoneSupportFailureCodes.entries)
                   DropdownMenuItem(value: e.key, child: Text(e.value)),
@@ -323,7 +349,7 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
                   ? null
                   : (v) => setState(() => _code = v ?? _code),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             if (_loadingDevices)
               const LinearProgressIndicator(minHeight: 2)
             else if (_devicesError != null)
@@ -348,8 +374,9 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
               DropdownButtonFormField<String?>(
                 initialValue: _deviceId,
                 isExpanded: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Thiết bị liên quan (không bắt buộc)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 items: [
                   const DropdownMenuItem<String?>(
@@ -367,15 +394,16 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
                 ],
                 onChanged: _busy ? null : (v) => setState(() => _deviceId = v),
               ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextField(
               controller: _description,
               enabled: !_busy,
               maxLines: 4,
               maxLength: 2000,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Mô tả sự cố *',
                 alignLabelWithHint: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
             if (_error != null)
@@ -398,6 +426,10 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
           child: const Text('Hủy'),
         ),
         FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF047857),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
           onPressed: _busy ? null : _submit,
           child: _busy
               ? const SizedBox(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Phân loại chất lượng khi thu hoạch (giống danh sách trên web).
 const harvestQualityGrades = <String>[
@@ -72,10 +73,11 @@ Future<bool?> showHarvestYieldDialog(
       builder: (ctx, setLocal) {
         final kg = double.tryParse(kgC.text.trim().replaceAll(',', '.')) ?? 0;
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           scrollable: true,
           title: Text(
             'Ghi nhận sản lượng · $zoneName',
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -83,10 +85,10 @@ Future<bool?> showHarvestYieldDialog(
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFA7F3D0)),
                 ),
                 child: Text(
@@ -103,10 +105,10 @@ Future<bool?> showHarvestYieldDialog(
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Sản lượng thu hoạch thực tế (kg) *',
                   hintText: 'VD: 1250',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               Padding(
@@ -153,9 +155,9 @@ Future<bool?> showHarvestYieldDialog(
                 key: const Key('yield_quality'),
                 isExpanded: true,
                 initialValue: quality,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Phân loại & tiêu chuẩn chất lượng',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 items: [
                   for (final g in harvestQualityGrades)
@@ -176,10 +178,10 @@ Future<bool?> showHarvestYieldDialog(
                 controller: notesC,
                 maxLines: 3,
                 maxLength: 900,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Ghi chú thu hoạch & đánh giá chất lượng',
                   hintText: 'Độ ngọt Brix, ngoại hình, đối tác thu mua...',
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               if (running)
@@ -216,6 +218,10 @@ Future<bool?> showHarvestYieldDialog(
               child: const Text('Hủy'),
             ),
             FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF047857),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
               key: const Key('yield_save'),
               icon: const Icon(Icons.save_outlined, size: 16),
               label: Text(saving ? 'Đang lưu...' : 'Lưu sản lượng'),
@@ -255,7 +261,7 @@ Future<bool?> showHarvestYieldDialog(
                       } catch (e) {
                         setLocal(() {
                           saving = false;
-                          error = e.toString().replaceFirst('Exception: ', '');
+                          error = userFacingError(e);
                         });
                       }
                     },

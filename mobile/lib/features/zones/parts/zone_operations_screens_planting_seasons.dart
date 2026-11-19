@@ -51,12 +51,16 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
     final canRecordYield = role == 'OWNER' || role == 'FARMER';
     final isOwner = role == 'OWNER';
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       floatingActionButton: isOwner && !_hasRunning
           ? FloatingActionButton.extended(
-              backgroundColor: const Color(0xFF062326),
+              backgroundColor: const Color(0xFF047857),
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
-              label: const Text('Tạo vụ trồng'),
+              label: const Text(
+                'Tạo vụ trồng',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onPressed: () async {
                 final created = await showCreateSeasonSheet(context, zone);
                 if (created == true && context.mounted) {
@@ -69,12 +73,19 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
       appBar: AppBar(
         title: Text(
           'Vụ trồng · ${zone.name}',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             tooltip: 'Xuất Excel tổng kết vụ',
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const Icon(Icons.file_download_outlined, color: Colors.white),
             onPressed: () => _export(context),
           ),
         ],
@@ -114,9 +125,9 @@ class _ZonePlantingSeasonsScreenState extends State<ZonePlantingSeasonsScreen> {
                   statusCode == 'InProgress' || statusCode == 'Planned';
               final profileId = _validId(s['growthProfileId']);
               final seasonId = _validId(s['seasonId'] ?? s['plantingSeasonId']);
-              // Sản lượng chỉ ghi cho vụ đang canh tác hoặc đã thu hoạch; vụ dự kiến/đã hủy chưa có sản lượng.
-              final canYield =
-                  statusCode == 'InProgress' || statusCode == 'Completed';
+              // Cùng quy tắc với thẻ sản lượng và mục vụ trồng ở Zone Detail: chỉ ghi sản lượng khi vụ đã thu hoạch
+              // hoặc đang ở giai đoạn thu hoạch (isHarvestStageSeason).
+              final canYield = isHarvestStageSeason(s, zone: zone);
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(

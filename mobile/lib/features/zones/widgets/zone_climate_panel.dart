@@ -7,10 +7,11 @@ import '../../../core/utils/profile_name.dart';
 import '../zone_climate_logic.dart';
 import '../zone_crop_plan_logic.dart';
 import 'stage_draft_tile.dart' show fmtNumber;
+import '../../../core/utils/user_error.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
-const _green = Color(0xFF059669);
+const _green = Color(0xFF047857);
 const _amber = Color(0xFFB45309);
 const _red = Color(0xFFB91C1C);
 
@@ -70,7 +71,7 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
   Timer? _timer;
 
   DateTime get _now => (widget.clock ?? DateTime.now)().toUtc();
-  String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+  String _err(Object e) => userFacingError(e);
 
   @override
   void initState() {
@@ -183,19 +184,48 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
   Widget _banner(
     String text, {
     Color color = _muted,
-    Color bg = const Color(0xFFF8FAFC),
+    Color bg = const Color(0xFFF0FDF4),
   }) => Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(10),
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(
       color: bg,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFBBF7D0)),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF062326).withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 12, color: color, height: 1.4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.eco_rounded, size: 16, color: Color(0xFF047857)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: color == _muted ? const Color(0xFF14532D) : color,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -218,7 +248,7 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
             !_profileLoading
         ? '\nKhông xác định được giai đoạn "${z.currentStage}" trong hồ sơ của Zone nên chưa đánh giá ngưỡng.'
         : '';
-    return _banner('$season\n$profile$stageNote', bg: Colors.white);
+    return _banner('$season\n$profile$stageNote');
   }
 
   @override
@@ -335,15 +365,25 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
       color = _amber;
     }
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
@@ -373,26 +413,65 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     final req = _req(stage, spec.code);
     final verdict = evaluateMetric(metric, req);
     final unit = metric?.unit ?? '';
+    final numStr = metric == null
+        ? '—'
+        : fmtNumber(double.parse(metric.value.toStringAsFixed(1)));
     final value = metric == null
         ? '—'
-        : '${fmtNumber(double.parse(metric.value.toStringAsFixed(1)))}${unit.isEmpty ? '' : ' $unit'}';
-    final (label, labelColor) = switch (verdict) {
-      MetricVerdict.ok => ('Trong ngưỡng', _green),
-      MetricVerdict.below => ('Thấp hơn ngưỡng', _red),
-      MetricVerdict.above => ('Cao hơn ngưỡng', _red),
-      MetricVerdict.stale => ('Số đo cũ', _amber),
-      MetricVerdict.noThreshold => ('Chưa có ngưỡng', _muted),
-      MetricVerdict.noData => ('Chưa có số đo', _muted),
+        : '$numStr${unit.isEmpty ? '' : ' $unit'}';
+    final (label, labelColor, labelBg) = switch (verdict) {
+      MetricVerdict.ok => ('Trong ngưỡng', _green, const Color(0xFFECFDF5)),
+      MetricVerdict.below => ('Thấp hơn ngưỡng', _red, const Color(0xFFFEF2F2)),
+      MetricVerdict.above => ('Cao hơn ngưỡng', _red, const Color(0xFFFEF2F2)),
+      MetricVerdict.stale => ('Số đo cũ', _amber, const Color(0xFFFFFBEB)),
+      MetricVerdict.noThreshold => (
+        'Chưa có ngưỡng',
+        _muted,
+        const Color(0xFFF1F5F9),
+      ),
+      MetricVerdict.noData => (
+        'Chưa có số đo',
+        _muted,
+        const Color(0xFFF1F5F9),
+      ),
     };
     final threshold = req == null
         ? (stage == null ? 'Chưa có ngưỡng giai đoạn' : 'Hồ sơ chưa có ngưỡng')
         : 'Ngưỡng: ${fmtNumber(req.min)}–${fmtNumber(req.max)} ${req.unit}';
+
+    final isWarning =
+        verdict == MetricVerdict.below || verdict == MetricVerdict.above;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            isWarning
+                ? const Color(0xFFFFF1F2)
+                : spec.color.withValues(alpha: 0.05),
+          ],
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isWarning
+              ? const Color(0xFFFCA5A5)
+              : (metric == null
+                    ? const Color(0xFFE2E8F0)
+                    : spec.color.withValues(alpha: 0.2)),
+          width: isWarning ? 1.4 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: spec.color.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -400,12 +479,23 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
         children: [
           Row(
             children: [
-              Icon(spec.icon, size: 16, color: spec.color),
-              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(4.5),
+                decoration: BoxDecoration(
+                  color: spec.color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(spec.icon, size: 14, color: spec.color),
+              ),
+              const SizedBox(width: 7),
               Expanded(
                 child: Text(
                   spec.title,
-                  style: const TextStyle(fontSize: 12, color: _muted),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -416,24 +506,67 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
             value,
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: metric == null || !metric.isFresh ? _muted : _ink,
+              fontWeight: FontWeight.w800,
+              color: metric == null || !metric.isFresh
+                  ? _muted
+                  : (isWarning ? _red : _ink),
+              letterSpacing: -0.5,
             ),
           ),
-          if (metric != null && !metric.isFresh)
+          if (metric != null && !metric.isFresh) ...[
+            const SizedBox(height: 2),
             Text(
               'cũ · ${ageText(metric.capturedAtUtc, now) ?? 'không rõ thời điểm'}',
-              style: const TextStyle(fontSize: 10.5, color: _amber),
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: _amber,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          const SizedBox(height: 4),
-          Text(threshold, style: const TextStyle(fontSize: 11, color: _muted)),
-          const SizedBox(height: 2),
+          ],
+          const SizedBox(height: 6),
           Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: labelColor,
+            threshold,
+            style: const TextStyle(fontSize: 11, color: _muted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: labelBg,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: labelColor.withValues(alpha: 0.18),
+                width: 0.6,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: labelColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: labelColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

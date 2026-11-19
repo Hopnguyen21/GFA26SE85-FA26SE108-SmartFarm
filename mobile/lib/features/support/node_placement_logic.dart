@@ -290,6 +290,7 @@ NodePlacementGate checkNodePlacement({
           : 'Triển khai đã ${deploymentStatus == 'Cancelled' ? 'bị hủy' : 'chuyển sang bảo trì'}, không thể gắn thêm Node.',
     );
   }
+  // Phiếu xuất kho là chức năng riêng (Kho & Xuất kho), không chặn gắn Node: cọc xong là gắn được.
   return const NodePlacementGate.allow();
 }
 

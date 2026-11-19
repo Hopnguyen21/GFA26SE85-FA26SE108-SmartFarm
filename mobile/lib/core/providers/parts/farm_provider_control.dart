@@ -39,7 +39,7 @@ extension FarmProviderControl on FarmProvider {
       act.isRunning = prevRunning;
       act.remainingMinutes = prevRemaining;
       _notify();
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 

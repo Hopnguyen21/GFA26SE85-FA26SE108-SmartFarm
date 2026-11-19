@@ -7,6 +7,7 @@ import '../../core/services/api_service.dart';
 import '../zones/zone_operations_screens.dart';
 import 'widgets/device_actions_sheet.dart' show promptText;
 import 'widgets/device_config_dialogs.dart';
+import '../../core/utils/user_error.dart';
 
 /// Công cụ kỹ thuật viên trước đây chỉ có trên Web: cấu hình gateway, cấu hình cảm biến node,
 /// xem cấu hình firmware, thử kết nối, cập nhật toạ độ node hàng loạt và kho linh kiện cá nhân.
@@ -76,12 +77,19 @@ class _TechnicianGatewayToolsScreenState
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
           title: const Text(
             'Gateway, Node & Linh kiện',
-            style: TextStyle(fontSize: 15),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           bottom: const TabBar(
+            indicatorColor: Color(0xFF10B981),
+            labelColor: Colors.white,
+            unselectedLabelColor: Color(0xFF94A3B8),
+            indicatorWeight: 3,
             tabs: [
               Tab(text: 'Gateway / Node'),
               Tab(text: 'Kho linh kiện'),
@@ -151,12 +159,12 @@ void _snack(BuildContext context, String m, {bool error = false}) {
       content: Text(m),
       backgroundColor: error
           ? const Color(0xFFDC2626)
-          : const Color(0xFF059669),
+          : const Color(0xFF047857),
     ),
   );
 }
 
-String _err(Object e) => e.toString().replaceFirst('Exception: ', '');
+String _err(Object e) => userFacingError(e);
 
 class _GatewayCard extends StatefulWidget {
   final _GatewayBundle bundle;
@@ -396,7 +404,7 @@ class _GatewayCardState extends State<_GatewayCard> {
                 Icon(
                   Icons.router,
                   color: online
-                      ? const Color(0xFF059669)
+                      ? const Color(0xFF047857)
                       : const Color(0xFF64748B),
                 ),
                 const SizedBox(width: 8),
@@ -449,16 +457,14 @@ class _GatewayCardState extends State<_GatewayCard> {
                         builder: (_) => ZoneNodesScreen(
                           zoneId: b.request.zoneId,
                           zoneName: b.gateway.gatewaySerial,
-                          canEditLocations: true,
+                          // Chỉ xem: chấm/sửa vị trí node của kỹ thuật viên đi qua màn Gắn Node (cổng phiếu xuất kho được Admin duyệt).
+                          canEditLocations: false,
                           deploymentRequestId: b.request.requestId,
                         ),
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.edit_location_alt_outlined,
-                      size: 16,
-                    ),
-                    label: const Text('Toạ độ node'),
+                    icon: const Icon(Icons.place_outlined, size: 16),
+                    label: const Text('Xem toạ độ node'),
                   ),
               ],
             ),

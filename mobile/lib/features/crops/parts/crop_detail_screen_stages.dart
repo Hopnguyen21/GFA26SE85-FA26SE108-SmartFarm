@@ -196,7 +196,7 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                               'Đồng bộ AutoRule',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF059669),
+                                color: Color(0xFF047857),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -261,7 +261,7 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                             1,
                         unit: '%',
                         icon: Icons.air,
-                        accentColor: const Color(0xFF059669),
+                        accentColor: const Color(0xFF047857),
                       ),
                       const SizedBox(height: 14),
 
@@ -391,7 +391,7 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF059669),
+                                      color: Color(0xFF047857),
                                     ),
                                   ),
                                 ),
@@ -478,7 +478,7 @@ extension _CropDetailScreenStateStages on _CropDetailScreenState {
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: isHealthy
-                        ? const Color(0xFF059669)
+                        ? const Color(0xFF047857)
                         : const Color(0xFFD97706),
                   ),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/farm_provider.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Nút Dừng khẩn cấp (E-Stop, BR-CANCEL-01): tắt toàn bộ rơ-le bơm/quạt/van/đèn.
 /// [zoneId] = null → toàn bộ trang trại trong tenant; có giá trị → chỉ Zone đó.
@@ -61,9 +62,7 @@ class EmergencyStopButton extends StatelessWidget {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            'Dừng khẩn cấp thất bại: ${e.toString().replaceFirst('Exception: ', '')}',
-          ),
+          content: Text('Dừng khẩn cấp thất bại: ${userFacingError(e)}'),
           backgroundColor: const Color(0xFF92400E),
         ),
       );
@@ -85,29 +84,30 @@ class EmergencyStopButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: _red,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          minimumSize: const Size.fromHeight(38),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         onPressed: busy ? null : () => _confirmAndStop(context, provider),
         icon: busy
             ? const SizedBox(
-                width: 18,
-                height: 18,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
               )
-            : const Icon(Icons.power_settings_new, size: 20),
+            : const Icon(Icons.power_settings_new, size: 18),
         label: Text(
           zoneId == null
               ? 'DỪNG KHẨN CẤP TẤT CẢ (E-STOP)'
               : 'DỪNG KHẨN CẤP ZONE NÀY',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 13,
+            fontSize: 12.5,
             letterSpacing: 0.3,
           ),
         ),

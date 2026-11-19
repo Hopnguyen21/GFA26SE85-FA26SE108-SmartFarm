@@ -63,7 +63,7 @@ class _DeploymentRequestDetailScreenState
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -84,10 +84,35 @@ class _DeploymentRequestDetailScreenState
       await action();
       if (mounted) await _load();
     } catch (e) {
-      if (mounted) _toast(context, '$e');
+      if (mounted) _toast(context, userFacingError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// KTV hoàn tất lắp đặt: xem biên bản nghiệm thu dựng từ dữ liệu thật + ghi chú rồi mới gọi backend (Owner xem lại biên bản).
+  Future<void> _completeWithReport(DeploymentRequest r) async {
+    if (_busy) return;
+    setState(() => _busy = true); // khoá nút trong lúc nạp biên bản
+    AcceptanceReport report;
+    try {
+      report =
+          await loadAcceptanceReport(farmId: r.farmId, zoneId: r.zoneId) ??
+          buildAcceptanceReport(devices: const []);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    final note = await showAcceptanceReportSheet(
+      context,
+      report: report,
+      remainingLabel: BusinessParameters.active.remainingLabel,
+    );
+    if (note == null || !mounted) return;
+    await _act(
+      () async =>
+          DeploymentApi.completeDeploymentRequest(r.requestId, notes: note),
+    );
   }
 
   /// Chủ trại hủy yêu cầu: hỏi lý do rồi gọi backend; backend vẫn là nơi quyết định có được hủy hay không.
@@ -167,7 +192,7 @@ class _DeploymentRequestDetailScreenState
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: _appBar(
         r?.context == null
-            ? 'Yêu cầu ${widget.requestId.substring(0, 8)}'
+            ? 'Yêu cầu lắp đặt IoT'
             : 'Yêu cầu · ${r!.context!.zoneName}',
         actions: [
           IconButton(
@@ -270,10 +295,10 @@ class _DeploymentRequestDetailScreenState
                         for (final e in r.estimateItems)
                           LineItemRow(
                             qty: e.quantity,
-                            title:
-                                '${e.name}${e.model == null ? '' : ' (${e.model})'}',
+                            // Chỉ nêu LOẠI + số lượng cần; thiết bị cụ thể chọn từ kho ở bước lập hợp đồng.
+                            title: parseEstimateRole(e.role)?.label ?? e.name,
                             meta:
-                                '${e.code} · ${formatVnd(e.unitPrice)}/đơn vị${e.notes == null ? '' : '\n${e.notes}'}',
+                                '${formatVnd(e.unitPrice)}/đơn vị${e.notes == null ? '' : '\n${e.notes}'}',
                             amount: formatVnd(e.lineTotal),
                           ),
                         const SizedBox(height: 6),
@@ -325,7 +350,7 @@ class _DeploymentRequestDetailScreenState
                       leading: Icon(
                         s.isFeasible ? Icons.check_circle : Icons.cancel,
                         color: s.isFeasible
-                            ? const Color(0xFF059669)
+                            ? const Color(0xFF047857)
                             : const Color(0xFFDC2626),
                       ),
                       title: Text(s.isFeasible ? 'Khả thi' : 'Không khả thi'),

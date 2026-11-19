@@ -42,13 +42,20 @@ extension _LandingScreenStateSections on _LandingScreenState {
             ),
           ),
           const SizedBox(width: 4),
-          const Text(
-            '📞 1900 6899',
-            style: TextStyle(
-              color: Color(0xFFA7F3D0),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.phone_in_talk, size: 11, color: Color(0xFFA7F3D0)),
+              SizedBox(width: 3),
+              Text(
+                '1900 6899',
+                style: TextStyle(
+                  color: Color(0xFFA7F3D0),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -98,7 +105,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
           title: 'Central LoRa Gateway ESP32-S3 Dual Antenna',
           desc:
               'Kết nối đến 128 sensor node thực địa trong bán kính 2.5km không cần kéo dây mạng.',
-          color: const Color(0xFF059669),
+          color: const Color(0xFF047857),
         ),
         const SizedBox(height: 8),
         _buildHardwareCard(
@@ -263,16 +270,16 @@ extension _LandingScreenStateSections on _LandingScreenState {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: const Color(0xFF062326).withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -280,14 +287,14 @@ extension _LandingScreenStateSections on _LandingScreenState {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,18 +302,19 @@ extension _LandingScreenStateSections on _LandingScreenState {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0F172A),
+                    letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   desc,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     color: Color(0xFF64748B),
-                    height: 1.35,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -397,9 +405,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
         const SizedBox(height: 8),
         _buildStepItem(
           step: '02',
-          title: 'Ký Số & Tạm ứng ${BusinessParameters.active.depositLabel}',
+          title: 'Ký Số & Tạm ứng',
           desc:
-              'Xuất bảng báo giá chi tiết, Owner ký hợp đồng điện tử và thực hiện thanh toán tạm ứng ${BusinessParameters.active.depositLabel} để triển khai.',
+              'Xuất bảng báo giá chi tiết, Owner ký hợp đồng điện tử và thực hiện thanh toán tạm ứng để triển khai.',
           isHighlight: false,
         ),
         const SizedBox(height: 8),
@@ -413,10 +421,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
         const SizedBox(height: 8),
         _buildStepItem(
           step: '04',
-          title:
-              'Nghiệm thu & Vận hành ${BusinessParameters.active.remainingLabel}',
+          title: 'Nghiệm thu & Vận hành',
           desc:
-              'Chủ trang trại kiểm tra hệ thống tưới tự động hoạt động ổn định, ký biên bản nghiệm thu và thanh toán ${BusinessParameters.active.remainingLabel} còn lại.',
+              'Chủ trang trại kiểm tra hệ thống tưới tự động hoạt động ổn định, ký biên bản nghiệm thu và thanh toán phần còn lại.',
           isHighlight: true,
         ),
       ],
@@ -430,10 +437,10 @@ extension _LandingScreenStateSections on _LandingScreenState {
     required bool isHighlight,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isHighlight ? const Color(0xFFECFDF5) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isHighlight
               ? const Color(0xFF10B981)
@@ -442,9 +449,9 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: const Color(0xFF062326).withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -452,11 +459,11 @@ extension _LandingScreenStateSections on _LandingScreenState {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: isHighlight
-                  ? const Color(0xFF059669)
+                  ? const Color(0xFF047857)
                   : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -470,7 +477,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -534,25 +541,46 @@ extension _LandingScreenStateSections on _LandingScreenState {
         ),
         const SizedBox(height: 12),
 
-        _buildTestimonialCard(
-          quote:
-              'Nhờ hệ thống tự động tưới nhỏ giọt kết hợp cảm biến đất LoRa, 8ha cà chua của chúng tôi tại Đơn Dương tiết kiệm được 40% chi phí nhân công và năng suất tăng 22%.',
-          author: 'Ông Nguyễn Văn An',
-          role: 'Giám đốc HTX Nông nghiệp Công nghệ cao Đà Lạt',
-        ),
-        const SizedBox(height: 8),
-        _buildTestimonialCard(
-          quote:
-              'Quy trình số hóa bản đồ GIS và hồ sơ sinh trưởng rất chuẩn mực. Kỹ thuật viên hỗ trợ tận tình từ khâu khảo sát đến khi ký nghiệm thu hợp đồng điện tử.',
-          author: 'Bà Trần Thị Hoa',
-          role: 'Chủ trang trại Dưa lưới Organic Mộc Châu',
-        ),
-        const SizedBox(height: 8),
-        _buildTestimonialCard(
-          quote:
-              'Trợ lý AI Nông học Gemini trả lời chẩn đoán bệnh lá và lịch tưới cực kỳ chính xác. Chúng tôi hoàn toàn yên tâm quản lý trang trại từ xa qua điện thoại.',
-          author: 'Kỹ sư Lê Minh Tuấn',
-          role: 'Quản lý Kỹ thuật Farm Đức Trọng FarmTech',
+        // Vuốt ngang để xem lần lượt (gọn hơn xếp dọc ba thẻ trên màn hẹp).
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 290,
+                  child: _buildTestimonialCard(
+                    quote:
+                        'Nhờ hệ thống tự động tưới nhỏ giọt kết hợp cảm biến đất LoRa, 8ha cà chua của chúng tôi tại Đơn Dương tiết kiệm được 40% chi phí nhân công và năng suất tăng 22%.',
+                    author: 'Ông Nguyễn Văn An',
+                    role: 'Giám đốc HTX Nông nghiệp Công nghệ cao Đà Lạt',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 290,
+                  child: _buildTestimonialCard(
+                    quote:
+                        'Quy trình số hóa bản đồ GIS và hồ sơ sinh trưởng rất chuẩn mực. Kỹ thuật viên hỗ trợ tận tình từ khâu khảo sát đến khi ký nghiệm thu hợp đồng điện tử.',
+                    author: 'Bà Trần Thị Hoa',
+                    role: 'Chủ trang trại Dưa lưới Organic Mộc Châu',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 290,
+                  child: _buildTestimonialCard(
+                    quote:
+                        'Trợ lý AI Nông học Gemini trả lời chẩn đoán bệnh lá và lịch tưới cực kỳ chính xác. Chúng tôi hoàn toàn yên tâm quản lý trang trại từ xa qua điện thoại.',
+                    author: 'Kỹ sư Lê Minh Tuấn',
+                    role: 'Quản lý Kỹ thuật Farm Đức Trọng FarmTech',
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -564,16 +592,16 @@ extension _LandingScreenStateSections on _LandingScreenState {
     required String role,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: const Color(0xFF062326).withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -604,7 +632,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
             children: [
               CircleAvatar(
                 radius: 13,
-                backgroundColor: const Color(0xFF059669),
+                backgroundColor: const Color(0xFF047857),
                 child: Text(
                   author.split(' ').last.substring(0, 1),
                   style: const TextStyle(
@@ -763,7 +791,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
             children: [
               Row(
                 children: [
-                  Icon(Icons.eco, color: Color(0xFF059669), size: 16),
+                  Icon(Icons.eco, color: Color(0xFF047857), size: 16),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -781,7 +809,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
               SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.phone, size: 12, color: Color(0xFF059669)),
+                  Icon(Icons.phone, size: 12, color: Color(0xFF047857)),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -801,7 +829,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   Icon(
                     Icons.email_outlined,
                     size: 12,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   SizedBox(width: 5),
                   Expanded(
@@ -822,7 +850,7 @@ extension _LandingScreenStateSections on _LandingScreenState {
                   Icon(
                     Icons.location_on_outlined,
                     size: 12,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   SizedBox(width: 5),
                   Expanded(

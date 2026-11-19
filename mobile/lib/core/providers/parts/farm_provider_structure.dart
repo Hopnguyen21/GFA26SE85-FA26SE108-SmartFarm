@@ -117,9 +117,7 @@ extension FarmProviderStructure on FarmProvider {
           totalAreaM2: totalAreaM2,
         );
       } catch (e) {
-        return FarmCreateResult(
-          error: e.toString().replaceFirst('Exception: ', ''),
-        );
+        return FarmCreateResult(error: userFacingError(e));
       }
       final id = parseCreatedFarmId(created);
       if (id == null) {
@@ -228,7 +226,7 @@ extension FarmProviderStructure on FarmProvider {
       await fetchFromApi();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 
@@ -275,11 +273,7 @@ extension FarmProviderStructure on FarmProvider {
       );
       zoneId = created['zoneId']?.toString();
     } catch (e) {
-      return (
-        error: e.toString().replaceFirst('Exception: ', ''),
-        warning: null,
-        zoneId: null,
-      );
+      return (error: userFacingError(e), warning: null, zoneId: null);
     }
 
     String? warning;
@@ -294,8 +288,7 @@ extension FarmProviderStructure on FarmProvider {
           {'zoneId': zoneId, 'canControl': false},
         ]);
       } catch (e) {
-        warning =
-            'Chưa gán được nhân công: ${e.toString().replaceFirst('Exception: ', '')}';
+        warning = 'Chưa gán được nhân công: ${userFacingError(e)}';
       }
     }
     await fetchFromApi();

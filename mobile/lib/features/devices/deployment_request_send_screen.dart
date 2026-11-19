@@ -245,8 +245,15 @@ class _DeploymentRequestSendScreenState
       appBar: AppBar(
         title: const Text(
           'Gửi yêu cầu triển khai IoT',
-          style: TextStyle(fontSize: 15),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: zone == null
           ? const AppEmptyState(
@@ -472,6 +479,7 @@ class _DeploymentRequestSendScreenState
                   ZoneHoneycombEstimateCard(
                     key: ValueKey('est-${widget.zoneId}'),
                     zoneId: widget.zoneId,
+                    farmId: zone.farmId,
                     areaM2: zone.areaM2,
                     cropName: zone.currentCrop,
                     perimeterM: perimeter,

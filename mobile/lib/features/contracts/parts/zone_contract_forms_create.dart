@@ -44,9 +44,41 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
   DateTime? _customEnd;
   bool _busy = false;
 
+  bool _applyPackage = false;
+  String? _selectedPackageId;
+  List<Map<String, dynamic>> _packages = [];
+  bool _loadingPackages = false;
+  String? _packagesError;
+
+  /// Đồng bộ thời hạn HĐ theo gói: 6/12/36 tháng dùng chip có sẵn, số khác (3, 9, 24…) chuyển sang
+  /// "Tuỳ chọn" với ngày kết thúc = bắt đầu + số tháng của gói (backend cũng tính theo gói).
+  void _syncMonthsToPackage(Map<String, dynamic>? pkg) {
+    final m = (pkg?['durationMonths'] as num?)?.toInt() ?? 0;
+    if (m <= 0) return;
+    if (const [6, 12, 36].contains(m)) {
+      _months = m;
+    } else {
+      _months = 0;
+      _customEnd = _addMonths(_start, m);
+    }
+  }
+
   DateTime get _end => _months == 0
       ? (_customEnd ?? _addMonths(_start, 6))
       : _addMonths(_start, _months);
+
+  Map<String, dynamic>? get _selectedPackage {
+    if (!_applyPackage || _selectedPackageId == null) return null;
+    return _packages
+        .where((p) => p['id']?.toString() == _selectedPackageId)
+        .firstOrNull;
+  }
+
+  double get _packagePrice {
+    final pkg = _selectedPackage;
+    if (pkg == null) return 0;
+    return ((pkg['price'] as num?) ?? 0).toDouble();
+  }
 
   @override
   void initState() {
@@ -56,6 +88,30 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     });
     for (final c in [_rent, _deposit, _discount]) {
       c.addListener(() => setState(() {}));
+    }
+    _loadPackages();
+  }
+
+  Future<void> _loadPackages() async {
+    setState(() {
+      _loadingPackages = true;
+      _packagesError = null;
+    });
+    try {
+      final list = await SupportApi.getContractPackages();
+      if (mounted) {
+        setState(() {
+          _packages = list;
+          if (_packages.isNotEmpty && _selectedPackageId == null) {
+            _selectedPackageId = _packages.first['id']?.toString();
+          }
+          if (_applyPackage) _syncMonthsToPackage(_selectedPackage);
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _packagesError = _err(e));
+    } finally {
+      if (mounted) setState(() => _loadingPackages = false);
     }
   }
 
@@ -79,7 +135,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     super.dispose();
   }
 
-  /// Chọn HĐ cũ để tái ký: điền sẵn thông tin bên thuê và giá thuê.
+  /// Chọn HĐ cũ để tái ký: điền sẵn thông tin khách hàng và phí dịch vụ/tháng.
   void _pickParent(String? id) {
     setState(() => _parentId = id);
     final p = widget.existingContracts.where((c) => c.id == id).firstOrNull;
@@ -142,6 +198,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
         'lesseeAddress': opt(_address),
         'specialTerms': opt(_terms),
         'notes': opt(_notes),
+        'contractPackageId': _applyPackage ? _selectedPackageId : null,
       });
       if (!mounted) return;
       await _showSavedDialog(created);
@@ -231,7 +288,9 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
   Widget _estimate() {
     final rent = _money(_rent) ?? 0;
     final months = contractMonths(_start, _end);
-    final raw = rent * months;
+    final rentSubtotal = rent * months;
+    final pkgPrice = _packagePrice;
+    final raw = rentSubtotal + pkgPrice;
     final discountText = _discount.text.trim();
     final pct = discountText.isEmpty
         ? null
@@ -290,7 +349,17 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
             'Thời hạn',
             '$months tháng (${_dmy.format(_start)} → ${_dmy.format(_end)})',
           ),
-          row('Thành tiền ($months × ${_vnd.format(rent)})', _vnd.format(raw)),
+          row(
+            'Phí dịch vụ ($months × ${_vnd.format(rent)})',
+            _vnd.format(rentSubtotal),
+          ),
+          if (_applyPackage && pkgPrice > 0)
+            row(
+              'Gói dịch vụ (${_selectedPackage?['packageName'] ?? 'Gói'})',
+              '+${_vnd.format(pkgPrice)}',
+              bold: true,
+            ),
+          row('Thành tiền trước CK', _vnd.format(raw)),
           row(
             'Chiết khấu',
             pct == null
@@ -312,10 +381,115 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
             Padding(
               padding: EdgeInsets.only(top: 4),
               child: Text(
-                'Để trống chiết khấu: backend tự giảm ${BusinessParameters.fmt(BusinessParametersStore.current.repeatPurchaseDiscountPercent)}% nếu bên thuê ký lần 2 trong 60 ngày, ${BusinessParameters.fmt(BusinessParametersStore.current.renewalDiscountPercent)}% nếu tái ký từ HĐ cũ.',
+                'Để trống chiết khấu: backend tự giảm ${BusinessParameters.fmt(BusinessParametersStore.current.repeatPurchaseDiscountPercent)}% nếu khách hàng ký lần 2 trong 60 ngày, ${BusinessParameters.fmt(BusinessParametersStore.current.renewalDiscountPercent)}% nếu tái ký từ HĐ cũ.',
                 style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _packageSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _applyPackage
+            ? const Color(0xFFF0FDF4)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _applyPackage
+              ? const Color(0xFF86EFAC)
+              : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            dense: true,
+            title: const Text(
+              'Đăng ký kèm Gói Dịch Vụ Canh Tác (Contract Package)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            subtitle: const Text(
+              'Tích để thêm gói IoT và bảo trì; tiền gói được cộng vào tổng hợp đồng.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
+            value: _applyPackage,
+            onChanged: (v) {
+              setState(() {
+                _applyPackage = v ?? false;
+                if (_applyPackage &&
+                    _selectedPackageId == null &&
+                    _packages.isNotEmpty) {
+                  _selectedPackageId = _packages.first['id']?.toString();
+                }
+                if (_applyPackage) _syncMonthsToPackage(_selectedPackage);
+              });
+            },
+          ),
+          if (_applyPackage) ...[
+            const Divider(height: 16),
+            if (_loadingPackages)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              )
+            else if (_packagesError != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Không tải được danh sách gói: $_packagesError',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB91C1C),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadPackages,
+                    child: const Text('Thử lại'),
+                  ),
+                ],
+              )
+            else if (_packages.isEmpty)
+              const Text(
+                'Chưa có gói dịch vụ nào trong danh mục.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              )
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _selectedPackageId,
+                isExpanded: true,
+                decoration: _dec('Gói dịch vụ áp dụng'),
+                items: [
+                  for (final p in _packages)
+                    DropdownMenuItem(
+                      value: p['id']?.toString(),
+                      child: Text(
+                        '${p['packageName']} (+${_vnd.format((p['price'] as num?) ?? 0)}) · ${p['durationMonths']} th',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                ],
+                onChanged: (id) {
+                  setState(() {
+                    _selectedPackageId = id;
+                    _syncMonthsToPackage(
+                      _packages
+                          .where((p) => p['id']?.toString() == id)
+                          .firstOrNull,
+                    );
+                  });
+                },
+              ),
+          ],
         ],
       ),
     );
@@ -327,10 +501,14 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     if (context.watch<FarmProvider>().currentRole == 'OWNER' ||
         !context.watch<FarmProvider>().canManageFarmStructure) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          backgroundColor: const Color(0xFF062326),
+          foregroundColor: Colors.white,
+          elevation: 0,
           title: const Text(
             'Tạo hợp đồng Zone',
-            style: TextStyle(fontSize: 15),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
         body: const AppEmptyState(
@@ -341,8 +519,15 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       );
     }
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Tạo hợp đồng Zone', style: TextStyle(fontSize: 15)),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Tạo hợp đồng Zone',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -401,7 +586,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _name,
-            decoration: _dec('Họ tên / tên tổ chức *'),
+            decoration: _dec('Khách hàng: họ tên / tên tổ chức *'),
           ),
           const SizedBox(height: 10),
           Row(
@@ -494,7 +679,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
                 child: TextField(
                   controller: _rent,
                   keyboardType: TextInputType.number,
-                  decoration: _dec('Giá trị / tháng (₫) *'),
+                  decoration: _dec('Phí dịch vụ / tháng (₫) *'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -520,6 +705,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          _packageSection(),
           _estimate(),
           const SizedBox(height: 12),
           TextField(

@@ -17,6 +17,9 @@ class ZoneHoneycombEstimateCard extends StatefulWidget {
   /// Zone cần dự toán: có thì chỉ tính phần BỔ SUNG so với thiết bị đã gắn. Null (vd. wizard, Zone chưa tạo) = lắp mới toàn bộ.
   final String? zoneId;
 
+  /// Trang trại của Zone: có thì gateway đã có của trang trại được tính là sẵn có (không dự toán mua thêm).
+  final String? farmId;
+
   /// Chu vi bao lồi của ranh giới Zone (m) nếu có; không có thì giả định hình chữ nhật 1:2.
   final double? perimeterM;
 
@@ -29,6 +32,7 @@ class ZoneHoneycombEstimateCard extends StatefulWidget {
     this.measurementParameters = const [],
     this.measurementSource = 'Chưa xác định nhu cầu đo của Zone',
     this.zoneId,
+    this.farmId,
     this.perimeterM,
     this.onEstimate,
   });
@@ -64,15 +68,21 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
     try {
       final zoneId = widget.zoneId;
       // Thiết bị đã gắn phải tải được mới tính: không được coi lỗi tải là "chưa có thiết bị" vì sẽ dự toán thừa.
+      final farmId = widget.farmId;
       final results = await Future.wait<Object>([
         DeploymentApi.getHardwareItems(),
         if (zoneId != null) DeploymentApi.getZoneDevices(zoneId),
+        if (farmId != null) DeploymentApi.getFarmGatewaysRaw(farmId),
       ]);
       final raw = results[0] as List<Map<String, dynamic>>;
-      if (zoneId != null)
+      if (zoneId != null || farmId != null) {
         installed = ZoneInstalledDevices.fromJson(
-          results[1] as List<Map<String, dynamic>>,
+          zoneId != null ? results[1] as List<Map<String, dynamic>> : const [],
+          farmGateways: farmId != null
+              ? results.last as List<Map<String, dynamic>>
+              : const [],
         );
+      }
       catalog = HoneycombCatalog.fromHardwareItems(raw);
       if (kDebugMode) {
         debugPrint('[Dự toán IoT] ${raw.length} bản ghi danh mục:');
@@ -212,7 +222,7 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
 
   Color _roleColor(EstimateRole r) => switch (r) {
     EstimateRole.gateway => const Color(0xFF0284C7),
-    EstimateRole.sensorNode => const Color(0xFF059669),
+    EstimateRole.sensorNode => const Color(0xFF047857),
     EstimateRole.actuatorNode => const Color(0xFFD97706),
     EstimateRole.installKit => _muted,
   };
@@ -222,7 +232,6 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
     required IconData icon,
     required Color color,
     required String title,
-    String? model,
     String? sub,
     required String amount,
     String? unit,
@@ -244,30 +253,19 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    if (model != null)
-                      TextSpan(
-                        text: ' ($model)',
-                        style: const TextStyle(color: _muted, fontSize: 10),
-                      ),
-                  ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
                 ),
-                style: const TextStyle(fontSize: 12),
               ),
               if (sub != null)
                 Text(
                   sub,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: _muted,
                     height: 1.3,
                   ),
@@ -335,8 +333,7 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
     return _tableRow(
       icon: icon,
       color: color,
-      title: '${item.name} × ${l.quantity}',
-      model: item.model,
+      title: '${l.role.label} × ${l.quantity}',
       sub:
           'Cần ${l.neededTotal}, đã gắn ${l.installed} → bổ sung ${l.requiredUnits}$per',
       amount: formatVnd(l.lineTotal!),
@@ -399,8 +396,15 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x080F172A),
+          blurRadius: 10,
+          offset: Offset(0, 3),
+        ),
+      ],
     ),
     child: child,
   );
@@ -411,7 +415,7 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF119653), Color(0xFF059669), Color(0xFF10B981)],
+          colors: [Color(0xFF119653), Color(0xFF047857), Color(0xFF10B981)],
         ),
       ),
       child: Column(
@@ -660,6 +664,13 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,13 +750,13 @@ class _ZoneHoneycombEstimateCardState extends State<ZoneHoneycombEstimateCard> {
                       ],
                     ),
                   ),
-                  if (widget.zoneId != null)
+                  if (widget.zoneId != null || widget.farmId != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         est.installed.isEmpty
-                            ? 'Zone chưa gắn thiết bị nào: dự toán lắp mới toàn bộ.'
-                            : 'Đã gắn trong Zone: ${est.installed.gateways} gateway, ${est.installed.sensorNodes} node cảm biến, ${est.installed.actuatorNodes} node van/bơm. Dự toán chỉ tính phần bổ sung.',
+                            ? 'Zone chưa gắn thiết bị nào và trang trại chưa có gateway: dự toán lắp mới toàn bộ.'
+                            : 'Đã có: ${est.installed.gateways} gateway${est.installed.farmGateways > 0 ? ' (${est.installed.farmGateways} thuộc trang trại)' : ''}, ${est.installed.sensorNodes} node cảm biến, ${est.installed.actuatorNodes} node van/bơm trong Zone. Dự toán chỉ tính phần bổ sung.',
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF0369A1),

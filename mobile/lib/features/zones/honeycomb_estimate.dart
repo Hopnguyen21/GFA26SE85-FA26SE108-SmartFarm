@@ -364,13 +364,17 @@ class CapabilityCheck {
 class ZoneInstalledDevices {
   final int sensorNodes;
   final int actuatorNodes;
-  final int gateways; // số gateway khác nhau mà các thiết bị của Zone đang dùng
+  final int
+  gateways; // số gateway khác nhau đã có: gateway của thiết bị đã gắn trong Zone + gateway của trang trại
+  final int
+  farmGateways; // trong đó: gateway thuộc trang trại (kể cả chưa gắn thiết bị nào của Zone này)
   final Set<String>
   measured; // thông số (đã chuẩn hóa chữ thường) mà cảm biến đã gắn đo được
   const ZoneInstalledDevices({
     this.sensorNodes = 0,
     this.actuatorNodes = 0,
     this.gateways = 0,
+    this.farmGateways = 0,
     this.measured = const {},
   });
 
@@ -378,9 +382,24 @@ class ZoneInstalledDevices {
 
   bool get isEmpty => sensorNodes == 0 && actuatorNodes == 0 && gateways == 0;
 
-  factory ZoneInstalledDevices.fromJson(List<Map<String, dynamic>> devices) {
+  /// [farmGateways]: JSON thô của GET /farms/{id}/gateways. Gateway là hạ tầng cấp trang trại nên đã có sẵn thì không dự toán mua thêm;
+  /// gateway đã ngừng/thu hồi không tính. Trùng id với gateway của thiết bị trong Zone chỉ tính một lần.
+  factory ZoneInstalledDevices.fromJson(
+    List<Map<String, dynamic>> devices, {
+    List<Map<String, dynamic>> farmGateways = const [],
+  }) {
     var sensors = 0, actuators = 0;
     final gw = <String>{};
+    final farmGw = <String>{};
+    for (final g in farmGateways) {
+      final status = '${g['status']}'.toLowerCase();
+      if (status.contains('decommission') || status.contains('retired'))
+        continue;
+      final id = '${g['gatewayId'] ?? g['id'] ?? ''}'.toLowerCase();
+      if (id.isEmpty || id == 'null') continue;
+      farmGw.add(id);
+      gw.add(id);
+    }
     final measured = <String>{};
     for (final d in devices) {
       if ('${d['status']}'.toLowerCase().contains('decommission'))
@@ -392,7 +411,7 @@ class ZoneInstalledDevices {
       if (g.isNotEmpty &&
           g != 'null' &&
           g != '00000000-0000-0000-0000-000000000000')
-        gw.add(g);
+        gw.add(g.toLowerCase());
       final ss = d['sensors'];
       if (ss is List) {
         for (final x in ss) {
@@ -404,6 +423,7 @@ class ZoneInstalledDevices {
       sensorNodes: sensors,
       actuatorNodes: actuators,
       gateways: gw.length,
+      farmGateways: farmGw.length,
       measured: measured,
     );
   }

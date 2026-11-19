@@ -390,7 +390,7 @@ class _AiPayloadLogState extends State<_AiPayloadLog> {
                   const Icon(
                     Icons.terminal,
                     size: 13,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                   const SizedBox(width: 5),
                   const Flexible(

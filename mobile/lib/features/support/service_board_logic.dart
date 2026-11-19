@@ -26,6 +26,17 @@ enum ServiceFilter {
   const ServiceFilter(this.label);
 }
 
+/// "Zone · Trang trại" lấy từ chính phiếu (backend trả `zoneName`/`farmName`); null khi phiếu không có tên.
+/// Phải ưu tiên nguồn này: tra theo danh sách Zone đã tải không đủ vì kỹ thuật viên chỉ tải Zone của một trang trại và mất quyền
+/// đọc Zone của trang trại khi phiếu đã đóng.
+String? serviceWhereOf(Map<String, dynamic> r) {
+  final parts = [
+    for (final k in ['zoneName', 'farmName'])
+      if ('${r[k] ?? ''}'.trim().isNotEmpty) '${r[k]}'.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
 /// Yêu cầu đã giải quyết/đóng: kỹ thuật viên không còn việc phải làm.
 bool isClosedStatus(String status) =>
     status == 'Closed' || status == 'Cancelled';
@@ -166,7 +177,7 @@ String installNextAction({
   if (hasQuote) return 'Chờ Owner thanh toán cọc $depLbl';
   return switch (dep) {
     'Accepted' => 'Khảo sát',
-    'Surveyed' => 'Xác nhận kế hoạch',
+    'Surveyed' => 'Tạo và gửi hợp đồng',
     'PlanConfirmed' => 'Tạo và gửi hợp đồng',
     'Installing' => 'Gắn Node, lưu vị trí, ghi kết nối rồi hoàn tất',
     _ => 'Tiếp nhận',

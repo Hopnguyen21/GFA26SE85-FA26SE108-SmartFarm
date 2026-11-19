@@ -25,7 +25,7 @@ extension FarmProviderCropsAutomation on FarmProvider {
       await fetchFromApi();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 
@@ -64,7 +64,7 @@ extension FarmProviderCropsAutomation on FarmProvider {
       _notify();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 
@@ -78,7 +78,7 @@ extension FarmProviderCropsAutomation on FarmProvider {
       _notify();
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 
@@ -98,7 +98,7 @@ extension FarmProviderCropsAutomation on FarmProvider {
       );
       return null;
     } catch (e) {
-      return e.toString().replaceFirst('Exception: ', '');
+      return userFacingError(e);
     }
   }
 }

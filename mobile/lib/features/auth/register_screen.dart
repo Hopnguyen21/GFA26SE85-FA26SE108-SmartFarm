@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/user_error.dart';
 
 /// Đăng ký tài khoản. Giống web: đăng ký xong KHÔNG tự đăng nhập mà quay về màn đăng nhập; email đã đăng ký được trả về qua
 /// `Navigator.pop`, để màn đăng nhập hiện thông báo thành công và điền sẵn email.
@@ -83,7 +84,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() => _errorMessage = 'Lỗi đăng ký: $err');
       }
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'Lỗi hệ thống: $e');
+      if (mounted)
+        setState(() => _errorMessage = 'Lỗi hệ thống: ${userFacingError(e)}');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

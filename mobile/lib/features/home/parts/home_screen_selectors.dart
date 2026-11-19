@@ -146,7 +146,7 @@ extension _HomeScreenSelectors on HomeScreen {
                               child: Icon(
                                 Icons.agriculture,
                                 color: isSelected
-                                    ? const Color(0xFF059669)
+                                    ? const Color(0xFF047857)
                                     : const Color(0xFF64748B),
                               ),
                             ),
@@ -198,7 +198,7 @@ extension _HomeScreenSelectors on HomeScreen {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Đã chuyển sang: ${farm.name}'),
-                                  backgroundColor: const Color(0xFF059669),
+                                  backgroundColor: const Color(0xFF047857),
                                   behavior: SnackBarBehavior.floating,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -536,7 +536,7 @@ extension _HomeScreenSelectors on HomeScreen {
                       ),
                       child: const Icon(
                         Icons.grid_view_rounded,
-                        color: Color(0xFF059669),
+                        color: Color(0xFF047857),
                         size: 20,
                       ),
                     ),
@@ -646,7 +646,7 @@ extension _HomeScreenSelectors on HomeScreen {
                               child: Icon(
                                 Icons.eco,
                                 color: isSelected
-                                    ? const Color(0xFF059669)
+                                    ? const Color(0xFF047857)
                                     : const Color(0xFF64748B),
                                 size: 20,
                               ),
@@ -699,7 +699,9 @@ extension _HomeScreenSelectors on HomeScreen {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
                                       '${(z.areaM2).toStringAsFixed(0)} m²',
@@ -709,7 +711,6 @@ extension _HomeScreenSelectors on HomeScreen {
                                         color: Color(0xFF10B981),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
                                     Text(
                                       '• Thửa: ${z.fieldName}',
                                       style: const TextStyle(
@@ -740,7 +741,7 @@ extension _HomeScreenSelectors on HomeScreen {
                                   content: Text(
                                     'Đang hiển thị dữ liệu: ${z.name}',
                                   ),
-                                  backgroundColor: const Color(0xFF059669),
+                                  backgroundColor: const Color(0xFF047857),
                                   behavior: SnackBarBehavior.floating,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),

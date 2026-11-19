@@ -48,11 +48,19 @@ class ZoneNodesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
           'Node trong Zone · $zoneName',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body:
           _AsyncList<
@@ -290,6 +298,32 @@ class _EditNodeLocationsScreenState extends State<_EditNodeLocationsScreen> {
     }
     setState(() => _saving = true);
     try {
+      // Backend chỉ kiểm tra toạ độ hợp lệ, không kiểm tra nằm trong Zone: app phải chặn node ngoài ranh giới
+      // (giống màn chấm node). Zone chưa có ranh giới thì không có gì để so.
+      final polygon = (await FarmApi.getZone(widget.zoneId)).polygon;
+      if (polygon != null && polygon.length >= 3) {
+        final outside = [
+          for (final n in nodes)
+            if (!pointInPolygon(
+              LatLng(
+                (n['latitude'] as num).toDouble(),
+                (n['longitude'] as num).toDouble(),
+              ),
+              polygon,
+            ))
+              '${n['deviceName'] ?? n['hardwareAddress']}',
+        ];
+        if (outside.isNotEmpty) {
+          if (mounted) {
+            _toast(
+              context,
+              'Toạ độ nằm ngoài ranh giới Zone: ${outside.join(', ')}. Hãy chọn điểm bên trong Zone.',
+              error: true,
+            );
+          }
+          return;
+        }
+      }
       await FarmApi.updateDeviceLocations(
         widget.zoneId,
         nodes,

@@ -15,10 +15,7 @@ extension _IrrigationCalendarScreenStateLogic
       if (!mounted) return;
       _rebuild(() => _schedule = ProfileSchedule.fromJson(json));
     } catch (e) {
-      if (mounted)
-        _rebuild(
-          () => _loadError = e.toString().replaceFirst('Exception: ', ''),
-        );
+      if (mounted) _rebuild(() => _loadError = userFacingError(e));
     }
     if (mounted) _rebuild(() => _isLoaded = true);
   }
@@ -173,10 +170,7 @@ extension _IrrigationCalendarScreenStateLogic
       );
     } catch (e) {
       if (mounted)
-        _toast(
-          'Không lưu được lịch tưới: ${e.toString().replaceFirst('Exception: ', '')}',
-          error: true,
-        );
+        _toast('Không lưu được lịch tưới: ${userFacingError(e)}', error: true);
     } finally {
       if (mounted) _rebuild(() => _saving = false);
     }

@@ -192,7 +192,7 @@ extension _HomeScreenQuickAdd on HomeScreen {
                               'Chạm bản đồ để dời tâm',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF059669),
+                                color: Color(0xFF047857),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

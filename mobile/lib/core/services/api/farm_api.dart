@@ -14,6 +14,35 @@ abstract final class FarmApi {
     return list.map((item) => FarmModel.fromJson(item)).toList();
   }
 
+  /// Tên nông trại / thửa đất theo mã (kỹ thuật viên được phép đọc): dùng cho báo cáo thực địa. Lỗi → null (UI hiện "—").
+  static Future<String?> getFarmName(String farmId) async {
+    if (farmId.isEmpty) return null;
+    try {
+      final resp = await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/farms/$farmId',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final n = (jsonDecode(utf8.decode(resp.bodyBytes)) as Map)['name'];
+        return n == null || '$n'.trim().isEmpty ? null : '$n';
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<String?> getFieldName(String fieldId) async {
+    if (fieldId.isEmpty) return null;
+    try {
+      final resp = await ApiService._getWithAuth(
+        '${ApiService.baseUrl}/api/v1/fields/$fieldId',
+      );
+      if (resp != null && resp.statusCode == 200) {
+        final n = (jsonDecode(utf8.decode(resp.bodyBytes)) as Map)['name'];
+        return n == null || '$n'.trim().isEmpty ? null : '$n';
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // ─── 3. Farm Structure ───────────────────────────────────────────────
   static Future<Map<String, dynamic>?> getFarmStructure(String farmId) async {
     try {

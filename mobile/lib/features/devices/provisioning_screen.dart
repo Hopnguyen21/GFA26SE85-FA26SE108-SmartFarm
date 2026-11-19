@@ -25,7 +25,12 @@ class ProvisioningScreen extends StatelessWidget {
       return const TechnicianDeploymentsScreen();
     if (role == AppRole.farmOwner) return const OwnerDeploymentRequestsScreen();
     return Scaffold(
-      appBar: AppBar(title: const Text('Lắp đặt thiết bị IoT')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        title: const Text('Lắp đặt thiết bị IoT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ),
       body: const Center(
         child: Padding(
           padding: EdgeInsets.all(24),

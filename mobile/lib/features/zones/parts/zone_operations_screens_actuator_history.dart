@@ -32,11 +32,19 @@ class ActuatorHistoryScreen extends StatelessWidget {
         a.actuatorId.toLowerCase(): a.name,
     };
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
           'Lịch sử điều khiển · ${zone.name}',
-          style: const TextStyle(fontSize: 15),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: const Color(0xFF062326),
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: _AsyncList<List<Map<String, dynamic>>>(
         load: () => AutomationApi.getActuatorHistory(zone.zoneId),
@@ -46,12 +54,10 @@ class ActuatorHistoryScreen extends StatelessWidget {
               'Chưa có lệnh điều khiển nào trong 7 ngày qua.',
               Icons.history,
             );
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final c = items[i];
+          return PagedList<Map<String, dynamic>>(
+            items: sortNewestFirst(items, (c) => parseTime(c['queuedAtUtc'])),
+            itemGap: 8,
+            itemBuilder: (context, c) {
               final status =
                   _statusVi['${c['status']}'] ?? ('${c['status']}', _muted);
               final on = '${c['action']}' == 'TurnOn';

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/models.dart';
 import '../../../core/services/api_service.dart';
+import '../../zones/profile_irrigation_logic.dart';
 import '../../zones/zone_auto_season.dart' show autoSeasonDays, minSeasonDays;
 import '../../zones/zone_operations_screens.dart'
     show ZonePlantingSeasonsScreen;
+import 'season_profile_preview.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Tạo vụ trồng cho một Zone (Owner). Cây của Zone chỉ được gán khi tạo vụ:
 /// Zone chưa có cây thì vụ mới gán cây; Zone đang có cây khác thì phải tích xác nhận đổi cây.
@@ -90,6 +93,26 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  ProfileSchedule? _profileSchedule;
+  bool _loadingSchedule = false;
+
+  Future<void> _fetchProfileSchedule(String profileId) async {
+    setState(() => _loadingSchedule = true);
+    try {
+      final json = await CropApi.getProfileIrrigation(profileId);
+      if (!mounted) return;
+      setState(() {
+        _profileSchedule = ProfileSchedule.fromJson(json);
+        _loadingSchedule = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _profileSchedule = null;
+        _loadingSchedule = false;
+      });
+    }
+  }
 
   static const _newFarmingValue = '__new_farming_season__';
 
@@ -162,6 +185,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
           _profileId = '${preset['profileId']}';
           _varieties = presetVarieties;
           _applyDefaultEnd();
+          _fetchProfileSchedule('${preset['profileId']}');
         }
         _running = seasons
             .where((x) => '${x['status']}' == 'InProgress')
@@ -180,7 +204,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Không tải được danh sách cây: $e';
+        _error = 'Không tải được danh sách cây: ${userFacingError(e)}';
         _loading = false;
       });
     }
@@ -239,10 +263,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       if (mounted && _cropId == id) setState(() => _varieties = v);
     } catch (e) {
       if (mounted)
-        setState(
-          () => _error =
-              'Không tải được giống: ${e.toString().replaceFirst('Exception: ', '')}',
-        );
+        setState(() => _error = 'Không tải được giống: ${userFacingError(e)}');
     }
   }
 
@@ -418,7 +439,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = userFacingError(e);
         });
         await _refreshRunning();
       }
@@ -569,10 +590,17 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                         .toList(),
                     onChanged: _cropId == null
                         ? null
-                        : (v) => setState(() {
-                            _profileId = v;
-                            _applyDefaultEnd();
-                          }),
+                        : (v) {
+                            setState(() {
+                              _profileId = v;
+                              _applyDefaultEnd();
+                            });
+                            if (v != null) {
+                              _fetchProfileSchedule(v);
+                            } else {
+                              setState(() => _profileSchedule = null);
+                            }
+                          },
                     isExpanded: true,
                   ),
                   if (_cropId != null && profiles.isEmpty)
@@ -586,6 +614,7 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                         ),
                       ),
                     ),
+                  _buildProfileIrrigationCard(),
                   const SizedBox(height: 10),
                   const SizedBox(height: 10),
                   TextField(
@@ -675,12 +704,220 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(46),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
                       onPressed: _saving || _running != null ? null : _submit,
-                      child: Text(_saving ? 'Đang tạo…' : 'Tạo vụ trồng'),
+                      child: Text(
+                        _saving ? 'Đang tạo…' : 'Tạo vụ trồng',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
                     ),
                   ),
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _buildProfileIrrigationCard() {
+    if (_profileId == null) return const SizedBox.shrink();
+
+    if (_loadingSchedule) {
+      return Container(
+        margin: const EdgeInsets.only(top: 8, bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF047857),
+              ),
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Đang tải lịch tưới mẫu của hồ sơ…',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final ps = _profileSchedule;
+    if (ps == null || !ps.hasAnySessions) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFA7F3D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF047857),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.water_drop,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'LỊCH TƯỚI MẪU CỦA HỒ SƠ',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF065F46),
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SeasonProfilePreview(profileId: _profileId!),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Xem chi tiết ➔',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF047857),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Hệ thống tự động áp dụng lịch tưới 3 ca theo từng giai đoạn phát triển của cây:',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade700,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final st in ps.stages.take(4)) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFD1FAE5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${st.order}. ${st.name}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        '${st.durationDays} ngày',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (st.sessions.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        for (final s in st.sessions.where((x) => x.enabled))
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                s.title.toLowerCase().contains('sáng')
+                                    ? Icons.wb_twilight
+                                    : s.title.toLowerCase().contains('trưa')
+                                    ? Icons.wb_sunny
+                                    : Icons.nights_stay,
+                                size: 12,
+                                color: s.title.toLowerCase().contains('sáng')
+                                    ? const Color(0xFFD97706)
+                                    : s.title.toLowerCase().contains('trưa')
+                                    ? const Color(0xFFE11D48)
+                                    : const Color(0xFF4F46E5),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${s.title.replaceAll("Tưới ", "")}: ${s.startTime} (${(s.durationSeconds / 60).round()}p)',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF334155),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          if (ps.stages.length > 4)
+            Text(
+              '+ Thêm ${ps.stages.length - 4} giai đoạn tiếp theo...',
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontStyle: FontStyle.italic,
+                color: Color(0xFF065F46),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -772,7 +1009,7 @@ class _NewFarmingSeasonDialogState extends State<_NewFarmingSeasonDialog> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = userFacingError(e);
         });
       }
     }

@@ -4,11 +4,13 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
 import 'device_health_loader.dart';
 import 'widgets/device_actions_sheet.dart';
+import '../../core/utils/user_error.dart';
 
 /// Tình trạng thiết bị IoT (gateway & node) theo dữ liệu thật của backend.
 /// Phát hiện lỗi theo thời gian im lặng (last seen + timeout), không đếm gói rớt vì LoRa mất gói là bình thường.
 class DeviceHealthScreen extends StatefulWidget {
-  const DeviceHealthScreen({super.key});
+  final bool embedded;
+  const DeviceHealthScreen({super.key, this.embedded = false});
 
   @override
   State<DeviceHealthScreen> createState() => _DeviceHealthScreenState();
@@ -16,6 +18,9 @@ class DeviceHealthScreen extends StatefulWidget {
 
 class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
   Future<List<DeviceHealthModel>>? _future;
+  final ScrollController _scrollController = ScrollController();
+  int _currentPage = 1;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
@@ -23,6 +28,12 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _reload();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -37,8 +48,337 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
     }
   }
 
+  void _goToPage(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  List<int> _generatePageNumbers(int current, int total) {
+    if (total <= 5) {
+      return [for (var i = 1; i <= total; i++) i];
+    }
+    final pages = <int>{};
+    pages.add(1);
+    pages.add(total);
+    pages.add(current);
+    if (current > 1) pages.add(current - 1);
+    if (current < total) pages.add(current + 1);
+
+    final sorted = pages.toList()..sort();
+    final result = <int>[];
+    for (var i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) {
+        result.add(-1); // Dấu "..."
+      }
+      result.add(sorted[i]);
+    }
+    return result;
+  }
+
+  Widget _buildPaginationControls(
+    int currentPage,
+    int totalPages,
+    int totalCount,
+    int fromItem,
+    int toItem,
+  ) {
+    return Column(
+      children: [
+        Text(
+          'Hiển thị $fromItem – $toItem trong tổng số $totalCount thiết bị',
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Nút Trang trước
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded),
+              onPressed: currentPage > 1
+                  ? () => _goToPage(currentPage - 1)
+                  : null,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0F172A),
+                disabledBackgroundColor: const Color(0xFFF1F5F9),
+                disabledForegroundColor: const Color(0xFF94A3B8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Các nút số trang
+            ..._generatePageNumbers(currentPage, totalPages).map((p) {
+              if (p == -1) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    '…',
+                    style: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              }
+              final isCurrent = p == currentPage;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: FilledButton(
+                    onPressed: isCurrent ? null : () => _goToPage(p),
+                    style: FilledButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: isCurrent
+                          ? const Color(0xFF047857)
+                          : Colors.white,
+                      foregroundColor: isCurrent
+                          ? Colors.white
+                          : const Color(0xFF334155),
+                      disabledBackgroundColor: const Color(0xFF047857),
+                      disabledForegroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: isCurrent
+                              ? const Color(0xFF047857)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      '$p',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+
+            const SizedBox(width: 8),
+            // Nút Trang sau
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded),
+              onPressed: currentPage < totalPages
+                  ? () => _goToPage(currentPage + 1)
+                  : null,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0F172A),
+                disabledBackgroundColor: const Color(0xFFF1F5F9),
+                disabledForegroundColor: const Color(0xFF94A3B8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final body = FutureBuilder<List<DeviceHealthModel>>(
+      future: _future,
+      builder: (context, snap) {
+        if (_future == null || snap.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF10B981)),
+          );
+        }
+        if (snap.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.cloud_off,
+                    size: 36,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Không tải được tình trạng thiết bị: ${userFacingError(snap.error!)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFF64748B)),
+                  ),
+                  TextButton(onPressed: _reload, child: const Text('Thử lại')),
+                ],
+              ),
+            ),
+          );
+        }
+        final devices = snap.data!;
+        final totalCount = devices.length;
+        final totalPages = (totalCount / _pageSize).ceil().clamp(1, 9999);
+        final currentPage = _currentPage.clamp(1, totalPages);
+        final startIndex = (currentPage - 1) * _pageSize;
+        final endIndex = (startIndex + _pageSize).clamp(0, totalCount);
+        final pagedDevices = devices.isEmpty
+            ? <DeviceHealthModel>[]
+            : devices.sublist(startIndex, endIndex);
+
+        final online = devices.where((d) => d.healthStatus == 'ONLINE').length;
+        final warning = devices
+            .where((d) => d.healthStatus == 'WARNING')
+            .length;
+        final offline = devices
+            .where((d) => d.healthStatus == 'OFFLINE')
+            .length;
+        return RefreshIndicator(
+          onRefresh: _reload,
+          child: ListView(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(16),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _summaryCard(
+                      'ONLINE',
+                      online,
+                      const Color(0xFF047857),
+                      const Color(0xFFECFDF5),
+                      Icons.wifi,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _summaryCard(
+                      'CẢNH BÁO',
+                      warning,
+                      const Color(0xFFD97706),
+                      const Color(0xFFFFFBEB),
+                      Icons.signal_wifi_statusbar_connected_no_internet_4,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _summaryCard(
+                      'OFFLINE',
+                      offline,
+                      const Color(0xFFDC2626),
+                      const Color(0xFFFEF2F2),
+                      Icons.wifi_off,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFBAE6FD)),
+                ),
+                child: const Text(
+                  'Trạng thái tính theo thời điểm nhận dữ liệu gần nhất so với chu kỳ gửi của từng thiết bị:\n'
+                  '• ≤ 3× chu kỳ → ONLINE\n'
+                  '• 3–12× chu kỳ → CẢNH BÁO (mất sóng tạm thời)\n'
+                  '• > 12× chu kỳ hoặc chưa từng nhận dữ liệu → OFFLINE (cần kiểm tra thực địa)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF0369A1),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'DANH SÁCH THIẾT BỊ ($totalCount)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  if (totalPages > 1)
+                    Text(
+                      'Trang $currentPage / $totalPages',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF047857),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (devices.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Chưa có gateway hoặc node nào được lắp đặt.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  ),
+                ),
+              ...pagedDevices.map(
+                (device) => _DeviceCard(
+                  device: device,
+                  canManage:
+                      device.deviceId != null &&
+                      context.read<FarmProvider>().currentRole == 'TECHNICIAN',
+                  onChanged: _reload,
+                ),
+              ),
+              if (totalPages > 1) ...[
+                const SizedBox(height: 16),
+                _buildPaginationControls(
+                  currentPage,
+                  totalPages,
+                  totalCount,
+                  startIndex + 1,
+                  endIndex,
+                ),
+                const SizedBox(height: 24),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+
+    if (widget.embedded) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -61,144 +401,7 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<DeviceHealthModel>>(
-        future: _future,
-        builder: (context, snap) {
-          if (_future == null || snap.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981)),
-            );
-          }
-          if (snap.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.cloud_off,
-                      size: 36,
-                      color: Color(0xFF94A3B8),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Không tải được tình trạng thiết bị: ${snap.error.toString().replaceFirst('Exception: ', '')}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFF64748B)),
-                    ),
-                    TextButton(
-                      onPressed: _reload,
-                      child: const Text('Thử lại'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          final devices = snap.data!;
-          final online = devices
-              .where((d) => d.healthStatus == 'ONLINE')
-              .length;
-          final warning = devices
-              .where((d) => d.healthStatus == 'WARNING')
-              .length;
-          final offline = devices
-              .where((d) => d.healthStatus == 'OFFLINE')
-              .length;
-          return RefreshIndicator(
-            onRefresh: _reload,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _summaryCard(
-                        'ONLINE',
-                        online,
-                        const Color(0xFF059669),
-                        const Color(0xFFECFDF5),
-                        Icons.wifi,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _summaryCard(
-                        'CẢNH BÁO',
-                        warning,
-                        const Color(0xFFD97706),
-                        const Color(0xFFFFFBEB),
-                        Icons.signal_wifi_statusbar_connected_no_internet_4,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _summaryCard(
-                        'OFFLINE',
-                        offline,
-                        const Color(0xFFDC2626),
-                        const Color(0xFFFEF2F2),
-                        Icons.wifi_off,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F9FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFBAE6FD)),
-                  ),
-                  child: const Text(
-                    'Trạng thái tính theo thời điểm nhận dữ liệu gần nhất so với chu kỳ gửi của từng thiết bị:\n'
-                    '• ≤ 3× chu kỳ → ONLINE\n'
-                    '• 3–12× chu kỳ → CẢNH BÁO (mất sóng tạm thời)\n'
-                    '• > 12× chu kỳ hoặc chưa từng nhận dữ liệu → OFFLINE (cần kiểm tra thực địa)',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF0369A1),
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'DANH SÁCH THIẾT BỊ (${devices.length})',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF64748B),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (devices.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Chưa có gateway hoặc node nào được lắp đặt.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF64748B)),
-                    ),
-                  ),
-                ...devices.map(
-                  (device) => _DeviceCard(
-                    device: device,
-                    canManage:
-                        device.deviceId != null &&
-                        context.read<FarmProvider>().currentRole ==
-                            'TECHNICIAN',
-                    onChanged: _reload,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      body: body,
     );
   }
 
@@ -210,30 +413,46 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 6),
           Text(
             '$count',
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: TextStyle(
               fontSize: 11,
               color: color,
               fontWeight: FontWeight.bold,
+              letterSpacing: 0.3,
             ),
           ),
         ],
@@ -257,7 +476,7 @@ class _DeviceCard extends StatelessWidget {
   Color get _statusColor {
     switch (device.healthStatus) {
       case 'ONLINE':
-        return const Color(0xFF059669);
+        return const Color(0xFF047857);
       case 'WARNING':
         return const Color(0xFFD97706);
       default:
@@ -290,7 +509,7 @@ class _DeviceCard extends StatelessWidget {
   Color get _batteryColor {
     final pct = device.batteryPercent;
     if (pct == null) return const Color(0xFF64748B);
-    if (pct > 60) return const Color(0xFF059669);
+    if (pct > 60) return const Color(0xFF047857);
     if (pct > 25) return const Color(0xFFD97706);
     return const Color(0xFFDC2626);
   }

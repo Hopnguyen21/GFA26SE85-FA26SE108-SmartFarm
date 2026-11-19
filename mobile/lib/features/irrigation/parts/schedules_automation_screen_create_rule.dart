@@ -596,7 +596,7 @@ extension _SchedulesAutomationScreenStateCreateRule
                                   content: Text(
                                     '✅ Đã tạo và kích hoạt AutoRule.',
                                   ),
-                                  backgroundColor: Color(0xFF059669),
+                                  backgroundColor: Color(0xFF047857),
                                 ),
                               );
                             },

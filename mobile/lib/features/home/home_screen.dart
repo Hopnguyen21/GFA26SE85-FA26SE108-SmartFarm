@@ -11,11 +11,12 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../tasks/alerts_tasks_screen.dart';
 import '../zones/zone_detail_screen.dart';
-import '../zones/widgets/actuator_feedback.dart';
 import '../crops/crop_profiles_screen.dart';
 import '../irrigation/schedules_automation_screen.dart';
+import '../irrigation/season_irrigation_calendar_screen.dart';
 import '../support/support_requests_screen.dart';
 import '../inventory/inventory_screen.dart';
+import '../workforce/workforce_screen.dart';
 import '../ai/ai_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
 import '../cf1/cf1_progress_screen.dart';
@@ -23,14 +24,17 @@ import '../../core/widgets/dispose_later.dart';
 import '../zones/widgets/emergency_stop_button.dart';
 import 'widgets/zone_ai_advice_card.dart';
 import 'widgets/zone_stage_progress.dart';
+import '../../core/utils/crop_emoji.dart';
+import 'widgets/zone_temperature_gauge.dart';
+import 'zone_sensor_thresholds.dart';
 import 'widgets/owner_pending_actions_card.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/user_error.dart';
 
 part 'parts/home_screen_top_banners.dart';
 part 'parts/home_screen_owner_actions.dart';
 part 'parts/home_screen_ai_crop.dart';
 part 'parts/home_screen_climate_control.dart';
-part 'parts/home_screen_ecosystem.dart';
 part 'parts/home_screen_weather_cards.dart';
 part 'parts/home_screen_sensor_cards.dart';
 part 'parts/home_screen_selectors.dart';
@@ -186,7 +190,6 @@ class HomeScreen extends StatelessWidget {
               ..._activeCropSection(context, farmProvider, zone),
               ..._climateSection(context, farmProvider, zone),
               ..._quickControlSection(context, farmProvider, zone),
-              ..._ecosystemSection(context, farmProvider, zone),
             ],
           ),
         ),

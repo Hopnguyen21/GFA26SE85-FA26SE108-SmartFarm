@@ -21,6 +21,9 @@ class InstallProgressCard extends StatefulWidget {
   /// Báo trạng thái triển khai đọc được (null nếu không đọc được hoặc liên kết sai) để màn chi tiết vẽ thanh quy trình.
   final void Function(String? status)? onStatus;
 
+  /// Báo khảo sát thực địa đã có kết quả KHẢ THI chưa (màn chứa dùng để mở/khoá phần xem và gửi hợp đồng).
+  final void Function(bool feasibleDone)? onSurvey;
+
   /// Dòng tiêu đề của khung thao tác (việc tiếp theo) và các nút thêm của màn chứa (Chấm Node, khoá chờ cọc…).
   final String? headline;
   final List<Widget> extraActions;
@@ -35,6 +38,7 @@ class InstallProgressCard extends StatefulWidget {
     this.farmId,
     this.zoneId,
     this.onStatus,
+    this.onSurvey,
   });
 
   @override
@@ -70,6 +74,9 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
       );
       if (mounted) setState(() => _d = d);
       if (mounted) widget.onStatus?.call(_linkInvalid(d) ? null : d.status);
+      if (mounted) {
+        widget.onSurvey?.call(d.surveys.isNotEmpty && d.latestSurveyFeasible);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     } finally {
@@ -114,8 +121,18 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     }
   }
 
-  Future<void> _survey(DeploymentRequest d) async {
-    final input = await askSurvey(context);
+  Future<void> _guarded(
+    String title,
+    String body,
+    Future<Object?> Function() action,
+  ) async {
+    if (!await _confirm(title, body) || !mounted) return;
+    await _run(action);
+  }
+
+  /// Hộp thoại khảo sát thực địa (điều kiện địa điểm + ghi chú, bắt buộc); lưu qua backend rồi tải lại.
+  Future<void> _doSurvey(DeploymentRequest d) async {
+    final input = await askSurvey(context, site: d.context);
     if (input == null || !mounted) return;
     await _run(
       () => DeploymentApi.surveyDeploymentRequest(
@@ -125,15 +142,6 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
         notes: input.notes,
       ),
     );
-  }
-
-  Future<void> _guarded(
-    String title,
-    String body,
-    Future<Object?> Function() action,
-  ) async {
-    if (!await _confirm(title, body) || !mounted) return;
-    await _run(action);
   }
 
   List<Widget> _buttons(DeploymentRequest d) {
@@ -153,29 +161,13 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           ),
         ];
       case 'Accepted':
-        return [primary('Ghi nhận khảo sát địa điểm', () => _survey(d))];
+        // Sau khi nhận yêu cầu: KTV điền khảo sát thực địa thật; có kết quả mới được xem/xác nhận hợp đồng.
+        return [primary('Khảo sát thực địa', () => _doSurvey(d))];
       case 'Surveyed':
         return [
-          // Theo cam kết (BM04, WF-01): KTV khảo sát → xác nhận kế hoạch → lập báo giá, rồi Owner mới cọc.
-          if (d.latestSurveyFeasible && d.planItems.isEmpty) ...[
-            const Text(
-              'Kế hoạch thiết bị đang trống: backend chỉ xác nhận khi kế hoạch có ít nhất một model thiết bị (mỗi model một dòng, số lượng 1–100). Hãy lập kế hoạch trước; báo giá của Owner chỉ là đề xuất, chưa phải kế hoạch.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.warning,
-                height: 1.4,
-              ),
-            ),
-            primary('Lập kế hoạch thiết bị', () => widget.onOpenDetail()),
-          ] else if (d.latestSurveyFeasible)
-            primary(
-              'Xác nhận kế hoạch',
-              () => _guarded(
-                'Xác nhận kế hoạch',
-                'Xác nhận kế hoạch thiết bị đã khảo sát. Bước tiếp theo là lập và gửi báo giá / hợp đồng cho Owner.',
-                () => DeploymentApi.confirmDeploymentPlan(d.requestId),
-              ),
-            ),
+          if (!d.latestSurveyFeasible)
+            primary('Khảo sát lại', () => _doSurvey(d)),
+          // Kế hoạch tự được xác nhận khi KTV gửi hợp đồng: không còn nút "Xác nhận kế hoạch".
           if (!d.latestSurveyFeasible)
             const Text(
               'Khảo sát ghi nhận KHÔNG khả thi (lý do đã lưu). Không thể xác nhận kế hoạch hay tạo hợp đồng. '
@@ -189,11 +181,15 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
   }
 
   String? _info(DeploymentRequest d) => switch (d.status) {
-    'Submitted' || 'Accepted' => null, // nút đã tự mô tả bước
+    'Submitted' => null, // nút đã tự mô tả bước
+    'Accepted' =>
+      'Điền khảo sát thực địa trước; có kết quả khả thi mới xem và gửi được hợp đồng.',
     'PlanConfirmed' =>
       'Cần chủ trang trại đã ký hợp đồng và đóng cọc trước khi bắt đầu lắp đặt.',
     'Surveyed' =>
-      'Chỉnh số lượng thiết bị trong kế hoạch ở chi tiết triển khai trước khi xác nhận.',
+      d.surveys.isEmpty
+          ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.'
+          : 'Khảo sát thực địa: ${d.surveys.last.isFeasible ? 'khả thi' : 'KHÔNG khả thi'} · ${d.surveys.last.siteConditions} · ${d.surveys.last.notes}. ${d.latestSurveyFeasible ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.' : ''}',
     'Installing' =>
       'Cấp phát thiết bị, kiểm tra kết nối rồi hoàn tất trong chi tiết triển khai.',
     'Completed' =>
@@ -213,7 +209,7 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           FilledButton(
             onPressed: b.onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
+              backgroundColor: const Color(0xFF047857),
               foregroundColor: Colors.white,
             ),
             child: b.child,

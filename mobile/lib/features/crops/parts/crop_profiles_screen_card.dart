@@ -75,20 +75,40 @@ class _CropProfileCard extends StatelessWidget {
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
+                                  horizontal: 9,
+                                  vertical: 3.5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF062326),
+                                  color: const Color(0xFF064E3B),
                                   borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF064E3B,
+                                      ).withValues(alpha: 0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  '${profile.totalCycleDays} ngày',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.timelapse,
+                                      size: 11,
+                                      color: Color(0xFF6EE7B7),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${profile.totalCycleDays} ngày',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -156,7 +176,7 @@ class _CropProfileCard extends StatelessWidget {
                                     Icon(
                                       Icons.verified,
                                       size: 12,
-                                      color: Color(0xFF059669),
+                                      color: Color(0xFF047857),
                                     ),
                                     SizedBox(width: 4),
                                     Text(
@@ -164,7 +184,7 @@ class _CropProfileCard extends StatelessWidget {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF059669),
+                                        color: Color(0xFF047857),
                                       ),
                                     ),
                                   ],
@@ -197,7 +217,7 @@ class _CropProfileCard extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: profile.difficulty == 'DỄ'
-                                          ? const Color(0xFF059669)
+                                          ? const Color(0xFF047857)
                                           : profile.difficulty == 'KHÓ'
                                           ? const Color(0xFFDC2626)
                                           : const Color(0xFFD97706),
@@ -253,7 +273,7 @@ class _CropProfileCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Row(
@@ -294,7 +314,7 @@ class _CropProfileCard extends StatelessWidget {
                       Expanded(
                         child: _metricColumn(
                           icon: Icons.alarm,
-                          iconColor: const Color(0xFF059669),
+                          iconColor: const Color(0xFF047857),
                           label: 'Chế độ tưới',
                           value:
                               firstStage.requirements.irrigationDurationMin > 0
@@ -318,12 +338,16 @@ class _CropProfileCard extends StatelessWidget {
                 // ── Hàng 3: Timeline chu kỳ tóm tắt (Giai đoạn đầu -> thu hoạch) ──
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+                    horizontal: 12,
+                    vertical: 9,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFDCFCE7),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -336,9 +360,9 @@ class _CropProfileCard extends StatelessWidget {
                         child: Text(
                           '${firstStage.name} → ${lastStage.name}',
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
+                            color: Color(0xFF166534),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -346,15 +370,15 @@ class _CropProfileCard extends StatelessWidget {
                       const Icon(
                         Icons.arrow_forward_ios,
                         size: 11,
-                        color: Color(0xFF94A3B8),
+                        color: Color(0xFF059669),
                       ),
                       const SizedBox(width: 4),
                       const Text(
                         'Xem chi tiết',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF10B981),
+                          color: Color(0xFF047857),
                         ),
                       ),
                     ],
