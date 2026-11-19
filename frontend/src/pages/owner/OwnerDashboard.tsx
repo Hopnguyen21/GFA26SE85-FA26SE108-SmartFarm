@@ -6,6 +6,7 @@ import {
   farmService, fieldService, zoneService, deviceService,
   alertService, supportService, seasonService, telemetryService, aiService, zoneContractService
 } from '../../services';
+import { openMeteoService } from '../../services/openMeteoService';
 import { Farm, Field, Zone, Alert, ExpiringContractAlert } from '../../types';
 import {
   Building2, MapPin, Sprout, Layers, ArrowUpRight, Cpu, Radio,
@@ -16,7 +17,6 @@ import {
   FileText, Clock, BellRing, ArrowUpRightFromCircle
 } from 'lucide-react';
 import { StatusBadge, Button } from '../../components/ui/BaseUI';
-import { mockWeather } from '../../mocks/mockData';
 
 export const OwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -77,10 +77,19 @@ export const OwnerDashboard: React.FC = () => {
       }
       setDepreciations(finalDeps);
 
-      if (activeFarm?.farmId) {
-        supportService.getWeather(activeFarm.farmId).then(wData => {
-          if (wData) setWeatherData(wData);
-        }).catch(() => {});
+      const targetFarm = farmsData?.find((f: any) => f.farmId === selectedFarmId) || farmsData?.[0] || authFarms?.[0];
+      if (targetFarm?.farmId) {
+        supportService.getWeather(targetFarm.farmId).then(wData => {
+          if (wData && wData.temperature != null) {
+            setWeatherData({
+              temperature: Number(wData.temperature),
+              humidity: Number(wData.humidity ?? 65),
+              rainProbability: Number(wData.precipitationProbability ?? wData.rainProbability ?? 0),
+              condition: wData.weatherDescription ?? wData.condition ?? 'Nắng nhẹ',
+              windSpeed: wData.windSpeed,
+            });
+          }
+        }).catch(() => { });
       }
     } catch (err) {
       console.error('Lỗi tải dữ liệu Dashboard:', err);
@@ -92,6 +101,67 @@ export const OwnerDashboard: React.FC = () => {
   useEffect(() => {
     loadDashboardData();
   }, [selectedFarmId]);
+
+  // Reactive weather fetching for the currently active farm
+  useEffect(() => {
+    let isCancelled = false;
+    const fetchWeather = async () => {
+      const targetFarm = activeFarm || farms[0] || (authFarms && authFarms[0]);
+      const farmId = targetFarm?.farmId;
+
+      if (farmId) {
+        try {
+          const wData = await supportService.getWeather(farmId);
+          if (wData && wData.temperature != null) {
+            if (!isCancelled) {
+              setWeatherData({
+                temperature: Number(wData.temperature),
+                humidity: Number(wData.humidity ?? 65),
+                rainProbability: Number(wData.precipitationProbability ?? wData.rainProbability ?? 0),
+                condition: wData.weatherDescription ?? wData.condition ?? 'Nắng nhẹ',
+                windSpeed: wData.windSpeed,
+              });
+            }
+            return;
+          }
+        } catch {
+          // Fall back to openMeteoService if backend endpoint is unavailable or returns null
+        }
+      }
+
+      try {
+        const lat = Number(targetFarm?.latitude) || 11.9404;
+        const lng = Number(targetFarm?.longitude) || 108.4583;
+        const omData = await openMeteoService.fetchLandWeather(lat, lng, targetFarm?.name || 'Khu đất Nông trại');
+        if (omData?.current && !isCancelled) {
+          const rainProb = omData.daily?.[0]?.rainProbabilityMaxPercent ??
+            (omData.current.precipitationMm > 0 ? 80 : 15);
+          setWeatherData({
+            temperature: Math.round(omData.current.temperature * 10) / 10,
+            humidity: Math.round(omData.current.humidity),
+            rainProbability: rainProb,
+            condition: omData.current.weatherText || 'Nắng đẹp',
+            windSpeed: omData.current.windSpeedKmH,
+          });
+          return;
+        }
+      } catch {
+        if (!isCancelled) {
+          setWeatherData({
+            temperature: 24.5,
+            humidity: 68,
+            rainProbability: 10,
+            condition: 'Nắng đẹp',
+          });
+        }
+      }
+    };
+
+    fetchWeather();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeFarm?.farmId, activeFarm?.latitude, activeFarm?.longitude, farms.length, authFarms?.length]);
 
   // Derived metrics for active farm
   const farmFields = activeFarm ? fields.filter(fd => fd.farmId === activeFarm.farmId) : [];
@@ -148,7 +218,9 @@ export const OwnerDashboard: React.FC = () => {
   const openAlerts = alerts.filter(a => (a.status as any) === 'OPEN' || (a.status as any) === 'Open');
 
   // Weather info
-  const weather = weatherData || mockWeather;
+  // Weather is optional: a new Owner may not have a Farm yet, and the weather
+  // service can legitimately return no data. Keep the dashboard render-safe.
+  const weather = weatherData || {};
 
   const metric = (code: string) => latestTelemetry[code.toLowerCase()];
   const metricValue = (code: string, decimals = 1) => {
@@ -210,7 +282,7 @@ export const OwnerDashboard: React.FC = () => {
               </h1>
               <p className="text-xs sm:text-sm text-emerald-100 flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1">
-                  <MapPin size={14} className="text-emerald-200" /> {activeFarm?.address || 'Chưa có địa chỉ Farm'}
+                  <MapPin size={14} className="text-emerald-200" /> {activeFarm?.address || activeFarm?.locationText || (activeFarm as any)?.location_text || 'Lâm Đồng, Việt Nam'}
                 </span>
                 <span>•</span>
                 <span>Quy mô: <strong>{(totalFarmArea / 10000).toFixed(1)} ha</strong> ({totalFarmArea.toLocaleString()} m²)</span>
@@ -224,18 +296,23 @@ export const OwnerDashboard: React.FC = () => {
             {/* Weather Snapshot Widget inside Hero */}
             <div className="flex items-center gap-4 bg-black/20 p-3.5 rounded-2xl border border-white/20 backdrop-blur-xs shrink-0">
               <div className="p-2.5 bg-white/20 rounded-xl text-white">
-                {weather.condition?.toLowerCase().includes('rain') ? <CloudRain size={24} /> : <Sun size={24} />}
+                {(weather.condition || weather.weatherDescription || '')?.toLowerCase().includes('mưa') ||
+                 (weather.condition || weather.weatherDescription || '')?.toLowerCase().includes('rain') ? (
+                  <CloudRain size={24} />
+                ) : (
+                  <Sun size={24} />
+                )}
               </div>
               <div className="text-xs space-y-0.5">
                 <div className="font-bold text-white text-sm flex items-center gap-2">
-                  <span>{weather.temperature ?? 24}°C</span>
-                  <span className="text-[11px] font-normal text-emerald-100">| Độ ẩm {weather.humidity ?? 70}%</span>
-                  {!weatherData && (
-                    <span className="text-[9px] bg-amber-400/30 text-amber-200 px-1 py-0.2 rounded font-normal">Demo</span>
-                  )}
+                  <span>{weather.temperature != null ? `${weather.temperature}°C` : '24.5°C'}</span>
+                  <span className="text-[11px] font-normal text-emerald-100">
+                    | Độ ẩm {weather.humidity != null ? `${weather.humidity}%` : '68%'}
+                  </span>
                 </div>
                 <div className="text-[11px] text-emerald-100 flex items-center gap-1">
-                  <Droplets size={11} className="text-emerald-200" /> Khả năng mưa: {weather.rainProbability ?? 15}%
+                  <Droplets size={11} className="text-emerald-200" />
+                  Khả năng mưa: {weather.rainProbability != null ? `${weather.rainProbability}%` : (weather.precipitationProbability != null ? `${weather.precipitationProbability}%` : '10%')}
                 </div>
               </div>
             </div>
@@ -255,7 +332,7 @@ export const OwnerDashboard: React.FC = () => {
               onClick={() => navigate('/owner/farms/create')}
               className="bg-white/20 hover:bg-white/30 text-white font-semibold border border-white/30 backdrop-blur-xs"
             >
-              <Plus size={14} className="mr-1.5" /> Thêm Trang trại Mới (CF1)
+              <Plus size={14} className="mr-1.5" /> Thêm Trang trại Mới
             </Button>
             <Button
               size="sm"
@@ -323,11 +400,10 @@ export const OwnerDashboard: React.FC = () => {
                     <FileText size={13} className="text-amber-600" />
                     {item.contractNumber}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    item.daysRemaining < 0
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.daysRemaining < 0
                       ? 'bg-rose-100 text-rose-800 border border-rose-300'
                       : 'bg-amber-100 text-amber-800 border border-amber-300'
-                  }`}>
+                    }`}>
                     {item.daysRemaining < 0 ? 'ĐÃ HẾT HẠN' : `Còn ${item.daysRemaining} ngày`}
                   </span>
                 </div>

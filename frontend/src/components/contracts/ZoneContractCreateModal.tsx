@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Input } from '../ui/BaseUI';
-import { Zone, Farm, ZoneContract } from '../../types';
-import { zoneContractService } from '../../services';
+import { Zone, Farm, ZoneContract, ContractPackage } from '../../types';
+import { zoneContractService, discountService, contractPackageService } from '../../services';
 import { useBusinessParameters } from '../../services/businessParameters';
 import {
   FileText, Calendar, DollarSign, Percent, ShieldCheck, CheckCircle2,
@@ -41,11 +41,15 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
   // Selected parent contract for returning customer link
   const [selectedParentId, setSelectedParentId] = useState<string>(parentContract?.id || '');
 
-  // Package Mode: Custom Package for this contract vs None
-  const [packageMode, setPackageMode] = useState<'custom' | 'none'>('custom');
+  // Package Selection & Mode
+  const [availablePackages, setAvailablePackages] = useState<ContractPackage[]>([]);
+  const [loadingPackages, setLoadingPackages] = useState<boolean>(false);
+  const [applyPackage, setApplyPackage] = useState<boolean>(true); // ô tích chọn có kèm gói hay không
+  const [packageMode, setPackageMode] = useState<'standard' | 'custom'>('standard');
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [customPackageName, setCustomPackageName] = useState<string>('');
   const [customPackageDesc, setCustomPackageDesc] = useState<string>('');
-  const [customMaxZones, setCustomMaxZones] = useState<number>(1);
+  const [customPackagePrice, setCustomPackagePrice] = useState<number>(9500000);
 
   // Check if user has an existing contract signed/created within the last 2 months (60 days)
   const recentTwoMonthsContract = React.useMemo(() => {
@@ -85,12 +89,40 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
   const [notes, setNotes] = useState<string>('Áp dụng chính sách ưu đãi khách hàng ký hợp đồng mới.');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Discount Codes (Mã giảm giá do Admin tạo, Technician sử dụng)
+  const [availableDiscounts, setAvailableDiscounts] = useState<any[]>([]);
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; percent: number; amount: number; description: string } | null>(null);
+  const [manualCodeInput, setManualCodeInput] = useState<string>('');
+  const [autoApplying, setAutoApplying] = useState<boolean>(false);
+  const [discountMsg, setDiscountMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      discountService.getAll(true)
+        .then(list => setAvailableDiscounts(Array.isArray(list) ? list : []))
+        .catch(() => {});
+
+      setLoadingPackages(true);
+      contractPackageService.getAll(true, false)
+        .then(list => {
+          const pkgs = Array.isArray(list) ? list : [];
+          setAvailablePackages(pkgs);
+          if (pkgs.length > 0) {
+            setSelectedPackageId(prev => prev || pkgs[0].id);
+          }
+        })
+        .catch(err => console.error('Error loading contract packages:', err))
+        .finally(() => setLoadingPackages(false));
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       setContractNumber(`HD-ZN-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`);
       if (zone?.currentCrop) setCropType(zone.currentCrop);
       setCustomPackageName(`Gói Canh Tác ${zone?.name || 'Zone'} - VIP`);
       setCustomPackageDesc(`Gói dịch vụ tùy chỉnh riêng cho khách hàng, bao gồm thiết bị IoT và bảo trì`);
+      setCustomPackagePrice(9500000);
       if (recentTwoMonthsContract) {
         setSelectedParentId(parentContract?.id || recentTwoMonthsContract.id);
         setLesseeName(parentContract?.lesseeName || recentTwoMonthsContract.lesseeName || lesseeName);
@@ -106,6 +138,15 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
     }
   }, [isOpen, parentContract, zone, recentTwoMonthsContract, businessParams.repeatPurchaseDiscountPercent, businessParams.renewalDiscountPercent]);
 
+  // Selected package details
+  const selectedStandardPackage = availablePackages.find(p => p.id === selectedPackageId);
+  const currentPackagePrice = applyPackage
+    ? (packageMode === 'standard' ? (selectedStandardPackage?.price || 0) : customPackagePrice)
+    : 0;
+  const currentPackageName = applyPackage
+    ? (packageMode === 'standard' ? (selectedStandardPackage?.packageName || 'Gói chuẩn') : (customPackageName || 'Gói tùy chỉnh riêng'))
+    : null;
+
   // Compute End Date
   const calculateEndDate = (): string => {
     const d = new Date(startDate);
@@ -116,7 +157,8 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
   const endDate = calculateEndDate();
 
   // Automatic financial calculations (strictly linked!)
-  const subtotal = monthlyRent * durationMonths; // Thành tiền = Đơn giá × Số lượng (tháng)
+  const zoneRentTotal = monthlyRent * durationMonths; // Tiền thuê phân khu = Đơn giá × Số tháng
+  const subtotal = zoneRentTotal + currentPackagePrice; // Thành tiền trước thuế = Tiền thuê Zone + Tiền gói dịch vụ
   const vatAmount = Math.round(subtotal * (vatPercent / 100)); // VAT = Thành tiền × Tỷ lệ VAT
   const totalWithVat = subtotal + vatAmount; // Tổng tiền = Thành tiền + VAT
   const discountAmount = Math.round(totalWithVat * (discountPercent / 100)); // Chiết khấu
@@ -125,6 +167,62 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
   const remainingAmount = finalTotalAmount - depositAmount; // Phần còn lại
 
   const isReturningCustomer = Boolean(selectedParentId);
+
+  // Technician: Tự động add mã giảm giá phù hợp với giá hợp đồng
+  const handleAutoAddBestDiscount = async () => {
+    setAutoApplying(true);
+    setDiscountMsg(null);
+    try {
+      const res = await discountService.getBestDiscount(totalWithVat);
+      if (res && res.hasDiscount) {
+        setAppliedDiscount({
+          code: res.code,
+          percent: res.discountPercent,
+          amount: res.discountAmount,
+          description: res.description,
+        });
+        setDiscountPercent(res.discountPercent);
+        setDiscountMsg(res.note || `Đã tự động áp dụng mã [${res.code}]: Giảm ${res.discountAmount.toLocaleString('vi-VN')} đ!`);
+      } else {
+        setDiscountMsg('ℹ️ Giá trị hợp đồng hiện tại chưa đủ điều kiện áp dụng mã giảm giá nào.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setDiscountMsg('Không thể kiểm tra mã giảm giá tự động.');
+    } finally {
+      setAutoApplying(false);
+    }
+  };
+
+  const handleApplyManualCode = async (codeToApply: string) => {
+    const trimmed = codeToApply.trim().toUpperCase();
+    if (!trimmed) return;
+    try {
+      const res = await discountService.validateCode(trimmed, totalWithVat);
+      if (res && res.isValid) {
+        setAppliedDiscount({
+          code: res.code,
+          percent: res.discountPercent,
+          amount: res.discountAmount,
+          description: res.message || '',
+        });
+        setDiscountPercent(res.discountPercent);
+        setDiscountMsg(`✅ ${res.message}`);
+        setManualCodeInput('');
+      } else {
+        alert(res?.message || 'Mã giảm giá không hợp lệ hoặc chưa đủ điều kiện hợp đồng.');
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Lỗi kiểm tra mã giảm giá.');
+    }
+  };
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountPercent(0);
+    setManualCodeInput('');
+    setDiscountMsg(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,13 +252,14 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
         lesseeIdentityNumber: lesseeIdentityNumber.trim(),
         lesseeAddress: lesseeAddress.trim(),
         specialTerms,
-        notes: isReturningCustomer ? `Hợp đồng mới tái ký từ HĐ cũ. Chiết khấu khách hàng cũ: ${discountPercent}%. ${notes}` : notes,
-        customPackage: packageMode === 'custom' && customPackageName.trim() ? {
+        notes: (isReturningCustomer ? `Hợp đồng mới tái ký từ HĐ cũ. Chiết khấu khách hàng cũ: ${discountPercent}%. ` : '') + (appliedDiscount ? `[Ưu đãi Admin: Áp dụng mã ${appliedDiscount.code} (-${appliedDiscount.amount.toLocaleString()} đ)]. ` : '') + notes,
+        contractPackageId: applyPackage && packageMode === 'standard' && selectedPackageId ? selectedPackageId : undefined,
+        customPackage: applyPackage && packageMode === 'custom' && customPackageName.trim() ? {
           packageName: customPackageName.trim(),
           description: customPackageDesc.trim() || undefined,
           durationMonths,
-          maxZones: customMaxZones,
-          price: finalTotalAmount,
+          maxZones: 1,
+          price: currentPackagePrice,
           currency: 'VND'
         } : undefined
       });
@@ -353,93 +452,159 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
           </div>
         </div>
 
-        {/* 2.5 Package Configuration (Gói Dịch Vụ Riêng Khách Hàng) */}
-        <div className="p-3.5 bg-gradient-to-r from-emerald-50/70 via-indigo-50/40 to-slate-50 border border-emerald-300 rounded-xl space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[#119653] text-white">
-                <PackageCheck size={16} />
-              </div>
+        {/* 2.5 Package Configuration (Gói Dịch Vụ Canh Tác Đi Kèm) */}
+        <div className={`p-4 rounded-xl border transition-all ${
+          applyPackage
+            ? 'bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-white border-emerald-300 shadow-2xs'
+            : 'bg-slate-50 border-slate-200'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={applyPackage}
+                onChange={e => setApplyPackage(e.target.checked)}
+                className="w-4 h-4 mt-0.5 text-[#119653] rounded border-slate-300 focus:ring-[#119653] cursor-pointer"
+              />
               <div>
-                <h5 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                  Gói Dịch Vụ Hợp Đồng (Contract Package)
+                <h5 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                  <PackageCheck size={16} className="text-[#119653]" />
+                  Đăng Ký Kèm Gói Dịch Vụ Canh Tác (Contract Package)
                 </h5>
-                <p className="text-[11px] text-slate-500">
-                  Tạo gói tùy chỉnh dành riêng cho khách hàng theo hợp đồng này
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Tích chọn để thêm gói dịch vụ IoT, giám sát và bảo trì vào hợp đồng. Tiền gói sẽ được cộng trực tiếp vào tổng tiền hợp đồng.
                 </p>
               </div>
-            </div>
+            </label>
 
-            {/* Toggle Mode */}
-            <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[11px] self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setPackageMode('custom')}
-                className={`px-2.5 py-1 rounded-md font-bold transition-all ${
-                  packageMode === 'custom'
-                    ? 'bg-[#119653] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                ⭐ Tạo Gói Riêng Cho Khách Hàng
-              </button>
-              <button
-                type="button"
-                onClick={() => setPackageMode('none')}
-                className={`px-2.5 py-1 rounded-md font-bold transition-all ${
-                  packageMode === 'none'
-                    ? 'bg-slate-700 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Tự Nhập Thủ Công
-              </button>
-            </div>
+            {applyPackage && (
+              <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[11px] self-start sm:self-auto shrink-0 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setPackageMode('standard')}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                    packageMode === 'standard'
+                      ? 'bg-[#119653] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <PackageCheck size={12} className="inline mr-1" />
+                  Gói Chuẩn Hệ Thống
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPackageMode('custom')}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all ${
+                    packageMode === 'custom'
+                      ? 'bg-purple-700 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Sparkles size={12} className="inline mr-1" />
+                  Gói Riêng Khách Hàng
+                </button>
+              </div>
+            )}
           </div>
 
-          {packageMode === 'custom' ? (
-            <div className="space-y-2.5 pt-2 border-t border-emerald-200/60 bg-white/80 p-3 rounded-lg border border-emerald-100">
-              <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-purple-900 text-[11px] flex items-start gap-2">
-                <Sparkles size={16} className="text-purple-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong>Chính sách lưu trữ riêng biệt:</strong> Gói dịch vụ này sẽ được lưu và gắn <strong>RIÊNG cho khách hàng "{lesseeName || 'Bên thuê'}"</strong> của hợp đồng này. Gói này được thiết kế độc quyền và <strong>KHÔNG</strong> lưu vào danh sách các gói dịch vụ dùng chung của toàn hệ thống.
-                </div>
-              </div>
+          {applyPackage ? (
+            <div className="pt-3 space-y-3">
+              {packageMode === 'standard' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                    <span className="font-semibold">Chọn 1 gói dịch vụ tiêu chuẩn áp dụng cho phân khu này:</span>
+                    {loadingPackages && <span className="text-emerald-700">Đang tải danh mục gói...</span>}
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Tên gói riêng cho khách hàng *</label>
-                  <Input
-                    value={customPackageName}
-                    onChange={e => setCustomPackageName(e.target.value)}
-                    placeholder="VD: Gói VIP Canh Tác Nhà Màng - LangBiang"
-                    required={packageMode === 'custom'}
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                    {availablePackages.map(pkg => {
+                      const isSelected = selectedPackageId === pkg.id;
+                      return (
+                        <div
+                          key={pkg.id}
+                          onClick={() => {
+                            setSelectedPackageId(pkg.id);
+                            if (pkg.durationMonths > 0) setDurationMonths(pkg.durationMonths);
+                          }}
+                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs'
+                              : 'bg-white/80 border-slate-200 hover:border-emerald-300 hover:bg-white'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="font-bold text-slate-900 text-[11px] truncate">{pkg.packageName}</span>
+                              <input
+                                type="radio"
+                                name="standardPackage"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedPackageId(pkg.id);
+                                  if (pkg.durationMonths > 0) setDurationMonths(pkg.durationMonths);
+                                }}
+                                className="w-3.5 h-3.5 text-[#119653] focus:ring-[#119653]"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
+                              {pkg.description || 'Gói dịch vụ canh tác công nghệ cao'}
+                            </p>
+                          </div>
+                          <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 font-medium">{pkg.durationMonths} tháng</span>
+                            <span className="font-bold text-emerald-700 font-mono">+{pkg.price.toLocaleString('vi-VN')} đ</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Số Zone tối đa áp dụng</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={customMaxZones}
-                    onChange={e => setCustomMaxZones(Number(e.target.value))}
-                  />
-                </div>
-              </div>
+              ) : (
+                <div className="space-y-2.5 bg-white/90 p-3 rounded-lg border border-purple-200">
+                  <div className="p-2 bg-purple-50 border border-purple-200 rounded-lg text-purple-900 text-[11px] flex items-start gap-2">
+                    <Sparkles size={15} className="text-purple-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Gói dịch vụ riêng biệt:</strong> Gói này được thiết kế độc quyền riêng cho khách hàng <strong>"{lesseeName || 'Bên thuê'}"</strong> của hợp đồng này và không chia sẻ cho các khách hàng khác.
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Mô tả đặc quyền của gói riêng</label>
-                <Input
-                  value={customPackageDesc}
-                  onChange={e => setCustomPackageDesc(e.target.value)}
-                  placeholder="VD: Gói độc quyền bao gồm thiết bị IoT, hỗ trợ trọn vụ, kỹ thuật trực tiếp..."
-                />
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Tên gói riêng cho khách hàng *</label>
+                      <Input
+                        value={customPackageName}
+                        onChange={e => setCustomPackageName(e.target.value)}
+                        placeholder="VD: Gói VIP Canh Tác Nhà Màng - LangBiang"
+                        required={applyPackage && packageMode === 'custom'}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Giá gói riêng (đ) *</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={100000}
+                        value={customPackagePrice}
+                        onChange={e => setCustomPackagePrice(Number(e.target.value))}
+                        required={applyPackage && packageMode === 'custom'}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Mô tả đặc quyền của gói riêng</label>
+                    <Input
+                      value={customPackageDesc}
+                      onChange={e => setCustomPackageDesc(e.target.value)}
+                      placeholder="VD: Bao gồm Gateway LoRa, 2 Node cảm biến và KTV bảo trì định kỳ trọn vụ..."
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="p-2 bg-slate-100 rounded-lg text-[11px] text-slate-500 italic">
-              Hợp đồng này không tạo gói dịch vụ riêng, đơn giá sẽ tính toán theo bảng giá thuê tháng bên dưới.
+            <div className="pt-2 text-[11px] text-slate-500 italic flex items-center gap-1.5">
+              <span>Hợp đồng không đăng ký gói dịch vụ đi kèm. Đơn giá hợp đồng chỉ tính theo tiền thuê phân khu hàng tháng bên dưới.</span>
             </div>
           )}
         </div>
@@ -485,16 +650,123 @@ export const ZoneContractCreateModal: React.FC<ZoneContractCreateModalProps> = (
                 min="0"
                 max="50"
                 value={discountPercent}
-                onChange={e => setDiscountPercent(Number(e.target.value))}
+                onChange={e => {
+                  setDiscountPercent(Number(e.target.value));
+                  if (appliedDiscount && Number(e.target.value) !== appliedDiscount.percent) {
+                    setAppliedDiscount(null);
+                  }
+                }}
               />
             </div>
+          </div>
+
+          {/* Technician Discount Code Selection & Auto-Add Feature */}
+          <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                <Tag size={14} className="text-[#119653]" />
+                <span>Mã Giảm Giá Khuyến Mãi (Admin cấp phát cho Kỹ thuật viên)</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoAddBestDiscount}
+                disabled={autoApplying}
+                className="px-3 py-1 rounded-lg bg-[#119653] hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-transform transform active:scale-95 cursor-pointer disabled:opacity-60"
+              >
+                <Sparkles size={12} className="text-amber-300" />
+                <span>{autoApplying ? 'Đang phân tích...' : '⚡ Tự động add mã phù hợp giá HĐ'}</span>
+              </button>
+            </div>
+
+            {/* Quick dropdown or manual input */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+              <div className="sm:col-span-7">
+                <select
+                  value={appliedDiscount?.code || ''}
+                  onChange={e => {
+                    if (e.target.value) handleApplyManualCode(e.target.value);
+                    else handleRemoveDiscount();
+                  }}
+                  className="w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-medium text-slate-800"
+                >
+                  <option value="">-- Chọn mã ưu đãi có sẵn ({availableDiscounts.length} mã) --</option>
+                  {availableDiscounts.map(d => {
+                    const qualifies = totalWithVat >= d.minContractValue;
+                    return (
+                      <option key={d.id} value={d.code} disabled={!qualifies}>
+                        [{d.code}] {d.description} {d.minContractValue > 0 ? `(HĐ từ ${d.minContractValue.toLocaleString()} đ)` : ''} {!qualifies ? '— Chưa đủ giá trị' : '— Đủ điều kiện ✓'}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="sm:col-span-5 flex items-center gap-1.5">
+                <Input
+                  value={manualCodeInput}
+                  onChange={e => setManualCodeInput(e.target.value.toUpperCase())}
+                  placeholder="Nhập mã khác..."
+                  className="text-xs uppercase font-mono"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleApplyManualCode(manualCodeInput);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleApplyManualCode(manualCodeInput)}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-2.5 py-1.5 shrink-0"
+                >
+                  Áp dụng
+                </Button>
+              </div>
+            </div>
+
+            {/* Applied Badge or Notice */}
+            {appliedDiscount ? (
+              <div className="p-2 bg-white border border-emerald-300 rounded-lg flex items-center justify-between text-xs animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-[#119653] font-mono font-bold text-xs border border-emerald-300">
+                    {appliedDiscount.code}
+                  </span>
+                  <span className="text-slate-700 font-medium">
+                    {appliedDiscount.description} (Giảm <strong>{appliedDiscount.percent}%</strong>)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveDiscount}
+                  className="text-rose-600 hover:text-rose-800 font-semibold text-[11px] underline ml-2"
+                >
+                  Gỡ mã
+                </button>
+              </div>
+            ) : discountMsg ? (
+              <div className="text-[11px] text-emerald-800 font-medium">{discountMsg}</div>
+            ) : null}
           </div>
 
           {/* Formula Line Items */}
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
             <div className="flex justify-between text-slate-600">
-              <span>• Thành tiền = Đơn giá ({monthlyRent.toLocaleString('vi-VN')} đ) × Số lượng ({durationMonths} tháng):</span>
-              <strong className="font-mono text-slate-900">{subtotal.toLocaleString('vi-VN')} đ</strong>
+              <span>• Tiền thuê phân khu = Đơn giá ({monthlyRent.toLocaleString('vi-VN')} đ) × Thời hạn ({durationMonths} tháng):</span>
+              <strong className="font-mono text-slate-900">{zoneRentTotal.toLocaleString('vi-VN')} đ</strong>
+            </div>
+            {applyPackage && currentPackagePrice > 0 && (
+              <div className="flex justify-between text-emerald-800 font-semibold bg-emerald-50/70 p-1.5 rounded-lg border border-emerald-200">
+                <span className="flex items-center gap-1">
+                  <PackageCheck size={13} className="text-[#119653]" />
+                  • Phí Gói Dịch Vụ Canh Tác ({currentPackageName}):
+                </span>
+                <span className="font-mono text-emerald-700 font-bold">+{currentPackagePrice.toLocaleString('vi-VN')} đ</span>
+              </div>
+            )}
+            <div className="flex justify-between text-slate-700 font-semibold pt-1 border-t border-slate-200">
+              <span>• Thành tiền trước thuế = Tiền thuê Zone {applyPackage && currentPackagePrice > 0 ? '+ Tiền Gói Dịch Vụ' : ''}:</span>
+              <span className="font-mono text-slate-900 font-bold">{subtotal.toLocaleString('vi-VN')} đ</span>
             </div>
             <div className="flex justify-between text-slate-600">
               <span>• Thuế VAT ({vatPercent}%) = Thành tiền × {vatPercent}%:</span>
