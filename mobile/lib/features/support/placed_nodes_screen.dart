@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/models/models.dart' show ZoneModel;
 import 'map_zoom_controls.dart';
+import 'node_placement_logic.dart' show decodeNodeAddress;
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
@@ -37,6 +38,9 @@ class _PlacedNode {
   final num? rssi;
   final String? lastSeen;
   final bool? testOk;
+
+  /// Địa chỉ nơi lắp đặt KTV đã lưu (từ `installationNotes` có tiền tố), null nếu chưa có.
+  final String? installAddress;
   const _PlacedNode({
     required this.id,
     required this.address,
@@ -48,6 +52,7 @@ class _PlacedNode {
     this.rssi,
     this.lastSeen,
     this.testOk,
+    this.installAddress,
   });
 
   bool get actuator => type.toUpperCase().contains('ACTUATOR');
@@ -138,6 +143,9 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
             rssi: l['rssi'] as num?,
             lastSeen: raw?['lastSeenAtUtc']?.toString(),
             testOk: test is Map ? test['succeeded'] == true : null,
+            installAddress: decodeNodeAddress(
+              raw?['installationNotes'] as String?,
+            ),
           ),
         );
       }
@@ -418,6 +426,12 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
                 'Vị trí: ${n.lat.toStringAsFixed(6)}, ${n.lng.toStringAsFixed(6)}',
                 AppColors.textMuted,
               ),
+              if (n.installAddress != null)
+                _row(
+                  Icons.home_work_outlined,
+                  'Địa chỉ lắp đặt: ${n.installAddress}',
+                  AppColors.textMuted,
+                ),
               _row(
                 Icons.battery_std_outlined,
                 n.battery == null

@@ -131,9 +131,41 @@ extension _ContractsDepreciationScreenStateContractsTab
               Icons.assignment_late_outlined,
             )
           else
-            ...filtered.map(
-              (contract) => _buildContractCard(contract, isOwner),
-            ),
+            // Hợp đồng chính kèm các hợp đồng bổ sung (mua thêm thiết bị) thụt vào ngay bên dưới.
+            for (final g in groupContractsWithSupplements(filtered)) ...[
+              _buildContractCard(g.main, isOwner),
+              if (g.supplements.isNotEmpty)
+                Padding(
+                  key: ValueKey('supplements-${g.main.id}'),
+                  padding: const EdgeInsets.only(left: 18),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: Color(0xFFA7F3D0), width: 2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            'Hợp đồng bổ sung của ${g.main.contractNumber} (${g.supplements.length})',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF047857),
+                            ),
+                          ),
+                        ),
+                        for (final s in g.supplements)
+                          _buildContractCard(s, isOwner),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           const SizedBox(height: 70),
         ],
       ),

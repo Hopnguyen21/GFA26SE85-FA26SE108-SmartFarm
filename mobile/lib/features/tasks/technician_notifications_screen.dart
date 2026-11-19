@@ -176,11 +176,8 @@ class _TechnicianNotificationsScreenState
                     _buildEmptyFilterState(),
                   ],
                 ],
-                itemBuilder: (context, n) => _buildNotificationCard(
-                  context,
-                  n,
-                  provider,
-                ),
+                itemBuilder: (context, n) =>
+                    _buildNotificationCard(context, n, provider),
               ),
       ),
     );
@@ -353,8 +350,7 @@ class _TechnicianNotificationsScreenState
   Widget _buildEmptyFilterState() {
     final msg = switch (_selectedFilter) {
       _NotifFilter.unread => 'Tuyệt vời! Bạn không có thông báo chưa đọc nào.',
-      _NotifFilter.service =>
-        'Không có thông báo về dịch vụ hoặc lắp đặt nào.',
+      _NotifFilter.service => 'Không có thông báo về dịch vụ hoặc lắp đặt nào.',
       _NotifFilter.stockOut => 'Không có thông báo về phiếu xuất kho nào.',
       _ => 'Không có thông báo nào phù hợp bộ lọc.',
     };
@@ -574,9 +570,10 @@ class _TechnicianNotificationsScreenState
       'Alert' => Icons.warning_amber_rounded,
       'Task' => Icons.assignment_outlined,
       'Contract' => Icons.description_outlined,
-      _ => n.isRead
-          ? Icons.notifications_none_outlined
-          : Icons.notifications_active,
+      _ =>
+        n.isRead
+            ? Icons.notifications_none_outlined
+            : Icons.notifications_active,
     };
 
     return Container(

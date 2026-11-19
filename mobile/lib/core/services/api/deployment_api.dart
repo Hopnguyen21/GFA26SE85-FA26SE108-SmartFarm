@@ -215,7 +215,7 @@ abstract final class DeploymentApi {
     final d = await getDeploymentRequest(id, technician: true);
     if (d.status == 'Submitted' || d.status == 'Accepted') {
       throw Exception(
-        'Cần tiếp nhận và điền khảo sát thực địa trước khi xác nhận kế hoạch.',
+        'Cần tiếp nhận và lập báo cáo khảo sát thực địa trước khi xác nhận kế hoạch.',
       );
     }
     if (d.status == 'Surveyed') {

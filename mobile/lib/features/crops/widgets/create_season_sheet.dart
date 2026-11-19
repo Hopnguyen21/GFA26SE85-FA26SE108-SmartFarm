@@ -716,7 +716,10 @@ class _CreateSeasonFormState extends State<_CreateSeasonForm> {
                       onPressed: _saving || _running != null ? null : _submit,
                       child: Text(
                         _saving ? 'Đang tạo…' : 'Tạo vụ trồng',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),

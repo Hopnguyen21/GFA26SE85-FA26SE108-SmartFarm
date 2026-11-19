@@ -35,7 +35,10 @@ Future<bool> confirmDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
       content: Text(
         message,
         style: const TextStyle(fontSize: 13.5, height: 1.4),
@@ -48,7 +51,9 @@ Future<bool> confirmDialog(
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFDC2626),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           onPressed: () => Navigator.pop(ctx, true),
           child: Text(action),
@@ -179,7 +184,9 @@ class _BillFormDialogState extends State<_BillFormDialog> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'Hợp đồng *',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 items: [
                   for (final c in widget.contracts)
@@ -200,7 +207,9 @@ class _BillFormDialogState extends State<_BillFormDialog> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Số tiền (đ) *',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -215,7 +224,9 @@ class _BillFormDialogState extends State<_BillFormDialog> {
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Phương thức',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               items: [
                 for (final m in _methods)
@@ -229,7 +240,9 @@ class _BillFormDialogState extends State<_BillFormDialog> {
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: 'Ghi chú',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             if (_error != null)
@@ -254,7 +267,9 @@ class _BillFormDialogState extends State<_BillFormDialog> {
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF047857),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           onPressed: _submit,
           child: Text(_isEdit ? 'Lưu' : 'Tạo hóa đơn'),
@@ -335,7 +350,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               autofocus: true,
               decoration: InputDecoration(
                 labelText: 'Số tiền thu (đ) *',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -344,7 +361,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Phương thức',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               items: [
                 for (final m in _methods)
@@ -358,7 +377,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: 'Ghi chú',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             if (_error != null)
@@ -383,7 +404,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF047857),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           onPressed: _submit,
           child: const Text('Ghi nhận thanh toán'),

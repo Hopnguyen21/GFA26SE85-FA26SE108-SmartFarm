@@ -268,45 +268,212 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
       children: [
         if (hasProfile) _currentProfile(),
         if (!hasProfile)
-          const Text(
-            'Zone chưa gắn hồ sơ canh tác. Chọn một hồ sơ để gắn trực tiếp cho Zone (không tạo vụ trồng).',
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.spa_outlined,
+                    color: Color(0xFF64748B),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Zone chưa gắn hồ sơ canh tác. Chọn một hồ sơ để gắn trực tiếp cho Zone (không tạo vụ trồng).',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF475569),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         if (!hasProfile || _changing) ...[
-          const SizedBox(height: 8),
-          ZoneCropPlanSection(controller: _plan),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _busy ? null : _apply,
-            icon: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.35),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (hasProfile) ...[
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.swap_horiz_rounded,
+                          size: 18,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'ĐỔI HỒ SƠ CANH TÁC',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                ZoneCropPlanSection(controller: _plan),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _apply,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF047857),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  )
-                : const Icon(Icons.spa_outlined, size: 18),
-            label: Text(
-              hasProfile ? 'Đổi hồ sơ của Zone' : 'Gắn hồ sơ cho Zone',
+                  ),
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.spa_outlined, size: 18),
+                  label: Text(
+                    hasProfile ? 'Đổi hồ sơ của Zone' : 'Gắn hồ sơ cho Zone',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                if (hasProfile) ...[
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _changing = false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF64748B),
+                    ),
+                    child: const Text('Hủy đổi hồ sơ'),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (hasProfile)
-            TextButton(
-              onPressed: _busy ? null : () => setState(() => _changing = false),
-              child: const Text('Hủy đổi hồ sơ'),
-            ),
         ],
         if (_message != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              _message!,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: Color(0xFF334155),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _message!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildHeroStat({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: const Color(0xFF15803D)),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF14532D),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -322,73 +489,422 @@ class _ZoneCropPlanEditPanelState extends State<ZoneCropPlanEditPanel> {
     final seasonProfile = _season?['growthProfileName'];
     final profileName =
         profile?['name'] ?? widget.zone.growthProfileName ?? '—';
+    final totalDays = stages.fold<int>(0, (sum, st) => sum + st.durationDays);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${profile?['cropName'] ?? ''}${profile?['varietyName'] == null ? '' : ' · giống ${profile!['varietyName']}'}',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-        ),
-        Text(
-          'Hồ sơ: $profileName (${isSystem ? 'hệ thống, chỉ xem/sao chép' : 'riêng của trang trại'})',
-          style: const TextStyle(
-            fontSize: 11.5,
-            color: Color(0xFF475569),
-            height: 1.4,
+        // ─── Hero Profile Card ───
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.eco_rounded,
+                      color: Color(0xFF047857),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${profile?['cropName'] ?? ''}${profile?['varietyName'] == null ? '' : ' · giống ${profile!['varietyName']}'}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSystem
+                                ? const Color(0xFFF1F5F9)
+                                : const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isSystem
+                                  ? const Color(0xFFCBD5E1)
+                                  : const Color(0xFFFDE68A),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isSystem
+                                    ? Icons.verified_user_outlined
+                                    : Icons.home_work_outlined,
+                                size: 12,
+                                color: isSystem
+                                    ? const Color(0xFF475569)
+                                    : const Color(0xFFB45309),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isSystem
+                                    ? 'Hồ sơ hệ thống'
+                                    : 'Hồ sơ trang trại',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSystem
+                                      ? const Color(0xFF475569)
+                                      : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.description_outlined,
+                          size: 15,
+                          color: Color(0xFF047857),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Hồ sơ: $profileName (${isSystem ? 'hệ thống, chỉ xem/sao chép' : 'riêng của trang trại'})',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF334155),
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_season != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 14,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Vụ ${_season!['status'] == 'InProgress' ? 'đang chạy' : 'dự kiến'}: ${_season!['name']} · dùng hồ sơ "$seasonProfile"'
+                              '${seasonProfile != null && seasonProfile != profile?['name'] ? ' (khác hồ sơ của Zone; vụ giữ hồ sơ riêng của nó)' : ''}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (stages.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildHeroStat(
+                        icon: Icons.timer_outlined,
+                        label: 'Chu kỳ',
+                        value: '$totalDays ngày',
+                      ),
+                      Container(
+                        width: 1,
+                        height: 24,
+                        color: const Color(0xFFBBF7D0),
+                      ),
+                      _buildHeroStat(
+                        icon: Icons.timeline_rounded,
+                        label: 'Giai đoạn',
+                        value: '${stages.length} bước',
+                      ),
+                      Container(
+                        width: 1,
+                        height: 24,
+                        color: const Color(0xFFBBF7D0),
+                      ),
+                      _buildHeroStat(
+                        icon: Icons.grid_view_rounded,
+                        label: 'Khu vực',
+                        value: widget.zone.name,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        if (_season != null)
-          Text(
-            'Vụ ${_season!['status'] == 'InProgress' ? 'đang chạy' : 'dự kiến'}: ${_season!['name']} · dùng hồ sơ "$seasonProfile"'
-            '${seasonProfile != null && seasonProfile != profile?['name'] ? ' (khác hồ sơ của Zone; vụ giữ hồ sơ riêng của nó)' : ''}',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+
+        // ─── Header: Danh sách giai đoạn sinh trưởng ───
+        if (profile != null && stages.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 8),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.timeline_rounded,
+                  size: 16,
+                  color: Color(0xFF047857),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'CÁC GIAI ĐOẠN SINH TRƯỞNG (${stages.length})',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+                if (totalDays > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Tổng $totalDays ngày',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        const SizedBox(height: 6),
+        ],
+
         if (profile == null)
-          const Text(
-            'Không đọc được chi tiết hồ sơ (có thể hồ sơ không còn hiển thị với tài khoản này).',
-            style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: Color(0xFFB45309),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Không đọc được chi tiết hồ sơ (có thể hồ sơ không còn hiển thị với tài khoản này).',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFFB45309),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           )
         else
           for (final st in stages) StageDraftTile(stage: st),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            if (!isSystem && profile != null && stages.isNotEmpty)
-              OutlinedButton.icon(
-                onPressed: _busy ? null : () => _editOwnProfile(stages),
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Sửa hồ sơ riêng'),
-              ),
-            OutlinedButton.icon(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _changing = !_changing),
-              icon: const Icon(Icons.swap_horiz, size: 18),
-              label: const Text('Đổi hồ sơ'),
-            ),
-            TextButton.icon(
-              onPressed: _busy ? null : _clear,
-              icon: const Icon(Icons.link_off, size: 18),
-              label: const Text('Gỡ hồ sơ'),
-            ),
-          ],
-        ),
-        if (isSystem)
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(
-              'Hồ sơ hệ thống không sửa trực tiếp. Muốn chỉnh giai đoạn, ngưỡng hoặc lịch tưới: bấm "Đổi hồ sơ" rồi chọn '
-              '"Tùy chỉnh bản sao".',
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFF64748B),
-                height: 1.35,
-              ),
-            ),
+
+        const SizedBox(height: 8),
+
+        // ─── Action Buttons Card ───
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (!isSystem && profile != null && stages.isNotEmpty)
+                    FilledButton.icon(
+                      onPressed: _busy ? null : () => _editOwnProfile(stages),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text(
+                        'Sửa hồ sơ riêng',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _changing = !_changing),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF047857),
+                      side: const BorderSide(color: Color(0xFF10B981)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: const Text(
+                      'Đổi hồ sơ',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _clear,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFE11D48),
+                      side: BorderSide(
+                        color: const Color(0xFFE11D48).withValues(alpha: 0.3),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.link_off_rounded, size: 18),
+                    label: const Text(
+                      'Gỡ hồ sơ',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              if (isSystem) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: Color(0xFF64748B),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Hồ sơ hệ thống không sửa trực tiếp. Muốn chỉnh giai đoạn, ngưỡng hoặc lịch tưới: bấm "Đổi hồ sơ" rồi chọn "Tùy chỉnh bản sao".',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }

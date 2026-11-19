@@ -69,6 +69,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
             assignedFarmerName: t.assignedFarmerName,
             assignedFarmerId: t.assignedFarmerId,
             description: t.description,
+            requirements: t.requirements,
             isCompleted: t.isCompleted,
             status: t.status,
             zoneId: t.zoneId,
@@ -86,6 +87,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
     String? failureReason,
     int? progressPercent,
     String? farmerId,
+    String? notes,
   }) async {
     try {
       final updated = await TaskApi.updateTaskAction(_selectedFarmId, taskId, {
@@ -94,6 +96,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
         'failureReason': ?failureReason,
         'progressPercent': ?progressPercent,
         'farmerId': ?farmerId,
+        'notes': ?notes,
       });
       final idx = _tasks.indexWhere((t) => t.taskId == taskId);
       if (idx != -1) _tasks[idx] = _withZoneName(updated);

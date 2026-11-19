@@ -5,6 +5,7 @@ import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/utils/due_label.dart';
 import '../tasks/alerts_tasks_screen.dart';
+import '../zones/zone_detail_screen.dart';
 
 part 'parts/farmer_dashboard_widgets.dart';
 part 'parts/farmer_dashboard_tasks.dart';
@@ -33,6 +34,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
   final _zonesKey = GlobalKey();
   final _zoneSearch = TextEditingController();
   String _zoneQuery = '';
+  bool _heroZonesOpen = false;
   ({bool ok, String message})? _feedback;
 
   @override
@@ -95,6 +97,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
           children: [
             _buildHero(
               provider,
+              zones,
               zones.length,
               todo.length,
               overdue,

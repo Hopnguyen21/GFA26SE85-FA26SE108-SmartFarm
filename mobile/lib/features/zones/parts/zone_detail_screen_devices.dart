@@ -398,8 +398,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               value: act.isRunning,
               activeThumbColor: const Color(0xFF10B981),
-              onChanged:
-                  provider.canControlZone(act.zoneId) && notReady == null
+              onChanged: provider.canControlZone(act.zoneId) && notReady == null
                   ? (_) {
                       HapticFeedback.mediumImpact();
                       toggleActuatorWithFeedback(

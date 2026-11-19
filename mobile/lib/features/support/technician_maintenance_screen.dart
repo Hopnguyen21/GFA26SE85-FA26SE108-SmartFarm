@@ -253,7 +253,10 @@ class _TechnicianMaintenanceScreenState
         appBar: AppBar(
           backgroundColor: const Color(0xFF062326),
           foregroundColor: Colors.white,
-          title: const Text('Yêu cầu dịch vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: const Text(
+            'Yêu cầu dịch vụ',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         body: const Center(child: Text('Chức năng dành cho Kỹ thuật viên.')),
       );
@@ -266,7 +269,10 @@ class _TechnicianMaintenanceScreenState
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
-        title: const Text('Yêu cầu dịch vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text(
+          'Yêu cầu dịch vụ',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
@@ -1176,7 +1182,7 @@ class _ServiceRequestDetailScreenState
       // App không tự bịa khảo sát thực địa: chưa khảo sát thì dừng và báo KTV điền.
       if (_depStatus == 'Accepted' || _depStatus == 'Submitted') {
         throw Exception(
-          'Cần tiếp nhận và điền khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
+          'Cần tiếp nhận và lập báo cáo khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
         );
       }
       if (_depStatus == 'Surveyed' ||
@@ -1739,6 +1745,7 @@ class _ServiceRequestDetailScreenState
               deploymentRequestId: depId,
               farmId: '${r['farmId'] ?? ''}',
               zoneId: '${r['zoneId'] ?? ''}',
+              serviceRequestId: widget.requestId,
               onStatus: (s) {
                 if (mounted && s != _depStatus) setState(() => _depStatus = s);
               },
@@ -1765,7 +1772,7 @@ class _ServiceRequestDetailScreenState
               child: const Padding(
                 padding: EdgeInsets.all(14),
                 child: Text(
-                  'Hợp đồng & báo giá: cần tiếp nhận yêu cầu và điền KHẢO SÁT THỰC ĐỊA (khả thi) ở khung "Thao tác thực địa kỹ thuật" phía trên. Điền xong mới hiện nút xem và xác nhận hợp đồng.',
+                  'Hợp đồng & báo giá: cần tiếp nhận yêu cầu và lập BÁO CÁO KHẢO SÁT THỰC ĐỊA (kết luận khả thi) ở khung "Thao tác thực địa kỹ thuật" phía trên. Nộp xong mới hiện nút xem và xác nhận hợp đồng.',
                   style: TextStyle(fontSize: 13, height: 1.4),
                 ),
               ),
@@ -1808,16 +1815,16 @@ class _ServiceRequestDetailScreenState
   }
 
   Widget _pill(String text, Color color, {bool mono = false}) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: color.withValues(alpha: 0.5)),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withValues(alpha: 0.35)),
     ),
     child: Text(
       text,
       style: TextStyle(
-        fontSize: 13,
+        fontSize: 12.5,
         fontWeight: FontWeight.w700,
         color: color,
         fontFamily: mono ? 'monospace' : null,
@@ -1843,18 +1850,26 @@ class _ServiceRequestDetailScreenState
     final createdDate = created.length >= 10 ? created.substring(0, 10) : '';
     final id = '${r['id'] ?? widget.requestId}';
     Widget meta(IconData icon, String text) => Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 15, color: AppColors.textMuted),
-          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.all(3.5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 14, color: const Color(0xFF64748B)),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
               style: const TextStyle(
                 fontSize: 13.5,
-                color: AppColors.textMuted,
+                color: Color(0xFF334155),
+                height: 1.35,
               ),
             ),
           ),
@@ -1862,9 +1877,15 @@ class _ServiceRequestDetailScreenState
       ),
     );
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1889,26 +1910,45 @@ class _ServiceRequestDetailScreenState
                   _pill(resolutionLabels[res] ?? res, AppColors.info),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
             ),
             if (!isInstall && '${r['failureCode'] ?? ''}'.isNotEmpty) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               _pill('${r['failureCode']}', AppColors.textMuted, mono: true),
             ],
+            const SizedBox(height: 4),
             if (where != null) meta(Icons.location_on_outlined, where),
             if (isInstall && _nodes != null)
               meta(Icons.hub_outlined, '$_nodes node đã chấm trên bản đồ'),
             if (createdDate.isNotEmpty)
               meta(Icons.event_outlined, 'Ngày tạo: $createdDate'),
-            meta(Icons.tag, '#${id.length > 8 ? id.substring(0, 8) : id}'),
+            meta(Icons.tag, id.length > 8 ? id.substring(0, 8) : id),
             if (description.isNotEmpty && description != title) ...[
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: const TextStyle(fontSize: 14, height: 1.4),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    height: 1.4,
+                    color: Color(0xFF475569),
+                  ),
+                ),
               ),
             ],
           ],

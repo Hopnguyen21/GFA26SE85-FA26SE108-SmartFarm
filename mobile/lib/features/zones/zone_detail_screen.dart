@@ -53,6 +53,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
 
   late TabController _tabController;
   late final bool _showAdminTab;
+  late final bool _isFarmer;
   // Custom simulation items edited by owner
   List<LatLng>? _editedPolygon;
   bool _isEditingGis = false;
@@ -66,9 +67,12 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
   void initState() {
     super.initState();
     // Hợp đồng/Hỗ trợ kỹ thuật: backend chỉ cho Owner và Technician; Farmer không có tab này.
+    // Farmer chỉ xem 3 tab: Vi khí hậu, Thiết bị, Canh tác (ẩn Triển khai IoT và Hợp đồng/Hỗ trợ).
     final role = context.read<FarmProvider>().currentRole;
+    _isFarmer = role == 'FARMER';
     _showAdminTab = role == 'OWNER' || role == 'TECHNICIAN';
-    _tabController = TabController(length: _showAdminTab ? 5 : 4, vsync: this);
+    final tabCount = _isFarmer ? 3 : (_showAdminTab ? 5 : 4);
+    _tabController = TabController(length: tabCount, vsync: this);
     // Thiết bị của CHÍNH Zone đang mở (không phụ thuộc Zone đang chọn ở nơi khác).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted)
@@ -119,7 +123,10 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
-        title: Text(widget.zone.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(
+          widget.zone.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
       ),
       body: Center(
         child: Padding(
@@ -168,7 +175,10 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
           appBar: AppBar(
             backgroundColor: const Color(0xFF062326),
             foregroundColor: Colors.white,
-            title: Text(widget.zone.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            title: Text(
+              widget.zone.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ),
           body: const Center(child: CircularProgressIndicator()),
         );
@@ -210,7 +220,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 40, 16, 44),
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -229,7 +239,9 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                color: const Color(
+                                  0xFF10B981,
+                                ).withValues(alpha: 0.15),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -410,8 +422,8 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
             ],
             bottom: TabBar(
               controller: _tabController,
-              isScrollable: _showAdminTab,
-              tabAlignment: _showAdminTab ? TabAlignment.start : null,
+              isScrollable: !_isFarmer && _showAdminTab,
+              tabAlignment: (!_isFarmer && _showAdminTab) ? TabAlignment.start : null,
               indicatorColor: const Color(0xFF34D399),
               indicatorWeight: 3,
               indicatorSize: TabBarIndicatorSize.tab,
@@ -429,7 +441,7 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                 const Tab(text: 'Vi khí hậu'),
                 const Tab(text: 'Thiết bị'),
                 const Tab(text: 'Canh tác'),
-                const Tab(text: 'Triển khai IoT'),
+                if (!_isFarmer) const Tab(text: 'Triển khai IoT'),
                 if (_showAdminTab) const Tab(text: 'Hợp đồng & Hỗ trợ'),
               ],
             ),
@@ -447,19 +459,20 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                       _buildClimateTab(zone, provider),
                       _buildDevicesTab(context, provider, zoneActuators),
                       _buildCultivationTab(context, provider, zone),
-                      ZoneIotPlanTab(
-                        zoneId: zone.zoneId,
-                        farmId: zone.farmId,
-                        zoneName: zone.name,
-                        areaM2: zone.areaM2,
-                        cropName: zone.currentCrop,
-                        perimeterM: zone.polygon == null
-                            ? null
-                            : convexHullPerimeterM([
-                                for (final p in zone.polygon!)
-                                  (lat: p.latitude, lng: p.longitude),
-                              ]),
-                      ),
+                      if (!_isFarmer)
+                        ZoneIotPlanTab(
+                          zoneId: zone.zoneId,
+                          farmId: zone.farmId,
+                          zoneName: zone.name,
+                          areaM2: zone.areaM2,
+                          cropName: zone.currentCrop,
+                          perimeterM: zone.polygon == null
+                              ? null
+                              : convexHullPerimeterM([
+                                  for (final p in zone.polygon!)
+                                    (lat: p.latitude, lng: p.longitude),
+                                ]),
+                        ),
                       if (_showAdminTab)
                         _buildContractsSupportTab(zone, provider),
                     ],
@@ -489,7 +502,11 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
                   width: 1.2,
                 ),
               ),
-              icon: const Icon(Icons.psychology, size: 20, color: Color(0xFF34D399)),
+              icon: const Icon(
+                Icons.psychology,
+                size: 20,
+                color: Color(0xFF34D399),
+              ),
               label: const Text(
                 'Hỏi AI Zone',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),

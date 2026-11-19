@@ -39,7 +39,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                 controller: nameC,
                 decoration: InputDecoration(
                   labelText: 'Tên Zone',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -50,7 +52,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                 ),
                 decoration: InputDecoration(
                   labelText: 'Diện tích (m²)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -59,7 +63,9 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
                 maxLength: 1000,
                 decoration: InputDecoration(
                   labelText: 'Ghi chú',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -188,9 +194,7 @@ Future<String?> showEditZoneSheet(BuildContext context, ZoneModel zone) {
         ),
       ),
     ),
-  ).whenComplete(() {
-    nameC.dispose();
-    areaC.dispose();
-    notesC.dispose();
-  });
+  );
+  // Không dispose controller trong whenComplete: hiệu ứng đóng hộp thoại vẫn dựng lại ô nhập (gây màn đỏ
+  // "_dependents.isEmpty"). Controller nhỏ, tự được thu gom.
 }

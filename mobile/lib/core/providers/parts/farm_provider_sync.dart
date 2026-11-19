@@ -84,7 +84,17 @@ extension FarmProviderSync on FarmProvider {
       _me = initResults[0] as Map<String, dynamic>?;
       _tenant = initResults[2] as Map<String, dynamic>?;
       unawaited(loadCropProfiles());
-      final apiFarms = initResults[1] as List<FarmModel>;
+      var apiFarms = initResults[1] as List<FarmModel>;
+      // Nông dân chỉ làm việc trong trang trại được giao (`me.farmId`); backend vẫn trả mọi trang trại của tổ chức.
+      if (parseAppRole(ApiService.userRole) == AppRole.farmer) {
+        final own = _me?['farmId']?.toString().toLowerCase();
+        if (own != null && own.isNotEmpty) {
+          final mine = apiFarms
+              .where((f) => f.farmId.toLowerCase() == own)
+              .toList();
+          if (mine.isNotEmpty) apiFarms = mine;
+        }
+      }
 
       if (apiFarms.isEmpty) {
         _clearSeedData();

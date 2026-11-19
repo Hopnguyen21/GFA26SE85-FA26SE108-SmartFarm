@@ -284,9 +284,12 @@ class _CropProfileCard extends StatelessWidget {
                           icon: Icons.water_drop,
                           iconColor: const Color(0xFF0284C7),
                           label: 'Độ ẩm đất',
-                          value:
-                              '${firstStage.requirements.soilMoistureMin.toInt()}%–${firstStage.requirements.soilMoistureMax.toInt()}%',
-                          caption: 'Ngưỡng an toàn',
+                          value: firstStage.requirements.soilMoistureMax <= 0
+                              ? '—'
+                              : '${firstStage.requirements.soilMoistureMin.toInt()}%–${firstStage.requirements.soilMoistureMax.toInt()}%',
+                          caption: firstStage.requirements.soilMoistureMax <= 0
+                              ? 'Chưa có ngưỡng'
+                              : 'Ngưỡng an toàn',
                         ),
                       ),
                       Container(
@@ -300,9 +303,12 @@ class _CropProfileCard extends StatelessWidget {
                           icon: Icons.thermostat,
                           iconColor: const Color(0xFFEA580C),
                           label: 'Nhiệt độ',
-                          value:
-                              '${firstStage.requirements.tempMin.toInt()}–${firstStage.requirements.tempMax.toInt()}°C',
-                          caption: 'Tối ưu sinh trưởng',
+                          value: firstStage.requirements.tempMax <= 0
+                              ? '—'
+                              : '${firstStage.requirements.tempMin.toInt()}–${firstStage.requirements.tempMax.toInt()}°C',
+                          caption: firstStage.requirements.tempMax <= 0
+                              ? 'Chưa có ngưỡng'
+                              : 'Tối ưu sinh trưởng',
                         ),
                       ),
                       Container(

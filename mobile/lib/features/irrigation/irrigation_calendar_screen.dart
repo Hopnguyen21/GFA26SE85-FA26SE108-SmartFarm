@@ -223,7 +223,10 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFF062326),
           foregroundColor: Colors.white,
-          title: const Text('Lịch tưới', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: const Text(
+            'Lịch tưới',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         body: Center(
           child: Padding(
@@ -252,7 +255,10 @@ class _IrrigationCalendarScreenState extends State<IrrigationCalendarScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFF062326),
           foregroundColor: Colors.white,
-          title: const Text('Lịch tưới', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: const Text(
+            'Lịch tưới',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         body: const Center(
           child: Padding(

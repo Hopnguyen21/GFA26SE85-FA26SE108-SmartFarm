@@ -90,7 +90,10 @@ class DeploymentProgressBar extends StatelessWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    deploymentSteps[i].label,
+                    // Nhãn dài nhất rút gọn để 6 bước vừa một hàng ở màn hẹp.
+                    deploymentSteps[i].label == 'Hoàn tất triển khai'
+                        ? 'Hoàn tất'
+                        : deploymentSteps[i].label,
                     maxLines: 1,
                     style: TextStyle(
                       fontSize: 10,

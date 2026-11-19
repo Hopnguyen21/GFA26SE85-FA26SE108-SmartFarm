@@ -35,6 +35,7 @@ class _TaskActionsState extends State<TaskActions> {
     String? failureReason,
     int? progressPercent,
     String? farmerId,
+    String? notes,
   }) async {
     setState(() => _busy = true);
     final error = await context.read<FarmProvider>().performTaskAction(
@@ -44,6 +45,7 @@ class _TaskActionsState extends State<TaskActions> {
       failureReason: failureReason,
       progressPercent: progressPercent,
       farmerId: farmerId,
+      notes: notes,
     );
     if (!mounted) return;
     setState(() => _busy = false);
@@ -58,66 +60,26 @@ class _TaskActionsState extends State<TaskActions> {
   }
 
   Future<String?> _askText(String title, String hint) async {
-    final ctrl = TextEditingController();
     final value = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 15)),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Gửi'),
-          ),
-        ],
-      ),
+      builder: (ctx) => _TextInputDialog(title: title, hint: hint),
     );
-    ctrl.dispose();
     return value == null || value.isEmpty ? null : value;
   }
 
-  Future<void> _askProgress(int current) async {
-    double value = current.toDouble();
-    final picked = await showDialog<int>(
+  Future<void> _askProgress(int current, String? initialNote) async {
+    final picked = await showDialog<({int progress, String? note})>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(
-            'Tiến độ: ${value.round()}%',
-            style: const TextStyle(fontSize: 15),
-          ),
-          content: Slider(
-            value: value,
-            max: 100,
-            divisions: 20,
-            onChanged: (v) => setLocal(() => value = v),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, value.round()),
-              child: const Text('Lưu'),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) =>
+          _ProgressInputDialog(current: current, initialNote: initialNote),
     );
-    if (picked != null) await _run('UpdateProgress', progressPercent: picked);
+    if (picked != null) {
+      await _run(
+        'UpdateProgress',
+        progressPercent: picked.progress,
+        notes: picked.note?.isEmpty == true ? null : picked.note,
+      );
+    }
   }
 
   /// Task đã đóng (duyệt/hủy) thì không giao thêm người.
@@ -172,6 +134,16 @@ class _TaskActionsState extends State<TaskActions> {
       if (reason != null) await _run('Decline', failureReason: reason);
     }
 
+    Future<void> fail() async {
+      final reason = await _askText(
+        'Báo không thể hoàn thành',
+        'Vì sao không hoàn thành được? *',
+      );
+      if (reason != null && reason.trim().isNotEmpty) {
+        await _run('Fail', failureReason: reason.trim());
+      }
+    }
+
     switch (mine.status) {
       case 'Pending':
         return [
@@ -181,25 +153,54 @@ class _TaskActionsState extends State<TaskActions> {
       case 'Accepted':
         return [
           _button('Bắt đầu', () => _run('Start'), primary: true),
-          _button('Từ chối', decline, danger: true),
+          _button('Báo không hoàn thành', fail, danger: true),
         ];
       case 'InProgress':
         return [
-          _button('Báo hoàn thành', () async {
+          _button('Nộp kết quả', () async {
             final result = await _askText(
-              'Kết quả công việc',
-              'Bạn đã làm được gì?',
+              'Mô tả kết quả đã làm',
+              'Bạn đã làm được gì? *',
             );
-            if (result != null) await _run('Complete', result: result);
+            if (result != null && result.trim().isNotEmpty) {
+              await _run('Complete', result: result.trim());
+            }
           }, primary: true),
-          _button('Cập nhật %', () => _askProgress(mine.progressPercent)),
-          _button('Báo thất bại', () async {
-            final reason = await _askText(
-              'Lý do thất bại',
-              'Vì sao không hoàn thành được?',
-            );
-            if (reason != null) await _run('Fail', failureReason: reason);
-          }, danger: true),
+          _button(
+            'Cập nhật %',
+            () => _askProgress(mine.progressPercent, mine.progressNote),
+          ),
+          _button('Báo không hoàn thành', fail, danger: true),
+        ];
+      case 'Overdue':
+        return [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFECACA)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.hourglass_bottom_rounded,
+                  size: 14,
+                  color: Color(0xFFDC2626),
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'Công việc đã quá hạn. Cần Chủ trang trại gia hạn hoặc giao lại.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFB91C1C),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ];
       default:
         return const [];
@@ -215,44 +216,243 @@ class _TaskActionsState extends State<TaskActions> {
         ? task.status
         : (mine?.status ?? task.status);
     final buttons = widget.isOwner
-        ? [
-            for (final a in task.assignments.where(
-              (a) => a.status == 'CompletedPendingReview',
-            ))
-              _button(
-                'Duyệt ${a.farmerName}',
-                () => _run('Approve', farmerId: a.farmerId),
-                primary: true,
-              ),
-            if (_canManageAssignees(task))
-              _button('Người thực hiện', _manageAssignees),
-          ]
+        ? const <Widget>[]
         : (mine == null ? const <Widget>[] : _farmerButtons(mine));
+    final showFarmerProgress =
+        !widget.isOwner &&
+        mine != null &&
+        [
+          'Accepted',
+          'InProgress',
+          'CompletedPendingReview',
+          'Approved',
+        ].contains(mine.status);
 
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _statusLabels[shownStatus] ?? shownStatus,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF0F766E),
-            ),
+          Row(
+            children: [
+              Text(
+                _statusLabels[shownStatus] ?? shownStatus,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F766E),
+                ),
+              ),
+            ],
           ),
-          if (!widget.isOwner && mine != null && mine.progressPercent > 0)
+          if (showFarmerProgress) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: mine.progressPercent / 100.0,
+                      minHeight: 5,
+                      backgroundColor: const Color(0xFFE2E8F0),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF047857),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${mine.progressPercent}%',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (!widget.isOwner && (mine?.progressNote ?? '').isNotEmpty) ...[
+            const SizedBox(height: 3),
             Text(
-              'Tiến độ: ${mine.progressPercent}%',
+              'Ghi chú tiến độ: ${mine!.progressNote!}',
               style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
-          if (widget.isOwner)
-            for (final a in task.assignments)
-              Text(
-                '${a.farmerName}: ${_statusLabels[a.status] ?? a.status}${a.result != null ? ' — ${a.result}' : ''}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          ],
+          if (!widget.isOwner && (mine?.result ?? '').isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
               ),
+              child: Text(
+                'Kết quả đã nộp: ${mine!.result!}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF15803D),
+                ),
+              ),
+            ),
+          ],
+          if (!widget.isOwner && (mine?.failureReason ?? '').isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF1F2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFFECDD3)),
+              ),
+              child: Text(
+                'Lý do: ${mine!.failureReason!}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFBE123C),
+                ),
+              ),
+            ),
+          ],
+          if (widget.isOwner) ...[
+            const SizedBox(height: 4),
+            for (final a in task.assignments)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            a.farmerName,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: a.status == 'Approved'
+                                ? const Color(0xFFD1FAE5)
+                                : a.status == 'CompletedPendingReview'
+                                ? const Color(0xFFEDE9FE)
+                                : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _statusLabels[a.status] ?? a.status,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: a.status == 'Approved'
+                                  ? const Color(0xFF064E3B)
+                                  : a.status == 'CompletedPendingReview'
+                                  ? const Color(0xFF4C1D95)
+                                  : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                        if (a.status == 'CompletedPendingReview') ...[
+                          const SizedBox(width: 6),
+                          _button(
+                            'Duyệt kết quả',
+                            () => _run('Approve', farmerId: a.farmerId),
+                            primary: true,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (a.status != 'Cancelled' && a.status != 'Declined') ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: a.progressPercent / 100.0,
+                                minHeight: 4,
+                                backgroundColor: const Color(0xFFE2E8F0),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF047857),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${a.progressPercent}%',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if ((a.progressNote ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Ghi chú: ${a.progressNote!}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                    if ((a.result ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Kết quả: ${a.result!}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF15803D),
+                        ),
+                      ),
+                    ],
+                    if ((a.failureReason ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Lý do: ${a.failureReason!}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            if (_canManageAssignees(task)) ...[
+              const SizedBox(height: 6),
+              _button('Người thực hiện', _manageAssignees),
+            ],
+          ],
           if (buttons.isNotEmpty) ...[
             const SizedBox(height: 4),
             Wrap(spacing: 6, runSpacing: 4, children: buttons),
@@ -447,6 +647,137 @@ class _AssigneesSheetState extends State<_AssigneesSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _TextInputDialog extends StatefulWidget {
+  final String title;
+  final String hint;
+  const _TextInputDialog({required this.title, required this.hint});
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title, style: const TextStyle(fontSize: 15)),
+      content: TextField(
+        controller: _ctrl,
+        maxLines: 3,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: widget.hint,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child: const Text('Gửi'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressInputDialog extends StatefulWidget {
+  final int current;
+  final String? initialNote;
+  const _ProgressInputDialog({required this.current, this.initialNote});
+
+  @override
+  State<_ProgressInputDialog> createState() => _ProgressInputDialogState();
+}
+
+class _ProgressInputDialogState extends State<_ProgressInputDialog> {
+  late double _value;
+  late final TextEditingController _noteCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.current.toDouble();
+    _noteCtrl = TextEditingController(text: widget.initialNote ?? '');
+  }
+
+  @override
+  void dispose() {
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Tiến độ: ${_value.round()}%',
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Slider(
+              value: _value,
+              max: 100,
+              divisions: 20,
+              activeColor: const Color(0xFF047857),
+              onChanged: (v) => setState(() => _value = v),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Ghi chú tiến độ (không bắt buộc):',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _noteCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Nhập ghi chú hiện trường...',
+                hintStyle: TextStyle(fontSize: 12),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(
+            context,
+            (progress: _value.round(), note: _noteCtrl.text.trim()),
+          ),
+          child: const Text('Lưu'),
+        ),
+      ],
     );
   }
 }

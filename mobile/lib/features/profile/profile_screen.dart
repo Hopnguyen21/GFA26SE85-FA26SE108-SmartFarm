@@ -15,6 +15,7 @@ import '../support/support_requests_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
 import '../bills/bills_screen.dart';
+import '../support/field_survey_reports_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 import '../devices/technician_gateway_tools_screen.dart';
 import '../inventory/stock_out_screen.dart';
@@ -283,21 +284,25 @@ class ProfileScreen extends StatelessWidget {
                         'Tổ chức',
                         provider.tenantName!,
                       ),
-                    _infoItem(
-                      Icons.confirmation_number_outlined,
-                      'Mã Tenant',
-                      me?['tenantId']?.toString() ?? '—',
-                    ),
+                    // Mã tenant (UUID) chỉ có ý nghĩa với chủ trang trại; nông dân không cần thấy.
+                    if (provider.currentRole == 'OWNER')
+                      _infoItem(
+                        Icons.confirmation_number_outlined,
+                        'Mã Tenant',
+                        me?['tenantId']?.toString() ?? '—',
+                      ),
                     _infoItem(
                       Icons.agriculture_outlined,
                       'Trang trại hiện tại',
                       provider.currentFarm.name,
                     ),
-                    _infoItem(
-                      Icons.calendar_today_outlined,
-                      'Tham gia từ',
-                      _formatJoined(me?['createdAtUtc']?.toString()),
-                    ),
+                    // Backend không trả ngày tạo tài khoản thì không hiện dòng trống "—".
+                    if (me?['createdAtUtc'] != null)
+                      _infoItem(
+                        Icons.calendar_today_outlined,
+                        'Tham gia từ',
+                        _formatJoined(me?['createdAtUtc']?.toString()),
+                      ),
                   ]),
 
                   const SizedBox(height: 16),

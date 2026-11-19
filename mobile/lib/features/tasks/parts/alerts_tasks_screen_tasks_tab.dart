@@ -152,7 +152,7 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                     task.title,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                      fontSize: 13.5,
                                       decoration: task.isCompleted
                                           ? TextDecoration.lineThrough
                                           : null,
@@ -164,35 +164,135 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${task.zoneName} • Hạn: ${task.dueDate}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: MediaQuery.of(context).size.width * 0.55,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.place_outlined,
+                                        size: 13,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          task.zoneName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Builder(
+                                  builder: (context) {
+                                    final due = dueLabel(task.dueAtUtc);
+                                    final (bg, fg) = switch (due.tone) {
+                                      DueTone.late => (
+                                        const Color(0xFFFFE4E6),
+                                        const Color(0xFF9F1239),
+                                      ),
+                                      DueTone.today => (
+                                        const Color(0xFFFEF3C7),
+                                        const Color(0xFF92400E),
+                                      ),
+                                      DueTone.soon => (
+                                        const Color(0xFFE0F2FE),
+                                        const Color(0xFF075985),
+                                      ),
+                                      _ => (
+                                        const Color(0xFFF1F5F9),
+                                        const Color(0xFF475569),
+                                      ),
+                                    };
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: bg,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        due.text,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: fg,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
+                            if ((task.requirements ?? '').isNotEmpty) ...[
+                              const SizedBox(height: 5),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Yêu cầu: ${task.requirements!}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (task.assignedFarmerName != null &&
                                 task.assignedFarmerName!.isNotEmpty) ...[
                               const SizedBox(height: 4),
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 4,
                                 children: [
-                                  const Icon(
-                                    Icons.person_pin_circle_outlined,
-                                    size: 13,
-                                    color: Color(0xFF0F766E),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Giao cho: ${task.assignedFarmerName}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF0F766E),
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.person_pin_circle_outlined,
+                                        size: 13,
+                                        color: Color(0xFF0F766E),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Giao cho: ${task.assignedFarmerName}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0F766E),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   if (task.priority.isNotEmpty) ...[
-                                    const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 7,
@@ -214,7 +314,7 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                                             ? 'Ưu tiên cao'
                                             : 'Bình thường',
                                         style: TextStyle(
-                                          fontSize: 10.5,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: task.priority == 'HIGH'
                                               ? const Color(0xFFB91C1C)

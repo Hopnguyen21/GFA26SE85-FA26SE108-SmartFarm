@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/gps_service.dart';
 import 'node_provisioning_sheet.dart';
 
 /// Một Node trong KHO CỦA KỸ THUẬT VIÊN (hàng nhận từ kho chính qua phiếu xuất kho hoặc Admin giao).
@@ -168,7 +169,7 @@ String? validateNodeAddress(String v) {
   return null;
 }
 
-/// Mở bảng chọn Node từ kho KTV; [provision] nhận Node đã chọn và địa chỉ phần cứng, gọi API cấp phát (backend trừ kho KTV).
+/// Mở bảng chọn Node từ kho KTV; [provision] nhận Node đã chọn, địa chỉ phần cứng và địa chỉ nơi lắp đặt (tuỳ chọn), gọi API cấp phát (backend trừ kho KTV).
 /// Trả true khi đã cấp phát được.
 Future<bool> showNodeProvisionSheet(
   BuildContext context, {
@@ -177,7 +178,14 @@ Future<bool> showNodeProvisionSheet(
   String? slotCode,
   Map<String, bool> contractKinds = const {},
   required Set<String> usedAddresses,
-  required Future<void> Function(NodeChoice node, String address) provision,
+  required Future<void> Function(
+    NodeChoice node,
+    String address,
+    String? installAddress,
+  )
+  provision,
+  GpsProvider gps = const GeolocatorGpsProvider(),
+  Future<GeocodeResult> Function(double lat, double lng)? addressLookup,
 }) async =>
     await showModalBottomSheet<bool>(
       context: context,
@@ -192,6 +200,8 @@ Future<bool> showNodeProvisionSheet(
         load: (taken) =>
             loadNodeChoices(usedAddresses: {...usedAddresses, ...taken}),
         provision: provision,
+        gps: gps,
+        addressLookup: addressLookup,
       ),
     ) ??
     false;

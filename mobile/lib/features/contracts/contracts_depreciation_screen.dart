@@ -7,6 +7,7 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 
 import 'zone_contract_forms.dart';
+import 'zone_contract_logic.dart';
 import '../../core/utils/user_error.dart';
 
 part 'parts/contracts_depreciation_screen_contracts_tab.dart';

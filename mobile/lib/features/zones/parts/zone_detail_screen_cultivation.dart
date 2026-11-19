@@ -37,7 +37,9 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
           ZoneWorkersSection(
             key: ValueKey('workers_${zone.zoneId}'),
             zone: zone,
-            onAssign: () => _showAssignWorkerSheet(context, provider, zone),
+            onAssign: isOwner
+                ? () => _showAssignWorkerSheet(context, provider, zone)
+                : null,
           ),
           if (isOwner) ...[
             const SizedBox(height: 12),
@@ -84,24 +86,25 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                 ),
               ),
             ),
-          ],
-          const SizedBox(height: 6),
-          Center(
-            child: TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CropProfilesScreen()),
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF047857),
-                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-              ),
-              icon: const Icon(Icons.local_florist_outlined, size: 16),
-              label: const Text(
-                'Mở Thư viện cây trồng',
+            const SizedBox(height: 6),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CropProfilesScreen()),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF047857),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                  ),
+                ),
+                icon: const Icon(Icons.local_florist_outlined, size: 16),
+                label: const Text('Mở Thư viện cây trồng'),
               ),
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           ZoneCultivationLive(
             key: ValueKey('live_${zone.zoneId}_$_cultivationVersion'),
@@ -245,7 +248,10 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                     ),
                     subtitle: Text(
                       '${w.email}\n${draft[w.farmerId] == null ? 'Chưa được phân công Zone này' : (draft[w.farmerId] == true ? 'Xem, nhận việc & điều khiển thiết bị' : 'Chỉ xem & nhận việc')}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                     isThreeLine: true,
                     value: draft[w.farmerId] != null,
@@ -259,7 +265,10 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
                       activeThumbColor: const Color(0xFF15803D),
                       title: const Text(
                         'Quyền điều khiển thiết bị',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       value: draft[w.farmerId] == true,
                       onChanged: (v) => setLocal(() => draft[w.farmerId] = v),

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../models/agriculture_document.dart';
 import '../models/iot_deployment.dart';
+import '../models/field_survey_report.dart';
 import 'app_role.dart';
 import 'geocode_result.dart';
 import '../utils/profile_name.dart';
@@ -29,6 +30,7 @@ part 'api/report_api.dart';
 part 'api/bill_api.dart';
 part 'api/alert_api.dart';
 part 'api/stock_out_api.dart';
+part 'api/field_survey_api.dart';
 
 class SecurityException implements Exception {
   final String message;

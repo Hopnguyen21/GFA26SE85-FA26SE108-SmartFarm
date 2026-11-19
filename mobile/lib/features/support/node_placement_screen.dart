@@ -11,6 +11,7 @@ import '../../core/widgets/state_views.dart';
 import 'acceptance_report.dart';
 import 'gateway_activation_flow.dart';
 import 'map_zoom_controls.dart';
+import 'node_address_field.dart';
 import 'node_provisioning_flow.dart';
 import 'node_placement_logic.dart';
 import 'service_board_logic.dart' show effectiveQuotationStatus;
@@ -30,6 +31,9 @@ class NodePlacementScreen extends StatefulWidget {
   final ZoneModel? zone;
   final GpsProvider gps;
 
+  /// Tra địa chỉ từ toạ độ GPS (mặc định gọi backend); thay được để kiểm thử.
+  final Future<GeocodeResult> Function(double lat, double lng)? addressLookup;
+
   const NodePlacementScreen({
     super.key,
     required this.serviceRequestId,
@@ -38,6 +42,7 @@ class NodePlacementScreen extends StatefulWidget {
     required this.deploymentRequestId,
     this.zone,
     this.gps = const GeolocatorGpsProvider(),
+    this.addressLookup,
   });
 
   @override
@@ -67,6 +72,13 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
   Map<String, Map<String, dynamic>> _saved =
       {}; // vị trí đã lưu trên máy chủ theo deviceId (chữ thường)
   final Map<String, _Draft> _drafts = {};
+
+  /// Địa chỉ nơi lắp đặt do KTV nhập/lấy từ GPS nhưng CHƯA lưu lên máy chủ, theo deviceId (chữ thường). Giá trị rỗng = xoá địa chỉ.
+  /// Lưu cùng vị trí khi bấm Lưu; thoát màn trước khi lưu thì mất.
+  final Map<String, String> _installAddress = {};
+
+  /// Lý do chưa tra được địa chỉ từ GPS của từng Node (hiện dưới dòng địa chỉ cho tới khi có địa chỉ).
+  final Map<String, String> _addressHint = {};
   String? _selected;
   bool _loading = true;
   String? _error;
@@ -337,6 +349,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         );
       });
       _map.move(LatLng(fix.latitude, fix.longitude), 19);
+      // Điền địa chỉ nơi lắp đặt từ điểm GPS (không chặn việc chấm điểm nếu tra địa chỉ lỗi).
+      unawaited(_fillAddressFromFix(d, fix.latitude, fix.longitude));
     } on GpsException catch (e) {
       _snack(e.message, error: true);
     } catch (e) {
@@ -346,26 +360,67 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     }
   }
 
-  /// Lưu các điểm đã chấm. Chặn bấm lưu liên tục; xong thì đọc lại vị trí từ máy chủ để đối chiếu.
+  /// Có thay đổi chưa lưu: điểm đã chấm hoặc địa chỉ nơi lắp đặt đã nhập/lấy từ GPS.
+  bool get _hasUnsaved => _drafts.isNotEmpty || _installAddress.isNotEmpty;
+
+  /// Lưu các điểm đã chấm và địa chỉ nơi lắp đặt. Chặn bấm lưu liên tục; xong thì đọc lại vị trí từ máy chủ để đối chiếu.
+  /// Địa chỉ đi cùng toạ độ (API vị trí): Node chỉ đổi địa chỉ thì gửi lại toạ độ đã lưu; Node chưa có toạ độ nào thì chờ chấm điểm.
   Future<void> _save() async {
-    if (_saving || _drafts.isEmpty) return;
+    if (_saving || !_hasUnsaved) return;
     setState(() => _saving = true);
     final sent = Map<String, _Draft>.of(_drafts);
+    final sentAddr = Map<String, String>.of(_installAddress);
     try {
       final nodes = <Map<String, dynamic>>[];
-      for (final e in sent.entries) {
-        final d = _devices.firstWhere((x) => x.deviceId.toLowerCase() == e.key);
+      final addressSaved = <String>{};
+      var waitingForPoint = 0;
+      // Backend coi lần lưu là ẢNH CHỤP ĐẦY ĐỦ sơ đồ của Zone: Node đang có vị trí mà không nằm trong danh sách sẽ bị GỠ khỏi bản đồ.
+      // Nên luôn gửi mọi Node của yêu cầu này đã có vị trí (điểm mới chưa lưu hoặc vị trí đã lưu), không chỉ Node vừa đổi.
+      for (final d in _devices) {
+        final k = d.deviceId.toLowerCase();
+        final draft = sent[k];
+        var lat = draft?.lat;
+        var lng = draft?.lng;
+        if (lat == null || lng == null) {
+          final l = _saved[k];
+          lat = (l?['latitude'] as num?)?.toDouble();
+          lng = (l?['longitude'] as num?)?.toDouble();
+        }
+        if (lat == null || lng == null) {
+          if (sentAddr.containsKey(k)) waitingForPoint++;
+          continue;
+        }
+        // Ghi chú lắp đặt gửi kèm: địa chỉ mới nhập (rỗng = xoá, rơi về deviceName); không thì giữ địa chỉ đang có; Node không đổi gì
+        // thì giữ nguyên ghi chú hiện có (backend ghi đè bằng deviceName khi không gửi installationNotes).
+        final existing = _deviceRaw[k]?['installationNotes'] as String?;
+        String? notes;
+        if (sentAddr.containsKey(k)) {
+          notes = encodeNodeAddress(sentAddr[k]);
+        } else if (decodeNodeAddress(existing) != null) {
+          notes = existing!.trim();
+        } else if (draft == null && (existing?.trim().isNotEmpty ?? false)) {
+          notes = existing!.trim();
+        }
+        if (sentAddr.containsKey(k)) addressSaved.add(k);
         nodes.add({
           'deviceId': d.deviceId,
-          'latitude': e.value.lat,
-          'longitude': e.value.lng,
+          'latitude': lat,
+          'longitude': lng,
           'hardwareAddress': d.hardwareAddress,
           'deviceType': d.deviceType,
-          'locationSource': e.value.source,
-          'deviceName': e.value.accuracyM == null
+          'locationSource':
+              draft?.source ?? '${_saved[k]?['locationSource'] ?? 'MobileMap'}',
+          'deviceName': draft?.accuracyM == null
               ? d.hardwareAddress
-              : '${d.hardwareAddress} (GPS ±${e.value.accuracyM!.round()} m)',
+              : '${d.hardwareAddress} (GPS ±${draft!.accuracyM!.round()} m)',
+          'installationNotes': ?notes,
         });
+      }
+      if (nodes.isEmpty) {
+        _snack(
+          'Địa chỉ đã nhập sẽ được lưu cùng vị trí: hãy chấm điểm cho Node trước.',
+        );
+        return;
       }
       await FarmApi.updateDeviceLocations(
         widget.zoneId,
@@ -396,9 +451,17 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         }
       });
       await _load();
+      if (!mounted) return;
+      // Địa chỉ đã gửi: bỏ bản nháp (trừ khi KTV vừa sửa lại trong lúc lưu); bản máy chủ vừa tải lại sẽ hiện thay.
+      setState(() {
+        for (final k in addressSaved.where((k) => !missing.contains(k))) {
+          if (_installAddress[k] == sentAddr[k]) _installAddress.remove(k);
+        }
+      });
       _snack(
         missing.isEmpty
-            ? 'Đã lưu và đọc lại từ máy chủ: ${sent.length} node.'
+            ? 'Đã lưu và đọc lại từ máy chủ: ${nodes.length} node.'
+                  '${waitingForPoint > 0 ? ' $waitingForPoint địa chỉ chờ chấm điểm.' : ''}'
             : 'Đã gửi nhưng máy chủ chưa trả đúng vị trí cho ${missing.length} node. Hãy bấm Lưu lại.',
         error: missing.isNotEmpty,
       );
@@ -551,7 +614,9 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         ..._farmAddresses,
         for (final d in _devices) d.hardwareAddress,
       },
-      provision: (node, nodeId) async {
+      gps: widget.gps,
+      addressLookup: widget.addressLookup,
+      provision: (node, nodeId, installAddress) async {
         final devices = await DeploymentApi.provisionDevices(
           deploymentRequestId: widget.deploymentRequestId,
           gatewayId: '${_gateways.first['gatewayId']}',
@@ -573,6 +638,10 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
         );
         createdAddress = nodeId;
         createdId = devices.isEmpty ? null : devices.first.deviceId;
+        // Địa chỉ nơi lắp đặt chỉ gửi được cùng toạ độ (API vị trí): giữ tạm tới khi KTV lưu vị trí Node này.
+        if (installAddress != null && createdId != null) {
+          _installAddress[createdId!.toLowerCase()] = installAddress;
+        }
       },
     );
     if (!ok || !mounted) return;
@@ -587,6 +656,74 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     } finally {
       if (mounted) setState(() => _provisioning = false);
     }
+  }
+
+  /// Địa chỉ nơi lắp đặt hiện có của Node: bản đang nhập (chưa lưu) trước, rồi bản đã lưu trên máy chủ (`installationNotes` có tiền tố).
+  String? _addressOf(IotDevice d) {
+    final k = d.deviceId.toLowerCase();
+    if (_installAddress.containsKey(k)) {
+      final v = _installAddress[k]!.trim();
+      return v.isEmpty ? null : v;
+    }
+    return decodeNodeAddress(_deviceRaw[k]?['installationNotes'] as String?);
+  }
+
+  /// Tra địa chỉ từ điểm GPS và điền cho Node nếu chưa có địa chỉ (không ghi đè địa chỉ đã có hay KTV đã gõ).
+  Future<void> _fillAddressFromFix(IotDevice d, double lat, double lng) async {
+    if (_addressOf(d) != null) return;
+    final res = await (widget.addressLookup ?? FarmApi.reverseGeocodeDetailed)(
+      lat,
+      lng,
+    );
+    if (!mounted) return;
+    if (res.ok) {
+      if (_addressOf(d) == null) {
+        setState(
+          () => _installAddress[d.deviceId.toLowerCase()] = res.displayName!,
+        );
+      }
+    } else {
+      // Gợi ý ngay dưới dòng địa chỉ của Node (không dùng snackbar vì nó che nút Lưu ở chân trang).
+      setState(
+        () => _addressHint[d.deviceId.toLowerCase()] =
+            '${res.message} Bạn có thể nhập tay.',
+      );
+    }
+  }
+
+  /// Hộp thoại nhập/sửa địa chỉ nơi lắp đặt của Node (có nút lấy từ GPS). Lưu thật khi bấm "Lưu Sơ đồ GIS".
+  Future<void> _editAddress(IotDevice d) async {
+    final ctrl = TextEditingController(text: _addressOf(d) ?? '');
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Địa chỉ lắp đặt · ${d.hardwareAddress}',
+          style: const TextStyle(fontSize: 15),
+        ),
+        content: SingleChildScrollView(
+          child: NodeAddressField(
+            controller: ctrl,
+            gps: widget.gps,
+            lookup: widget.addressLookup,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            key: const ValueKey('node-address-save'),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Dùng địa chỉ này'),
+          ),
+        ],
+      ),
+    );
+    // Không dispose controller: hiệu ứng đóng hộp thoại còn dựng lại ô nhập.
+    if (v == null || !mounted) return;
+    setState(() => _installAddress[d.deviceId.toLowerCase()] = v);
   }
 
   String _savedText(IotDevice d) {
@@ -633,7 +770,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       // App không tự bịa khảo sát thực địa: chưa khảo sát thì dừng và báo KTV điền.
       if (current == 'Accepted' || current == 'Submitted') {
         throw Exception(
-          'Cần tiếp nhận và điền khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
+          'Cần tiếp nhận và lập báo cáo khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
         );
       }
       if (current == 'Surveyed' ||
@@ -1802,8 +1939,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed:
-                  (_completing || blockers.isNotEmpty || _drafts.isNotEmpty)
+              onPressed: (_completing || blockers.isNotEmpty || _hasUnsaved)
                   ? null
                   : _complete,
               child: Text(
@@ -1811,11 +1947,11 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
               ),
             ),
           ),
-        if (_drafts.isNotEmpty && !completed)
+        if (_hasUnsaved && !completed)
           const Padding(
             padding: EdgeInsets.only(top: 6),
             child: Text(
-              'Còn điểm chưa lưu: lưu vị trí trước khi hoàn tất.',
+              'Còn điểm hoặc địa chỉ chưa lưu: lưu vị trí trước khi hoàn tất.',
               style: TextStyle(fontSize: 12, color: AppColors.warning),
             ),
           ),
@@ -2283,7 +2419,66 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     ),
   );
 
+  /// Dòng "Địa chỉ lắp đặt" của thẻ Node: địa chỉ đang có (kèm "chưa lưu" nếu mới nhập) và nút Nhập/Sửa.
+  Widget _addressRow(IotDevice d, bool locked) {
+    final a = _addressOf(d);
+    final pending = _installAddress.containsKey(d.deviceId.toLowerCase());
+    final hint = a == null ? _addressHint[d.deviceId.toLowerCase()] : null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _addressMainRow(d, a, pending, locked),
+          if (hint != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 20),
+              child: Text(
+                hint,
+                style: const TextStyle(fontSize: 11, color: AppColors.warning),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addressMainRow(IotDevice d, String? a, bool pending, bool locked) =>
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.home_work_outlined,
+            size: 14,
+            color: pending ? AppColors.warning : AppColors.textMuted,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              a == null
+                  ? 'Chưa có địa chỉ lắp đặt'
+                  : 'Địa chỉ lắp đặt: $a${pending ? ' (chưa lưu)' : ''}',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: pending ? AppColors.warning : AppColors.textMuted,
+              ),
+            ),
+          ),
+          TextButton(
+            key: ValueKey('node-edit-address-${d.deviceId}'),
+            onPressed: locked ? null : () => _editAddress(d),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: Text(a == null ? 'Nhập' : 'Sửa'),
+          ),
+        ],
+      );
+
   Widget _deviceTile(IotDevice d) {
+    final locked = _deployment?.status == 'Completed';
     final k = d.deviceId.toLowerCase();
     final draft = _drafts[k];
     final raw = _deviceRaw[k];
@@ -2331,6 +2526,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
                           ? AppColors.primaryDark
                           : AppColors.textMuted),
               ),
+              _addressRow(d, locked),
               _statusRow(
                 t == null
                     ? Icons.help_outline
@@ -2433,7 +2629,7 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: (_saving || _drafts.isEmpty) ? null : _save,
+                    onPressed: (_saving || !_hasUnsaved) ? null : _save,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: const Color(0xFF020617),

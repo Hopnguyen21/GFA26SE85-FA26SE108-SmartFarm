@@ -204,7 +204,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFF062326),
           foregroundColor: Colors.white,
-          title: const Text('Quản lý Nhân công', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: const Text(
+            'Quản lý Nhân công',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         body: const Center(
           child: Text('Chỉ chủ trang trại được quản lý nhân công.'),
@@ -224,7 +227,10 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
           : AppBar(
               backgroundColor: const Color(0xFF062326),
               foregroundColor: Colors.white,
-              title: const Text('Quản lý Nhân công', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              title: const Text(
+                'Quản lý Nhân công',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
       floatingActionButton: provider.farms.isEmpty
           ? null

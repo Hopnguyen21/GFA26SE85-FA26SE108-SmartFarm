@@ -34,6 +34,26 @@ String? thresholdNotice(StageDraft st) {
 String fmtNumber(double v) =>
     v == v.roundToDouble() ? v.round().toString() : v.toString();
 
+IconData _paramIcon(String code) => switch (code) {
+  'Temperature' => Icons.thermostat_rounded,
+  'SoilMoisture' => Icons.water_drop_rounded,
+  'AirHumidity' => Icons.cloud_outlined,
+  'Ph' => Icons.science_outlined,
+  'LightIntensity' => Icons.wb_sunny_outlined,
+  'Ec' => Icons.electric_bolt_rounded,
+  _ => Icons.sensors_outlined,
+};
+
+Color _paramColor(String code) => switch (code) {
+  'Temperature' => const Color(0xFFD97706),
+  'SoilMoisture' => const Color(0xFF2563EB),
+  'AirHumidity' => const Color(0xFF0284C7),
+  'Ph' => const Color(0xFF7C3AED),
+  'LightIntensity' => const Color(0xFFB45309),
+  'Ec' => const Color(0xFF059669),
+  _ => const Color(0xFF64748B),
+};
+
 /// Một giai đoạn của hồ sơ: chỉ xem (chip ngưỡng) hoặc sửa được số ngày và 3 ngưỡng (thấp nhất/mục tiêu/cao nhất) theo API.
 class StageDraftTile extends StatelessWidget {
   final StageDraft stage;
@@ -53,24 +73,53 @@ class StageDraftTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final st = stage;
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    '${st.order}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '${st.order}. ${st.name}',
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: _ink,
                   ),
                 ),
@@ -104,25 +153,72 @@ class StageDraftTile extends StatelessWidget {
                   ),
                 )
               else
-                Text(
-                  '${st.durationDays} ngày',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.schedule_rounded,
+                        size: 13,
+                        color: Color(0xFF475569),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${st.durationDays} ngày',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           if (thresholdNotice(st) case final notice?)
-            Text(
-              notice,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: st.requirements.isEmpty
-                    ? const Color(0xFFB45309)
-                    : _muted,
-                height: 1.3,
+            Container(
+              margin: const EdgeInsets.only(top: 4, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 14,
+                    color: st.requirements.isEmpty
+                        ? const Color(0xFFB45309)
+                        : const Color(0xFF475569),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      notice,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: st.requirements.isEmpty
+                            ? const Color(0xFFB45309)
+                            : _muted,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           if (editable)
@@ -130,10 +226,45 @@ class StageDraftTile extends StatelessWidget {
           else
             for (final r in st.requirements)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  describeRequirementDraft(r),
-                  style: const TextStyle(fontSize: 11.5, color: _ink),
+                padding: const EdgeInsets.only(top: 5),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: _paramColor(r.code).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          _paramIcon(r.code),
+                          size: 14,
+                          color: _paramColor(r.code),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          describeRequirementDraft(r),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
         ],

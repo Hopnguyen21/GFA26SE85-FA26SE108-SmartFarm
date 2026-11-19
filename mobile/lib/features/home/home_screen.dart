@@ -19,7 +19,6 @@ import '../inventory/inventory_screen.dart';
 import '../workforce/workforce_screen.dart';
 import '../ai/ai_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
-import '../cf1/cf1_progress_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 import '../zones/widgets/emergency_stop_button.dart';
 import 'widgets/zone_ai_advice_card.dart';
