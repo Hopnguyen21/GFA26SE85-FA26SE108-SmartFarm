@@ -16,6 +16,8 @@ internal sealed class StockOutConfiguration : IEntityTypeConfiguration<StockOut>
 
         b.HasOne(x => x.Farm).WithMany().HasForeignKey(x => x.FarmId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Zone).WithMany().HasForeignKey(x => x.ZoneId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne(x => x.ServiceRequest).WithMany().HasForeignKey(x => x.ServiceRequestId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(x => x.ServiceRequestId);
         b.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.ApprovedByUser).WithMany().HasForeignKey(x => x.ApprovedByUserId).OnDelete(DeleteBehavior.Restrict);
 
@@ -33,7 +35,8 @@ internal sealed class StockOutDetailConfiguration : IEntityTypeConfiguration<Sto
         b.Property(x => x.Quantity).HasPrecision(18, 4);
         b.Property(x => x.Notes).HasMaxLength(1000);
 
-        b.HasOne(x => x.InventoryItem).WithMany().HasForeignKey(x => x.InventoryItemId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        // InventoryItemId trỏ tới inventory_items hoặc PlatformHardwareItems nên cố ý KHÔNG có khóa ngoại.
+        b.HasIndex(x => x.InventoryItemId);
     }
 }
 
