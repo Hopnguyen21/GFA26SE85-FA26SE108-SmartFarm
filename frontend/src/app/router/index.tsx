@@ -15,12 +15,17 @@ import { DevicesPage } from '../../pages/admin/DevicesPage';
 import { SystemHealthPage } from '../../pages/admin/SystemHealthPage';
 import { AuditLogsPage } from '../../pages/admin/AuditLogsPage';
 import { SettingsPage } from '../../pages/admin/SettingsPage';
+import { BackupRestorePage } from '../../pages/admin/BackupRestorePage';
+import { FirmwareRegistryPage } from '../../pages/admin/FirmwareRegistryPage';
 
 import { TechnicianDashboard } from '../../pages/technician/TechnicianDashboard';
 import { ProvisioningPage } from '../../pages/technician/ProvisioningPage';
+import { FieldSurveyReportsPage } from '../../pages/technician/FieldSurveyReportsPage';
 import { GatewaysPage } from '../../pages/technician/GatewaysPage';
 import { MaintenancePage } from '../../pages/technician/MaintenancePage';
 import { TechnicianInventoryPage } from '../../pages/technician/InventoryPage';
+import { HardwarePreparationPage } from '../../pages/technician/HardwarePreparationPage';
+import { GatewayEnrollmentPage } from '../../pages/technician/GatewayEnrollmentPage';
 
 import { OwnerDashboard } from '../../pages/owner/OwnerDashboard';
 import { FarmsPage } from '../../pages/owner/FarmsPage';
@@ -47,6 +52,7 @@ import { FarmerIrrigationPage } from '../../pages/farmer/FarmerIrrigationPage';
 
 import { ServiceRequestsPage } from '../../pages/admin/ServiceRequestsPage';
 import { StockOutsPage } from '../../pages/owner/StockOutsPage';
+import { DiscountCodesPage } from '../../pages/admin/DiscountCodesPage';
 import { BillsPage } from '../../pages/owner/BillsPage';
 import { ContractPackagesPage } from '../../pages/admin/ContractPackagesPage';
 import { RouteErrorBoundary } from '../../components/ui/RouteErrorBoundary';
@@ -129,12 +135,17 @@ export const router = createBrowserRouter([
       { path: '/admin/settings', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><SettingsPage /></RequireRole> },
       { path: '/admin/contract-packages', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><ContractPackagesPage /></RequireRole> },
       { path: '/admin/bills', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><BillsPage /></RequireRole> },
+      { path: '/admin/discount-codes', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><DiscountCodesPage /></RequireRole> },
       { path: '/admin/stock-outs', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><StockOutsPage /></RequireRole> },
+      { path: '/admin/backup-restore', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><BackupRestorePage /></RequireRole> },
+      { path: '/admin/firmware', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><FirmwareRegistryPage /></RequireRole> },
+      { path: '/admin/field-surveys', element: <RequireRole allowedRoles={['PLATFORM_ADMIN']}><FieldSurveyReportsPage /></RequireRole> },
 
       // Technician Routes (Exclusive to PLATFORM_TECHNICIAN and PLATFORM_ADMIN)
       { path: '/technician/dashboard', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><TechnicianDashboard /></RequireRole> },
       { path: '/technician/deployments', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><TechnicianDashboard /></RequireRole> },
       { path: '/technician/provisioning', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><ProvisioningPage /></RequireRole> },
+      { path: '/technician/field-surveys', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><FieldSurveyReportsPage /></RequireRole> },
       { path: '/technician/gateways', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><GatewaysPage /></RequireRole> },
       { path: '/technician/devices', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><GatewaysPage /></RequireRole> },
       { path: '/technician/maintenance', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><MaintenancePage /></RequireRole> },
@@ -142,6 +153,8 @@ export const router = createBrowserRouter([
       { path: '/technician/contract-packages', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><ContractPackagesPage /></RequireRole> },
       { path: '/technician/bills', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><BillsPage /></RequireRole> },
       { path: '/technician/stock-outs', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><StockOutsPage /></RequireRole> },
+      { path: '/technician/hardware-preparation', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><HardwarePreparationPage /></RequireRole> },
+      { path: '/technician/gateway-enrollment', element: <RequireRole allowedRoles={['PLATFORM_TECHNICIAN', 'PLATFORM_ADMIN']}><GatewayEnrollmentPage /></RequireRole> },
 
       // Farm Owner Routes (Exclusive to FARM_OWNER and PLATFORM_ADMIN)
       { path: '/owner/dashboard', element: <RequireRole allowedRoles={['FARM_OWNER', 'PLATFORM_ADMIN']}><OwnerDashboard /></RequireRole> },
@@ -160,6 +173,7 @@ export const router = createBrowserRouter([
       { path: '/owner/bills', element: <RequireRole allowedRoles={['FARM_OWNER', 'PLATFORM_ADMIN']}><BillsPage /></RequireRole> },
       { path: '/owner/ai', element: <OwnerOnlyAIAssistant /> },
       { path: '/owner/reports', element: <RequireRole allowedRoles={['FARM_OWNER', 'PLATFORM_ADMIN']}><ReportsPage /></RequireRole> },
+      { path: '/owner/field-surveys', element: <RequireRole allowedRoles={['FARM_OWNER', 'PLATFORM_ADMIN']}><FieldSurveyReportsPage /></RequireRole> },
       { path: '/owner/support', element: <RequireRole allowedRoles={['FARM_OWNER', 'PLATFORM_ADMIN']}><SupportPage /></RequireRole> },
 
       // Farmer Routes (Accessible to FARMER, FARM_OWNER, and PLATFORM_ADMIN)
