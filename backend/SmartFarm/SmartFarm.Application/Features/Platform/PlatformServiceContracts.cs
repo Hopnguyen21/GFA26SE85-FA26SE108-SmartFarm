@@ -22,11 +22,13 @@ public sealed record PlatformSettingView(string Key, string Value, string Group,
 public sealed record UpdatePlatformSettingItem(string Key, string Value);
 
 // ─── Platform Hardware Items ──────────────────────────────────────────────────
-public sealed record PlatformHardwareItemView(Guid Id, string Code, string Name, string Category, string? Model, string? Manufacturer, string? SerialNumber, string? MacAddress, int QuantityInStock, string? LocationRack, decimal UnitPrice, string Status, Guid? AssignedTechnicianId, DateTime CreatedAtUtc, string? EstimateRole = null, int EstimateUnits = 1, IReadOnlyList<string>? MeasuredParameters = null, Guid? DeviceModelDefinitionId = null);
-public sealed record CreateHardwareItemCommand(string Code, string Name, string Category, string? Model, string? Manufacturer, string? SerialNumber, string? MacAddress, int QuantityInStock, string? LocationRack, decimal UnitPrice, string? Status, string? EstimateRole = null, int? EstimateUnits = null, IReadOnlyList<string>? MeasuredParameters = null, Guid? DeviceModelDefinitionId = null);
+public sealed record PlatformHardwareItemView(Guid Id, string Code, string Name, string Category, string? Model, string? Manufacturer, string? SerialNumber, string? MacAddress, int QuantityInStock, string? LocationRack, decimal UnitPrice, string Status, Guid? AssignedTechnicianId, DateTime CreatedAtUtc, string? EstimateRole = null, int EstimateUnits = 1, IReadOnlyList<string>? MeasuredParameters = null, Guid? DeviceModelDefinitionId = null, string Unit = "cái");
+public sealed record CreateHardwareItemCommand(string Code, string Name, string Category, string? Model, string? Manufacturer, string? SerialNumber, string? MacAddress, int QuantityInStock, string? LocationRack, decimal UnitPrice, string? Status, string? EstimateRole = null, int? EstimateUnits = null, IReadOnlyList<string>? MeasuredParameters = null, Guid? DeviceModelDefinitionId = null, string? Unit = null);
 /// <summary>PUT: UnitPrice/EstimateRole/EstimateUnits/MeasuredParameters = null nghĩa là GIỮ NGUYÊN giá trị hiện có (client cũ không được vô tình xóa giá). EstimateRole rỗng hoặc MeasuredParameters rỗng = xóa.</summary>
-public sealed record UpdateHardwareItemCommand(string Name, string Category, string? Model, string? Manufacturer, string? SerialNumber, string? MacAddress, int QuantityInStock, string? LocationRack, decimal? UnitPrice, string Status, string? EstimateRole = null, int? EstimateUnits = null, IReadOnlyList<string>? MeasuredParameters = null, Guid? DeviceModelDefinitionId = null);
+public sealed record UpdateHardwareItemCommand(string Name, string Category, string? Model, string? Manufacturer, string? SerialNumber, string? MacAddress, int QuantityInStock, string? LocationRack, decimal? UnitPrice, string Status, string? EstimateRole = null, int? EstimateUnits = null, IReadOnlyList<string>? MeasuredParameters = null, Guid? DeviceModelDefinitionId = null, string? Unit = null);
 public sealed record AssignHardwareItemCommand(Guid TechnicianUserId, int Quantity = 1);
+public sealed record HardwareAllocationRequestItem(Guid HardwareItemId, int Quantity);
+public sealed record HardwareAllocationRequestView(Guid Id, Guid TechnicianUserId, string TechnicianName, IReadOnlyList<HardwareAllocationRequestItem> Items, string Status, DateTime CreatedAtUtc);
 
 // ─── Service Request Quotation ────────────────────────────────────────────────
 public sealed record QuotationItemInput(string Code, string Name, string Category, string Unit, int Quantity, decimal UnitPrice, decimal VatPercent, string? Notes);
@@ -117,7 +119,12 @@ public interface IPlatformAdminService
     Task<PlatformHardwareItemView> CreateHardwareItemAsync(CreateHardwareItemCommand command, CancellationToken ct);
     Task<PlatformHardwareItemView> UpdateHardwareItemAsync(Guid id, UpdateHardwareItemCommand command, CancellationToken ct);
     Task<PlatformHardwareItemView> AssignHardwareItemAsync(Guid id, AssignHardwareItemCommand command, CancellationToken ct);
-    Task<PlatformHardwareItemView> ReturnHardwareItemAsync(Guid id, CancellationToken ct);
+    Task<HardwareAllocationRequestView> RequestHardwareAllocationAsync(Guid technicianId, IReadOnlyList<HardwareAllocationRequestItem> items, CancellationToken ct);
+    Task<IReadOnlyList<HardwareAllocationRequestView>> ListHardwareAllocationRequestsAsync(CancellationToken ct);
+    Task<HardwareAllocationRequestView> ApproveHardwareAllocationRequestAsync(Guid requestId, Guid adminId, CancellationToken ct);
+    Task<HardwareAllocationRequestView> RejectHardwareAllocationRequestAsync(Guid requestId, Guid adminId, string reason, CancellationToken ct);
+    Task<PlatformHardwareItemView> ReturnHardwareItemAsync(Guid id, Guid? technicianId, CancellationToken ct);
+    Task<PlatformHardwareItemView> ReportHardwareFaultAsync(Guid id, Guid technicianId, CancellationToken ct);
     Task DeleteHardwareItemAsync(Guid id, CancellationToken ct);
 
     // System health report

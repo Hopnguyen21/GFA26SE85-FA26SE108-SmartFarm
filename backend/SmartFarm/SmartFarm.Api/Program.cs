@@ -50,6 +50,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
             }));
+    options.AddPolicy("GatewayHandshakePolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
 });
 builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
@@ -82,13 +92,28 @@ builder.Services.AddHostedService<GatewayLivenessWorker>();
 builder.Services.AddHostedService<DeviceLivenessWorker>();
 builder.Services.AddHostedService<SimulatedIotTelemetryWorker>();
 builder.Services.AddHostedService<KnowledgeEmbeddingWorker>();
+builder.Services.AddHostedService<FirmwareReleaseReconciliationWorker>();
+builder.Services.AddHostedService<FirmwareJobTimeoutWorker>();
+builder.Services.AddHostedService<ContractExpiryWorker>();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        if (allowedOrigins.Length > 0)
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin)) return false;
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return uri.Host is "localhost" or "127.0.0.1" || allowedOrigins.Contains(origin);
+                }
+                return false;
+            });
+        }
+        else if (allowedOrigins.Length > 0)
         {
             policy.WithOrigins(allowedOrigins);
         }
@@ -135,6 +160,7 @@ if (!app.Environment.IsEnvironment("Testing"))
             if (attempt == maxRetries)
             {
                 logger.LogError(ex, "❌ [AutoMigration] Lỗi: Không thể tự động migration database sau {MaxRetries} lần thử.", maxRetries);
+                throw new InvalidOperationException("Database migration failed. Backend startup was stopped to prevent requests against an outdated schema.", ex);
             }
             else
             {
@@ -152,6 +178,21 @@ if (!app.Environment.IsEnvironment("Testing"))
     catch (Exception ex)
     {
         logger.LogWarning(ex, "Knowledge base seeding encountered an issue during startup");
+    }
+
+    try
+    {
+        // Khoá/model Gemini Admin đã nhập ở Cài đặt nền tảng được ưu tiên hơn cấu hình môi trường.
+        await SmartFarm.Infrastructure.Platform.GeminiRuntimeSettings.ApplyAsync(
+            db,
+            scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SmartFarm.Infrastructure.Identity.JwtOptions>>().Value.SigningKey,
+            scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SmartFarm.Infrastructure.Ai.GeminiOptions>>().Value,
+            scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SmartFarm.Infrastructure.Ai.Knowledge.GeminiEmbeddingOptions>>().Value,
+            logger, CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Applying Gemini settings from platform settings failed during startup");
     }
 
     try

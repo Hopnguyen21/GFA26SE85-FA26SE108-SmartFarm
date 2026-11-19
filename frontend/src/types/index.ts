@@ -325,6 +325,8 @@ export interface Gateway {
 
 export interface SensorNode {
   nodeId: string;
+  hardwareItemId?: string;
+  contractCode?: string;
   gatewayId?: string;
   farmId: string;
   fieldId?: string;
@@ -598,7 +600,7 @@ export interface ServiceRequest {
   title: string;
   description: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  status: 'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'DIAGNOSED' | 'WORK_COMPLETED' | 'VERIFIED' | 'RESOLVED' | 'CLOSED';
+  status: 'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'DIAGNOSED' | 'WORK_COMPLETED' | 'VERIFIED' | 'RESOLVED' | 'CLOSED' | 'CONTRACT_SENT' | 'CONTRACT_SIGNED_30PAID' | 'ACCEPTED_BY_OWNER';
   requestType: 'INSTALLATION' | 'MAINTENANCE' | 'REPAIR' | 'REPLACEMENT' | 'INITIAL_SETUP';
   isAcceptedByOwner?: boolean;
   acceptedAtByOwner?: string;
@@ -992,6 +994,8 @@ export interface StockOut {
   notes?: string;
   createdAtUtc: string;
   details: StockOutDetail[];
+  /** Yêu cầu dịch vụ (lắp đặt) mà phiếu thuộc về; Admin duyệt xong thì KTV mới được Gắn Node ở yêu cầu đó. */
+  serviceRequestId?: string | null;
 }
 
 export type StockInStatus = 'Draft' | 'Pending' | 'Approved' | 'Completed' | 'Cancelled' | number;
@@ -1087,6 +1091,130 @@ export interface CustomPackageRequest {
   price: number;
   currency?: string;
 }
+
+// ─── Module 4: Mã Giảm Giá & Khuyến Mãi (Discount Codes) ─────────────────────
+export type DiscountType = 'Percentage' | 'FixedAmount' | 1 | 2;
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  description: string;
+  discountType: DiscountType;
+  discountTypeText: string;
+  discountValue: number;
+  minContractValue: number;
+  maxDiscountAmount?: number | null;
+  startDateUtc?: string | null;
+  endDateUtc?: string | null;
+  usageLimit?: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdByUserId: string;
+  createdByName: string;
+  createdAtUtc: string;
+}
+
+export interface ValidateDiscountResult {
+  isValid: boolean;
+  message?: string;
+  code?: string;
+  discountType?: DiscountType;
+  discountPercent: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
+export interface BestDiscountResult {
+  hasDiscount: boolean;
+  code?: string;
+  description?: string;
+  discountType?: DiscountType;
+  discountPercent: number;
+  discountAmount: number;
+  finalAmount: number;
+  note?: string;
+}
+
+// ─── Field Survey Report (Khảo sát thực địa) ─────────────────────────
+export interface FieldSurveyReport {
+  id: string;
+  farmId: string;
+  farmName: string;
+  tenantId: string;
+  serviceRequestId?: string | null;
+  serviceRequestTitle?: string | null;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  title: string;
+  surveyDate: string;
+  location: string;
+  surveyorName: string;
+  representativeName: string;
+  farmOverview: string;
+  cropAndSeasonStatus: string;
+  cultivationProcess: string;
+  environmentalMonitoring: string;
+  environmentalThresholdNeeds: string;
+  equipmentAndDataCollection: string;
+  managementAndPermissions: string;
+  difficultiesAndNeeds: string;
+  teamAssessment: string;
+  status: 'Draft' | 'Submitted' | 'Approved';
+  createdByUserId: string;
+  createdByUserName: string;
+  createdAtUtc: string;
+  updatedAtUtc?: string | null;
+}
+
+export interface CreateFieldSurveyReportPayload {
+  farmId: string;
+  serviceRequestId?: string | null;
+  zoneId?: string | null;
+  title: string;
+  surveyDate: string;
+  location?: string;
+  surveyorName?: string;
+  representativeName?: string;
+  farmOverview?: string;
+  cropAndSeasonStatus?: string;
+  cultivationProcess?: string;
+  environmentalMonitoring?: string;
+  environmentalThresholdNeeds?: string;
+  equipmentAndDataCollection?: string;
+  managementAndPermissions?: string;
+  difficultiesAndNeeds?: string;
+  teamAssessment?: string;
+  status?: string;
+}
+
+export interface UpdateFieldSurveyReportPayload {
+  title: string;
+  surveyDate: string;
+  location?: string;
+  surveyorName?: string;
+  representativeName?: string;
+  farmOverview?: string;
+  cropAndSeasonStatus?: string;
+  cultivationProcess?: string;
+  environmentalMonitoring?: string;
+  environmentalThresholdNeeds?: string;
+  equipmentAndDataCollection?: string;
+  managementAndPermissions?: string;
+  difficultiesAndNeeds?: string;
+  teamAssessment?: string;
+  status?: string;
+}
+
+export interface FieldSurveyReportFilter {
+  farmId?: string;
+  serviceRequestId?: string;
+  zoneId?: string;
+  fromDate?: string;
+  toDate?: string;
+  status?: string;
+  search?: string;
+}
+
 
 
 

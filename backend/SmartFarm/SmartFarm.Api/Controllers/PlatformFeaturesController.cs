@@ -149,12 +149,36 @@ public sealed class PlatformFeaturesController(
     public async Task<ActionResult<PlatformHardwareItemView>> AssignHardwareItem(Guid id, [FromBody] AssignHardwareItemCommand command, CancellationToken ct)
         => Ok(await adminService.AssignHardwareItemAsync(id, command with { TechnicianUserId = User.IsInRole("PlatformTechnician") ? User.GetUserId() : command.TechnicianUserId }, ct));
 
+    [HttpPost("api/v1/platform/technicians/me/hardware-requests")]
+    [Authorize(Roles = "PlatformTechnician")]
+    public async Task<ActionResult<HardwareAllocationRequestView>> RequestHardwareAllocation([FromBody] IReadOnlyList<HardwareAllocationRequestItem> items, CancellationToken ct)
+        => StatusCode(StatusCodes.Status201Created, await adminService.RequestHardwareAllocationAsync(User.GetUserId(), items, ct));
+
+    [HttpGet("api/v1/platform/hardware-requests")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<IReadOnlyList<HardwareAllocationRequestView>>> ListHardwareAllocationRequests(CancellationToken ct)
+        => Ok(await adminService.ListHardwareAllocationRequestsAsync(ct));
+
+    [HttpPost("api/v1/platform/hardware-requests/{requestId:guid}/approve")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<HardwareAllocationRequestView>> ApproveHardwareAllocationRequest(Guid requestId, CancellationToken ct)
+        => Ok(await adminService.ApproveHardwareAllocationRequestAsync(requestId, User.GetUserId(), ct));
+    [HttpPost("api/v1/platform/hardware-requests/{requestId:guid}/reject")]
+    [Authorize(Roles = "PlatformAdmin")]
+    public async Task<ActionResult<HardwareAllocationRequestView>> RejectHardwareAllocationRequest(Guid requestId, [FromBody] RejectHardwareRequest body, CancellationToken ct)
+        => Ok(await adminService.RejectHardwareAllocationRequestAsync(requestId, User.GetUserId(), body.Reason, ct));
+
     [HttpPost("api/v1/platform/hardware-items/{id:guid}/return")]
     [Authorize(Roles = "PlatformTechnician,PlatformAdmin")]
     public async Task<ActionResult<PlatformHardwareItemView>> ReturnHardwareItem(Guid id, CancellationToken ct)
     {
-        return Ok(await adminService.ReturnHardwareItemAsync(id, ct));
+        return Ok(await adminService.ReturnHardwareItemAsync(id, User.IsInRole("PlatformTechnician") ? User.GetUserId() : null, ct));
     }
+
+    [HttpPost("api/v1/platform/hardware-items/{id:guid}/report-fault")]
+    [Authorize(Roles = "PlatformTechnician")]
+    public async Task<ActionResult<PlatformHardwareItemView>> ReportHardwareFault(Guid id, CancellationToken ct)
+        => Ok(await adminService.ReportHardwareFaultAsync(id, User.GetUserId(), ct));
 
     [HttpDelete("api/v1/platform/hardware-items/{id:guid}")]
     [Authorize(Roles = "PlatformAdmin")]
@@ -246,6 +270,7 @@ public sealed class PlatformFeaturesController(
 
     // ─── 8. Technician Spare Parts ────────────────────────────────────────────
     [HttpGet("api/v1/platform/technicians/me/spare-parts")]
+    [HttpGet("api/v1/platform/hardware-items/my-spare-parts")]
     [Authorize(Roles = "PlatformTechnician,FarmOwner,PlatformAdmin")]
     public async Task<ActionResult<IReadOnlyList<PlatformHardwareItemView>>> GetMySpareParts(CancellationToken ct)
     {
@@ -265,7 +290,7 @@ public sealed class PlatformFeaturesController(
 
     // ─── 10. Farm Weather Forecast ────────────────────────────────────────────
     [HttpGet("api/v1/farms/{farmId:guid}/weather")]
-    [Authorize(Roles = "Farmer,FarmOwner,PlatformAdmin")]
+    [Authorize(Roles = "Farmer,FarmOwner,PlatformAdmin,PlatformTechnician")]
     public async Task<ActionResult<FarmWeatherView>> GetFarmWeather(Guid farmId, CancellationToken ct)
     {
         return Ok(await weatherService.GetFarmWeatherAsync(User.GetUserId(), User.GetOptionalTenantId() ?? Guid.Empty, farmId, ct));
@@ -424,4 +449,9 @@ public sealed class ReverseGeocodeRequest
 public sealed class SearchLocationRequest
 {
     public string Query { get; init; } = string.Empty;
+}
+
+public sealed class RejectHardwareRequest
+{
+    public string Reason { get; init; } = string.Empty;
 }
