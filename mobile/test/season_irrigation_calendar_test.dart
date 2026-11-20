@@ -202,8 +202,10 @@ void main() {
   });
 
   group('màn hình', () {
+    Finder dayCell(int n) => find.byKey(ValueKey('calendar_day_$n'));
+
     testWidgets(
-      'tải từ backend theo Zone + vụ; phân biệt lịch mẫu và lịch tùy chỉnh; chọn hôm nay',
+      'tải từ backend theo Zone + vụ; hiển thị tiến trình, hôm nay, lịch tùy chỉnh và lịch mẫu',
       (tester) async {
         _route();
         await _pump(tester);
@@ -216,27 +218,28 @@ void main() {
           ),
           isTrue,
         );
-        expect(find.text('Vụ đông 2026'), findsOneWidget);
-        expect(find.textContaining('Hồ sơ: VietGAP Dưa lưới'), findsOneWidget);
-        expect(find.textContaining('hôm nay là ngày 2'), findsOneWidget);
-        expect(find.textContaining('Ba loại lịch khác nhau'), findsOneWidget);
-        // Ngày hôm nay (2) đang chọn: nguồn lịch mẫu của hồ sơ.
+        expect(find.text('Vụ đông 2026'), findsWidgets);
+        expect(find.textContaining('VietGAP Dưa lưới'), findsWidgets);
         expect(
-          find.textContaining('Nguồn: Lịch mẫu của hồ sơ'),
+          find.textContaining('Cuốn Lịch Tưới 3 Ca Vụ Mùa (6 Ngày)'),
           findsOneWidget,
         );
-        expect(find.textContaining('Mẫu · 06:00'), findsOneWidget);
-        // Chọn ngày 3 (override).
-        await tester.tap(find.byKey(const ValueKey('day_3')));
+        expect(find.textContaining('Hôm nay: Ngày 2/6'), findsOneWidget);
+        // Ngày hôm nay (2) đang chọn, chưa tùy chỉnh.
+        expect(find.text('Chi tiết Lịch Tưới Ngày 2'), findsOneWidget);
+        expect(find.text('HÔM NAY'), findsOneWidget);
+        expect(find.text('ĐÃ TÙY BIẾN'), findsNothing);
+        expect(
+          find.textContaining('Hôm nay (ngày 2) dùng lịch chuẩn VietGAP'),
+          findsOneWidget,
+        );
+        // Chọn ngày 3 (đã tùy chỉnh): có nhãn và giờ riêng 11:20.
+        await tester.tap(dayCell(3));
         await tester.pumpAndSettle();
-        expect(find.textContaining('Nguồn: Tùy chỉnh của vụ'), findsOneWidget);
-        expect(find.textContaining('Riêng ngày 3 · 11:20'), findsOneWidget);
-        expect(find.text('Khôi phục ngày'), findsOneWidget);
-        expect(
-          find.textContaining('dùng lịch theo giai đoạn của hồ sơ'),
-          findsOneWidget,
-          reason: 'hôm nay chưa override',
-        );
+        expect(find.text('Chi tiết Lịch Tưới Ngày 3'), findsOneWidget);
+        expect(find.text('ĐÃ TÙY BIẾN'), findsOneWidget);
+        expect(find.text('Bỏ tùy biến'), findsOneWidget);
+        expect(find.textContaining('11:20'), findsWidgets);
         expect(calls.where((c) => c.method != 'GET'), isEmpty);
       },
     );
@@ -244,31 +247,30 @@ void main() {
     testWidgets('lọc theo giai đoạn và nhảy về hôm nay', (tester) async {
       _route();
       await _pump(tester);
-      await tester.tap(find.text('Ra hoa').first);
+      // 6 ngày: giai đoạn 4 (Nuôi trái & Thu hoạch) gồm ngày 5-6.
+      await tester.tap(find.text('Nuôi trái & Thu hoạch'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('day_1')), findsNothing);
-      expect(find.byKey(const ValueKey('day_5')), findsOneWidget);
-      await tester.tap(find.text('Hôm nay'));
+      expect(dayCell(1), findsNothing);
+      expect(dayCell(5), findsOneWidget);
+      expect(find.textContaining('2 / 6 ngày'), findsOneWidget);
+      await tester.tap(find.text('Hôm nay (Ngày 2)'));
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('day_1')),
-        findsOneWidget,
-        reason: 'về lại Tất cả và chọn ngày 2',
-      );
-      expect(find.textContaining('Ngày 2 ·'), findsOneWidget);
+      expect(dayCell(1), findsOneWidget, reason: 'về lại Tất cả');
+      expect(find.text('Chi tiết Lịch Tưới Ngày 2'), findsOneWidget);
     });
 
     testWidgets(
-      'khôi phục một ngày: xác nhận → DELETE đúng ngày → hiển thị dữ liệu backend trả về',
+      'bỏ tùy biến một ngày: xác nhận → DELETE đúng ngày → hiển thị dữ liệu backend trả về',
       (tester) async {
         _route();
         await _pump(tester);
-        await tester.tap(find.byKey(const ValueKey('day_3')));
+        await tester.tap(dayCell(3));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Khôi phục ngày'));
+        await tester.ensureVisible(find.text('Bỏ tùy biến'));
+        await tester.tap(find.text('Bỏ tùy biến'));
         await tester.pumpAndSettle();
-        expect(find.text('Khôi phục ngày 3?'), findsOneWidget);
-        await tester.tap(find.text('Khôi phục'));
+        expect(find.text('Khôi phục Ngày 3 về chuẩn gốc?'), findsOneWidget);
+        await tester.tap(find.text('Khôi phục ngày này'));
         await tester.pumpAndSettle();
 
         final del = calls.singleWhere((c) => c.method == 'DELETE');
@@ -277,14 +279,11 @@ void main() {
           '/api/v1/zones/z1/planting-seasons/se1/irrigation-calendar/days/3',
         );
         expect(
-          find.textContaining('Đã khôi phục ngày 3 về lịch mẫu'),
+          find.textContaining('Đã khôi phục Ngày 3 về lịch mẫu chuẩn'),
           findsOneWidget,
         );
-        expect(
-          find.textContaining('Nguồn: Lịch mẫu của hồ sơ'),
-          findsOneWidget,
-        );
-        expect(find.text('Khôi phục ngày'), findsNothing);
+        expect(find.text('ĐÃ TÙY BIẾN'), findsNothing);
+        expect(find.text('Bỏ tùy biến'), findsNothing);
       },
     );
 
@@ -297,11 +296,12 @@ void main() {
           }, 409),
         );
         await _pump(tester);
-        await tester.ensureVisible(
-          find.text('Khôi phục toàn bộ mùa vụ về lịch mẫu'),
-        );
-        await tester.tap(find.text('Khôi phục toàn bộ mùa vụ về lịch mẫu'));
+        await tester.tap(find.byTooltip('Khôi phục chuẩn gốc'));
         await tester.pumpAndSettle();
+        expect(
+          find.text('Khôi phục toàn bộ mùa vụ về chuẩn gốc?'),
+          findsOneWidget,
+        );
         await tester.tap(find.text('Khôi phục tất cả'));
         await tester.pumpAndSettle();
 
@@ -323,12 +323,13 @@ void main() {
           onPut: (_) => utf8Json(_calendar(overrideDays: {1, 2, 3, 4, 5, 6})),
         );
         await _pump(tester);
-        await tester.tap(find.byKey(const ValueKey('day_3')));
+        await tester.tap(dayCell(3));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('Áp dụng cả vụ'));
+        await tester.ensureVisible(find.text('Áp dụng cả Vụ (6 ngày)'));
+        await tester.tap(find.text('Áp dụng cả Vụ (6 ngày)'));
+        await tester.pumpAndSettle();
+        expect(find.text('Áp dụng cho cả vụ (6 ngày)?'), findsOneWidget);
         await tester.tap(find.text('Áp dụng cả vụ'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Áp dụng'));
         await tester.pumpAndSettle();
 
         final put = calls.singleWhere((c) => c.method == 'PUT');
@@ -339,12 +340,13 @@ void main() {
         final days =
             (jsonDecode(put.body) as Map<String, dynamic>)['days'] as List;
         expect(days.map((d) => d['dayNumber']), [1, 2, 3, 4, 5, 6]);
-        final first =
-            (days.first['sessions'] as List).single as Map<String, dynamic>;
-        expect(first['title'], 'Riêng ngày 3');
-        expect(first['startTime'], '11:20');
+        final sessions = (days.first['sessions'] as List)
+            .cast<Map<String, dynamic>>();
+        expect(sessions.map((x) => x['startTime']), contains('11:20'));
         expect(
-          find.textContaining('Đã áp dụng ca tưới của ngày 3 cho 6 ngày'),
+          find.textContaining(
+            'Đã áp dụng lịch tưới Ngày 3 cho tất cả 6 ngày của mùa vụ',
+          ),
           findsOneWidget,
         );
       },
@@ -358,18 +360,18 @@ void main() {
             utf8Json({'message': 'Hai ca tưới không được trùng giờ'}, 400),
       );
       await _pump(tester);
-      await tester.tap(find.byKey(const ValueKey('day_3')));
+      await tester.tap(dayCell(3));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Áp dụng cả giai đoạn'));
-      await tester.tap(find.text('Áp dụng cả giai đoạn'));
+      await tester.ensureVisible(find.text('Áp dụng cả Giai đoạn này'));
+      await tester.tap(find.text('Áp dụng cả Giai đoạn này'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Áp dụng'));
+      await tester.tap(find.text('Áp dụng ngay'));
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Không lưu được: Hai ca tưới không được trùng giờ'),
         findsOneWidget,
       );
-      expect(find.textContaining('Đã áp dụng'), findsNothing);
+      expect(find.textContaining('Đã sao chép'), findsNothing);
     });
 
     testWidgets(
@@ -394,10 +396,7 @@ void main() {
           ),
         );
         await _pump(tester);
-        expect(
-          find.text('Vụ đã thay đổi sau lần lưu lịch cuối'),
-          findsOneWidget,
-        );
+        expect(find.text('Lưu ý thay đổi mùa vụ'), findsOneWidget);
         expect(
           find.textContaining('Ngày bắt đầu của vụ đã đổi'),
           findsOneWidget,
@@ -411,12 +410,13 @@ void main() {
     ) async {
       _route(calendar: _calendar(editable: false));
       await _pump(tester);
-      await tester.tap(find.byKey(const ValueKey('day_3')));
+      await tester.tap(dayCell(3));
       await tester.pumpAndSettle();
-      expect(find.textContaining('chỉ xem'), findsOneWidget);
-      expect(find.text('Sửa ngày này'), findsNothing);
-      expect(find.text('Khôi phục ngày'), findsNothing);
-      expect(find.text('Khôi phục toàn bộ mùa vụ về lịch mẫu'), findsNothing);
+      expect(find.textContaining('Bạn chỉ xem được'), findsOneWidget);
+      expect(find.textContaining('LƯU CẤU HÌNH NGÀY'), findsNothing);
+      expect(find.text('Bỏ tùy biến'), findsNothing);
+      expect(find.text('Áp dụng cả Giai đoạn này'), findsNothing);
+      expect(find.byTooltip('Khôi phục chuẩn gốc'), findsNothing);
     });
 
     testWidgets('Zone chưa có vụ: nói rõ, không bịa lịch', (tester) async {
@@ -437,6 +437,30 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Thử lại'), findsOneWidget);
+    });
+
+    testWidgets('không tràn ở 390px và 320px, chữ 1.3×', (tester) async {
+      for (final width in [390.0, 320.0]) {
+        _route();
+        tester.view.physicalSize = Size(width, 3000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (c, child) => MediaQuery(
+              data: MediaQuery.of(
+                c,
+              ).copyWith(textScaler: const TextScaler.linear(1.3)),
+              child: child!,
+            ),
+            home: SeasonIrrigationCalendarScreen(zone: _zone),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'width $width');
+      }
     });
   });
 }

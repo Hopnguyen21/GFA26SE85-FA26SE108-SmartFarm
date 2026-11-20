@@ -67,6 +67,9 @@ void main() {
   var seasonMissing = false;
   final cancels = <http.Request>[];
   var cancelConflict = false;
+  // Hợp đồng Zone trả về (rỗng = Zone chưa từng có hợp đồng); contractsHttp != 200 mô phỏng lỗi đọc.
+  var contracts = <Map<String, dynamic>>[];
+  var contractsHttp = 200;
   http.Response json(Object body, [int code = 200]) => http.Response(
     jsonEncode(body),
     code,
@@ -75,6 +78,11 @@ void main() {
 
   Future<http.Response> handler(http.Request r) async {
     final p = r.url.path;
+    if (r.method == 'GET' && p.endsWith('/zones/z1/contracts')) {
+      return contractsHttp == 200
+          ? json(contracts)
+          : json({'detail': 'Boom'}, contractsHttp);
+    }
     if (r.method == 'POST' && p.endsWith('/cancel')) {
       cancels.add(r);
       if (cancelConflict) {
@@ -161,6 +169,8 @@ void main() {
     seasonMissing = false;
     cancels.clear();
     cancelConflict = false;
+    contracts = [];
+    contractsHttp = 200;
   });
 
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -179,6 +189,79 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 200));
   }
+
+  Map<String, dynamic> zoneContract(
+    String status,
+    String end, {
+    int days = 100,
+  }) => {
+    'id': 'c-$status-$end',
+    'contractNumber': 'HD-$status',
+    'status': status,
+    'startDate': '2026-01-01',
+    'endDate': end,
+    'daysRemaining': days,
+    'lesseeName': 'Owner',
+  };
+  String ymd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  testWidgets('hợp đồng Zone đã hết hạn: ẩn nút gửi và nêu rõ lý do', (
+    tester,
+  ) async {
+    contracts = [zoneContract('Expired', '2026-03-01', days: -250)];
+    await pumpScreen(tester);
+    expect(find.text('Xác nhận gửi yêu cầu'), findsNothing);
+    expect(find.textContaining('đã hết hạn'), findsOneWidget);
+    expect(find.textContaining('HD-Expired'), findsOneWidget);
+  });
+
+  testWidgets(
+    'trạng thái còn Active nhưng đã quá ngày kết thúc: vẫn chặn (không tin riêng trạng thái)',
+    (tester) async {
+      contracts = [zoneContract('Active', '2026-01-31', days: 0)];
+      await pumpScreen(tester);
+      expect(find.text('Xác nhận gửi yêu cầu'), findsNothing);
+      expect(find.textContaining('đã hết hạn'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'có ít nhất một hợp đồng còn hạn (Active hoặc ExpiringSoon): có nút gửi',
+    (tester) async {
+      final soon = ymd(DateTime.now().add(const Duration(days: 20)));
+      contracts = [
+        zoneContract('Expired', '2026-03-01', days: -250),
+        zoneContract('ExpiringSoon', soon, days: 20),
+      ];
+      await pumpScreen(tester);
+      expect(find.text('Xác nhận gửi yêu cầu'), findsOneWidget);
+      expect(find.textContaining('đã hết hạn'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Zone chưa từng có hợp đồng: vẫn gửi được (lần lắp đặt đầu tiên)',
+    (tester) async {
+      contracts = [];
+      await pumpScreen(tester);
+      expect(find.text('Xác nhận gửi yêu cầu'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'không đọc được hợp đồng: chặn gửi, hiện lý do và nút Thử lại (không đoán)',
+    (tester) async {
+      contractsHttp = 500;
+      await pumpScreen(tester);
+      expect(find.text('Xác nhận gửi yêu cầu'), findsNothing);
+      expect(
+        find.textContaining('Không kiểm tra được hợp đồng'),
+        findsOneWidget,
+      );
+      expect(find.text('Thử lại'), findsWidgets);
+    },
+  );
 
   testWidgets(
     'hiển thị thông tin Zone và nội dung yêu cầu (thông số, dự toán, ghi chú, tóm tắt) trước khi gửi',

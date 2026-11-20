@@ -128,7 +128,7 @@ void main() {
   });
 
   testWidgets(
-    'Zone đang có vụ InProgress: cảnh báo nêu tên vụ + hướng xử lý TRƯỚC khi gửi, nút tạo bị khóa',
+    'Zone đang có vụ InProgress: KHÔNG mở biểu mẫu tạo vụ, hiện hộp thoại nêu tên vụ + hướng xử lý, không gửi gì',
     (tester) async {
       _route(
         seasons: [
@@ -142,12 +142,11 @@ void main() {
         ],
       );
       await _openSheet(tester);
+      expect(find.text('Zone đã có vụ đang canh tác'), findsOneWidget);
       expect(find.textContaining('Vụ đông 2026'), findsOneWidget);
       expect(find.textContaining('không tự đóng vụ đang chạy'), findsOneWidget);
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Tạo vụ trồng'),
-      );
-      expect(button.onPressed, isNull);
+      // Biểu mẫu tạo vụ không được mở: không có nút Tạo vụ trồng.
+      expect(find.widgetWithText(ElevatedButton, 'Tạo vụ trồng'), findsNothing);
       expect(calls.where((c) => c.method == 'POST'), isEmpty);
     },
   );
@@ -318,6 +317,50 @@ void main() {
       final body = jsonDecode(postCall!.body) as Map<String, dynamic>;
       expect(body['farmingSeasonId'], 'fs1');
       expect(body['name'], 'Vụ dưa test 2026');
+    },
+  );
+
+  testWidgets(
+    'sang năm mới chưa có mùa vụ chung: nhập tên để tạo mùa vụ mới (POST /seasons) và chọn luôn',
+    (tester) async {
+      _route();
+      final inner = handler;
+      handler = (r) async {
+        if (r.method == 'POST' && r.url.path == '/api/v1/seasons') {
+          return utf8Json({
+            'id': 'fs27',
+            'code': 'VU-2027-AB',
+            'name': 'Đông Xuân 2027',
+            'year': 2027,
+          }, 201);
+        }
+        return inner(r);
+      };
+      await _openSheet(tester);
+      await tester.tap(find.text('Không gắn mùa vụ chung (vụ độc lập)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('➕ Thêm mùa vụ chung mới…').last);
+      await tester.pumpAndSettle();
+      // Tên trống thì không gửi.
+      await tester.tap(find.text('Tạo mùa vụ'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hãy nhập tên mùa vụ.'), findsOneWidget);
+      expect(calls.where((c) => c.method == 'POST'), isEmpty);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Tên mùa vụ *'),
+        'Đông Xuân 2027',
+      );
+      await tester.tap(find.text('Tạo mùa vụ'));
+      await tester.pumpAndSettle();
+      final post = calls.firstWhere((c) => c.method == 'POST');
+      final body = jsonDecode(post.body) as Map<String, dynamic>;
+      expect(body['name'], 'Đông Xuân 2027');
+      expect(body['year'], isA<int>());
+      expect(body['startDate'], isNotNull);
+      expect(body['endDate'], isNotNull);
+      // Mùa vụ mới được chọn sẵn cho vụ trồng.
+      expect(find.textContaining('Đông Xuân 2027'), findsWidgets);
     },
   );
 }

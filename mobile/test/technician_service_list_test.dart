@@ -79,7 +79,15 @@ void main() {
       zone: 'z3',
     ),
     _sr('r1', 'GATEWAY_DOWN', 'Verified', desc: 'Đã thay gateway.', zone: 'z2'),
-    _sr('c1', 'INSTALLATION', 'Closed', desc: 'Đã nghiệm thu.', zone: 'z4'),
+    // Phiếu đã đóng: Zone z4 không có trong danh sách Zone đã tải của kỹ thuật viên, tên lấy từ chính phiếu (backend trả).
+    _sr(
+      'c1',
+      'INSTALLATION',
+      'Closed',
+      desc: 'Đã nghiệm thu.',
+      zone: 'z4',
+      extra: {'farmName': 'Nông trại Đất Màu', 'zoneName': 'Nhà Cà Chua'},
+    ),
   ];
 
   void route({Map<String, Object?>? quotation, int nodes = 3}) {
@@ -149,14 +157,14 @@ void main() {
       route(quotation: {'status': 'SignedByOwner'});
       await pumpList(tester);
 
-      // Ô tóm tắt: 2 lắp đặt chưa đóng, 1 bảo trì, 1 sẵn sàng đóng, 1 đã đóng.
+      // Chip lọc kèm số lượng: 2 lắp đặt chưa đóng, 1 bảo trì, 1 sẵn sàng đóng, 1 đã đóng.
       for (final label in [
-        'Lắp đặt mới',
-        'Bảo trì / sửa chữa',
-        'Sẵn sàng đóng',
-        'Đã đóng',
+        'Lắp đặt mới · 2',
+        'Bảo trì / sửa chữa · 1',
+        'Sẵn sàng đóng · 1',
+        'Đã đóng · 1',
       ]) {
-        expect(find.text(label), findsWidgets, reason: label);
+        expect(find.text(label), findsOneWidget, reason: label);
       }
       expect(find.text('SENSOR_OFFLINE'), findsOneWidget);
       expect(find.text('GATEWAY_DOWN'), findsOneWidget);
@@ -174,24 +182,38 @@ void main() {
     },
   );
 
-  testWidgets('yêu cầu mới giao lên trước, yêu cầu đã đóng xuống cuối', (
-    tester,
-  ) async {
-    route();
-    await pumpList(tester);
-    double y(String text) => tester.getTopLeft(find.text(text)).dy;
-    expect(
-      y('Cảm biến độ ẩm mất tín hiệu') <
-          y('Yêu cầu khảo sát và lắp đặt IoT cho Zone'),
-      isTrue,
-      reason: 'Assigned trước InProgress',
-    );
-    expect(
-      y('Yêu cầu khảo sát và lắp đặt IoT cho Zone') < y('Đã thay gateway'),
-      isTrue,
-    );
-    expect(y('Đã thay gateway') < y('Đã nghiệm thu'), isTrue);
-  });
+  testWidgets(
+    'yêu cầu mới giao lên trước; việc đã đóng mặc định bị ẩn và xem được ở bộ lọc "Đã đóng"',
+    (tester) async {
+      route();
+      await pumpList(tester);
+      double y(String text) => tester.getTopLeft(find.text(text)).dy;
+      expect(
+        y('Cảm biến độ ẩm mất tín hiệu') <
+            y('Yêu cầu khảo sát và lắp đặt IoT cho Zone'),
+        isTrue,
+        reason: 'Assigned trước InProgress',
+      );
+      expect(
+        y('Yêu cầu khảo sát và lắp đặt IoT cho Zone') < y('Đã thay gateway'),
+        isTrue,
+      );
+      // Việc đã đóng không chiếm đầu danh sách: ẩn mặc định, có lối xem.
+      expect(find.text('Đã nghiệm thu'), findsNothing);
+      expect(find.textContaining('Đã ẩn 1 việc đã đóng'), findsOneWidget);
+
+      await tester.tap(find.text('Đã đóng · 1'));
+      await tester.pumpAndSettle();
+      // Thẻ đã đóng gọn một hàng, không còn khối "Việc tiếp theo: Đã đóng công việc".
+      expect(find.textContaining('Việc tiếp theo'), findsNothing);
+      // Tên Zone · trang trại hiện từ dữ liệu của phiếu dù Zone không nằm trong danh sách đã tải.
+      expect(
+        find.textContaining('Nhà Cà Chua · Nông trại Đất Màu'),
+        findsOneWidget,
+      );
+      expect(find.text('Cảm biến độ ẩm mất tín hiệu'), findsNothing);
+    },
+  );
 
   testWidgets(
     'yêu cầu lắp đặt: hiện giai đoạn hợp đồng và số node đã chấm; thiếu dữ liệu thì không điền số giả',
@@ -215,7 +237,7 @@ void main() {
       route();
       await pumpList(tester);
 
-      await tester.tap(find.text('Sẵn sàng đóng'));
+      await tester.tap(find.text('Sẵn sàng đóng · 1'));
       await tester.pumpAndSettle();
       expect(find.text('Đã thay gateway'), findsOneWidget);
       expect(find.text('Cảm biến độ ẩm mất tín hiệu'), findsNothing);

@@ -13,7 +13,6 @@ import '../tasks/alerts_tasks_screen.dart';
 import '../zones/zone_detail_screen.dart';
 import '../crops/crop_profiles_screen.dart';
 import '../irrigation/schedules_automation_screen.dart';
-import '../irrigation/season_irrigation_calendar_screen.dart';
 import '../support/support_requests_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../workforce/workforce_screen.dart';
@@ -27,6 +26,7 @@ import '../../core/utils/crop_emoji.dart';
 import 'widgets/zone_temperature_gauge.dart';
 import 'zone_sensor_thresholds.dart';
 import 'widgets/owner_pending_actions_card.dart';
+import 'widgets/zone_today_irrigation_card.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/user_error.dart';
 

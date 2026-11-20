@@ -83,7 +83,8 @@ void main() {
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
         await tester.pump(const Duration(milliseconds: 50));
         await tester.pump();
-        expect(find.textContaining('LG308N'), findsWidgets);
+        // Bảng chỉ nêu loại + số lượng cần; thiết bị cụ thể chọn ở hợp đồng.
+        expect(find.textContaining('LG308N'), findsNothing);
         expect(find.textContaining('4.500.000 đ'), findsWidgets);
         expect(find.textContaining('Node cảm biến'), findsWidgets);
         // 3 dòng chi tiết (node, van, phụ kiện) + 2 thẻ tóm tắt (node, van) cùng báo thiếu dữ liệu.
@@ -263,7 +264,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
         await tester.pump();
         expect(find.textContaining('TỔNG CHI PHÍ ƯỚC TÍNH'), findsOneWidget);
-        expect(find.textContaining('22.400.000 đ'), findsWidgets);
+        expect(find.textContaining('19.250.000 đ'), findsWidgets);
         expect(find.text('Chưa có dữ liệu'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
@@ -361,13 +362,68 @@ void main() {
         );
         expect(
           find.textContaining(
-            'Đã gắn trong Zone: 1 gateway, 3 node cảm biến, 1 node van/bơm',
+            'Đã có: 1 gateway, 3 node cảm biến, 1 node van/bơm trong Zone',
           ),
           findsOneWidget,
         );
         // cần 2 van, đã gắn 1 → bổ sung 1 van (2.000.000) + 1 phụ kiện (100.000) + thi công 500.000 = 2.600.000
         expect(find.textContaining('2.600.000 đ'), findsWidgets);
         expect(find.textContaining('TỔNG CHI PHÍ ƯỚC TÍNH'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }, () => MockClient((req) => _handler(req)));
+    },
+  );
+
+  testWidgets(
+    'Zone chưa gắn thiết bị nhưng trang trại đã có gateway: tải gateway của trang trại, không tính mua thêm gateway',
+    (tester) async {
+      final catalog = [
+        {
+          'id': 'g',
+          'code': 'GW',
+          'name': 'Gateway',
+          'category': 'Gateway',
+          'unitPrice': 3800000,
+          'status': 'InStock',
+          'estimateRole': 'Gateway',
+          'estimateUnits': 1,
+        },
+      ];
+      final paths = <String>[];
+      _handler = (r) async {
+        paths.add(r.url.path);
+        if (r.url.path.endsWith('/gateways')) {
+          return http.Response(
+            jsonEncode([
+              {'gatewayId': 'farm-gw', 'status': 'Offline'},
+            ]),
+            200,
+          );
+        }
+        if (r.url.path.endsWith('/devices')) {
+          return http.Response('[]', 200);
+        }
+        return http.Response(jsonEncode(catalog), 200);
+      };
+      await http.runWithClient(() async {
+        await pumpCard(
+          tester,
+          ZoneHoneycombEstimateCard(
+            zoneId: 'z1',
+            farmId: 'f1',
+            areaM2: 405,
+            cropName: 'Cà chua',
+            measurementParameters: const ['Temperature'],
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump();
+        expect(paths, contains('/api/v1/farms/f1/gateways'));
+        expect(
+          find.textContaining('1 gateway (1 thuộc trang trại)'),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       }, () => MockClient((req) => _handler(req)));

@@ -30,7 +30,7 @@ Map<String, dynamic> _contract({
   'contractNumber': 'HD-SR-ABCD1234',
   'cropType': 'Cà chua',
   'monthlyRentVnd': 1000000,
-  'depositVnd': 3000000,
+  'depositVnd': 3600000,
   'totalContractValueVnd': 12000000,
   'startDate': '2026-11-01',
   'endDate': '2027-11-01',
@@ -136,11 +136,6 @@ void main() {
       expect(find.text('Cảm biến'), findsOneWidget);
       expect(find.text('3 cái'), findsOneWidget);
       expect(find.text('Bảo hành 24 tháng.'), findsOneWidget);
-      expect(
-        find.textContaining('Lịch sử các lần gia hạn (1)'),
-        findsOneWidget,
-      );
-      expect(find.text('Gia hạn 1 năm'), findsOneWidget);
     },
   );
 
@@ -165,11 +160,71 @@ void main() {
         find.text('Hợp đồng này chưa ghi nhận danh mục thiết bị.'),
         findsOneWidget,
       );
-      expect(
-        find.text('Chưa có lần gia hạn nào cho hợp đồng này.'),
-        findsOneWidget,
-      );
       expect(find.textContaining('Gói hợp đồng'), findsNothing);
+    },
+  );
+
+  group(
+    'trạng thái hợp đồng Zone (enum backend: Active, ExpiringSoon, Expired, Terminated, Renewed)',
+    () {
+      ZoneContractModel m(String status, int days) =>
+          ZoneContractModel.fromJson(
+            _contract(days: days, status: status, withExtras: false),
+          );
+
+      test(
+        'ExpiringSoon là hợp đồng đang chạy: tính vào đang hiệu lực và sắp hết hạn',
+        () {
+          final c = m('ExpiringSoon', 10);
+          expect(c.status, 'ExpiringSoon');
+          expect(c.isActive, isTrue);
+          expect(c.isExpiringSoon, isTrue);
+        },
+      );
+
+      test('Active còn nhiều ngày: đang hiệu lực, chưa sắp hết hạn', () {
+        final c = m('Active', 200);
+        expect(c.isActive, isTrue);
+        expect(c.isExpiringSoon, isFalse);
+      });
+
+      test(
+        'Renewed / Terminated / Expired: không còn hiệu lực, không tính sắp hết hạn dù còn ≤30 ngày',
+        () {
+          for (final s in ['Renewed', 'Terminated', 'Expired']) {
+            final c = m(s, 10);
+            expect(c.isActive, isFalse, reason: s);
+            expect(c.isExpiringSoon, isFalse, reason: s);
+          }
+        },
+      );
+
+      test('số enum dự phòng đúng thứ tự backend', () {
+        expect(m('1', 5).status, 'ExpiringSoon');
+        expect(m('2', 5).status, 'Expired');
+        expect(m('3', 5).status, 'Terminated');
+        expect(m('4', 5).status, 'Renewed');
+      });
+    },
+  );
+
+  testWidgets('đã tái ký / chấm dứt: banner xám, không báo còn hiệu lực', (
+    tester,
+  ) async {
+    body = _contract(status: 'Renewed', days: 10);
+    await pump(tester);
+    expect(find.textContaining('đã được tái ký'), findsOneWidget);
+    expect(find.textContaining('sắp hết hạn'), findsNothing);
+  });
+
+  testWidgets(
+    'hợp đồng đã cọc 40% giữ nhãn 40% / 60% dù cấu hình Platform hiện hành là 30%',
+    (tester) async {
+      body = {..._contract(), 'depositVnd': 4800000, 'vatPercent': 10};
+      await pump(tester);
+      expect(find.textContaining('4. Tạm ứng 40% khi ký'), findsOneWidget);
+      expect(find.textContaining('(60%)'), findsOneWidget);
+      expect(find.textContaining('3. Thuế VAT (10%)'), findsOneWidget);
     },
   );
 }

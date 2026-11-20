@@ -54,14 +54,29 @@ void main() {
     () {
       final est = estimate(full);
       final items = quotationItemsFromEstimate(est);
-      final codes = [for (final i in items) i.code];
-      expect(codes, containsAll(['GW', 'SN', 'VALVE', 'INSTALLATION']));
+      // Dựng theo LOẠI + số lượng (mã trống, tên là tên loại); thiết bị cụ thể do kỹ thuật viên chọn từ kho ở hợp đồng.
+      expect(
+        [for (final i in items) i.name],
+        containsAll([
+          'Gateway LoRa',
+          'Node cảm biến',
+          'Node điều khiển van/bơm',
+          'Vật tư phụ kiện',
+          'Thi công, định vị GPS & cấu hình mạng mesh',
+        ]),
+      );
+      expect(
+        items
+            .where((i) => i.category != 'SERVICE')
+            .every((i) => i.code.isEmpty),
+        isTrue,
+      );
       expect(items.every((i) => i.quantity > 0 && i.unitPrice > 0), isTrue);
       // Tiền hàng chưa thuế của các dòng báo giá bằng tổng dự toán của Owner (cùng thuật toán).
       final net = items.fold<double>(0, (s, i) => s + i.quantity * i.unitPrice);
       expect(net, closeTo((est.total ?? est.partialTotal)!, 0.5));
       // Gắn nhãn rõ là ước tính, đúng loại/ĐVT như bản nháp từ dự toán đã lưu.
-      final gw = items.firstWhere((i) => i.code == 'GW');
+      final gw = items.firstWhere((i) => i.category == 'GATEWAY');
       expect([gw.category, gw.unit, gw.vatPercent], ['GATEWAY', 'Trạm', 8.0]);
       expect(gw.notes, contains('ước tính theo diện tích Zone'));
       expect(items.last.code, 'INSTALLATION');
@@ -82,7 +97,7 @@ void main() {
     expect(
       quotationItemsFromEstimate(
         estimate(noPrice),
-      ).where((i) => i.code == 'GW'),
+      ).where((i) => i.category == 'GATEWAY'),
       isEmpty,
     );
   });

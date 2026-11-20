@@ -19,13 +19,28 @@ http.Response _json(Object body, [int code = 200]) => http.Response.bytes(
 
 bool withContext = false;
 
+/// Số Node đã chấm vị trí trên bản đồ Zone mà máy chủ trả về.
+int placedNodes = 3;
+
+/// Kế hoạch thiết bị của đợt triển khai trống (Owner chỉ gửi dự toán, kỹ thuật viên chưa lập kế hoạch).
+bool emptyPlan = false;
+
 Map<String, dynamic> _deployment(String status, {bool feasible = true}) => {
   'requestId': 'dep1',
   'farmId': 'f1',
   'zoneId': 'z1',
   'status': status,
   'requiredParameters': ['Temperature'],
-  'planItems': [],
+  'planItems': emptyPlan
+      ? []
+      : [
+          {
+            'deviceModelId': 'm1',
+            'modelName': 'Node cảm biến',
+            'deviceType': 'SensorNode',
+            'quantity': 2,
+          },
+        ],
   if (withContext) ...{
     'estimateItems': [
       {
@@ -61,6 +76,10 @@ Map<String, dynamic> _deployment(String status, {bool feasible = true}) => {
   'decisionHistory': [],
 };
 
+/// Phiếu xuất kho của hợp đồng trả về cho GET /stock-outs (null = chưa có phiếu).
+String? voucherStatus = 'Approved';
+int voucherHttp = 200;
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final calls = <http.Request>[];
@@ -74,21 +93,77 @@ void main() {
   var srFarm = 'f1';
   String? quote = 'SignedByOwner';
   var quoteFail = false; // báo giá trả lỗi 500
+  var srDepositFlag = false; // cờ isDepositPaid trên phiếu dịch vụ
 
   Future<http.Response> handler(http.Request r) async {
     calls.add(r);
     final p = r.url.path;
+    if (p.contains('/field-survey-reports')) {
+      if (r.method == 'GET') return http.Response('', 404); // chưa có báo cáo
+      if (r.method == 'POST') {
+        final b = jsonDecode(r.body) as Map<String, dynamic>;
+        return _json({
+          ...b,
+          'id': 'rep1',
+          'farmName': 'Trang trại A',
+          'createdByUserName': 'KTV',
+        }, 201);
+      }
+    }
     if (r.method == 'GET' && p.endsWith('/service-requests/s1')) {
       return _json({
         'id': 's1',
         'failureCode': code,
         'description': 'Lắp đặt IoT',
         'status': srStatus,
+        'isDepositPaid': srDepositFlag,
+        'isContractSigned': srDepositFlag,
         'deploymentRequestId': 'dep1',
         'farmId': srFarm,
         'zoneId': 'z1',
         'history': <Object>[],
       });
+    }
+    if (r.method == 'POST' && p.endsWith('/stock-outs')) {
+      return _json({
+        'id': 'new1',
+        'stockOutCode': 'PXK-N',
+        'status': 'Draft',
+        'notes': 'x',
+        'details': <Object>[],
+      }, 201);
+    }
+    if (r.method == 'PUT' &&
+        p.contains('/stock-outs/') &&
+        p.endsWith('/status')) {
+      return _json({
+        'id': 'new1',
+        'stockOutCode': 'PXK-N',
+        'status': 'Pending',
+        'statusText': 'Chờ duyệt',
+        'notes': 'x',
+        'details': <Object>[],
+      });
+    }
+    // Phiếu xuất kho của hợp đồng (báo giá q1 → HD-SR-Q1): mặc định đã được Admin duyệt.
+    if (r.method == 'GET' && p.endsWith('/stock-outs')) {
+      if (voucherHttp != 200) return _json({'detail': 'boom'}, voucherHttp);
+      return _json(
+        voucherStatus == null
+            ? <Object>[]
+            : [
+                {
+                  'id': 'so1',
+                  'stockOutCode': 'PXK-T1',
+                  'status': voucherStatus,
+                  'statusText': voucherStatus,
+                  'zoneId': '',
+                  'notes': '[KTV tạo từ HĐ #HD-SR-Q1] test',
+                  'createdAtUtc': '2026-11-12T00:00:00Z',
+                  'details': <Object>[],
+                },
+              ],
+      );
     }
     if (p.endsWith('/service-requests/s1/quotation')) {
       if (quoteFail) return _json({'detail': 'boom'}, 500);
@@ -123,9 +198,7 @@ void main() {
     if (p.endsWith('/zones/z1/devices')) return _json([]);
     if (p.endsWith('/devices/map-locations')) {
       return _json([
-        {'deviceId': 'a'},
-        {'deviceId': 'b'},
-        {'deviceId': 'c'},
+        for (final id in ['a', 'b', 'c'].take(placedNodes)) {'deviceId': id},
       ]);
     }
     if (r.method == 'GET' && p.endsWith('/platform/deployment-requests/dep1')) {
@@ -162,6 +235,8 @@ void main() {
 
   setUp(() {
     calls.clear();
+    voucherStatus = 'Approved';
+    voucherHttp = 200;
     code = 'NEW_INSTALL';
     srStatus = 'InProgress';
     depStatus = 'Accepted';
@@ -170,9 +245,12 @@ void main() {
     srFarm = 'f1';
     quote = 'SignedByOwner';
     quoteFail = false;
+    srDepositFlag = false;
     estimate = [];
     hwItems = [];
     withContext = false;
+    emptyPlan = false;
+    placedNodes = 3;
   });
 
   Future<void> pump(WidgetTester tester) async {
@@ -218,10 +296,10 @@ void main() {
   );
 
   testWidgets(
-    'nút Soạn báo giá & hợp đồng luôn có (như web), kể cả khi triển khai mới ở bước Accepted; mở ra là có sẵn dự toán của Owner',
+    'khảo sát xong: có nút Soạn báo giá & hợp đồng; mở ra là có sẵn dự toán của Owner',
     (tester) async {
       quote = null;
-      depStatus = 'Accepted';
+      depStatus = 'Surveyed';
       estimate = [
         {
           'code': 'GW-ESP32-DL01',
@@ -239,7 +317,10 @@ void main() {
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Đã dựng sẵn 1 hạng mục'), findsWidgets);
-      expect(find.text('Trạm Central Gateway'), findsOneWidget);
+      // Dòng dựng theo LOẠI + số lượng đề xuất; thiết bị cụ thể chọn từ kho bằng dropdown.
+      expect(find.text('Gateway LoRa'), findsOneWidget);
+      expect(find.text('Chưa chọn thiết bị'), findsOneWidget);
+      expect(find.text('Trạm Central Gateway'), findsNothing);
       expect(find.text('4.104.000 đ'), findsWidgets);
     },
   );
@@ -274,14 +355,14 @@ void main() {
   );
 
   testWidgets(
-    'phiếu lắp đặt mới giao: KHÔNG có nút Nhận việc; vào thẳng bước triển khai (khảo sát), không có Xác nhận kế hoạch',
+    'phiếu lắp đặt mới giao: KHÔNG có nút Nhận việc và không còn nút nhập khảo sát thực địa, không có Xác nhận kế hoạch',
     (tester) async {
       srStatus = 'Assigned';
       quote = null;
       depStatus = 'Accepted';
       await pump(tester);
       expect(find.text('Nhận việc'), findsNothing);
-      expect(find.text('Ghi nhận khảo sát địa điểm'), findsOneWidget);
+      expect(find.text('Ghi nhận khảo sát địa điểm'), findsNothing);
       expect(find.text('Xác nhận kế hoạch'), findsNothing);
       expect(find.textContaining('Gắn Node ('), findsNothing);
       expect(posts(), isEmpty);
@@ -310,71 +391,12 @@ void main() {
     expect(posts(), isEmpty);
   });
 
-  testWidgets('đã nhận triển khai: khảo sát bắt buộc nhập đủ rồi mới gửi', (
-    tester,
-  ) async {
-    quote = null;
-    await pump(tester);
-    await tester.tap(find.text('Ghi nhận khảo sát địa điểm'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Ghi nhận'));
-    await tester.pumpAndSettle();
-    // Không mặc định "khả thi": phải chọn rõ.
-    expect(find.text('Hãy chọn khả thi hoặc không khả thi.'), findsOneWidget);
-    expect(find.text('Cần nhập điều kiện địa điểm.'), findsOneWidget);
-    expect(find.text('Cần nhập ghi chú khảo sát.'), findsOneWidget);
-    expect(posts(), isEmpty); // hộp thoại không đóng khi còn thiếu
-    await tester.tap(find.text('Khả thi'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'Cạnh nhà kho');
-    await tester.enterText(find.byType(TextField).at(1), 'Đủ chỗ đặt gateway');
-    await tester.tap(find.widgetWithText(FilledButton, 'Ghi nhận'));
-    await tester.pumpAndSettle();
-    final post = posts().single;
-    expect(
-      post.url.path,
-      endsWith('/platform/deployment-requests/dep1/survey'),
-    );
-    expect(jsonDecode(post.body), {
-      'isFeasible': true,
-      'siteConditions': 'Cạnh nhà kho',
-      'notes': 'Đủ chỗ đặt gateway',
-    });
-  });
-
-  testWidgets(
-    'khảo sát không khả thi: bắt buộc ghi lý do, gửi isFeasible=false',
-    (tester) async {
-      quote = null;
-      await pump(tester);
-      await tester.tap(find.text('Ghi nhận khảo sát địa điểm'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Không khả thi'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), 'Đất ngập nước');
-      await tester.tap(find.widgetWithText(FilledButton, 'Ghi nhận'));
-      await tester.pumpAndSettle();
-      expect(find.text('Cần ghi rõ lý do không khả thi.'), findsOneWidget);
-      expect(posts(), isEmpty);
-      await tester.enterText(
-        find.byType(TextField).at(1),
-        'Không có nguồn điện',
-      );
-      await tester.tap(find.widgetWithText(FilledButton, 'Ghi nhận'));
-      await tester.pumpAndSettle();
-      expect(jsonDecode(posts().single.body), {
-        'isFeasible': false,
-        'siteConditions': 'Đất ngập nước',
-        'notes': 'Không có nguồn điện',
-      });
-    },
-  );
-
   testWidgets('KTV thấy Farm/Thửa/Zone, cây trồng và thiết bị Owner đề xuất', (
     tester,
   ) async {
     depStatus = 'Accepted';
     withContext = true;
+    emptyPlan = true; // Owner mới gửi dự toán, chưa có kế hoạch thiết bị
     await pump(tester);
     expect(
       find.textContaining('Farm: Trại A · Thửa: Thửa 1 · Zone: Zone 1'),
@@ -415,22 +437,89 @@ void main() {
   );
 
   testWidgets(
-    'khảo sát khả thi: không có nút xác nhận kế hoạch; không khả thi: chặn và báo rõ',
+    'đã nhận yêu cầu (Accepted): phải điền khảo sát thực địa; chưa điền thì CHƯA có nút xem/xác nhận hợp đồng',
+    (tester) async {
+      quote = null;
+      depStatus = 'Accepted';
+      await pump(tester);
+      expect(find.text('Lập báo cáo khảo sát thực địa'), findsOneWidget);
+      expect(find.text('Soạn báo giá & hợp đồng'), findsNothing);
+      expect(find.byKey(const ValueKey('survey-first')), findsOneWidget);
+      expect(find.textContaining('Nộp xong mới hiện nút xem'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'lập báo cáo khảo sát: bắt buộc tiêu đề và kết luận khả thi; nộp thì lưu báo cáo rồi gửi khảo sát với kết luận KTV chọn',
+    (tester) async {
+      quote = null;
+      depStatus = 'Accepted';
+      await pump(tester);
+      calls.clear();
+      await http.runWithClient(() async {
+        await tester.tap(find.text('Lập báo cáo khảo sát thực địa'));
+        await tester.pumpAndSettle();
+        expect(find.text('Lập báo cáo khảo sát thực địa'), findsWidgets);
+        // chưa chọn kết luận: không gửi gì
+        await tester.tap(find.byKey(const ValueKey('fs-submit')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Chọn kết luận khảo sát'), findsOneWidget);
+        expect(posts(), isEmpty);
+        // nhập địa điểm + đánh giá, chọn Khả thi rồi nộp
+        await tester.enterText(
+          find.byKey(const ValueKey('fs-location')),
+          'Thôn 3, Đà Lạt',
+        );
+        await tester.ensureVisible(find.byKey(const ValueKey('fs-feasible')));
+        await tester.tap(find.byKey(const ValueKey('fs-feasible')));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('fs-submit')));
+        await tester.pumpAndSettle();
+      }, () => MockClient(handler));
+      final report = posts().where(
+        (c) => c.url.path.endsWith('/field-survey-reports'),
+      );
+      expect(report, hasLength(1));
+      final rb = jsonDecode(report.single.body) as Map;
+      expect(rb['status'], 'Submitted');
+      expect(rb['serviceRequestId'], 's1');
+      expect(rb['location'], 'Thôn 3, Đà Lạt');
+      expect(rb['title'], startsWith('Báo cáo khảo sát thực địa'));
+      final survey = posts().where((c) => c.url.path.endsWith('/survey'));
+      expect(survey, hasLength(1));
+      final body = jsonDecode(survey.single.body) as Map;
+      expect(body['isFeasible'], true);
+      expect(body['siteConditions'], contains('Thôn 3, Đà Lạt'));
+      expect((body['notes'] as String).isNotEmpty, isTrue);
+    },
+  );
+
+  testWidgets(
+    'khảo sát khả thi: không còn nút Xác nhận kế hoạch (tự xác nhận khi gửi hợp đồng); không khả thi: báo rõ',
     (tester) async {
       depStatus = 'Surveyed';
       quote = null;
       await pump(tester);
-      // Không còn nút Xác nhận kế hoạch trên thẻ: khảo sát khả thi thì bước tiếp theo là tạo/gửi hợp đồng.
-      expect(find.text('Xác nhận kế hoạch'), findsNothing);
+      // Kế hoạch tự được xác nhận khi KTV gửi hợp đồng nên không có nút riêng.
+      expect(
+        find.widgetWithText(FilledButton, 'Xác nhận kế hoạch'),
+        findsNothing,
+      );
       expect(find.text('Soạn báo giá & hợp đồng'), findsOneWidget);
       expect(posts(), isEmpty);
 
       calls.clear();
       feasible = false;
       await pump(tester);
-      expect(find.text('Xác nhận kế hoạch'), findsNothing);
-      expect(find.textContaining('KHÔNG khả thi'), findsOneWidget);
-      expect(find.text('Ghi nhận khảo sát khác'), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, 'Xác nhận kế hoạch'),
+        findsNothing,
+      );
+      expect(find.textContaining('KHÔNG khả thi'), findsWidgets);
+      // không khả thi: khoá hợp đồng, cho khảo sát lại
+      expect(find.text('Soạn báo giá & hợp đồng'), findsNothing);
+      expect(find.byKey(const ValueKey('survey-first')), findsOneWidget);
+      expect(find.text('Lập lại báo cáo khảo sát'), findsOneWidget);
     },
   );
 
@@ -449,8 +538,14 @@ void main() {
         depStatus = status;
         await pump(tester);
         expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
-        expect(find.text('Bắt đầu lắp đặt'), findsNothing);
+        // Sau cọc không còn "Xác nhận kế hoạch" (đã tự xác nhận); Đã khảo sát / Đã xác nhận kế hoạch → "Bắt đầu lắp đặt".
         expect(find.text('Xác nhận kế hoạch'), findsNothing);
+        expect(
+          find.text('Bắt đầu lắp đặt'),
+          status == 'PlanConfirmed' || status == 'Surveyed'
+              ? findsOneWidget
+              : findsNothing,
+        );
         expect(find.text('Nhận việc'), findsNothing);
         expect(posts(), isEmpty);
       }
@@ -508,18 +603,15 @@ void main() {
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Đã dựng sẵn 2 hạng mục'), findsWidgets);
-      expect(find.text('Thiết bị GW'), findsOneWidget);
-      expect(find.text('Thiết bị SN'), findsOneWidget);
+      expect(find.text('Gateway LoRa'), findsOneWidget);
+      expect(find.text('Node cảm biến'), findsOneWidget);
+      expect(find.text('Chưa chọn thiết bị'), findsNWidgets(2));
       expect(find.textContaining('(2/2)'), findsOneWidget);
       expect(find.text('6.804.000 đ'), findsOneWidget); // 6.300.000 + VAT 8%
       expect(find.text('2.041.200 đ'), findsOneWidget); // cọc 30%
-      // Loại hiển thị tiếng Việt (không phải mã thô GATEWAY/SENSOR_NODE) trong phần "Sửa chi tiết" của từng dòng.
-      await tester.tap(
-        find.text('Sửa chi tiết (mã, tên, loại, ghi chú)').first,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Gateway'), findsWidgets);
+      // Mỗi dòng thiết bị có dropdown chọn từ kho; không còn ô sửa tay mã/tên/giá.
       expect(find.text('GATEWAY'), findsNothing);
+      expect(find.text('Sửa chi tiết (mã, tên, loại, ghi chú)'), findsNothing);
     },
   );
 
@@ -532,10 +624,9 @@ void main() {
       await pump(tester);
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
-      expect(
-        find.byType(Checkbox),
-        findsOneWidget,
-      ); // chỉ một dòng trống mặc định
+      // Bảng trống (không còn dòng trống/nhập ngoài): chỉ thêm thiết bị từ kho.
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.textContaining('Chưa có hạng mục nào'), findsOneWidget);
       expect(find.textContaining('Đã dựng sẵn'), findsNothing);
     },
   );
@@ -594,17 +685,24 @@ void main() {
     (tester) async {
       quote = 'SignedByOwner';
       await pump(tester);
-      expect(find.textContaining('(1 thiết bị)'), findsOneWidget);
+      // Khối hợp đồng như web: tiêu đề, nhãn đã ký, tổng và số tiền tạm ứng đã thanh toán.
       expect(
-        find.text('Tổng HĐ: 13.500.000 đ • Cọc 30%: 4.050.000 đ'),
+        find.textContaining(
+          '1. HỢP ĐỒNG BÁO GIÁ THIẾT BỊ & THANH TOÁN TẠM ỨNG 30%',
+        ),
         findsOneWidget,
       );
-      expect(find.text('Owner đã ký và cọc 30% (khóa sửa)'), findsOneWidget);
+      expect(find.text('✓ Đã Ký & Thanh toán 30%'), findsOneWidget);
+      expect(find.textContaining('Tổng cộng (gồm VAT'), findsOneWidget);
+      expect(find.text('13.500.000 đ'), findsWidgets);
+      expect(find.text('SỐ TIỀN TẠM ỨNG 30% ĐÃ THANH TOÁN:'), findsOneWidget);
+      expect(find.text('4.050.000 đ'), findsWidgets);
       expect(find.text('Soạn báo giá & hợp đồng'), findsNothing);
       await tester.tap(find.text('Xem hợp đồng (đã khóa)'));
       await tester.pumpAndSettle();
       expect(find.text('Hợp đồng triển khai IoT (đã khóa)'), findsOneWidget);
-      expect(find.text('Hợp đồng lắp đặt IoT #S1'), findsOneWidget);
+      expect(find.textContaining('Hợp đồng lắp đặt IoT'), findsWidgets);
+      expect(find.textContaining('#S1'), findsNothing); // không hiện mã phiếu
       expect(
         find.text('Bảo hành 24 tháng'),
         findsOneWidget,
@@ -618,9 +716,29 @@ void main() {
     (tester) async {
       quote = 'SentToOwner';
       await pump(tester);
-      expect(find.text('Chờ Owner ký và thanh toán 30%'), findsOneWidget);
+      expect(find.text('Cần Owner Ký tên & Cọc 30%'), findsOneWidget);
       expect(find.text('Xem / sửa báo giá & hợp đồng'), findsOneWidget);
       expect(find.text('Xem hợp đồng (đã khóa)'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'đã khảo sát, kế hoạch trống: không có nút Xác nhận kế hoạch lẫn Lập kế hoạch thiết bị (backend tự dựng kế hoạch khi xác nhận)',
+    (tester) async {
+      depStatus = 'Surveyed';
+      quote = null;
+      emptyPlan = true;
+      await pump(tester);
+      expect(
+        find.widgetWithText(FilledButton, 'Xác nhận kế hoạch'),
+        findsNothing,
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'Lập kế hoạch thiết bị'),
+        findsNothing,
+      );
+      expect(find.textContaining('Kế hoạch thiết bị đang trống'), findsNothing);
+      expect(posts(), isEmpty);
     },
   );
 
@@ -665,7 +783,7 @@ void main() {
     'Owner chưa lưu dự toán: bảng hợp đồng để trống và báo rõ, app KHÔNG tự tính thiết bị theo diện tích Zone',
     (tester) async {
       quote = null;
-      depStatus = 'Accepted';
+      depStatus = 'Surveyed';
       estimate = [];
       hwItems = [
         hw('11111111-1111-1111-1111-111111111111', 'GW', 'Gateway', 3800000),
@@ -675,10 +793,9 @@ void main() {
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Owner chưa lưu dự toán'), findsOneWidget);
-      expect(
-        find.byType(Checkbox),
-        findsOneWidget,
-      ); // chỉ một dòng trống mặc định
+      // Bảng trống (không còn dòng trống/nhập ngoài): chỉ thêm thiết bị từ kho.
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.textContaining('Chưa có hạng mục nào'), findsOneWidget);
       expect(find.text('Thiết bị GW'), findsNothing);
       expect(find.textContaining('theo diện tích Zone'), findsNothing);
       expect(find.textContaining('Thi công, định vị GPS'), findsNothing);
@@ -703,8 +820,6 @@ void main() {
           'Nhận việc',
           'Tiếp nhận yêu cầu triển khai',
           'Ghi nhận khảo sát địa điểm',
-          'Xác nhận kế hoạch',
-          'Bắt đầu lắp đặt',
         ]) {
           expect(find.text(obsolete), findsNothing, reason: obsolete);
         }
@@ -715,7 +830,38 @@ void main() {
   }
 
   testWidgets(
-    'chưa cọc: không có Nhận việc, không có Gắn Node và không có Xác nhận kế hoạch',
+    'đã cọc + Đang lắp đặt: có nút Hoàn tất lắp đặt; bấm → xác nhận → gọi complete của backend',
+    (tester) async {
+      quote = 'SignedByOwner';
+      depStatus = 'Installing';
+      srStatus = 'InProgress';
+      await pump(tester);
+      final btn = find.text('Hoàn tất lắp đặt');
+      expect(btn, findsOneWidget);
+      calls.clear();
+      await http.runWithClient(() async {
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+        // KTV lập biên bản nghiệm thu rồi xác nhận hoàn tất
+        expect(find.byKey(const ValueKey('acceptance-report')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('acceptance-confirm')));
+        await tester.pumpAndSettle();
+      }, () => MockClient(handler));
+      expect(
+        posts().where((c) => c.url.path.endsWith('/complete')),
+        hasLength(1),
+      );
+    },
+  );
+  testWidgets('chưa cọc: không có nút Hoàn tất lắp đặt', (tester) async {
+    quote = 'SentToOwner';
+    depStatus = 'Installing';
+    srStatus = 'InProgress';
+    await pump(tester);
+    expect(find.text('Hoàn tất lắp đặt'), findsNothing);
+  });
+  testWidgets(
+    'chưa cọc: không có Nhận việc, không có Gắn Node, không có Xác nhận kế hoạch khi đã khảo sát',
     (tester) async {
       quote = 'SentToOwner';
       depStatus = 'Surveyed';
@@ -723,7 +869,10 @@ void main() {
       await pump(tester);
       expect(find.byIcon(Icons.my_location), findsNothing);
       expect(find.text('Nhận việc'), findsNothing);
-      expect(find.text('Xác nhận kế hoạch'), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, 'Xác nhận kế hoạch'),
+        findsNothing,
+      );
     },
   );
 
@@ -810,11 +959,18 @@ void main() {
   );
 
   testWidgets(
-    'nút "Xem Node" luôn có ở khung thao tác: khi chờ cọc, khi đã cọc và cả khi công việc đã kết thúc',
+    'nút "Xem Node" chỉ hiện khi Zone đã có Node được chấm (lấy từ máy chủ); đã có thì xem được ở mọi giai đoạn',
     (tester) async {
+      // Chưa chấm Node nào: không có nút.
+      placedNodes = 0;
       quote = 'SentToOwner';
       await pump(tester);
-      expect(find.text('Xem Node'), findsOneWidget);
+      expect(find.textContaining('Xem Node'), findsNothing);
+
+      // Đã chấm 3 Node: hiện kèm số lượng, kể cả khi chờ cọc.
+      placedNodes = 3;
+      await pump(tester);
+      expect(find.text('Xem Node (3)'), findsOneWidget);
       expect(
         find.byIcon(Icons.my_location),
         findsNothing,
@@ -823,16 +979,35 @@ void main() {
       quote = 'SignedByOwner';
       depStatus = 'Installing';
       await pump(tester);
-      expect(find.text('Xem Node'), findsOneWidget);
+      expect(find.text('Xem Node (3)'), findsOneWidget);
       expect(find.textContaining('Gắn Node ('), findsOneWidget);
 
       depStatus = 'Completed';
       await pump(tester);
-      expect(
-        find.text('Xem Node'),
-        findsOneWidget,
-      ); // đã hoàn tất vẫn xem được Node
+      expect(find.text('Xem Node (3)'), findsOneWidget);
       expect(find.textContaining('Gắn Node'), findsNothing);
+    },
+  );
+  testWidgets(
+    'đã cọc + Đã khảo sát: bấm Bắt đầu lắp đặt → gọi confirm rồi installation/start',
+    (tester) async {
+      quote = 'SignedByOwner';
+      depStatus = 'Surveyed';
+      srStatus = 'InProgress';
+      await pump(tester);
+      calls.clear();
+      await http.runWithClient(() async {
+        await tester.tap(find.text('Bắt đầu lắp đặt'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Xác nhận'));
+        await tester.pumpAndSettle();
+      }, () => MockClient(handler));
+      final paths = posts().map((c) => c.url.path).toList();
+      expect(paths.where((p) => p.endsWith('/confirm')), hasLength(1));
+      expect(
+        paths.where((p) => p.endsWith('/installation/start')),
+        hasLength(1),
+      );
     },
   );
 }

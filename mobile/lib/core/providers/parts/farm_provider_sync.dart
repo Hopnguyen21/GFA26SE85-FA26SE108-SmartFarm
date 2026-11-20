@@ -215,8 +215,9 @@ extension FarmProviderSync on FarmProvider {
     final inventoryFuture = _loadInventory();
     final rulesFuture = _fetchRulesRaw();
     final telemetryFuture = refreshAllZonesTelemetry();
+    final schedulesFuture = fetchSchedules(farmId: _selectedFarmId).catchError((_) {});
     await _syncZoneActuatorsAndContext();
-    await Future.wait([inventoryFuture, telemetryFuture]);
+    await Future.wait([inventoryFuture, telemetryFuture, schedulesFuture]);
     final rules = await rulesFuture;
     if (_zones.isEmpty) {
       _automationRules.clear();

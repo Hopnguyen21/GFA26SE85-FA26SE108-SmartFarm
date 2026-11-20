@@ -172,6 +172,19 @@ void main() {
       linkValid: link,
     );
 
+    test(
+      'phiếu xuất kho không còn chặn: cọc xong là mở, các khoá khác vẫn báo lý do',
+      () {
+        expect(g().allowed, isTrue);
+        expect(g(quote: 'SentToOwner').block, NodePlacementBlock.unpaid);
+        expect(g(service: 'Closed').block, NodePlacementBlock.serviceFinished);
+        expect(
+          g(dep: 'Completed').block,
+          NodePlacementBlock.deploymentFinished,
+        );
+      },
+    );
+
     test('đã ký + cọc: mở với mọi trạng thái triển khai chưa kết thúc', () {
       for (final d in [
         'Submitted',

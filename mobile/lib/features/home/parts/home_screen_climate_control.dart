@@ -178,29 +178,13 @@ extension _HomeScreenClimateControl on HomeScreen {
     ];
   }
 
-  /// Lịch tưới của cây trong Zone đang chọn: một thẻ gọn mở lịch tưới theo vụ (điều khiển từng rơ-le nằm trong màn Zone).
+  /// Lịch tưới của cây trong Zone đang chọn: Thẻ hiển thị các ca tưới hôm nay của Zone đó và thao tác mở chi tiết.
   List<Widget> _quickControlSection(
     BuildContext context,
     FarmProvider farmProvider,
     ZoneModel zone,
   ) {
-    final crop = zone.currentCrop.trim();
     return [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          'LỊCH TƯỚI CỦA CÂY',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF64748B),
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-      const SizedBox(height: 8),
       if (farmProvider.actuators.isNotEmpty && farmProvider.canEmergencyStop)
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -208,73 +192,7 @@ extension _HomeScreenClimateControl on HomeScreen {
         ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            key: const Key('home_irrigation_calendar'),
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SeasonIrrigationCalendarScreen(zone: zone),
-              ),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.calendar_month,
-                      size: 22,
-                      color: Color(0xFF047857),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          crop.isEmpty
-                              ? 'Lịch tưới · ${zone.name}'
-                              : 'Lịch tưới · $crop',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        Text(
-                          '${zone.name} · xem và chỉnh ca tưới theo giai đoạn',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
-                ],
-              ),
-            ),
-          ),
-        ),
+        child: ZoneTodayIrrigationCard(zone: zone),
       ),
       const SizedBox(height: 16),
     ];

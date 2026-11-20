@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartfarm_mobile/features/support/service_board_logic.dart';
+import 'package:smartfarm_mobile/core/models/models.dart'
+    show ZoneContractModel;
 
 Map<String, dynamic> _r(
   String id,
@@ -11,6 +13,8 @@ Map<String, dynamic> _r(
 String _status(Map<String, dynamic> r) => '${r['status']}';
 
 void main() {
+  zoneContractTests();
+  maintenanceMessageTest();
   group('ownerNextAction (việc đang chờ Owner)', () {
     ({String text, bool needsAction}) o(String? q, String? d) =>
         ownerNextAction(quotationStatus: q, deploymentStatus: d, closed: false);
@@ -54,6 +58,7 @@ void main() {
         expect(a(null, 'Submitted'), 'Tiếp nhận');
         expect(a(null, 'Accepted'), 'Khảo sát');
         expect(a(null, 'Surveyed'), 'Tạo và gửi hợp đồng');
+        expect(a(null, 'PlanConfirmed'), 'Tạo và gửi hợp đồng');
         expect(a('SentToOwner', 'Surveyed'), 'Chờ Owner thanh toán cọc 30%');
       },
     );
@@ -125,13 +130,14 @@ void main() {
         _r('d', 'SENSOR_OFFLINE', 'Diagnosed'),
         _r('e', 'SENSOR_OFFLINE', 'Resolved'),
         _r('f', 'SENSOR_OFFLINE', 'Closed'),
+        _r('g', 'SENSOR_OFFLINE', 'Cancelled'), // đã hủy: không còn việc
       ];
       final c = serviceCounts(items, _status);
       expect(c[ServiceFilter.installation], 2);
       expect(c[ServiceFilter.maintenance], 2);
       expect(c[ServiceFilter.ready], 1);
       expect(isReadyToClose('Resolved'), isFalse);
-      expect(c[ServiceFilter.closed], 1);
+      expect(c[ServiceFilter.closed], 2); // Closed + Cancelled
       expect(serviceCounts(const [], _status).values, everyElement(0));
     },
   );
@@ -260,5 +266,130 @@ void quyTrinhTests() {
 
   test('dữ liệu chưa biết không bị coi là đã xong', () {
     expect(states('SignedByOwner', null), [d, d, c, t]);
+  });
+
+  group('effectiveQuotationStatus (cờ trên phiếu dịch vụ)', () {
+    test('không có cờ: giữ nguyên trạng thái báo giá', () {
+      expect(
+        effectiveQuotationStatus('SentToOwner', {'isDepositPaid': false}),
+        'SentToOwner',
+      );
+      expect(effectiveQuotationStatus(null, null), isNull);
+      expect(effectiveQuotationStatus(null, {}), isNull);
+    });
+    test(
+      'cờ đã cọc / đã ký: coi là SignedByOwner kể cả khi đọc báo giá lỗi',
+      () {
+        expect(
+          effectiveQuotationStatus(null, {'isDepositPaid': true}),
+          'SignedByOwner',
+        );
+        expect(
+          effectiveQuotationStatus('SentToOwner', {'isContractSigned': true}),
+          'SignedByOwner',
+        );
+      },
+    );
+    test('cờ nghiệm thu / thanh toán đủ: Completed', () {
+      expect(
+        effectiveQuotationStatus('SignedByOwner', {'isFullyPaid': true}),
+        'Completed',
+      );
+      expect(
+        effectiveQuotationStatus(null, {'isAcceptanceSigned': true}),
+        'Completed',
+      );
+      expect(
+        effectiveQuotationStatus('Completed', {'isDepositPaid': true}),
+        'Completed',
+      );
+    });
+  });
+}
+
+ZoneContractModel _c(String status, String end, {int days = 0}) =>
+    ZoneContractModel.fromJson({
+      'id': 'c-$status-$end',
+      'zoneName': 'Zone A',
+      'contractNumber': 'HD-ZN-1',
+      'status': status,
+      'endDate': end,
+      'daysRemaining': days,
+    });
+
+void zoneContractTests() {
+  final today = DateTime(2026, 11, 18);
+  group('mua thêm thiết bị: hợp đồng dịch vụ của Zone', () {
+    test('Zone chưa có hợp đồng (lần lắp đầu): không chặn', () {
+      expect(zoneContractBlockReason(const [], today), isNull);
+    });
+    test(
+      'có hợp đồng đang hiệu lực còn hạn (kể cả sắp hết hạn): không chặn',
+      () {
+        expect(
+          zoneContractBlockReason([_c('Active', '2027-03-01')], today),
+          isNull,
+        );
+        expect(
+          zoneContractBlockReason([_c('ExpiringSoon', '2026-11-18')], today),
+          isNull,
+        );
+      },
+    );
+    test(
+      'mọi hợp đồng đã hết hạn / thay thế / chấm dứt: chặn và nêu số hợp đồng + ngày hết hạn',
+      () {
+        final r = zoneContractBlockReason([
+          _c('Expired', '2026-10-01'),
+          _c('Renewed', '2026-06-01'),
+        ], today);
+        expect(r, contains('HD-ZN-1'));
+        expect(r, contains('01/10/2026'));
+        expect(
+          zoneContractBlockReason([_c('Active', '2026-11-17')], today),
+          isNotNull,
+        );
+      },
+    );
+    test('hợp đồng còn hiệu lực cũ hơn không che hợp đồng mới đã hết hạn', () {
+      expect(
+        zoneContractBlockReason([
+          _c('Renewed', '2027-01-01'),
+          _c('Expired', '2026-10-01'),
+        ], today),
+        isNotNull,
+      );
+    });
+  });
+
+  test('yêu cầu triển khai đang chạy: từ Gửi đến Đang lắp đặt', () {
+    for (final s in [
+      'Submitted',
+      'Accepted',
+      'Surveyed',
+      'PlanConfirmed',
+      'Installing',
+    ]) {
+      expect(deploymentRequestIsRunning(s), isTrue, reason: s);
+    }
+    for (final s in [
+      'Draft',
+      'Completed',
+      'MaintenanceRequired',
+      'Cancelled',
+    ]) {
+      expect(deploymentRequestIsRunning(s), isFalse, reason: s);
+    }
+  });
+}
+
+void maintenanceMessageTest() {
+  test('thông báo chặn nêu đúng việc đang làm (bảo trì)', () {
+    final r = zoneContractBlockReason(
+      [_c('Expired', '2026-10-01')],
+      DateTime(2026, 11, 18),
+      action: 'gửi yêu cầu bảo trì',
+    );
+    expect(r, contains('gửi yêu cầu bảo trì'));
   });
 }

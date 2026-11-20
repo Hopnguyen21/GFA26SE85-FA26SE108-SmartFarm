@@ -48,7 +48,10 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(home: QuotationEditor(initial: q, readOnly: true)),
       );
-      expect(find.text('Mã hợp đồng: contract-real-id'), findsOneWidget);
+      expect(
+        find.textContaining('contract-real-id'),
+        findsNothing,
+      ); // không hiện mã hợp đồng nội bộ
       expect(
         find.text('Ngày lập: ${formatContractDate(q.createdAtUtc!)}'),
         findsOneWidget,
@@ -97,14 +100,9 @@ void main() {
       // Một ô điều khoản duy nhất (như web): ưu tiên điều khoản đã lưu, không còn ô ghi chú riêng.
       expect(find.text('Thêm theo khảo sát'), findsNothing);
       expect(find.text('Bảo hành'), findsOneWidget);
-      await tester.tap(find.text('Nhập ngoài'));
-      await tester.pump();
-      expect(find.text('Hạng mục 2'), findsOneWidget);
-      expect(find.text('Gateway'), findsOneWidget);
-      await tester.tap(find.byTooltip('Xóa hạng mục').last);
-      await tester.pump();
-      expect(find.text('Hạng mục 2'), findsNothing);
-      expect(find.text('Gateway'), findsOneWidget);
+      // Không còn "Nhập ngoài": thiết bị chỉ thêm từ kho.
+      expect(find.text('Nhập ngoài'), findsNothing);
+      expect(find.text('Thêm thiết bị từ kho'), findsOneWidget);
     },
   );
 
@@ -115,7 +113,7 @@ void main() {
     await tester.tap(find.text('Xác nhận & gửi hợp đồng cho khách'));
     await tester.pump();
     expect(find.text('Vui lòng nhập thông tin'), findsWidgets);
-    expect(find.text('Nhập đơn giá lớn hơn 0'), findsOneWidget);
+    expect(find.textContaining('Chưa có hạng mục nào'), findsOneWidget);
     expect(find.byType(QuotationEditor), findsOneWidget);
   });
 }
@@ -472,6 +470,92 @@ void khoVaChiXemTests() {
       expect(gw['category'], 'GATEWAY');
       expect(out.draft!.notes, 'Điều khoản');
       expect(out.draft!.terms, 'Điều khoản');
+    },
+  );
+
+  testWidgets(
+    'dòng dựng theo LOẠI (mã trống): dropdown chọn thiết bị từ kho, tính lại tiền, giữ số lượng đề xuất',
+    (tester) async {
+      final out = await _open(
+        tester,
+        estimate: [
+          QuotationItem(
+            code: '',
+            name: 'Gateway LoRa',
+            category: 'GATEWAY',
+            unit: 'Trạm',
+            quantity: 2,
+            unitPrice: 1000000,
+            vatPercent: 0,
+            totalAmount: 2000000,
+            notes: 'Cần 2, đã gắn 0, bổ sung 2 gateway lora',
+          ),
+        ],
+      );
+      expect(find.text('Chưa chọn thiết bị'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          'Ghi chú điều khoản & phạm vi lắp đặt *',
+        ),
+        'Điều khoản',
+      );
+      await tester.tap(find.text('Xác nhận & gửi hợp đồng cho khách'));
+      await tester.pumpAndSettle();
+      // Chưa chọn thiết bị cụ thể: dropdown báo lỗi và không gửi được.
+      expect(
+        find.text('Cần chọn thiết bị từ kho cho dòng này'),
+        findsOneWidget,
+      );
+      expect(out.draft, isNull);
+      // Dropdown "Thiết bị từ kho": chỉ liệt kê đúng loại Gateway; chọn xong đơn giá và thành tiền tính lại, giữ SL 2.
+      final dd = find.byType(DropdownButtonFormField<String>).first;
+      await tester.tap(dd);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ACT-PUMP-02'), findsNothing);
+      await tester.tap(find.textContaining('GW-ESP32-DL01').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Chưa chọn thiết bị'), findsNothing);
+      // Giá lấy theo thiết bị đã chọn và không sửa tay được.
+      expect(
+        find.textContaining('Đơn giá 3.800.000 đ · VAT 0%'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextFormField, 'Đơn giá'), findsNothing);
+      expect(find.text('7.600.000 đ'), findsWidgets); // 2 × 3.800.000, VAT 0%
+      await tester.tap(find.text('Xác nhận & gửi hợp đồng cho khách'));
+      await tester.pumpAndSettle();
+      final line = out.draft!.items.single;
+      expect(line['code'], 'GW-ESP32-DL01');
+      expect(line['quantity'], 2);
+      expect(line['category'], 'GATEWAY');
+    },
+  );
+
+  testWidgets(
+    'bản nháp từ dự toán Owner đã lưu (có mã thiết bị cụ thể): hiện theo LOẠI + SL, thiết bị chọn bằng dropdown',
+    (tester) async {
+      await _open(
+        tester,
+        estimate: [
+          QuotationItem(
+            code: 'SN-AIR-02',
+            name: 'Node Cảm biến Vi khí hậu Không khí SHT30',
+            category: 'SENSOR_NODE',
+            unit: 'Node',
+            quantity: 2,
+            unitPrice: 950000,
+            vatPercent: 8,
+            totalAmount: 2052000,
+            notes:
+                'Cần 2, đã gắn 0, bổ sung 2 node cảm biến · từ dự toán của Owner',
+          ),
+        ],
+      );
+      expect(find.text('SN-AIR-02'), findsNothing);
+      expect(find.text('Node cảm biến'), findsOneWidget);
+      expect(find.text('Chưa chọn thiết bị'), findsOneWidget);
+      expect(find.byType(DropdownButtonFormField<String>), findsWidgets);
     },
   );
 }

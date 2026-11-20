@@ -483,9 +483,22 @@ void main() {
 
         expect(find.byType(LandingScreen), findsOneWidget);
         expect(find.text('MỚI 2026'), findsOneWidget);
-        expect(find.text('Trạm Gateway & Cảm Biến Bền Bỉ'), findsOneWidget);
-        expect(find.text('Từ Khảo Sát Đến Nghiệm Thu'), findsOneWidget);
-        expect(find.text('Đồng Hành Cùng Nông Nghiệp Xanh'), findsOneWidget);
+        // Các khối theo web: hero, hệ sinh thái, nút đăng ký.
+        expect(find.textContaining('Kiến tạo Nông trang số'), findsOneWidget);
+        expect(find.text('Đăng ký ngay'), findsWidgets);
+        expect(find.text('HỆ SINH THÁI NÔNG NGHIỆP TOÀN DIỆN'), findsOneWidget);
+        expect(
+          find.text('Trạm Gateway & Cảm biến Bền bỉ Ngoài trời'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Từ Khảo sát Thực địa đến Thu hoạch Năng suất cao'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Đồng hành cùng nền Nông nghiệp Bền vững'),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       }
       tester.view.resetPhysicalSize();

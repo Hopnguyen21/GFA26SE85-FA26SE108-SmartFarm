@@ -35,6 +35,7 @@ void main() {
   var depStatus = 'Surveyed';
   var quoteHttp = 200;
   var signHttp = 200;
+  var depositPct = 30;
 
   final signPosts = <http.Request>[];
 
@@ -69,6 +70,17 @@ void main() {
         'status': 'Confirmed',
         'paidAtUtc': '2026-11-14T07:00:00Z',
       });
+    }
+    if (p == '/api/v1/platform/business-parameters') {
+      return _json({
+        'depositPercent': depositPct,
+        'rainGuardThresholdPercent': 70,
+        'repeatPurchaseDiscountPercent': 15,
+        'renewalDiscountPercent': 10,
+      });
+    }
+    if (p == '/api/v1/users/me') {
+      return _json({'fullName': 'Nguyễn Văn Chủ'});
     }
     if (p == '/api/v1/service-requests/s1') {
       return _json({
@@ -110,8 +122,11 @@ void main() {
         'id': 'q1',
         'status': quote,
         'totalAmount': 11988000,
-        'deposit30Percent': 3596400,
-        'remaining70Percent': 8391600,
+        'deposit30Percent':
+            11988000 * (quote == 'SentToOwner' ? depositPct : 30) / 100,
+        'remaining70Percent':
+            11988000 -
+            11988000 * (quote == 'SentToOwner' ? depositPct : 30) / 100,
         'items': <Object>[],
       });
     }
@@ -152,6 +167,7 @@ void main() {
     depStatus = 'Surveyed';
     quoteHttp = 200;
     signHttp = 200;
+    depositPct = 30;
   });
 
   Future<void> pump(WidgetTester tester, Widget child) async {
@@ -254,9 +270,19 @@ void main() {
         find.textContaining(
           '2. Biên bản Nghiệm thu Công trình & Thanh toán 70%',
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.textContaining('Đang khóa: cần ký hợp đồng'), findsOneWidget);
+      expect(
+        find.textContaining('Bước này bị khóa. Cần ký Hợp đồng'),
+        findsNothing,
+      );
+      // Bảng hạng mục và tổng như web (cột Mã hàng ... Thành tiền, "Tổng cộng (gồm VAT)").
+      expect(find.text('Mã hàng'), findsOneWidget);
+      expect(find.text('Tên sản phẩm / Thiết bị'), findsOneWidget);
+      expect(find.text('Thành tiền (đ)'), findsOneWidget);
+      expect(find.textContaining('Tổng cộng (gồm VAT'), findsOneWidget);
+      // Tiêu đề "1. …" chỉ xuất hiện một lần (khối ký của Owner), không lặp ở khối bảng.
+      expect(find.textContaining('1. HỢP ĐỒNG BÁO GIÁ'), findsNothing);
       final signBtn = find.textContaining('KÝ HỢP ĐỒNG & THANH TOÁN 30% CỌC');
       await tester.ensureVisible(signBtn);
       await tester.pumpAndSettle();
@@ -269,12 +295,19 @@ void main() {
             .onPressed,
         isNull,
       );
-      expect(find.textContaining('COC30 #'), findsOneWidget);
+      expect(
+        find.textContaining('Thanh toán bằng chuyển khoản (VietQR)'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('COC30'), findsNothing);
       await tester.tap(find.byType(CheckboxListTile));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Tiền mặt'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('COC30 #'), findsNothing);
+      expect(
+        find.textContaining('Thanh toán bằng chuyển khoản (VietQR)'),
+        findsNothing,
+      );
       signPosts.clear();
       await http.runWithClient(() async {
         await tester.enterText(find.byType(TextField).first, 'Lê Văn An');
@@ -284,6 +317,10 @@ void main() {
       expect(signPosts, hasLength(1));
       final body = jsonDecode(signPosts.single.body) as Map<String, dynamic>;
       expect(body['paymentMethod'], 'CASH');
+      expect(
+        body['expectedDepositAmount'],
+        3596400,
+      ); // số tiền Owner đã thấy, để backend từ chối nếu tỷ lệ cọc vừa đổi
       expect(body['transactionReference'], matches(RegExp(r'^PAY30-\d{14}$')));
       expect(body['signerFullName'], 'Lê Văn An');
       // Biên lai hiện sau khi ghi nhận.
@@ -296,13 +333,11 @@ void main() {
       await tester.pumpAndSettle();
       // Trạng thái lấy lại từ backend: Mục 1 đã khóa, Mục 2 chờ KTV hoàn tất lắp đặt.
       expect(
-        find.textContaining('Đã ký hợp đồng và thanh toán tạm ứng 30%'),
+        find.textContaining('ĐÃ KÝ HỢP ĐỒNG & THANH TOÁN 30% CỌC THÀNH CÔNG'),
         findsWidgets,
       );
-      expect(
-        find.textContaining('Đang chờ kỹ thuật viên hoàn tất lắp đặt'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('2. Biên bản Nghiệm thu'), findsNothing);
+      expect(find.textContaining('SỐ TIỀN 70% CÒN LẠI'), findsNothing);
       expect(find.text('Xem biên lai'), findsOneWidget);
     },
   );
@@ -337,21 +372,36 @@ void main() {
         'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN 70%',
       );
       expect(
-        find.textContaining('Đang chờ kỹ thuật viên hoàn tất'),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.ancestor(of: btn, matching: find.byType(FilledButton)),
-            )
-            .onPressed,
-        isNull,
-      );
+        btn,
+        findsNothing,
+      ); // chưa hoàn tất lắp đặt: Owner chưa thấy mục thanh toán 70%
+      expect(find.textContaining('2. Biên bản Nghiệm thu'), findsNothing);
       expect(req['id'], 's1');
 
       depStatus = 'Completed';
       await open();
+      expect(find.textContaining('Nodes đã chấm trên GIS Map'), findsOneWidget);
+      expect(
+        find.text('Nguyễn Văn Chủ'),
+        findsWidgets,
+      ); // tên Owner lấy từ hồ sơ làm mặc định
+      expect(find.textContaining('SỐ TIỀN 70% CÒN LẠI'), findsOneWidget);
+      // Bước "Xác nhận nghiệm thu" đứng trước: chưa xác nhận thì CHƯA có nút/biểu mẫu thanh toán phần còn lại.
+      expect(
+        find.byKey(const ValueKey('acceptance-confirm-card')),
+        findsOneWidget,
+      );
+      expect(btn, findsNothing);
+      final confirm = find.byKey(const ValueKey('confirm-acceptance'));
+      await tester.ensureVisible(confirm);
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('acceptance-confirm-card')),
+        findsNothing,
+      );
+      expect(btn, findsOneWidget);
       signPosts.clear();
       await tester.ensureVisible(btn);
       await tester.pumpAndSettle();
@@ -369,7 +419,14 @@ void main() {
       );
       await tester.tap(find.text('Đóng'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Hợp đồng hoàn tất 100%'), findsWidgets);
+      expect(
+        find.textContaining('ĐÃ KÝ NGHIỆM THU & QUYẾT TOÁN 100% CÔNG TRÌNH'),
+        findsWidgets,
+      );
+      expect(find.text('Đã khóa hoàn tất'), findsOneWidget);
+      expect(find.textContaining('Đã Nghiệm thu 100%'), findsOneWidget);
+      expect(find.textContaining('Vận hành chính thức'), findsOneWidget);
+      expect(find.textContaining('Chuyển khoản (VietQR)'), findsOneWidget);
     },
   );
 
@@ -396,7 +453,58 @@ void main() {
       expect(find.textContaining('Không ghi nhận được'), findsOneWidget);
       expect(find.text('Biên lai Xác nhận Giao dịch Thanh toán'), findsNothing);
       expect(find.text('Xem biên lai'), findsNothing);
-      expect(find.textContaining('Đang khóa: cần ký hợp đồng'), findsOneWidget);
+      expect(
+        find.textContaining('Bước này bị khóa. Cần ký Hợp đồng'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'tỷ lệ cọc lấy từ cấu hình Platform: đổi 40% thì nhãn và điều khoản đổi theo',
+    (tester) async {
+      depositPct = 40;
+      await pump(
+        tester,
+        const QuotationPanel(
+          serviceRequestId: 's1',
+          deploymentRequestId: 'dep1',
+        ),
+      );
+      expect(find.textContaining('Tạm ứng 40%'), findsWidgets);
+      expect(
+        find.textContaining('KÝ HỢP ĐỒNG & THANH TOÁN 40% CỌC'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('tạm ứng 40% khi ký hợp đồng, 60% còn lại'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('30%'), findsNothing);
+      expect(find.textContaining('70%'), findsNothing);
+      BusinessParameters.active =
+          BusinessParameters.fallback; // trả về mặc định cho test khác
+    },
+  );
+
+  testWidgets(
+    'hợp đồng đã cọc giữ nguyên tỷ lệ đã chốt: Admin đổi cấu hình sang 50% thì nhãn vẫn 30% / 70%',
+    (tester) async {
+      quote = 'SignedByOwner';
+      depStatus = 'Completed';
+      depositPct =
+          50; // cấu hình hiện hành đã đổi, nhưng hợp đồng đã ký chốt 30%
+      await pump(
+        tester,
+        const QuotationPanel(
+          serviceRequestId: 's1',
+          deploymentRequestId: 'dep1',
+        ),
+      );
+      expect(find.textContaining('50%'), findsNothing);
+      expect(find.textContaining('30%'), findsWidgets);
+      expect(find.textContaining('70%'), findsWidgets);
+      BusinessParameters.active = BusinessParameters.fallback;
     },
   );
 }

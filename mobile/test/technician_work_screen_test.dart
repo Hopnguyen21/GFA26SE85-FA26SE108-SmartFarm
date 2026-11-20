@@ -132,7 +132,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: TechnicianWorkScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Công việc'), findsOneWidget);
+      expect(find.text('Công Việc Kỹ Thuật'), findsOneWidget);
       expect(find.byType(TabBar), findsNothing);
       expect(find.text('Phiếu dịch vụ'), findsNothing);
       // Thẻ phiếu bảo trì và phiếu lắp đặt.
@@ -149,7 +149,7 @@ void main() {
         find.text('Yêu cầu triển khai chưa có phiếu dịch vụ'),
         findsNothing,
       );
-      expect(find.text('Khảo sát địa điểm'), findsNothing);
+      expect(find.text('Lập báo cáo khảo sát thực địa'), findsNothing);
       expect(find.textContaining('Yêu cầu dep-'), findsNothing);
       expect(
         calls.any((c) => c.url.path == '/api/v1/platform/deployment-requests'),
