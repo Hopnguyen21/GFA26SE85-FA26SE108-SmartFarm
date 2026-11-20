@@ -395,3 +395,27 @@ List<QuotationItem> contractNonPlaceableLines(List<QuotationItem> items) => [
   for (final i in items)
     if (nodeKindOfItem(i) == null && i.quantity > 0) i,
 ];
+
+/// Địa chỉ nơi lắp đặt của Node lưu trong `Device.InstallationNotes` (API vị trí Node có sẵn `installationNotes`).
+/// Tiền tố để phân biệt với chuỗi ghi chú cũ (vd. "ADDR (GPS ±3 m)") và với ghi chú khác của KTV.
+const nodeAddressPrefix = 'Địa chỉ: ';
+const nodeAddressMaxLength = 300;
+
+/// Chuỗi gửi cho backend; null khi địa chỉ trống. Gộp khoảng trắng thừa và cắt tối đa [nodeAddressMaxLength] ký tự.
+String? encodeNodeAddress(String? address) {
+  var s = (address ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (s.isEmpty) return null;
+  if (s.length > nodeAddressMaxLength) {
+    s = s.substring(0, nodeAddressMaxLength).trim();
+  }
+  return '$nodeAddressPrefix$s';
+}
+
+/// Địa chỉ đọc từ ghi chú lắp đặt; null nếu không phải địa chỉ (không có tiền tố hoặc rỗng).
+String? decodeNodeAddress(String? installationNotes) {
+  final n = installationNotes?.trim();
+  if (n == null || !n.startsWith(nodeAddressPrefix.trim())) return null;
+  final s = n.substring(nodeAddressPrefix.trim().length).trim();
+  final t = s.startsWith(':') ? s.substring(1).trim() : s;
+  return t.isEmpty ? null : t;
+}

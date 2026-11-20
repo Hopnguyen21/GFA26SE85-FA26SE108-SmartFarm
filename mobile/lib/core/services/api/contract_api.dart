@@ -115,6 +115,49 @@ abstract final class ContractApi {
         )
         as Map<String, dynamic>,
   );
+
+  // ─── 19. Discount Codes (Mã giảm giá & Ưu đãi hợp đồng) ──────────────
+  /// Lấy danh sách mã giảm giá đang hoạt động
+  static Future<List<Map<String, dynamic>>> getDiscountCodes({
+    bool activeOnly = true,
+  }) async {
+    final url =
+        '${ApiService.baseUrl}/api/v1/discount-codes?activeOnly=$activeOnly';
+    return [
+      for (final m in ApiService._listOf(
+        ApiService._decodeUtf8OrThrow(await ApiService._getWithAuth(url)),
+      ))
+        Map<String, dynamic>.from(m),
+    ];
+  }
+
+  /// Kiểm tra tính hợp lệ của mã giảm giá với giá trị hợp đồng
+  static Future<Map<String, dynamic>> validateDiscountCode({
+    required String code,
+    required double contractAmount,
+  }) async {
+    final url = '${ApiService.baseUrl}/api/v1/discount-codes/validate';
+    final res = ApiService._decodeUtf8OrThrow(
+      await ApiService._postWithAuth(url, {
+        'code': code.trim().toUpperCase(),
+        'contractAmount': contractAmount,
+      }),
+    );
+    return Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Tự động tìm mã giảm giá tối ưu nhất cho giá trị hợp đồng
+  static Future<Map<String, dynamic>?> getBestDiscount(
+    double contractAmount,
+  ) async {
+    final url =
+        '${ApiService.baseUrl}/api/v1/discount-codes/best-applicable?contractAmount=$contractAmount';
+    final res = ApiService._decodeUtf8OrThrow(
+      await ApiService._getWithAuth(url),
+    );
+    if (res is Map) return Map<String, dynamic>.from(res);
+    return null;
+  }
 }
 
 /// Tham số nghiệp vụ hiện hành, giữ trong bộ nhớ; màn hình gọi [refresh] khi mở để lấy giá trị Admin vừa đổi.

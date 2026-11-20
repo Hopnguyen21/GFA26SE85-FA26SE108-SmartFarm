@@ -33,7 +33,7 @@ bool canCancelDeployment(String status) =>
 /// Việc kỹ thuật viên cần làm tiếp theo ở mỗi trạng thái; null nếu không còn việc.
 String? deploymentNextStepHint(String status) => switch (status) {
   'Submitted' => 'Tiếp nhận yêu cầu để bắt đầu',
-  'Accepted' => 'Khảo sát địa điểm',
+  'Accepted' => 'Lập báo cáo khảo sát thực địa',
   'Surveyed' => 'Tạo và gửi hợp đồng (tự xác nhận kế hoạch)',
   'PlanConfirmed' => 'Bắt đầu lắp đặt',
   'Installing' => 'Cấp phát thiết bị, kiểm tra kết nối rồi hoàn tất',

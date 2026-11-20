@@ -149,6 +149,16 @@ extension _ProfileScreenMenu on ProfileScreen {
           ),
         },
       ],
+      // Tất cả (Owner/Farmer xem, KTV lập và sửa): báo cáo khảo sát thực địa như web
+      {
+        'icon': Icons.fact_check_outlined,
+        'label': 'Báo cáo khảo sát thực địa',
+        'color': const Color(0xFF0F766E),
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FieldSurveyReportsScreen()),
+        ),
+      },
       // Tất cả: thông báo, MQTT, trợ giúp
       {
         'icon': Icons.notifications_outlined,

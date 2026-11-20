@@ -87,4 +87,30 @@ void main() {
     expect(find.text('Ký & lưu hợp đồng'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('Technician / Admin thấy mục Mã giảm giá & Ưu đãi trên form tạo hợp đồng', (tester) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => FarmProvider()..switchRole('TECHNICIAN'),
+        child: MaterialApp(
+          home: ZoneContractCreateScreen(
+            farmId: 'f1',
+            zones: [_zone('z1', 'Zone 1')],
+            existingContracts: const [],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('MÃ GIẢM GIÁ & ƯU ĐÃI'), findsOneWidget);
+    expect(find.text('Tìm mã tốt nhất'), findsOneWidget);
+    expect(find.text('Áp dụng'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

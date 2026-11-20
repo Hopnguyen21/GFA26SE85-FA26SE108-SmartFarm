@@ -32,6 +32,7 @@ class _Gps implements GpsProvider {
 ZoneModel _zone() => ZoneModel(
   zoneId: 'z1',
   farmId: 'f1',
+  fieldId: 'fl1',
   name: 'Zone 1',
   currentCrop: '',
   currentStage: '',
@@ -47,6 +48,10 @@ ZoneModel _zone() => ZoneModel(
     LatLng(10.001, 100.0),
   ],
 );
+
+/// Phiếu xuất kho của hợp đồng trả về cho GET /stock-outs (null = chưa có phiếu).
+String? voucherStatus = 'Approved';
+int voucherHttp = 200;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +77,8 @@ void main() {
   var locations = <Map<String, dynamic>>[];
   var persistSave = true; // máy chủ có thật sự lưu vị trí không
   Completer<void>? putGate;
+  Future<GeocodeResult> Function(double, double)?
+  lookup; // tra địa chỉ từ GPS (null = gọi MockClient)
 
   Map<String, dynamic> dev(String id, {bool? test}) => {
     'deviceId': id,
@@ -116,6 +123,14 @@ void main() {
     if (r.method == 'GET' && p.endsWith('/spare-parts')) {
       return _json([
         {
+          'id': 'hw-n1',
+          'code': 'S',
+          'name': 'Node cảm biến đất',
+          'category': 'Node cảm biến',
+          'serialNumber': 'SN-N1',
+          'quantityInStock': 1,
+        },
+        {
           'code': 'SHT30',
           'name': 'Cảm biến SHT30',
           'category': 'SENSOR',
@@ -132,6 +147,12 @@ void main() {
     if (r.method == 'PUT' && p.endsWith('/devices/a/sensors')) {
       sensorPuts.add(r);
       return http.Response('', 204);
+    }
+    if (r.method == 'GET' && p == '/api/v1/farms/f1') {
+      return _json({'farmId': 'f1', 'name': 'Trang trại Cầu Đất'});
+    }
+    if (r.method == 'GET' && p == '/api/v1/fields/fl1') {
+      return _json({'fieldId': 'fl1', 'name': 'Thửa Đông'});
     }
     if (r.method == 'GET' && p == '/api/v1/zones/z1') {
       if (zoneHttp != 200) return _json({'detail': 'boom'}, zoneHttp);
@@ -163,8 +184,29 @@ void main() {
         'farmId': srFarm,
         'zoneId': srZone,
         'deploymentRequestId': srDep,
+        'description': 'Lắp 2 node đo độ ẩm đất',
         'history': <Object>[],
       });
+    }
+    // Phiếu xuất kho của hợp đồng (báo giá q1 → HD-SR-Q1): mặc định đã được Admin duyệt.
+    if (p.endsWith('/stock-outs')) {
+      if (voucherHttp != 200) return _json({'detail': 'boom'}, voucherHttp);
+      return _json(
+        voucherStatus == null
+            ? <Object>[]
+            : [
+                {
+                  'id': 'so1',
+                  'stockOutCode': 'PXK-T1',
+                  'status': voucherStatus,
+                  'statusText': voucherStatus,
+                  'zoneId': '',
+                  'notes': '[KTV tạo từ HĐ #HD-SR-Q1] test',
+                  'createdAtUtc': '2026-11-12T00:00:00Z',
+                  'details': <Object>[],
+                },
+              ],
+      );
     }
     if (p.endsWith('/service-requests/s1/quotation')) {
       if (quoteHttp == 204) return http.Response('', 204);
@@ -216,7 +258,14 @@ void main() {
         'zoneId': depZone,
         'status': depStatus,
         'requiredParameters': [],
-        'planItems': [],
+        'planItems': [
+          {
+            'deviceModelId': 'model-sensor',
+            'modelName': 'Node cảm biến',
+            'deviceType': 'SensorNode',
+            'quantity': 2,
+          },
+        ],
         'surveys': [],
         'decisionHistory': [],
       });
@@ -302,6 +351,8 @@ void main() {
 
   setUp(() {
     calls.clear();
+    voucherStatus = 'Approved';
+    voucherHttp = 200;
     quote = 'SignedByOwner';
     quoteHttp = 200;
     zoneHttp = 200;
@@ -331,6 +382,7 @@ void main() {
     locations = [];
     persistSave = true;
     putGate = null;
+    lookup = null;
   });
 
   final gps = _Gps();
@@ -355,6 +407,7 @@ void main() {
             deploymentRequestId: 'dep1',
             zone: noZone ? null : _zone(),
             gps: gps,
+            addressLookup: lookup,
           ),
         ),
       );
@@ -409,7 +462,7 @@ void main() {
       );
       // Vật tư không thành thiết bị chấm: chỉ hiện ở khối chỉ xem, không có thẻ Node/Cấp phát cho nó.
       expect(find.text('Node · Dây cáp'), findsNothing);
-      expect(find.text('Cấp phát thiết bị & chấm'), findsNothing);
+      expect(find.text('Chọn Node từ kho để cấp phát'), findsNothing);
       // Gateway chỉ cần có (đã cấp phát) là chấm được Node; không chấm vị trí Gateway và không còn câu giải thích API.
       expect(find.textContaining('Đã cấp phát'), findsWidgets);
       expect(find.textContaining('chưa có API lưu vị trí'), findsNothing);
@@ -671,14 +724,25 @@ void main() {
       await act(tester, () async {
         await tester.tap(complete);
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Hoàn tất').last);
+        // KTV thấy biên bản nghiệm thu dựng từ dữ liệu thật rồi nhập ghi chú
+        expect(find.byKey(const ValueKey('acceptance-report')), findsOneWidget);
+        expect(find.textContaining('Trang trại Cầu Đất'), findsWidgets);
+        await tester.enterText(
+          find.byKey(const ValueKey('acceptance-note')),
+          'Đã kiểm tra 2 node ngoài thực địa',
+        );
+        await tester.tap(find.byKey(const ValueKey('acceptance-confirm')));
         await tester.pumpAndSettle();
       });
+      final completes = calls
+          .where(
+            (c) => c.method == 'POST' && c.url.path.endsWith('/dep1/complete'),
+          )
+          .toList();
+      expect(completes, hasLength(1));
       expect(
-        calls.where(
-          (c) => c.method == 'POST' && c.url.path.endsWith('/dep1/complete'),
-        ),
-        hasLength(1),
+        (jsonDecode(completes.single.body) as Map)['notes'],
+        'Đã kiểm tra 2 node ngoài thực địa',
       );
       // Chỉ báo hoàn tất sau khi đọc lại trạng thái Completed từ backend.
       expect(
@@ -689,6 +753,10 @@ void main() {
         find.widgetWithText(FilledButton, 'Hoàn tất lắp đặt'),
         findsNothing,
       );
+      // Hoàn tất không phải lỗi: hiện trạng thái hoàn tất (xem Node đã gắn / quay lại), không có nút "Thử lại".
+      expect(find.byKey(const ValueKey('placement-finished')), findsOneWidget);
+      expect(find.text('Xem Node đã gắn'), findsOneWidget);
+      expect(find.text('Thử lại'), findsNothing);
     },
   );
 
@@ -744,6 +812,14 @@ void main() {
       expect(find.byType(FlutterMap), findsNothing);
     });
   }
+
+  testWidgets('đã cọc: mở được màn Gắn Node, không cần phiếu xuất kho', (
+    tester,
+  ) async {
+    voucherStatus = null; // chưa có phiếu nào
+    await pump(tester);
+    expect(find.text('Cập nhật vị trí'), findsOneWidget);
+  });
 
   testWidgets('chưa có báo giá (204/404): không mở được', (tester) async {
     quoteHttp = 204;
@@ -911,16 +987,15 @@ void main() {
     (tester) async {
       devices = [dev('a')]; // hợp đồng 2 cảm biến, mới có 1
       await pump(tester, width: 1200);
-      expect(find.text('Cấp phát thiết bị & chấm'), findsOneWidget);
+      expect(find.text('Chọn Node từ kho để cấp phát'), findsOneWidget);
       await act(tester, () async {
-        await tester.tap(find.text('Cấp phát thiết bị & chấm'));
+        await tester.tap(find.text('Chọn Node từ kho để cấp phát'));
         await tester.pumpAndSettle();
-        // địa chỉ phần cứng bắt buộc
-        await tester.tap(find.text('Cấp phát'));
+        // chọn Node trong kho (đã sẵn sàng) thay vì gõ tay địa chỉ
+        expect(find.textContaining('Trong kho: 1'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('node-hw-n1')));
         await tester.pumpAndSettle();
-        expect(find.textContaining('3–64 ký tự'), findsOneWidget);
-        await tester.enterText(find.byType(TextField).last, 'sensor-real-02');
-        await tester.tap(find.text('Cấp phát'));
+        await tester.tap(find.byKey(const ValueKey('node-address-ok')));
         await tester.pumpAndSettle();
       });
       expect(provisionPosts, hasLength(1));
@@ -930,11 +1005,14 @@ void main() {
       expect(body['gatewayId'], 'g1');
       expect(body['farmId'], 'f1');
       final node = (body['nodes'] as List).single as Map<String, dynamic>;
-      expect(node['hardwareAddress'], 'sensor-real-02');
+      expect(node['hardwareAddress'], 'SN-N1');
+      expect(node['hardwareItemId'], 'hw-n1');
       expect(node['deviceType'], 'SensorNode');
+      // Phải kèm model trong kế hoạch đã xác nhận: thiếu model thì backend từ chối gán thiết bị vào Zone.
+      expect(node['deviceModelId'], 'model-sensor');
       // Sau khi cấp phát: không còn chỗ trống, thiết bị mới hiện ra để chấm.
-      expect(find.text('Cấp phát thiết bị & chấm'), findsNothing);
-      expect(find.textContaining('sensor-real-02'), findsWidgets);
+      expect(find.text('Chọn Node từ kho để cấp phát'), findsNothing);
+      expect(find.textContaining('SN-N1'), findsWidgets);
       // Không tự đẩy trạng thái triển khai nào.
       expect(
         calls.where(
@@ -953,29 +1031,55 @@ void main() {
       provisionHttp = 409;
       await pump(tester, width: 1200);
       await act(tester, () async {
-        await tester.tap(find.text('Cấp phát thiết bị & chấm'));
+        await tester.tap(find.text('Chọn Node từ kho để cấp phát'));
         await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).last, 'SENSOR-REAL-02');
-        await tester.tap(find.text('Cấp phát'));
+        await tester.tap(find.byKey(const ValueKey('node-hw-n1')));
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('node-address-ok')));
+        await tester.pumpAndSettle();
+        // lỗi backend hiện ngay trong bảng, bảng không đóng
+        expect(find.textContaining('Installing'), findsOneWidget);
+        expect(find.byKey(const ValueKey('node-hw-n1')), findsOneWidget);
       });
-      expect(find.textContaining('Không cấp phát được'), findsOneWidget);
-      expect(find.text('Cấp phát thiết bị & chấm'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'chưa có Gateway: không gọi cấp phát, báo cần cấp phát Gateway trước',
+    'trang trại chưa có Gateway nào: không gọi cấp phát, báo cần kích hoạt Gateway trước',
     (tester) async {
       devices = [dev('a')];
       gateways = [];
       await pump(tester, width: 1200);
       await act(tester, () async {
-        await tester.tap(find.text('Cấp phát thiết bị & chấm'));
+        await tester.tap(find.text('Chọn Node từ kho để cấp phát'));
         await tester.pumpAndSettle();
       });
       expect(provisionPosts, isEmpty);
-      expect(find.textContaining('Cần cấp phát Gateway trước'), findsOneWidget);
+      expect(
+        find.textContaining('Cần kích hoạt Gateway trước'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'trang trại đã có Gateway từ đợt lắp đặt trước: dùng luôn, không đòi cấp phát Gateway lại',
+    (tester) async {
+      devices = [dev('a')];
+      gateways = [
+        {
+          'gatewayId': 'g-old',
+          'deploymentRequestId':
+              'dep-cu-khac', // Gateway của yêu cầu khác trong cùng trang trại
+          'macAddress': 'BB',
+          'gatewaySerial': 'GW-OLD',
+          'status': 'Online',
+        },
+      ];
+      await pump(tester, width: 1200);
+      expect(find.textContaining('Cần kích hoạt Gateway trước'), findsNothing);
+      expect(find.textContaining('chưa có Gateway nào'), findsNothing);
+      expect(find.text('Chọn Gateway & kết nối'), findsOneWidget);
     },
   );
 
@@ -1018,10 +1122,7 @@ void main() {
       await pump(tester, width: 1200);
       expect(find.text('LẮP ĐẶT MỚI & CHẤM VỊ TRÍ GIS'), findsOneWidget);
       expect(find.text('Request #s1'), findsOneWidget);
-      expect(
-        find.textContaining('Thực địa Chấm Node Phân khu (Zone): Zone 1'),
-        findsOneWidget,
-      );
+      expect(find.text('Báo cáo thực địa · Chấm Node'), findsOneWidget);
       expect(
         find.textContaining(
           RegExp(r'thiết bị chờ chấm \(', caseSensitive: false),
@@ -1039,6 +1140,29 @@ void main() {
       );
       expect(find.text('Căn Zoom'), findsOneWidget);
       expect(find.text('Vệ tinh'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'báo cáo thực địa: tên nông trại, thửa đất, Zone, diện tích, số Node và ghi chú',
+    (tester) async {
+      devices = [dev('a')];
+      await pump(tester, width: 1200);
+      await tester.pump(const Duration(milliseconds: 50));
+      final facts = find.byKey(const ValueKey('field-report-facts'));
+      String all() => tester
+          .widgetList<RichText>(
+            find.descendant(of: facts, matching: find.byType(RichText)),
+          )
+          .map((w) => w.text.toPlainText())
+          .join(' | ');
+      final text = all();
+      expect(text, contains('Nông trại: Trang trại Cầu Đất'));
+      expect(text, contains('Thửa đất (Field): Thửa Đông'));
+      expect(text, contains('Zone: Zone 1'));
+      expect(text, contains('Diện tích Zone: 1000 m²'));
+      expect(text, contains('Node: đã chấm 0 / 2'));
+      expect(text, contains('Ghi chú: Lắp 2 node đo độ ẩm đất'));
     },
   );
 
@@ -1163,6 +1287,23 @@ void main() {
   );
 
   testWidgets(
+    'Node chấp hành không có nút Cấu hình cảm biến (backend chỉ nhận cấu hình cảm biến cho Node cảm biến)',
+    (tester) async {
+      devices = [
+        dev('a'),
+        {...dev('b'), 'deviceType': 'ActuatorNode'},
+      ];
+      locations = [
+        {'deviceId': 'a', 'latitude': 10.0004, 'longitude': 100.0004},
+        {'deviceId': 'b', 'latitude': 10.0005, 'longitude': 100.0005},
+      ];
+      await pump(tester, width: 1200);
+      // Hai Node đã chấm nhưng chỉ Node cảm biến có nút "Cấu hình".
+      expect(find.text('Cấu hình'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Cấu hình cảm biến: chọn cảm biến từ kho Technician rồi gán cho Node qua API',
     (tester) async {
       locations = [
@@ -1190,6 +1331,173 @@ void main() {
       final s = (body['sensors'] as List).single as Map<String, dynamic>;
       expect(s['sensorType'], 'SHT30');
       expect(s['samplingIntervalSec'], 60);
+    },
+  );
+
+  testWidgets(
+    'địa chỉ lắp đặt: GPS điền địa chỉ rồi lưu kèm installationNotes có tiền tố',
+    (tester) async {
+      gps.error = null;
+      gps.fix = const GpsFix(
+        latitude: 10.0005,
+        longitude: 100.0005,
+        accuracyM: 5,
+      );
+      lookup = (lat, lng) async => GeocodeResult.success('Thôn 3, Đà Lạt');
+      await pump(tester);
+      await act(tester, () async {
+        await tester.tap(find.text('Cập nhật vị trí'));
+        await tester.pumpAndSettle();
+      });
+      expect(
+        find.textContaining('Địa chỉ lắp đặt: Thôn 3, Đà Lạt (chưa lưu)'),
+        findsWidgets,
+      );
+      await act(tester, () async {
+        await tester.tap(find.text('Lưu Sơ đồ GIS & Đồng bộ Backend'));
+        await tester.pumpAndSettle();
+      });
+      final n =
+          ((jsonDecode(puts().single.body) as Map)['nodes'] as List).single
+              as Map;
+      expect(n['installationNotes'], 'Địa chỉ: Thôn 3, Đà Lạt');
+      expect(n['latitude'], 10.0005);
+    },
+  );
+
+  testWidgets(
+    'địa chỉ lắp đặt: chỉ sửa địa chỉ thì gửi lại toạ độ đã lưu, không cần chấm lại điểm',
+    (tester) async {
+      locations = [
+        {'deviceId': 'a', 'latitude': 10.0004, 'longitude': 100.0004},
+      ];
+      await pump(tester);
+      expect(find.text('Chưa có địa chỉ lắp đặt'), findsWidgets);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('node-edit-address-a')),
+      );
+      await tester.tap(find.byKey(const ValueKey('node-edit-address-a')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('node-install-address')),
+        'Nhà màng 02, luống 3',
+      );
+      await tester.tap(find.byKey(const ValueKey('node-address-save')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Địa chỉ lắp đặt: Nhà màng 02, luống 3 (chưa lưu)'),
+        findsWidgets,
+      );
+      await act(tester, () async {
+        await tester.tap(find.text('Lưu Sơ đồ GIS & Đồng bộ Backend'));
+        await tester.pumpAndSettle();
+      });
+      final n =
+          ((jsonDecode(puts().single.body) as Map)['nodes'] as List).single
+              as Map;
+      expect(n['deviceId'], 'a');
+      expect(n['latitude'], 10.0004);
+      expect(n['longitude'], 100.0004);
+      expect(n['installationNotes'], 'Địa chỉ: Nhà màng 02, luống 3');
+    },
+  );
+
+  testWidgets(
+    'địa chỉ lắp đặt: địa chỉ đã lưu trên máy chủ được giữ khi chấm lại điểm và không bị tra GPS ghi đè',
+    (tester) async {
+      devices = [
+        {...dev('a'), 'installationNotes': 'Địa chỉ: Lô A, Đà Lạt'},
+      ];
+      gps.error = null;
+      gps.fix = const GpsFix(
+        latitude: 10.0005,
+        longitude: 100.0005,
+        accuracyM: 5,
+      );
+      var lookups = 0;
+      lookup = (lat, lng) async {
+        lookups++;
+        return GeocodeResult.success('Nơi khác');
+      };
+      await pump(tester);
+      expect(
+        find.textContaining('Địa chỉ lắp đặt: Lô A, Đà Lạt'),
+        findsWidgets,
+      );
+      await act(tester, () async {
+        await tester.tap(find.text('Cập nhật vị trí'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Lưu Sơ đồ GIS & Đồng bộ Backend'));
+        await tester.pumpAndSettle();
+      });
+      expect(lookups, 0);
+      final n =
+          ((jsonDecode(puts().single.body) as Map)['nodes'] as List).single
+              as Map;
+      expect(n['installationNotes'], 'Địa chỉ: Lô A, Đà Lạt');
+    },
+  );
+
+  testWidgets(
+    'địa chỉ lắp đặt: GPS tra địa chỉ lỗi thì vẫn chấm điểm, hiện gợi ý ngay dưới dòng địa chỉ (không dùng snackbar che nút Lưu)',
+    (tester) async {
+      gps.error = null;
+      gps.fix = const GpsFix(
+        latitude: 10.0005,
+        longitude: 100.0005,
+        accuracyM: 5,
+      );
+      lookup = (lat, lng) async =>
+          GeocodeResult.failed(GeocodeFailureKind.notFound);
+      await pump(tester);
+      await act(tester, () async {
+        await tester.tap(find.text('Cập nhật vị trí'));
+        await tester.pumpAndSettle();
+      });
+      expect(
+        find.textContaining('Điểm mới (chưa lưu): 10.000500, 100.000500'),
+        findsWidgets,
+      );
+      expect(find.textContaining('Chưa tìm được tên địa điểm'), findsWidgets);
+      expect(find.text('Chưa có địa chỉ lắp đặt'), findsWidgets);
+      expect(find.byType(SnackBar), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'lưu gửi ảnh chụp đầy đủ sơ đồ: Node đã có vị trí vẫn nằm trong danh sách (backend gỡ Node vắng mặt) và giữ ghi chú hiện có',
+    (tester) async {
+      devices = [
+        {...dev('a'), 'installationNotes': 'Ghi chú của KTV'},
+        dev('b'),
+      ];
+      locations = [
+        {'deviceId': 'a', 'latitude': 10.0004, 'longitude': 100.0004},
+      ];
+      gps.error = null;
+      gps.fix = const GpsFix(
+        latitude: 10.0005,
+        longitude: 100.0005,
+        accuracyM: 5,
+      );
+      lookup = (lat, lng) async => GeocodeResult.success('Thôn 3, Đà Lạt');
+      await pump(tester);
+      await act(tester, () async {
+        await tester.tap(find.textContaining('HW-b').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Cập nhật vị trí'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Lưu Sơ đồ GIS & Đồng bộ Backend'));
+        await tester.pumpAndSettle();
+      });
+      final nodes = ((jsonDecode(puts().single.body) as Map)['nodes'] as List)
+          .cast<Map>();
+      final byId = {for (final n in nodes) n['deviceId']: n};
+      expect(byId.keys, containsAll(['a', 'b']));
+      expect(byId['a']!['latitude'], 10.0004);
+      expect(byId['a']!['installationNotes'], 'Ghi chú của KTV');
+      expect(byId['b']!['latitude'], 10.0005);
+      expect(byId['b']!['installationNotes'], 'Địa chỉ: Thôn 3, Đà Lạt');
     },
   );
 }

@@ -6,11 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smartfarm_mobile/core/models/models.dart';
 import 'package:smartfarm_mobile/core/providers/farm_provider.dart';
 import 'package:smartfarm_mobile/core/services/api_service.dart';
 import 'package:smartfarm_mobile/features/auth/register_screen.dart';
-import 'package:smartfarm_mobile/features/farmer/farmer_dashboard_screen.dart';
 import 'package:smartfarm_mobile/features/profile/connection_notification_screens.dart';
 import 'package:smartfarm_mobile/features/profile/profile_screen.dart';
 import 'package:smartfarm_mobile/features/reports/reports_screen.dart';
@@ -496,7 +494,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Báo cáo & Xuất dữ liệu VietGAP'), findsOneWidget);
+      expect(find.text('Báo cáo & Xuất dữ liệu VietGAP'), findsNothing);
       expect(find.text('Trạng thái kết nối MQTT'), findsOneWidget);
 
       provider.dispose();
@@ -520,63 +518,6 @@ void main() {
 
         expect(find.text('Báo cáo & Xuất dữ liệu VietGAP'), findsNothing);
         expect(find.text('Trạng thái kết nối MQTT'), findsOneWidget);
-
-        provider.dispose();
-      },
-    );
-  });
-
-  group('5. Farmer Dashboard Diary Session Badge', () {
-    testWidgets(
-      'FarmerDashboardScreen shows unsynced session status note and badges',
-      (tester) async {
-        final provider = FarmProvider();
-        provider.switchRole('FARMER');
-        provider.setMeForTesting({
-          'userId': 'f1',
-          'fullName': 'Farmer One',
-          'email': 'f1@smartfarm.vn',
-          'role': 'Farmer',
-          'zoneAccess': [
-            {'zoneId': 'z1', 'canControl': true},
-          ],
-        });
-        provider.setZonesForTesting([
-          ZoneModel(
-            zoneId: 'z1',
-            farmId: 'farm1',
-            name: 'Zone Cà chua',
-            currentCrop: 'Cà chua',
-            currentStage: 'Ra hoa',
-            areaM2: 500,
-            currentSoilMoisture: 70,
-            currentTemp: 25,
-            currentHumidity: 60,
-            currentLux: 500,
-          ),
-        ]);
-
-        await tester.pumpWidget(
-          MaterialApp(
-            home: ChangeNotifierProvider<FarmProvider>.value(
-              value: provider,
-              child: const FarmerDashboardScreen(),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Tap tab 3: Nhật Ký
-        final diaryTab = find.text('Nhật Ký');
-        expect(diaryTab, findsOneWidget);
-        await tester.tap(diaryTab);
-        await tester.pumpAndSettle();
-
-        // Verify clear disclaimer that diary is only stored locally during session
-        expect(
-          find.textContaining('máy chủ chưa có API nhật ký'),
-          findsOneWidget,
-        );
 
         provider.dispose();
       },

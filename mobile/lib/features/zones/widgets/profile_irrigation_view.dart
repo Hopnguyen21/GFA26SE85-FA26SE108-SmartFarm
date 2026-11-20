@@ -44,25 +44,69 @@ class ProfileIrrigationView extends StatelessWidget {
             ),
           ),
         for (final st in s.stages)
-          Card(
-            margin: const EdgeInsets.only(top: 6),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${st.order}. ${st.name} · ${st.durationDays} ngày',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                          ),
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE0F2FE),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.water_drop_rounded,
+                          size: 12,
+                          color: Color(0xFF0284C7),
                         ),
                       ),
-                      Text(
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${st.order}. ${st.name} · ${st.durationDays} ngày',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: st.fromProfile
+                            ? const Color(0xFFECFDF5)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: st.fromProfile
+                              ? const Color(0xFFA7F3D0)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Text(
                         st.fromProfile
                             ? 'Hồ sơ'
                             : st.fromCrop
@@ -70,109 +114,121 @@ class ProfileIrrigationView extends StatelessWidget {
                             : 'Chưa có',
                         style: TextStyle(
                           fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
                           color: st.fromProfile
                               ? const Color(0xFF047857)
                               : _muted,
                         ),
                       ),
-                    ],
-                  ),
-                  if (st.sessions.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Chưa có ca tưới.',
-                        style: TextStyle(fontSize: 11.5, color: _muted),
+                    ),
+                  ],
+                ),
+                if (st.sessions.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Chưa có ca tưới.',
+                      style: TextStyle(fontSize: 11.5, color: _muted),
+                    ),
+                  )
+                else
+                  for (final x in st.sessions)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                    )
-                  else
-                    for (final x in st.sessions)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
+                      decoration: BoxDecoration(
+                        color: x.enabled
+                            ? (x.title.toLowerCase().contains('sáng')
+                                  ? const Color(0xFFFFFBEB)
+                                  : x.title.toLowerCase().contains('trưa')
+                                  ? const Color(0xFFFFF1F2)
+                                  : const Color(0xFFEEF2FF))
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
                           color: x.enabled
                               ? (x.title.toLowerCase().contains('sáng')
-                                    ? const Color(0xFFFFFBEB)
+                                    ? const Color(0xFFFDE68A)
                                     : x.title.toLowerCase().contains('trưa')
-                                    ? const Color(0xFFFFF1F2)
-                                    : const Color(0xFFEEF2FF))
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
+                                    ? const Color(0xFFFECDD3)
+                                    : const Color(0xFFC7D2FE))
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            x.title.toLowerCase().contains('sáng')
+                                ? Icons.wb_twilight
+                                : x.title.toLowerCase().contains('trưa')
+                                ? Icons.wb_sunny
+                                : Icons.nights_stay,
+                            size: 13,
                             color: x.enabled
                                 ? (x.title.toLowerCase().contains('sáng')
-                                      ? const Color(0xFFFDE68A)
+                                      ? const Color(0xFFD97706)
                                       : x.title.toLowerCase().contains('trưa')
-                                      ? const Color(0xFFFECDD3)
-                                      : const Color(0xFFC7D2FE))
-                                : const Color(0xFFE2E8F0),
+                                      ? const Color(0xFFE11D48)
+                                      : const Color(0xFF4F46E5))
+                                : _muted,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              x.title.toLowerCase().contains('sáng')
-                                  ? Icons.wb_twilight
-                                  : x.title.toLowerCase().contains('trưa')
-                                  ? Icons.wb_sunny
-                                  : Icons.nights_stay,
-                              size: 13,
-                              color: x.enabled
-                                  ? (x.title.toLowerCase().contains('sáng')
-                                        ? const Color(0xFFD97706)
-                                        : x.title.toLowerCase().contains('trưa')
-                                        ? const Color(0xFFE11D48)
-                                        : const Color(0xFF4F46E5))
-                                  : _muted,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                describeProfileSession(x),
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: x.enabled
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                  color: x.enabled
-                                      ? const Color(0xFF0F172A)
-                                      : _muted,
-                                ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              describeProfileSession(x),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: x.enabled
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: x.enabled
+                                    ? const Color(0xFF0F172A)
+                                    : _muted,
                               ),
                             ),
-                            if (!x.enabled)
-                              const Text(
-                                'Tắt',
-                                style: TextStyle(fontSize: 10, color: _muted),
-                              ),
-                          ],
-                        ),
-                      ),
-                  if (st.fromCrop)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Đây là lịch mẫu chung của cây, chưa lưu trong hồ sơ. Lưu ca riêng để hồ sơ có lịch của mình.',
-                        style: TextStyle(fontSize: 10.5, color: _muted),
+                          ),
+                          if (!x.enabled)
+                            const Text(
+                              'Tắt',
+                              style: TextStyle(fontSize: 10, color: _muted),
+                            ),
+                        ],
                       ),
                     ),
-                  if (onEdit != null)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: busy ? null : () => onEdit!(st),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: Text(
-                          st.fromProfile ? 'Sửa ca tưới' : 'Lưu ca tưới riêng',
+                if (st.fromCrop)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Đây là lịch mẫu chung của cây, chưa lưu trong hồ sơ. Lưu ca riêng để hồ sơ có lịch của mình.',
+                      style: TextStyle(fontSize: 10.5, color: _muted),
+                    ),
+                  ),
+                if (onEdit != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF047857),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                      ),
+                      onPressed: busy ? null : () => onEdit!(st),
+                      icon: const Icon(Icons.edit_outlined, size: 15),
+                      label: Text(
+                        st.fromProfile ? 'Sửa ca tưới' : 'Lưu ca tưới riêng',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         if (onEdit == null && s.isSystemDefined)
@@ -205,9 +261,32 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) => AlertDialog(
-        title: Text(
-          title ?? 'Ca tưới · ${stage.name}',
-          style: const TextStyle(fontSize: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.water_drop_rounded,
+                size: 18,
+                color: Color(0xFF0284C7),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title ?? 'Ca tưới · ${stage.name}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
         content: SizedBox(
           width: double.maxFinite,
@@ -216,28 +295,53 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  hint ??
-                      'Lặp hằng ngày trong giai đoạn. Giờ HH:mm theo múi giờ trang trại. Mỗi ca tối đa 30 phút.',
-                  style: const TextStyle(fontSize: 11, color: _muted),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 13,
+                        color: _muted,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          hint ??
+                              'Lặp hằng ngày trong giai đoạn. Giờ HH:mm theo múi giờ trang trại. Mỗi ca tối đa 30 phút.',
+                          style: const TextStyle(fontSize: 11, color: _muted),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 for (var i = 0; i < rows.length; i++)
                   Container(
                     key: ValueKey('row_$i'),
                     margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       children: [
                         TextField(
                           controller: rows[i].title,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Tên ca',
                             isDense: true,
-                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -246,10 +350,14 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                             Expanded(
                               child: TextField(
                                 controller: rows[i].time,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   labelText: 'Giờ (HH:mm)',
                                   isDense: true,
-                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -261,10 +369,14 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   labelText: 'Phút',
                                   isDense: true,
-                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -276,10 +388,14 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                             Expanded(
                               child: TextField(
                                 controller: rows[i].method,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   labelText: 'Phương thức',
                                   isDense: true,
-                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -288,10 +404,14 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                               child: TextField(
                                 controller: rows[i].water,
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   labelText: 'ml/gốc',
                                   isDense: true,
-                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -301,14 +421,25 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                           children: [
                             Switch(
                               value: rows[i].enabled,
+                              activeThumbColor: const Color(0xFF047857),
                               onChanged: (v) =>
                                   setLocal(() => rows[i].enabled = v),
                             ),
-                            const Text('Bật', style: TextStyle(fontSize: 12)),
+                            const Text(
+                              'Bật',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             const Spacer(),
                             IconButton(
                               tooltip: 'Xóa ca',
-                              icon: const Icon(Icons.delete_outline, size: 20),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: Color(0xFFDC2626),
+                              ),
                               onPressed: () =>
                                   setLocal(() => rows.removeAt(i).dispose()),
                             ),
@@ -317,15 +448,28 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                       ],
                     ),
                   ),
-                TextButton.icon(
+                const SizedBox(height: 4),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF047857),
+                    side: const BorderSide(color: Color(0xFF047857)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: const Size.fromHeight(40),
+                  ),
                   onPressed: () => setLocal(() => rows.add(_Row.empty())),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Thêm ca tưới'),
+                  label: const Text(
+                    'Thêm ca tưới',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 if (canApplyAll)
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
+                    activeColor: const Color(0xFF047857),
                     value: applyAll,
                     onChanged: (v) => setLocal(() => applyAll = v == true),
                     title: Text(
@@ -334,11 +478,32 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
                     ),
                   ),
                 if (error != null)
-                  Text(
-                    error!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFFB91C1C),
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECACA)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 14,
+                          color: Color(0xFFB91C1C),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            error!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFB91C1C),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -347,10 +512,20 @@ Future<StageSessionsEdit?> showStageSessionsEditor(
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF64748B),
+            ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Hủy'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF047857),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () {
               final parsed = <ProfileSession>[];
               for (final r in rows) {

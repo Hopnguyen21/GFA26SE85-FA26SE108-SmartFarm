@@ -116,9 +116,12 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
           ],
           itemBuilder: (context, alt) {
             final isCritical = alt.severity == 'CRITICAL';
+            final targetZone = resolveZoneForAlert(
+              alt: alt,
+              provider: farmProvider,
+            );
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -136,10 +139,25 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: targetZone != null
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ZoneDetailScreen(zone: targetZone),
+                            ),
+                          )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
@@ -228,7 +246,7 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    alt.message,
+                    cleanTrailingZeros(alt.message),
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF475569),
@@ -236,9 +254,47 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.spaceBetween,
                     children: [
+                      if (targetZone != null)
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF047857),
+                            side: const BorderSide(
+                              color: Color(0xFFA7F3D0),
+                            ),
+                            backgroundColor: const Color(0xFFECFDF5),
+                            minimumSize: const Size(0, 36),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.place_outlined, size: 14),
+                          label: Text(
+                            'Tới khu vực: ${alt.zoneName.isNotEmpty ? alt.zoneName : targetZone.name}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ZoneDetailScreen(zone: targetZone),
+                              ),
+                            );
+                          },
+                        ),
                       if (alt.isAcknowledged)
                         const Text(
                           '✓ Đã xác nhận xử lý',
@@ -285,8 +341,11 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                   ),
                 ],
               ),
-            );
-          },
+            ),
+          ),
+        ),
+      );
+    },
         ),
       ),
     ];

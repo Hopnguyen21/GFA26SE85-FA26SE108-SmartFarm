@@ -3,6 +3,7 @@ part of '../farmer_dashboard_screen.dart';
 extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
   Widget _buildHero(
     FarmProvider provider,
+    List<ZoneModel> zones,
     int zoneCount,
     int todoCount,
     int overdueCount,
@@ -18,16 +19,16 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF119653), Color(0xFF0F874A), Color(0xFF0A5E33)],
+          colors: [Color(0xFF062326), Color(0xFF0B4637), Color(0xFF047857)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: _kGreen.withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF062326).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -35,51 +36,56 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _pill('NÔNG DÂN THỰC ĐỊA • SMARTFARM'),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
               const Icon(
                 Icons.place_outlined,
-                size: 13,
-                color: Color(0xFFD1FAE5),
+                size: 14,
+                color: Color(0xFF6EE7B7),
               ),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   farmName,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFFD1FAE5),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: provider.isLoadingApi ? null : () => _sync(provider),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
               backgroundColor: Colors.white.withValues(alpha: 0.12),
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             icon: provider.isLoadingApi
                 ? const SizedBox(
-                    width: 13,
-                    height: 13,
+                    width: 14,
+                    height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.sync, size: 14),
+                : const Icon(Icons.sync_rounded, size: 16),
             label: Text(
               provider.isLoadingApi ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu',
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             'Xin chào, $name!',
             style: const TextStyle(
@@ -95,11 +101,11 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
             '(${overdueCount > 0 ? '$overdueCount việc quá hạn' : 'tất cả đúng tiến độ'}).',
             style: const TextStyle(
               fontSize: 12.5,
-              height: 1.4,
+              height: 1.45,
               color: Color(0xFFD1FAE5),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _buildWeather(provider),
           const SizedBox(height: 12),
           Row(
@@ -159,6 +165,121 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _heroZoneList(zones),
+        ],
+      ),
+    );
+  }
+
+  /// Khu vực được giao dạng dropdown ngay trong thẻ chào: bấm để xổ danh sách; chọn một khu vực thì thu lại và cuộn tới chi tiết bên dưới.
+  Widget _heroZoneList(List<ZoneModel> zones) {
+    void toList() {
+      _rebuild(() => _heroZonesOpen = false);
+      final ctx = _zonesKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 300),
+        );
+      }
+    }
+
+    if (zones.isEmpty) {
+      return const Text(
+        'Bạn chưa được giao khu vực nào. Liên hệ chủ trang trại để được phân công.',
+        style: TextStyle(fontSize: 12, color: Colors.white70),
+      );
+    }
+    final open = _heroZonesOpen;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            key: const ValueKey('hero-zones-toggle'),
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _rebuild(() => _heroZonesOpen = !_heroZonesOpen),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.eco_outlined, size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Khu vực được phân công (${zones.length})',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    open ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.white,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+                children: [
+                  for (final z in zones)
+                    InkWell(
+                      key: ValueKey('hero-zone-${z.zoneId}'),
+                      onTap: toList,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                z.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (z.currentCrop.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  z.currentCrop,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -237,13 +358,23 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                 if (suffix != null) ...[
                   const SizedBox(width: 6),
                   Flexible(
-                    child: Text(
-                      suffix,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFFDA4AF),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBE123C).withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        suffix,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -381,56 +512,95 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
     String sub,
     VoidCallback onTap, {
     Color border = const Color(0xFFE2E8F0),
+    String? badgeText,
+    Color? badgeColor,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, size: 20, color: fg),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    // 2 dòng: "Bản đồ GIS & Nô…", "Cảnh báo vi khí …" bị cắt khi chỉ 1 dòng.
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    sub,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Icon(icon, size: 20, color: fg),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        sub,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (badgeText != null)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badgeColor ?? const Color(0xFFE11D48),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badgeText,
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -467,6 +637,8 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                 'Công việc của tôi',
                 '$todoCount việc đang chờ',
                 () => _openAlertsTasks(2),
+                badgeText: todoCount > 0 ? '$todoCount' : null,
+                badgeColor: const Color(0xFF0284C7),
               ),
             ),
           ],
@@ -493,6 +665,11 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                 'Cảnh báo vi khí hậu',
                 '$alertCount thông báo nóng',
                 () => _openAlertsTasks(1),
+                border: alertCount > 0
+                    ? const Color(0xFFFDA4AF)
+                    : const Color(0xFFE2E8F0),
+                badgeText: alertCount > 0 ? '$alertCount' : null,
+                badgeColor: const Color(0xFFE11D48),
               ),
             ),
           ],
@@ -601,8 +778,15 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
               onPressed: () => _openAlertsTasks(1),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFE11D48),
+                minimumSize: const Size(0, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text('Kiểm tra ngay ➔'),
+              child: const Text(
+                'Kiểm tra ngay ➔',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -642,8 +826,10 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
           ),
           InkWell(
             onTap: () => _rebuild(() => _feedback = null),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              alignment: Alignment.center,
               child: Icon(Icons.close, size: 16, color: fg),
             ),
           ),

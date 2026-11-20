@@ -346,19 +346,44 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? const Color(0xFFECFDF5) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: selected ? _green : const Color(0xFFE2E8F0),
           width: selected ? 1.6 : 1,
         ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
       ),
       child: Row(
         children: [
-          Icon(
-            selected ? Icons.check_circle : Icons.menu_book_outlined,
-            size: 22,
-            color: selected ? _green : _muted,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: selected
+                  ? const Color(0xFFD1FAE5)
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              selected ? Icons.check_circle_rounded : Icons.menu_book_rounded,
+              size: 20,
+              color: selected ? _green : _muted,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -398,7 +423,11 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
           TextButton(
             style: TextButton.styleFrom(
               minimumSize: const Size(48, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: _green,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () => _openDetail(context, p),
             child: const Text(
@@ -479,11 +508,26 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
           key: ValueKey('custom_name_${s.profileId}'),
           initialValue: s.customName,
           onChanged: c.setCustomName,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Tên hồ sơ tùy chỉnh *',
             helperText: 'Tạo bản sao riêng; hồ sơ hệ thống giữ nguyên.',
-            border: OutlineInputBorder(),
+            prefixIcon: const Icon(
+              Icons.edit_outlined,
+              size: 18,
+              color: _muted,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _green, width: 1.5),
+            ),
             isDense: true,
+            filled: true,
+            fillColor: Colors.white,
           ),
         ),
         const SizedBox(height: 8),
@@ -493,10 +537,25 @@ class _ZoneCropPlanSectionState extends State<ZoneCropPlanSection> {
           onChanged: c.setCustomDescription,
           maxLines: 2,
           maxLength: 4000,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Mô tả (không bắt buộc)',
-            border: OutlineInputBorder(),
+            prefixIcon: const Icon(
+              Icons.description_outlined,
+              size: 18,
+              color: _muted,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _green, width: 1.5),
+            ),
             isDense: true,
+            filled: true,
+            fillColor: Colors.white,
           ),
         ),
       ],

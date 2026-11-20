@@ -256,4 +256,65 @@ void main() {
     expect(find.textContaining('Đã lưu lịch tưới'), findsNothing);
     await _dispose(tester);
   });
+
+  testWidgets(
+    'giao diện như web: thẻ giai đoạn lọc lưới ngày, chạm ô ngày đổi chi tiết, không tràn ở 320px',
+    (tester) async {
+      handler = (r) async =>
+          r.url.path == '/api/v1/growth-profiles/p1/irrigation-schedule'
+          ? utf8Json(_irrigation())
+          : utf8Json([]);
+      await _pump(tester);
+      Finder cell(int n) => find.byKey(ValueKey('profile_day_$n'));
+
+      expect(
+        find.text('Cuốn Lịch Tưới 3 Ca (60 Ngày Canh Tác)'),
+        findsOneWidget,
+      );
+      expect(find.text('Giai đoạn 1'), findsOneWidget);
+      expect(find.text('Ngày 1 - 20'), findsOneWidget);
+      expect(find.text('Ngày 21 - 60'), findsOneWidget);
+      expect(find.text('Tất cả (60 ngày)'), findsOneWidget);
+      expect(find.textContaining('60 / 60 ngày'), findsOneWidget);
+      expect(find.text('Chi tiết Lịch Tưới Ngày 1'), findsOneWidget);
+      expect(find.text('ĐÃ LƯU TRONG HỒ SƠ'), findsOneWidget);
+
+      // Lọc giai đoạn 1: chỉ còn 20 ngày đầu.
+      await tester.tap(find.text('Giai đoạn 1'));
+      await tester.pumpAndSettle();
+      expect(cell(20), findsOneWidget);
+      expect(cell(21), findsNothing);
+      expect(find.textContaining('20 / 60 ngày'), findsOneWidget);
+      // Chạm lại bỏ lọc, rồi chọn ngày 30 (giai đoạn 2).
+      await tester.tap(find.text('Giai đoạn 1'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(cell(30));
+      await tester.tap(cell(30));
+      await tester.pumpAndSettle();
+      expect(find.text('Chi tiết Lịch Tưới Ngày 30'), findsOneWidget);
+      expect(find.text('Ra hoa'), findsWidgets);
+      await _dispose(tester);
+
+      for (final width in [390.0, 320.0]) {
+        tester.view.physicalSize = Size(width, 4000);
+        await tester.pumpWidget(
+          ChangeNotifierProvider(
+            create: (_) => FarmProvider(),
+            child: MaterialApp(
+              builder: (c, child) => MediaQuery(
+                data: MediaQuery.of(
+                  c,
+                ).copyWith(textScaler: const TextScaler.linear(1.3)),
+                child: child!,
+              ),
+              home: IrrigationCalendarScreen(profile: _profile()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'width $width');
+        await _dispose(tester);
+      }
+    },
+  );
 }

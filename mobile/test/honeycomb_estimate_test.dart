@@ -159,24 +159,24 @@ void main() {
     ];
 
     test(
-      'Zone 4.500 m², R=25: 1 GW, 5 node, 3 điểm van → 1 relay 4 kênh; tổng khớp từng dòng',
+      'Zone 4.500 m², R=25: 1 GW, 4 node (công thức web), 3 điểm van → 1 relay 4 kênh; tổng khớp từng dòng',
       () {
         final e = est(db);
         expect(
           [e.gateways, e.sensors, e.actuators, e.accessoryPoints],
-          [1, 5, 3, 8],
+          [1, 4, 3, 7],
         );
         expect(e.line(EstimateRole.actuatorNode).quantity, 1); // ceil(3/4)
         expect(e.gatewayCost, 4500000);
-        expect(e.sensorCost, 5 * 3000000);
+        expect(e.sensorCost, 4 * 3000000);
         expect(e.actuatorCost, 1200000);
-        expect(e.accessoriesCost, 8 * 150000);
+        expect(e.accessoriesCost, 7 * 150000);
         final sum =
             e.lines.fold<double>(0, (a, l) => a + l.lineTotal!) +
             e.installationCost;
         expect(e.total, sum);
-        expect(e.total, 4500000 + 15000000 + 1200000 + 1200000 + 500000);
-        expect(formatVnd(e.total!), '22.400.000 đ');
+        expect(e.total, 4500000 + 12000000 + 1200000 + 1050000 + 500000);
+        expect(formatVnd(e.total!), '19.250.000 đ');
       },
     );
 
@@ -427,7 +427,7 @@ void main() {
         .join(',');
 
     test(
-      'cần ánh sáng + pH: bộ chính 4 + 1 bộ biến thể pH (tổng vẫn 5 điểm đo), không cộng dồn mọi bộ',
+      'cần ánh sáng + pH: bộ chính 3 + 1 bộ biến thể pH (tổng vẫn 4 điểm đo), không cộng dồn mọi bộ',
       () {
         final e = est(
           kits,
@@ -440,37 +440,37 @@ void main() {
             'LightIntensity',
           ],
         );
-        expect(e.sensors, 5);
-        expect(sensorsOf(e), 'KIT-LIGHTx4,KIT-PHx1');
-        expect(e.sensorCost, 4 * 1000000 + 1100000);
+        expect(e.sensors, 4);
+        expect(sensorsOf(e), 'KIT-LIGHTx3,KIT-PHx1');
+        expect(e.sensorCost, 3 * 1000000 + 1100000);
         expect(e.capability.missing, isEmpty);
-        expect(e.total, 3800000 + 5100000 + 3 * 2150000 + 8 * 150000 + 500000);
+        expect(e.total, 3800000 + 4100000 + 3 * 2150000 + 7 * 150000 + 500000);
       },
     );
 
-    test('chỉ cần ánh sáng: chỉ dùng bộ ánh sáng cho cả 5 điểm', () {
+    test('chỉ cần ánh sáng: chỉ dùng bộ ánh sáng cho cả 4 điểm', () {
       final e = est(
         kits,
         area: 4500,
         req: ['Temperature', 'SoilMoisture', 'AirHumidity', 'LightIntensity'],
       );
-      expect(sensorsOf(e), 'KIT-LIGHTx5');
+      expect(sensorsOf(e), 'KIT-LIGHTx4');
     });
 
-    test('chỉ cần pH: chỉ dùng bộ pH cho cả 5 điểm', () {
+    test('chỉ cần pH: chỉ dùng bộ pH cho cả 4 điểm', () {
       final e = est(
         kits,
         area: 4500,
         req: ['Temperature', 'SoilMoisture', 'AirHumidity', 'Ph'],
       );
-      expect(sensorsOf(e), 'KIT-PHx5');
+      expect(sensorsOf(e), 'KIT-PHx4');
     });
 
     test(
       'không có nhu cầu đo: dùng bộ rẻ nhất cho mọi điểm, không khẳng định đáp ứng',
       () {
         final e = est(kits, area: 4500);
-        expect(sensorsOf(e), 'KIT-LIGHTx5');
+        expect(sensorsOf(e), 'KIT-LIGHTx4');
       },
     );
 
@@ -601,7 +601,7 @@ void main() {
           dev('ActuatorNode', 'g1', []),
         ]);
         final e = est(catalogDb, area: 2500, req: reqAll, installed: installed);
-        expect([e.sensors, e.actuators, e.gateways], [3, 2, 1]);
+        expect([e.sensors, e.actuators, e.gateways], [2, 2, 1]);
         expect(e.linesOf(EstimateRole.actuatorNode).single.quantity, 1);
         expect(e.linesOf(EstimateRole.actuatorNode).single.installed, 1);
         expect(e.gatewayCost, 0);
@@ -687,8 +687,68 @@ void main() {
     });
   });
 
+  group('Gateway đã có của trang trại', () {
+    final catalog = [...realDb()];
+    test(
+      'Zone chưa gắn thiết bị nhưng trang trại đã có gateway: không dự toán mua thêm gateway',
+      () {
+        final withFarmGw = ZoneInstalledDevices.fromJson(
+          const [],
+          farmGateways: [
+            {'gatewayId': 'GW-1', 'status': 'Offline'},
+          ],
+        );
+        expect(withFarmGw.gateways, 1);
+        expect(withFarmGw.farmGateways, 1);
+        final e = est(catalog, area: 405, installed: withFarmGw);
+        expect(e.gateways, 1); // nhu cầu theo thuật toán vẫn là 1
+        expect(e.gatewayCost, 0);
+        expect(e.linesOf(EstimateRole.gateway).single.covered, isTrue);
+        expect(e.linesOf(EstimateRole.gateway).single.installed, 1);
+        // đối chứng: không có gateway nào thì có dòng gateway cần mua
+        final none = est(catalog, area: 405);
+        expect(none.linesOf(EstimateRole.gateway).single.covered, isFalse);
+      },
+    );
+
+    test(
+      'gateway đã ngừng/thu hồi và id trùng không bị tính; trùng với gateway của thiết bị chỉ tính một lần',
+      () {
+        final i = ZoneInstalledDevices.fromJson(
+          [
+            {
+              'deviceType': 'SensorNode',
+              'gatewayId': 'gw-1',
+              'sensors': <String>[],
+            },
+          ],
+          farmGateways: [
+            {'gatewayId': 'GW-1', 'status': 'Online'},
+            {'gatewayId': 'GW-2', 'status': 'Decommissioned'},
+            {'id': 'GW-3', 'status': 'Retired'},
+            {'gatewayId': '', 'status': 'Online'},
+          ],
+        );
+        expect(i.gateways, 1);
+        expect(i.farmGateways, 1);
+      },
+    );
+
+    test('Zone lớn cần 2 gateway, trang trại có 1: chỉ bổ sung 1', () {
+      final i = ZoneInstalledDevices.fromJson(
+        const [],
+        farmGateways: [
+          {'gatewayId': 'GW-1', 'status': 'Online'},
+        ],
+      );
+      final e = est(catalog, area: 15001, installed: i);
+      expect(e.gateways, 2);
+      expect(e.linesOf(EstimateRole.gateway).single.quantity, 1);
+    });
+  });
+
   test(
-    'mỗi 15.000 m² thêm một gateway; tối thiểu 1 node cảm biến; bán kính cố định 25 m',
+    'mỗi 15.000 m² thêm một gateway; tối thiểu 2 node cảm biến (như web); bán kính cố định 25 m',
     () {
       expect(honeycombFixedRadiusM, 25);
       expect(est([], area: 15001).gateways, 2);
@@ -699,12 +759,12 @@ void main() {
           actuatorRatio: 0.6,
           catalog: HoneycombCatalog.fromHardwareItems([]),
         ).sensors,
-        1,
+        2,
       );
     },
   );
 
-  group('Số node: công thức theo diện tích + chu vi, khớp mô phỏng phủ kín', () {
+  group('Số node: đúng công thức web = max(2, ceil(S_zone / S_ô × 1,12))', () {
     int nodes(double area, {double? perimeter}) => computeHoneycombEstimate(
       areaM2: area,
       radiusM: 25,
@@ -714,38 +774,22 @@ void main() {
     ).sensors;
 
     test(
-      'các Zone thật: kết quả khớp số node tối thiểu của mô phỏng (hình chữ nhật 1:2)',
+      'các Zone thật: khớp từng bước tính của web (R = 25 m, ô ≈ 1.624 m²)',
       () {
-        // Mô phỏng k-tâm (bán kính 25 m) cho hình chữ nhật 1:2: 172→1, 1.458→2, 2.500→3, 4.500→5, 10.000→8.
-        expect(nodes(172), 1);
-        expect(nodes(1458), 2);
-        expect(nodes(2500), 3);
-        expect(nodes(4500), 5);
-        expect(
-          nodes(10000),
-          9,
-        ); // sát nhưng không thiếu (mô phỏng: 8–10 tuỳ tỉ lệ cạnh)
+        // ô = 3√3/2·25² ≈ 1623,8 m²; số node = max(2, ceil(S / ô × 1,12)).
+        expect(nodes(172), 2); // 0,12 → 1 → tối thiểu 2
+        expect(nodes(1458), 2); // 1,006 → 2
+        expect(nodes(2500), 2); // 1,72 → 2
+        expect(nodes(4500), 4); // 3,10 → 4
+        expect(nodes(10000), 7); // 6,90 → 7
+        expect(nodes(15000), 11); // 10,35 → 11
       },
     );
 
-    test(
-      'Zone dài hẹp (chu vi lớn) cần nhiều node hơn Zone vuông cùng diện tích',
-      () {
-        final square = nodes(2500, perimeter: 200);
-        final narrow = nodes(2500, perimeter: 2 * (250 + 10));
-        expect(narrow, greaterThanOrEqualTo(square));
-      },
-    );
-
-    test(
-      'chu vi sai/lệch bị chặn trong khoảng hợp lý, không làm số node vô lý',
-      () {
-        final huge = nodes(2500, perimeter: 1e9);
-        final tiny = nodes(2500, perimeter: 1);
-        expect(huge, lessThan(10));
-        expect(tiny, greaterThanOrEqualTo(1));
-      },
-    );
+    test('chu vi Zone không ảnh hưởng số node (web không dùng chu vi)', () {
+      expect(nodes(2500, perimeter: 200), nodes(2500, perimeter: 1e9));
+      expect(nodes(2500, perimeter: 1), nodes(2500));
+    });
 
     test('chu vi bao lồi từ toạ độ: hình vuông ~100 m x 100 m → ~400 m', () {
       const d = 100 / 110540.0; // độ vĩ ~ 100 m
@@ -764,6 +808,23 @@ void main() {
       );
     });
   });
+
+  test(
+    'tỉ lệ van/bơm theo cây: nhận diện đúng như web (từ đầu của khóa), cây khác = 0,6',
+    () {
+      expect(honeycombActuatorRatio('Cà chua (Solanum lycopersicum)'), 0.6);
+      expect(honeycombActuatorRatio('Cà Chua Beefsteak (Tomato)'), 0.6);
+      expect(honeycombActuatorRatio('Ớt ngọt'), 0.5);
+      expect(honeycombActuatorRatio('Dưa leo màu'), 0.7);
+      expect(
+        honeycombActuatorRatio('Dưa lưới'),
+        0.7,
+      ); // web nhận theo từ "dưa" nên mọi loại dưa là 0,7
+      expect(honeycombActuatorRatio('Xà lách Thủy canh'), 0.8);
+      expect(honeycombActuatorRatio('Dâu tây'), 0.75);
+      expect(honeycombActuatorRatio('Lúa'), 0.6);
+    },
+  );
 
   test('formatVnd phân tách hàng nghìn', () {
     expect(formatVnd(10400000), '10.400.000 đ');

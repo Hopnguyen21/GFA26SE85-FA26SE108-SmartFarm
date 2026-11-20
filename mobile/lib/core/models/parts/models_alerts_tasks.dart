@@ -1,5 +1,56 @@
 part of '../models.dart';
 
+/// Nhãn thông số môi trường cho câu cảnh báo.
+String _alertParamLabel(String code) =>
+    const {
+      'soilmoisture': 'Độ ẩm đất',
+      'temperature': 'Nhiệt độ',
+      'airhumidity': 'Độ ẩm không khí',
+      'lightintensity': 'Ánh sáng',
+      'ph': 'pH',
+      'ec': 'EC',
+      'co2': 'CO₂',
+    }[code.toLowerCase()] ??
+    '';
+
+/// Số gọn: bỏ phần thập phân thừa ("65.1000" → "65,1", "70.0000" → "70").
+String _alertNum(Object? v) {
+  final d = v is num ? v.toDouble() : double.tryParse('$v');
+  if (d == null) return '$v';
+  final s = d.toStringAsFixed(1);
+  return (s.endsWith('.0') ? s.substring(0, s.length - 2) : s).replaceAll(
+    '.',
+    ',',
+  );
+}
+
+/// Chuẩn hóa số trong chuỗi thông báo cảnh báo: loại bỏ các số 0 thừa (vd: "70.000" -> "70", "80.000" -> "80", "65.100" -> "65.1", "70.00" -> "70").
+String cleanTrailingZeros(String text) {
+  if (text.isEmpty) return text;
+  return text
+      .replaceAllMapped(RegExp(r'(\d+)[.,]000(?!\d)'), (m) => m[1]!)
+      .replaceAllMapped(RegExp(r'(\d+)[.,]00(?!\d)'), (m) => m[1]!)
+      .replaceAllMapped(RegExp(r'(\d+)\.(\d*?)0+(?!\d)'), (m) => m[2]!.isEmpty ? m[1]! : '${m[1]}.${m[2]}')
+      .replaceAllMapped(RegExp(r'(\d+),(\d*?)0+(?!\d)'), (m) => m[2]!.isEmpty ? m[1]! : '${m[1]},${m[2]}');
+}
+
+/// Câu cảnh báo khi backend không gửi `message`: nêu THÔNG SỐ, giá trị đo và ngưỡng (trước đây chỉ có "Giá trị đo được: 65.1 %"
+/// nên không biết đó là độ ẩm hay nhiệt độ).
+String _thresholdMessage(Map<String, dynamic> json) {
+  final label = _alertParamLabel(json['parameterCode']?.toString() ?? '');
+  final unit = json['unit']?.toString() ?? '';
+  final obs = json['observedValue'];
+  final lo = json['minThreshold'];
+  final hi = json['maxThreshold'];
+  final u = unit.isEmpty ? '' : ' $unit';
+  final range = (lo != null && hi != null)
+      ? ' (ngưỡng ${_alertNum(lo)}–${_alertNum(hi)}$u)'
+      : ' (ngoài ngưỡng tối ưu)';
+  final value = obs == null ? '' : '${_alertNum(obs)}$u';
+  return '${label.isEmpty ? 'Giá trị đo được' : label}: $value$range'
+      .replaceAll(': (', ' (');
+}
+
 class AlertModel {
   final String alertId;
   final String title;
@@ -47,8 +98,6 @@ class AlertModel {
     }
 
     final param = json['parameterCode']?.toString() ?? '';
-    final obs = json['observedValue']?.toString() ?? '';
-    final unit = json['unit']?.toString() ?? '';
     final category =
         json['alertCategory']?.toString() ??
         (param == 'BOUNDARY' ? 'BOUNDARY_VIOLATION' : 'THRESHOLD_VIOLATION');
@@ -57,9 +106,9 @@ class AlertModel {
         (category == 'BOUNDARY_VIOLATION'
             ? 'Cảnh báo ranh giới thiết bị'
             : 'Cảnh báo vi khí hậu $param');
-    final message =
-        json['message']?.toString() ??
-        'Giá trị đo được: $obs $unit (ngoài ngưỡng tối ưu)';
+    final message = cleanTrailingZeros(
+      json['message']?.toString() ?? _thresholdMessage(json),
+    );
 
     return AlertModel(
       alertId: json['alertId']?.toString() ?? '',
@@ -83,14 +132,18 @@ class TaskAssignmentModel {
   final String farmerName;
   final String status;
   final int progressPercent;
+  final String? progressNote;
   final String? result;
+  final String? failureReason;
 
   const TaskAssignmentModel({
     required this.farmerId,
     required this.farmerName,
     required this.status,
     this.progressPercent = 0,
+    this.progressNote,
     this.result,
+    this.failureReason,
   });
 
   factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) =>
@@ -99,7 +152,9 @@ class TaskAssignmentModel {
         farmerName: json['farmerName']?.toString() ?? 'Nhân công',
         status: json['status']?.toString() ?? '',
         progressPercent: (json['progressPercent'] as num?)?.toInt() ?? 0,
+        progressNote: json['progressNote']?.toString(),
         result: json['result']?.toString(),
+        failureReason: json['failureReason']?.toString(),
       );
 }
 
@@ -112,6 +167,7 @@ class TaskModel {
   final String? assignedFarmerName;
   final String? assignedFarmerId;
   final String? description;
+  final String? requirements;
   bool isCompleted;
   final String status;
   final String? zoneId;
@@ -130,6 +186,7 @@ class TaskModel {
     this.assignedFarmerName,
     this.assignedFarmerId,
     this.description,
+    this.requirements,
     this.isCompleted = false,
     this.status = '',
     this.zoneId,
@@ -173,6 +230,7 @@ class TaskModel {
       zoneId: json['zoneId']?.toString(),
       assignments: assignments,
       description: json['description']?.toString(),
+      requirements: json['requirements']?.toString(),
       isCompleted: isDone,
       dueAtUtc: due == null ? null : DateTime.tryParse(due),
       createdAtUtc: DateTime.tryParse(json['createdAtUtc']?.toString() ?? ''),
@@ -220,8 +278,8 @@ class AppNotificationModel {
   factory AppNotificationModel.fromJson(Map<String, dynamic> json) {
     return AppNotificationModel(
       notificationId: json['notificationId']?.toString() ?? '',
-      title: json['title']?.toString() ?? 'Thông báo hệ thống',
-      message: json['message']?.toString() ?? '',
+      title: cleanTrailingZeros(json['title']?.toString() ?? 'Thông báo hệ thống'),
+      message: cleanTrailingZeros(json['message']?.toString() ?? ''),
       type: json['type']?.toString() ?? 'System',
       severity: json['severity']?.toString() ?? 'Info',
       isRead: json['isRead'] == true,

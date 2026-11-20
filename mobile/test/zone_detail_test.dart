@@ -405,6 +405,38 @@ void main() {
       );
       await _dispose(tester);
     });
+
+    testWidgets('chỉ hiển thị các thông số thực sự nhận từ cảm biến (ẩn thông số không có dữ liệu)', (
+      tester,
+    ) async {
+      // Zone chỉ có cảm biến Nhiệt độ và Độ ẩm không khí
+      _route(
+        telemetry: _telemetry(
+          metrics: [
+            _metric('Temperature', 28.5, unit: '°C'),
+            _metric('AirHumidity', 68.0, unit: '%'),
+          ],
+        ),
+      );
+      await _pump(
+        tester,
+        ZoneClimatePanel(zone: _zone(), refreshEvery: null),
+      );
+
+      // Thẻ của 2 thông số có dữ liệu phải xuất hiện
+      expect(find.text('Nhiệt độ'), findsOneWidget);
+      expect(find.text('Độ ẩm không khí'), findsOneWidget);
+      expect(find.textContaining('28.5 °C'), findsOneWidget);
+      expect(find.textContaining('68 %'), findsOneWidget);
+
+      // Thẻ của các thông số KHÔNG có dữ liệu phải ẩn hoàn toàn
+      expect(find.text('Độ ẩm đất'), findsNothing);
+      expect(find.text('Ánh sáng'), findsNothing);
+      expect(find.text('pH'), findsNothing);
+      expect(find.text('EC'), findsNothing);
+
+      await _dispose(tester);
+    });
   });
 
   group('tab Canh tác', () {
@@ -558,6 +590,101 @@ void main() {
       );
       expect(find.text('Zone khác'), findsNothing);
       expect(find.text('Tải lại'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+      provider.dispose();
+    },
+  );
+
+  testWidgets(
+    'FARMER: ZoneDetailScreen chỉ có 3 tab (Vi khí hậu, Thiết bị, Canh tác); ẩn Triển khai IoT và Hợp đồng',
+    (tester) async {
+      _route();
+      tester.view.physicalSize = const Size(600, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final provider = FarmProvider();
+      provider.switchRole('FARMER');
+      await tester.pumpAndSettle();
+
+      final z = _zone(id: 'z1', name: 'Nhà màng 1');
+      provider.setZonesForTesting([z]);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: provider,
+          child: MaterialApp(
+            home: ZoneDetailScreen(zone: z),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // 3 tabs có mặt
+      expect(find.text('Vi khí hậu'), findsOneWidget);
+      expect(find.text('Thiết bị'), findsOneWidget);
+      expect(find.text('Canh tác'), findsOneWidget);
+
+      // Triển khai IoT & Hợp đồng & Hỗ trợ BỊ ẨN đối với Farmer
+      expect(find.text('Triển khai IoT'), findsNothing);
+      expect(find.text('Hợp đồng & Hỗ trợ'), findsNothing);
+
+      // Thao tác chỉnh sửa ranh giới/hồ sơ của Owner bị ẩn
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.more_vert), findsNothing);
+
+      // Nút Cảnh báo & quy tắc của Zone bị ẩn với Farmer (chỉ xem trên Zone)
+      expect(find.byKey(const Key('open_alert_center')), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+      provider.dispose();
+    },
+  );
+
+  testWidgets(
+    'OWNER: ZoneDetailScreen có đủ 5 tab và các chức năng quản trị',
+    (tester) async {
+      _route();
+      tester.view.physicalSize = const Size(600, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final provider = FarmProvider();
+      provider.switchRole('OWNER');
+      await tester.pumpAndSettle();
+
+      final z = _zone(id: 'z1', name: 'Nhà màng 1');
+      provider.setZonesForTesting([z]);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: provider,
+          child: MaterialApp(
+            home: ZoneDetailScreen(zone: z),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // 5 tabs có mặt
+      expect(find.text('Vi khí hậu'), findsOneWidget);
+      expect(find.text('Thiết bị'), findsOneWidget);
+      expect(find.text('Canh tác'), findsOneWidget);
+      expect(find.text('Triển khai IoT'), findsOneWidget);
+      expect(find.text('Hợp đồng & Hỗ trợ'), findsOneWidget);
+
+      // Nút sửa của Owner hiển thị
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+
+      // Nút Cảnh báo & quy tắc của Zone hiển thị với Owner
+      expect(find.byKey(const Key('open_alert_center')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));

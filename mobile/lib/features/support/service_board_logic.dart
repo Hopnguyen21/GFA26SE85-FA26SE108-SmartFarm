@@ -2,10 +2,20 @@
 /// Dữ liệu là JSON của `GET /service-requests` (ServiceRequestView) cộng báo giá/bản đồ tải thêm.
 library;
 
-import '../../core/models/models.dart' show BusinessParameters;
+import '../../core/models/models.dart'
+    show BusinessParameters, ZoneContractModel;
 
 /// Mã lỗi của yêu cầu lắp đặt: `INSTALLATION` do luồng triển khai IoT tạo, `NEW_INSTALL` do cổng dịch vụ tạo.
 const installationFailureCodes = {'INSTALLATION', 'NEW_INSTALL'};
+
+/// Yêu cầu triển khai còn đang chạy (chưa hoàn tất/hủy): Zone chỉ được có một yêu cầu như vậy; backend từ chối yêu cầu thứ hai.
+bool deploymentRequestIsRunning(String status) => const {
+  'Submitted',
+  'Accepted',
+  'Surveyed',
+  'PlanConfirmed',
+  'Installing',
+}.contains(status);
 
 enum ServiceKind { installation, maintenance }
 
@@ -285,4 +295,36 @@ String? effectiveQuotationStatus(
     }
   }
   return quotationStatus;
+}
+
+/// Lý do CHẶN mua thêm thiết bị cho Zone vì hợp đồng dịch vụ của Zone đã hết hạn; null = được phép.
+/// Zone chưa từng có hợp đồng (lần lắp đầu) thì không chặn. Có hợp đồng đang hiệu lực (Active/ExpiringSoon) và chưa quá ngày kết thúc
+/// thì không chặn. Mọi hợp đồng còn lại đều hết hạn/đã thay thế/đã chấm dứt → phải gia hạn hoặc ký hợp đồng mới trước.
+String? zoneContractBlockReason(
+  List<ZoneContractModel> contracts,
+  DateTime today, {
+  String action = 'mua thêm thiết bị',
+}) {
+  if (contracts.isEmpty) return null;
+  final day = DateTime(today.year, today.month, today.day);
+  bool notPast(ZoneContractModel c) {
+    final end = DateTime.tryParse(c.endDate);
+    return end == null
+        ? c.daysRemaining >= 0
+        : !DateTime(end.year, end.month, end.day).isBefore(day);
+  }
+
+  if (contracts.any((c) => c.isActive && notPast(c))) return null;
+  final latest = [...contracts]
+    ..sort(
+      (a, b) => (DateTime.tryParse(b.endDate) ?? DateTime(1970)).compareTo(
+        DateTime.tryParse(a.endDate) ?? DateTime(1970),
+      ),
+    );
+  final c = latest.first;
+  final end = DateTime.tryParse(c.endDate);
+  final when = end == null
+      ? ''
+      : ' (hết hạn ${end.day.toString().padLeft(2, '0')}/${end.month.toString().padLeft(2, '0')}/${end.year})';
+  return 'Hợp đồng dịch vụ của Zone ${c.zoneName} ${c.contractNumber} đã hết hạn$when. Hãy gia hạn hợp đồng trước khi $action.';
 }

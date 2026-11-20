@@ -59,8 +59,6 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
                       msg.sources != null &&
                       msg.sources!.isNotEmpty)
                     _RagSourcesAccordion(sources: msg.sources!),
-                  if (!msg.isUser && msg.contextSnapshotJson != null)
-                    _AiPayloadLog(snapshotJson: msg.contextSnapshotJson!),
                   const SizedBox(height: 4),
                   Align(
                     alignment: Alignment.bottomRight,

@@ -5,7 +5,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/state_views.dart';
 import '../deployment_board_logic.dart';
 import 'deployment_progress_bar.dart';
-import 'survey_dialog.dart';
+import '../../support/field_survey_logic.dart';
+import '../../support/field_survey_report_screen.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/farm_provider.dart';
 
 /// Khối "Tiến độ lắp đặt" trong chi tiết phiếu dịch vụ loại lắp đặt: cho kỹ thuật viên nhận, khảo sát, xác nhận kế hoạch
 /// và bắt đầu lắp đặt ngay trên phiếu. Các bước sau (cấp phát thiết bị, kiểm tra kết nối, hoàn tất, thất bại) và
@@ -17,6 +20,9 @@ class InstallProgressCard extends StatefulWidget {
   /// Farm/Zone của phiếu dịch vụ: triển khai gắn kèm phải cùng Farm/Zone, nếu không là liên kết sai (giống cảnh báo trên web).
   final String? farmId;
   final String? zoneId;
+
+  /// Phiếu dịch vụ chứa khối này: báo cáo khảo sát thực địa gắn với phiếu (mỗi phiếu một báo cáo).
+  final String? serviceRequestId;
 
   /// Báo trạng thái triển khai đọc được (null nếu không đọc được hoặc liên kết sai) để màn chi tiết vẽ thanh quy trình.
   final void Function(String? status)? onStatus;
@@ -37,6 +43,7 @@ class InstallProgressCard extends StatefulWidget {
     required this.onOpenDetail,
     this.farmId,
     this.zoneId,
+    this.serviceRequestId,
     this.onStatus,
     this.onSurvey,
   });
@@ -130,16 +137,67 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     await _run(action);
   }
 
-  /// Hộp thoại khảo sát thực địa (điều kiện địa điểm + ghi chú, bắt buộc); lưu qua backend rồi tải lại.
+  String? _currentUserName() {
+    try {
+      return context.read<FarmProvider>().me?['fullName']?.toString();
+    } catch (_) {
+      return null; // không có FarmProvider (kiểm thử): màn báo cáo dùng tên mặc định
+    }
+  }
+
+  /// Bước khảo sát = lập BÁO CÁO KHẢO SÁT THỰC ĐỊA (phiếu 10 mục như web). KTV phải chọn kết luận khả thi/không khả thi khi nộp;
+  /// sau khi báo cáo lưu được, app mới gọi API khảo sát của luồng lắp đặt với kết luận đó (nội dung tóm lược từ báo cáo), rồi tải lại.
   Future<void> _doSurvey(DeploymentRequest d) async {
-    final input = await askSurvey(context, site: d.context);
-    if (input == null || !mounted) return;
+    final sr = widget.serviceRequestId;
+    final target = FieldSurveyTarget(
+      serviceRequestId: sr,
+      farmId: d.farmId,
+      farmName: d.context?.farmName ?? '',
+      zoneId: d.zoneId,
+      zoneName: d.context?.zoneName ?? '',
+      requestCode: sr == null || sr.length < 8 ? sr : sr.substring(0, 8),
+    );
+    final outcome = await Navigator.push<FieldSurveyOutcome>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FieldSurveyReportScreen(
+          target: target,
+          requireFeasibility: true,
+          currentUserName: _currentUserName(),
+        ),
+      ),
+    );
+    final feasible = outcome?.feasible;
+    if (outcome == null || feasible == null || !mounted) return;
+    final digest = surveyDigest(outcome.report, feasible: feasible);
     await _run(
       () => DeploymentApi.surveyDeploymentRequest(
         d.requestId,
-        isFeasible: input.feasible,
-        siteConditions: input.siteConditions,
-        notes: input.notes,
+        isFeasible: feasible,
+        siteConditions: digest.siteConditions,
+        notes: digest.notes,
+      ),
+    );
+  }
+
+  /// Mở lại báo cáo khảo sát đã lập của phiếu (xem; KTV tạo ra báo cáo thì sửa và nộp lại được, không đổi kết luận đã gửi).
+  Future<void> _viewReport(DeploymentRequest d) async {
+    final sr = widget.serviceRequestId;
+    if (sr == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FieldSurveyReportScreen(
+          target: FieldSurveyTarget(
+            serviceRequestId: sr,
+            farmId: d.farmId,
+            farmName: d.context?.farmName ?? '',
+            zoneId: d.zoneId,
+            zoneName: d.context?.zoneName ?? '',
+            requestCode: sr.length < 8 ? sr : sr.substring(0, 8),
+          ),
+          currentUserName: _currentUserName(),
+        ),
       ),
     );
   }
@@ -162,11 +220,11 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
         ];
       case 'Accepted':
         // Sau khi nhận yêu cầu: KTV điền khảo sát thực địa thật; có kết quả mới được xem/xác nhận hợp đồng.
-        return [primary('Khảo sát thực địa', () => _doSurvey(d))];
+        return [primary('Lập báo cáo khảo sát thực địa', () => _doSurvey(d))];
       case 'Surveyed':
         return [
           if (!d.latestSurveyFeasible)
-            primary('Khảo sát lại', () => _doSurvey(d)),
+            primary('Lập lại báo cáo khảo sát', () => _doSurvey(d)),
           // Kế hoạch tự được xác nhận khi KTV gửi hợp đồng: không còn nút "Xác nhận kế hoạch".
           if (!d.latestSurveyFeasible)
             const Text(
@@ -183,13 +241,13 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
   String? _info(DeploymentRequest d) => switch (d.status) {
     'Submitted' => null, // nút đã tự mô tả bước
     'Accepted' =>
-      'Điền khảo sát thực địa trước; có kết quả khả thi mới xem và gửi được hợp đồng.',
+      'Lập báo cáo khảo sát thực địa trước; kết luận khả thi mới xem và gửi được hợp đồng.',
     'PlanConfirmed' =>
       'Cần chủ trang trại đã ký hợp đồng và đóng cọc trước khi bắt đầu lắp đặt.',
     'Surveyed' =>
       d.surveys.isEmpty
           ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.'
-          : 'Khảo sát thực địa: ${d.surveys.last.isFeasible ? 'khả thi' : 'KHÔNG khả thi'} · ${d.surveys.last.siteConditions} · ${d.surveys.last.notes}. ${d.latestSurveyFeasible ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.' : ''}',
+          : 'Báo cáo khảo sát thực địa: ${d.surveys.last.isFeasible ? 'khả thi' : 'KHÔNG khả thi'} · ${d.surveys.last.siteConditions} · ${d.surveys.last.notes}. ${d.latestSurveyFeasible ? 'Gửi hợp đồng cho Owner: kế hoạch sẽ tự được xác nhận.' : ''}',
     'Installing' =>
       'Cấp phát thiết bị, kiểm tra kết nối rồi hoàn tất trong chi tiết triển khai.',
     'Completed' =>
@@ -225,14 +283,37 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           )
         else
           b,
+      // Xem/sửa báo cáo khảo sát đã lập (sau bước khảo sát) của phiếu này.
+      if (widget.serviceRequestId != null &&
+          const {
+            'Surveyed',
+            'PlanConfirmed',
+            'Installing',
+            'Completed',
+          }.contains(d.status))
+        OutlinedButton(
+          key: const ValueKey('view-survey-report'),
+          onPressed: () => _viewReport(d),
+          child: const Text('Báo cáo khảo sát thực địa'),
+        ),
       ...widget.extraActions,
     ];
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF062326),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF10B981).withValues(alpha: 0.25),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,41 +362,127 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
   /// Thông tin KTV cần khi nhận việc: Farm / Thửa / Zone, cây trồng và danh sách thiết bị Owner đề xuất (hoặc kế hoạch sau khảo sát).
   Widget _site(DeploymentRequest d) {
     final c = d.context;
-    final lines = <String>[
+    final lines = <({IconData icon, Color color, String text})>[
       if (c != null) ...[
-        'Farm: ${c.farmName} · Thửa: ${c.fieldName} · Zone: ${c.zoneName}'
-            '${c.zoneAreaM2 > 0 ? ' (${c.zoneAreaM2.round()} m²)' : ''}',
+        (
+          icon: Icons.location_on_outlined,
+          color: const Color(0xFF0284C7),
+          text:
+              'Farm: ${c.farmName} · Thửa: ${c.fieldName} · Zone: ${c.zoneName}'
+              '${c.zoneAreaM2 > 0 ? ' (${c.zoneAreaM2.round()} m²)' : ''}',
+        ),
         if ((c.cropName ?? '').isNotEmpty)
-          'Cây trồng: ${c.cropName}${(c.varietyName ?? '').isEmpty ? '' : ' · ${c.varietyName}'}'
-              '${c.seasonName.isEmpty ? '' : ' · Vụ ${c.seasonName}'}',
+          (
+            icon: Icons.spa_outlined,
+            color: const Color(0xFF059669),
+            text:
+                'Cây trồng: ${c.cropName}${(c.varietyName ?? '').isEmpty ? '' : ' · ${c.varietyName}'}'
+                '${c.seasonName.isEmpty ? '' : ' · Vụ ${c.seasonName}'}',
+          ),
       ],
       if (d.requiredParameters.isNotEmpty)
-        'Chỉ số cần theo dõi: ${d.requiredParameters.join(', ')}',
+        (
+          icon: Icons.sensors_outlined,
+          color: const Color(0xFF7C3AED),
+          text: 'Chỉ số cần theo dõi: ${d.requiredParameters.join(', ')}',
+        ),
     ];
     final proposed = d.planItems.isNotEmpty
         ? [for (final p in d.planItems) '${p.quantity} × ${p.modelName}']
         : [for (final e in d.estimateItems) '${e.quantity} × ${e.name}'];
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final l in lines)
-            Text(l, style: const TextStyle(fontSize: 13, height: 1.4)),
-          Text(
-            d.planItems.isNotEmpty
-                ? 'Kế hoạch thiết bị:'
-                : 'Thiết bị Owner đề xuất:',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          for (final item in lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    margin: const EdgeInsets.only(top: 1),
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(item.icon, size: 14, color: item.color),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.text,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const Divider(height: 14, color: Color(0xFFE2E8F0)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 14,
+                  color: Color(0xFF475569),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  d.planItems.isNotEmpty
+                      ? 'Kế hoạch thiết bị:'
+                      : 'Thiết bị Owner đề xuất:',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 6),
           if (proposed.isEmpty)
-            const Text(
-              'Chưa có thiết bị đề xuất.',
-              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            const Padding(
+              padding: EdgeInsets.only(left: 26),
+              child: Text(
+                'Chưa có thiết bị đề xuất.',
+                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+              ),
             )
           else
             for (final p in proposed)
-              Text('• $p', style: const TextStyle(fontSize: 13)),
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 26),
+                child: Text(
+                  '• $p',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
         ],
       ),
     );
@@ -325,32 +492,74 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
   Widget build(BuildContext context) {
     final d = _d;
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.home_repair_service_outlined, size: 20),
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.home_repair_service_rounded,
+                    size: 18,
+                    color: Color(0xFF047857),
+                  ),
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'Tiến độ lắp đặt',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.5,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.2,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 if (d != null && !_linkInvalid(d))
                   Expanded(
-                    child: Text(
-                      deploymentStatusLabels[d.status] ?? d.status,
-                      textAlign: TextAlign.end,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: deploymentStatusColor(d.status),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: deploymentStatusColor(
+                            d.status,
+                          ).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: deploymentStatusColor(
+                              d.status,
+                            ).withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Text(
+                          deploymentStatusLabels[d.status] ?? d.status,
+                          textAlign: TextAlign.end,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: deploymentStatusColor(d.status),
+                          ),
+                        ),
                       ),
                     ),
                   ),

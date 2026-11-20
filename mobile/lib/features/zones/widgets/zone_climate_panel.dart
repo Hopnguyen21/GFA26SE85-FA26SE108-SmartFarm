@@ -23,16 +23,51 @@ class _MetricSpec {
   const _MetricSpec(this.code, this.title, this.icon, this.color);
 }
 
-const _coreMetrics = [
-  _MetricSpec('soilmoisture', 'Độ ẩm đất', Icons.water_drop, Color(0xFF0284C7)),
-  _MetricSpec('temperature', 'Nhiệt độ', Icons.thermostat, Color(0xFFEA580C)),
-  _MetricSpec('airhumidity', 'Độ ẩm không khí', Icons.cloud, _green),
-  _MetricSpec('lightintensity', 'Ánh sáng', Icons.wb_sunny, Color(0xFFCA8A04)),
-];
-const _extraMetrics = {
+const _knownMetricSpecs = <String, _MetricSpec>{
+  'soilmoisture': _MetricSpec('soilmoisture', 'Độ ẩm đất', Icons.water_drop, Color(0xFF0284C7)),
+  'temperature': _MetricSpec('temperature', 'Nhiệt độ', Icons.thermostat, Color(0xFFEA580C)),
+  'airhumidity': _MetricSpec('airhumidity', 'Độ ẩm không khí', Icons.cloud, _green),
+  'lightintensity': _MetricSpec('lightintensity', 'Ánh sáng', Icons.wb_sunny, Color(0xFFCA8A04)),
   'ph': _MetricSpec('ph', 'pH', Icons.science_outlined, Color(0xFF7C3AED)),
   'ec': _MetricSpec('ec', 'EC', Icons.bolt_outlined, Color(0xFF0E7490)),
 };
+
+const _preferredMetricOrder = [
+  'soilmoisture',
+  'temperature',
+  'airhumidity',
+  'lightintensity',
+  'ph',
+  'ec',
+];
+
+_MetricSpec _specForMetricCode(String rawCode) {
+  final norm = normalizeParameterCode(rawCode);
+  return _knownMetricSpecs[norm] ??
+      _MetricSpec(
+        norm,
+        rawCode.toUpperCase(),
+        Icons.sensors_rounded,
+        const Color(0xFF0284C7),
+      );
+}
+
+/// Chỉ lấy các thông số cảm biến THỰC SỰ có dữ liệu gửi về từ trạm cảm biến của Zone.
+/// Thông số nào không có dữ liệu đo thì ẩn hoàn toàn, không hiển thị thẻ trống.
+List<_MetricSpec> _getActiveSpecs(ZoneTelemetrySnapshot? snap) {
+  if (snap == null || snap.isEmpty) return const [];
+  final availableCodes = snap.metrics.keys.toSet();
+  final result = <_MetricSpec>[];
+  for (final code in _preferredMetricOrder) {
+    if (availableCodes.remove(code)) {
+      result.add(_specForMetricCode(code));
+    }
+  }
+  for (final code in availableCodes) {
+    result.add(_specForMetricCode(code));
+  }
+  return result;
+}
 
 /// Tab "Vi khí hậu" của Zone Detail: telemetry của CHÍNH Zone đang mở (theo zoneId, tự tải và làm mới) kèm ngưỡng của hồ sơ
 /// canh tác gắn trực tiếp cho Zone. Telemetry luôn hiển thị nếu có (kể cả khi Zone chưa có vụ); chỉ phần ĐÁNH GIÁ ngưỡng
@@ -211,7 +246,11 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
             color: const Color(0xFF10B981).withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.eco_rounded, size: 16, color: Color(0xFF047857)),
+          child: const Icon(
+            Icons.eco_rounded,
+            size: 16,
+            color: Color(0xFF047857),
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -293,26 +332,72 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
               child: Center(child: CircularProgressIndicator()),
             )
           else ...[
-            // Thẻ có chiều cao theo nội dung (không cố định tỉ lệ) để không tràn khi chữ lớn/màn hẹp.
-            LayoutBuilder(
-              builder: (context, box) {
-                final w = (box.maxWidth - 12) / 2;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final spec in _coreMetrics)
-                      SizedBox(
-                        width: w,
-                        child: _metricCard(spec, snap, stage, now),
-                      ),
-                    for (final e in _extraMetrics.entries)
-                      if (snap?.metrics.containsKey(e.key) == true)
-                        SizedBox(
-                          width: w,
-                          child: _metricCard(e.value, snap, stage, now),
+            // Chỉ hiển thị các thẻ cảm biến có dữ liệu nhận về từ trạm đo của Zone (Option A).
+            Builder(
+              builder: (context) {
+                final activeSpecs = _getActiveSpecs(snap);
+                if (activeSpecs.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFEF3C7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.sensors_off_outlined,
+                            size: 28,
+                            color: Color(0xFFD97706),
+                          ),
                         ),
-                  ],
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Chưa có số đo cảm biến',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: _ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Khu vực này hiện chưa nhận được dữ liệu từ trạm cảm biến nào. Chỉ các thông số có cảm biến gửi dữ liệu mới được hiển thị.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: _muted),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return LayoutBuilder(
+                  builder: (context, box) {
+                    final isSingle = activeSpecs.length == 1;
+                    final w = isSingle ? box.maxWidth : (box.maxWidth - 12) / 2;
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        for (final spec in activeSpecs)
+                          SizedBox(
+                            width: w,
+                            child: _metricCard(spec, snap, stage, now),
+                          ),
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -593,7 +678,8 @@ class _ZoneClimatePanelState extends State<ZoneClimatePanel> {
     ];
     final rows = <Widget>[];
     if (stage != null && snap != null) {
-      for (final spec in [..._coreMetrics, ..._extraMetrics.values]) {
+      final activeSpecs = _getActiveSpecs(snap);
+      for (final spec in activeSpecs) {
         final req = _req(stage, spec.code);
         final metric = snap.metrics[spec.code];
         if (req == null || metric == null) continue;

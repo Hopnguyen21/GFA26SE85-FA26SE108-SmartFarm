@@ -141,15 +141,18 @@ void main() {
         );
         expect(
           find.text('Ghi sản lượng'),
-          findsOneWidget,
-          reason: 'vụ đã hủy không ghi sản lượng',
+          findsNothing,
+          reason:
+              'vụ chưa tới giai đoạn thu hoạch (và vụ đã hủy) không ghi sản lượng',
         );
         expect(find.text('Giai đoạn (thiếu hồ sơ)'), findsOneWidget);
         final stageButton = tester.widget<TextButton>(
           find.widgetWithText(TextButton, 'Giai đoạn (thiếu hồ sơ)'),
         );
         expect(stageButton.onPressed, isNull);
-        expect(find.text('Tạo vụ trồng cho Zone này'), findsOneWidget);
+        // Zone đã có vụ đang canh tác: không cho tạo thêm vụ, chỉ báo lý do.
+        expect(find.text('Tạo vụ trồng cho Zone này'), findsNothing);
+        expect(find.textContaining('chưa tạo được vụ mới'), findsOneWidget);
         expect(
           calls.any((c) => c.url.queryParameters['zoneId'] == 'z1'),
           isTrue,
@@ -158,6 +161,52 @@ void main() {
           calls.any((c) => c.url.toString().contains('farmingSeasonId')),
           isFalse,
         );
+        await _dispose(tester);
+      },
+    );
+
+    testWidgets(
+      'có vụ đang canh tác: vụ dự kiến KHÔNG có nút Bắt đầu vụ (chỉ báo lý do); chưa có vụ đang chạy thì bắt đầu và tạo vụ được',
+      (tester) async {
+        final planned = {
+          'seasonId': 'sp',
+          'zoneId': 'z1',
+          'name': 'Vụ dự kiến',
+          'status': 'Planned',
+          'growthProfileId': 'p1',
+          'startDate': '2026-11-01',
+          'expectedEndDate': '2027-02-01',
+        };
+        handler = (r) async => r.url.path == '/api/v1/planting-seasons'
+            ? utf8Json([
+                {
+                  'seasonId': 'sr',
+                  'zoneId': 'z1',
+                  'name': 'Vụ đang chạy',
+                  'status': 'InProgress',
+                  'growthProfileId': 'p1',
+                  'startDate': '2026-10-01',
+                  'expectedEndDate': '2027-01-01',
+                },
+                planned,
+              ])
+            : utf8Json([]);
+        await _pump(tester, ZoneSeasonsSection(zone: _zone));
+        expect(find.text('Bắt đầu vụ'), findsNothing);
+        expect(
+          find.textContaining('thu hoạch hoặc kết thúc vụ đó trước'),
+          findsOneWidget,
+        );
+        expect(find.text('Tạo vụ trồng cho Zone này'), findsNothing);
+        await _dispose(tester);
+
+        // Chỉ có vụ dự kiến: bắt đầu được và tạo vụ mới được.
+        handler = (r) async => r.url.path == '/api/v1/planting-seasons'
+            ? utf8Json([planned])
+            : utf8Json([]);
+        await _pump(tester, ZoneSeasonsSection(zone: _zone));
+        expect(find.text('Bắt đầu vụ'), findsOneWidget);
+        expect(find.text('Tạo vụ trồng cho Zone này'), findsOneWidget);
         await _dispose(tester);
       },
     );
@@ -333,7 +382,7 @@ void main() {
         expect(body.containsKey('farmingSeasonId'), isFalse);
         expect(
           find.textContaining(
-            'Đã gửi yêu cầu hỗ trợ kỹ thuật (mã abcdef12) · trạng thái: Open',
+            'Đã gửi yêu cầu hỗ trợ kỹ thuật · trạng thái: Open',
           ),
           findsOneWidget,
         );

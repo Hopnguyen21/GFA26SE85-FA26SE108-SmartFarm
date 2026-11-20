@@ -257,8 +257,8 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
     );
     final bodyText = description.text.trim();
     final titleText = title.text.trim();
-    description.dispose();
-    title.dispose();
+    // Không dispose controller ở đây: hộp thoại đã pop nhưng hiệu ứng đóng vẫn dựng lại ô nhập; dispose sớm gây lỗi
+    // "Assertion failed ... _dependents.isEmpty" (màn đỏ). Controller nhỏ, tự được thu gom.
     if (ok != true || !mounted) return;
     if (titleText.isEmpty || bodyText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -269,13 +269,107 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
     // Backend chỉ có failureCode + description: tiêu đề đưa vào đầu mô tả để kỹ thuật viên thấy.
     final text = '$titleText\n\n$bodyText';
     try {
+      // Lắp đặt / bổ sung thiết bị mà KHÔNG liên kết một yêu cầu triển khai có sẵn: tạo YÊU CẦU TRIỂN KHAI MỚI cho Zone (đi đủ luồng
+      // khảo sát → báo giá → ký cọc → gắn Node). Không tạo phiếu rời: backend sẽ gắn phiếu vào đợt cũ đã hoàn tất và đánh dấu thiết bị
+      // đang chạy là cần bảo trì, rồi không gắn Node được vì đợt cũ không còn ở trạng thái đang lắp đặt.
+      if (type == 'INSTALLATION' && deploymentId == null) {
+        final running = deployments.where(
+          (d) => d.zoneId == zoneId && deploymentRequestIsRunning(d.status),
+        );
+        if (running.isNotEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Zone này đang có một yêu cầu lắp đặt chưa hoàn tất. Chờ kỹ thuật viên hoàn tất lắp đặt rồi mới yêu cầu mua thêm thiết bị.',
+              ),
+            ),
+          );
+          return;
+        }
+        // Hợp đồng dịch vụ của Zone phải còn hạn (Zone chưa có hợp đồng nào thì là lần lắp đầu, không chặn).
+        // Không tải được danh sách hợp đồng thì không chặn: backend vẫn là nơi quyết định yêu cầu có hợp lệ không.
+        try {
+          final contracts = await ContractApi.getZoneContracts(zoneId: zoneId);
+          final blocked = zoneContractBlockReason(contracts, DateTime.now());
+          if (blocked != null) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(blocked)));
+            return;
+          }
+        } catch (_) {}
+        await DeploymentApi.submitDeploymentRequestWithEstimate(
+          zoneId,
+          notes: text,
+        );
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Đã gửi yêu cầu lắp đặt mới. Kỹ thuật viên sẽ khảo sát và lập báo giá.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      // Bảo trì chỉ nhận khi hợp đồng dịch vụ của Zone còn hạn (backend cũng kiểm tra; đây là báo sớm trước khi gửi).
+      if (type == 'MAINTENANCE') {
+        try {
+          final contracts = await ContractApi.getZoneContracts(zoneId: zoneId);
+          final blocked = zoneContractBlockReason(
+            contracts,
+            DateTime.now(),
+            action: 'gửi yêu cầu bảo trì',
+          );
+          if (blocked != null) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(blocked)));
+            return;
+          }
+        } catch (_) {}
+      }
       final farmId = zones.firstWhere((z) => z.zoneId == zoneId).farmId;
+      // Bảo trì: Zone có nhiều thiết bị thì phải chọn thiết bị cần bảo trì (backend không đoán thiết bị nữa).
+      String? deviceId;
+      if (type == 'MAINTENANCE') {
+        List<Map<String, dynamic>> zoneDevices = const [];
+        try {
+          zoneDevices = await SupportApi.listZoneDevices(zoneId);
+        } catch (_) {}
+        if (zoneDevices.length > 1) {
+          if (!mounted) return;
+          deviceId = await showDialog<String>(
+            context: context,
+            builder: (ctx) => SimpleDialog(
+              title: const Text('Chọn thiết bị cần bảo trì'),
+              children: [
+                for (final d in zoneDevices)
+                  SimpleDialogOption(
+                    key: ValueKey('maint-device-${d['deviceId']}'),
+                    onPressed: () => Navigator.pop(ctx, '${d['deviceId']}'),
+                    child: Text(
+                      '${d['hardwareAddress']} · ${d['deviceType']} · ${d['status']}',
+                    ),
+                  ),
+              ],
+            ),
+          );
+          if (deviceId == null) return;
+        }
+      }
       await SupportApi.createServiceRequest(
         farmId: farmId,
         zoneId: zoneId,
         failureCode: type == 'INSTALLATION' ? 'NEW_INSTALL' : code,
         description: text,
         deploymentRequestId: deploymentId,
+        deviceId: deviceId,
       );
       await _load();
     } catch (e) {
@@ -453,7 +547,10 @@ Future<void> showServiceRequestDetail(
         appBar: AppBar(
           backgroundColor: const Color(0xFF062326),
           foregroundColor: Colors.white,
-          title: const Text('Hợp đồng & thanh toán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: const Text(
+            'Hợp đồng & thanh toán',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ),
         body: ListView(
           padding: const EdgeInsets.all(16),

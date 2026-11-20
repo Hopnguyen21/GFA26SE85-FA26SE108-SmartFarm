@@ -18,6 +18,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   var telemetryAllowed = false;
   var locationsOk = true;
+  final puts = <String>[];
 
   Future<http.Response> handler(http.Request r) async {
     final p = r.url.path;
@@ -43,6 +44,29 @@ void main() {
             ])
           : _json({'detail': 'Zone was not found.'}, 404);
     }
+    if (r.method == 'PUT' && p.endsWith('/devices/bulk-locations')) {
+      puts.add(r.body);
+      return http.Response('', 204);
+    }
+    if (p == '/api/v1/zones/z1') {
+      return _json({
+        'zoneId': 'z1',
+        'name': 'Khu ca chua 12',
+        'areaM2': 100,
+        'boundaryGeoJson': {
+          'type': 'Polygon',
+          'coordinates': [
+            [
+              [108.4390, 11.9390],
+              [108.4410, 11.9390],
+              [108.4410, 11.9410],
+              [108.4390, 11.9410],
+              [108.4390, 11.9390],
+            ],
+          ],
+        },
+      });
+    }
     return _json([]);
   }
 
@@ -66,6 +90,7 @@ void main() {
   setUp(() {
     telemetryAllowed = false;
     locationsOk = true;
+    puts.clear();
   });
 
   Future<void> pump(WidgetTester tester) async {
@@ -89,6 +114,28 @@ void main() {
       expect(find.text('Node đất 01'), findsOneWidget);
       expect(find.text('Cập nhật toạ độ các node'), findsOneWidget);
       expect(find.textContaining('không được xem số đo'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'sửa toạ độ node: điểm NGOÀI ranh giới Zone bị chặn (không gửi lên máy chủ), điểm trong Zone được lưu',
+    (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('Cập nhật toạ độ các node'));
+      await tester.pumpAndSettle();
+      // node d1 đang ở 11.94,108.44 (trong ô 11.939–11.941 × 108.439–108.441)
+      final lat = find.widgetWithText(TextField, 'Vĩ độ');
+      await tester.enterText(lat, '11.9500'); // ~1 km phía bắc → ngoài Zone
+      await tester.pump();
+      await tester.tap(find.textContaining('Lưu'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('nằm ngoài ranh giới Zone'), findsOneWidget);
+      expect(puts, isEmpty);
+      await tester.enterText(lat, '11.9400');
+      await tester.pump();
+      await tester.tap(find.textContaining('Lưu'));
+      await tester.pumpAndSettle();
+      expect(puts, hasLength(1));
     },
   );
 

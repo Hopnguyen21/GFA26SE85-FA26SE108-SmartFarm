@@ -29,7 +29,10 @@ class ProvisioningScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
-        title: const Text('Lắp đặt thiết bị IoT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text(
+          'Lắp đặt thiết bị IoT',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
       ),
       body: const Center(
         child: Padding(

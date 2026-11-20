@@ -3,6 +3,7 @@ part of '../zone_detail_screen.dart';
 extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
   // ─── Tab 1: Vi khí hậu ───────────────────────────────────────
   Widget _buildClimateTab(ZoneModel zone, FarmProvider provider) {
+    final isFarmer = provider.currentRole == 'FARMER';
     // Telemetry của CHÍNH Zone đang mở (theo zoneId) + ngưỡng của hồ sơ gắn cho Zone; GIS đặt ở cuối tab.
     return ZoneClimatePanel(
       key: ValueKey('climate_${zone.zoneId}'),
@@ -10,31 +11,33 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Quy tắc cảnh báo an toàn + nhật ký cảnh báo của Zone (như web).
-          OutlinedButton.icon(
-            key: const Key('open_alert_center'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              foregroundColor: const Color(0xFF15803D),
-              side: const BorderSide(color: Color(0xFF15803D), width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+          // Quy tắc cảnh báo an toàn + nhật ký cảnh báo của Zone (chỉ Owner/KTV quản lý, ẩn với Farmer).
+          if (!isFarmer) ...[
+            OutlinedButton.icon(
+              key: const Key('open_alert_center'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                foregroundColor: const Color(0xFF15803D),
+                side: const BorderSide(color: Color(0xFF15803D), width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                backgroundColor: const Color(0xFFF0FDF4),
               ),
-              backgroundColor: const Color(0xFFF0FDF4),
-            ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ZoneAlertCenterScreen(zone: zone),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ZoneAlertCenterScreen(zone: zone),
+                ),
+              ),
+              icon: const Icon(Icons.notifications_active_outlined, size: 19),
+              label: const Text(
+                'Cảnh báo & quy tắc của Zone',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
-            icon: const Icon(Icons.notifications_active_outlined, size: 19),
-            label: const Text(
-              'Cảnh báo & quy tắc của Zone',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+          ],
           _buildZoneGisSection(zone),
         ],
       ),

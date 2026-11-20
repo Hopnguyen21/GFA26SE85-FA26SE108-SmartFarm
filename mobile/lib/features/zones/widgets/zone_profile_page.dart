@@ -26,20 +26,36 @@ class ZoneProfilePage extends StatelessWidget {
         backgroundColor: const Color(0xFF062326),
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(
-          'Hồ sơ canh tác · ${live.name}',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hồ sơ canh tác · ${live.name}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Quy trình sinh trưởng & ngưỡng môi trường Zone',
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF94A3B8),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: ZoneCropPlanEditPanel(
-          key: ValueKey('profile_${live.zoneId}'),
-          zone: live,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: ZoneCropPlanEditPanel(
+            key: ValueKey('profile_${live.zoneId}'),
+            zone: live,
+          ),
         ),
       ),
     );

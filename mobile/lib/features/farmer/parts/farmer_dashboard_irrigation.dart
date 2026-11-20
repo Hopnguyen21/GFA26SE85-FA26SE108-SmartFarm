@@ -140,9 +140,10 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
     final selected = _selected;
     final running = selected?.isRunning ?? false;
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       title: const Text(
         'Kích Hoạt Tưới Thủ Công An Toàn (BR-SAFE-01)',
-        style: TextStyle(fontSize: 15),
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -151,19 +152,36 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
-              child: const Text(
-                'Cơ chế bảo vệ máy bơm & cây trồng: tối đa 15 phút cho mỗi lượt tưới thủ công. '
-                'Hệ thống IoT sẽ gửi lệnh ngắt tự động sau khi hết thời gian hẹn giờ.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF78350F)),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.security_rounded,
+                    size: 18,
+                    color: Color(0xFFB45309),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Cơ chế bảo vệ máy bơm & cây trồng: tối đa 15 phút cho mỗi lượt tưới thủ công. '
+                      'Hệ thống IoT sẽ gửi lệnh ngắt tự động sau khi hết thời gian hẹn giờ.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF78350F),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             if (_success != null)
               _note(_success!, ok: true)
             else if (_error != null)
@@ -176,14 +194,29 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
             else ...[
               const Text(
                 'Chọn Khu vực Nhà màng:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 initialValue: _zoneId,
                 isExpanded: true,
                 isDense: true,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kGreen, width: 1.5),
+                  ),
+                ),
                 items: [
                   for (final z in widget.zones)
                     DropdownMenuItem(
@@ -203,12 +236,12 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
                         _loadActuators();
                       },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               const Text(
                 'Chọn Thiết bị Rơ-le / Bơm:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               if (_loading)
                 const Text(
                   'Đang tìm thiết bị điều khiển trong khu vực này...',
@@ -228,8 +261,21 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
                   initialValue: _actuatorId,
                   isExpanded: true,
                   isDense: true,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: _kGreen, width: 1.5),
+                    ),
                   ),
                   items: [
                     for (final a in acts)
@@ -238,7 +284,7 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
                         child: Text(
                           '${a.name} [${a.actuatorType}]',
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: 12.5),
                         ),
                       ),
                   ],
@@ -258,15 +304,15 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 'Thời gian tưới: $_minutes phút',
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   for (final m in _durations)
@@ -277,23 +323,33 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
                           onTap: _busy
                               ? null
                               : () => setState(() => _minutes = m),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            constraints: const BoxConstraints(minHeight: 44),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: _minutes == m ? _kGreen : Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: _minutes == m
                                     ? _kGreen
-                                    : const Color(0xFFE2E8F0),
+                                    : const Color(0xFFCBD5E1),
+                                width: _minutes == m ? 1.5 : 1.0,
                               ),
+                              boxShadow: _minutes == m
+                                  ? [
+                                      BoxShadow(
+                                        color: _kGreen.withValues(alpha: 0.25),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
                             ),
                             child: Text(
                               '${m}p',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: _minutes == m
                                     ? Colors.white
@@ -312,18 +368,30 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
       ),
       actions: [
         TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(64, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
           onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
           child: const Text('Đóng'),
         ),
         FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: _kGreen),
+          style: FilledButton.styleFrom(
+            backgroundColor: _kGreen,
+            minimumSize: const Size(0, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: (_busy || _selected == null || running || _success != null)
               ? null
               : _trigger,
           icon: const Icon(Icons.power_settings_new, size: 16),
           label: Text(
             _busy ? 'Đang kích hoạt...' : 'Bật tưới ngay ($_minutes phút)',
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: 12.5),
           ),
         ),
       ],

@@ -313,7 +313,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                     ),
                     showCheckmark: false,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                   ),
                 );
               }).toList(),

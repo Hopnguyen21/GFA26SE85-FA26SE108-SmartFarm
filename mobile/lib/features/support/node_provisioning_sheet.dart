@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/state_views.dart';
 import 'node_provisioning_flow.dart';
+import '../../core/services/api_service.dart' show GeocodeResult;
+import '../../core/services/gps_service.dart';
+import 'node_address_field.dart';
 
 /// Bảng "Cấp phát Node": liệt kê Node trong KHO CỦA KTV (loại khớp dòng hợp đồng lên đầu); chạm một dòng, xác nhận địa chỉ phần
 /// cứng rồi cấp phát — backend trừ thiết bị đó khỏi kho KTV. Đóng bảng trả true khi cấp phát xong.
@@ -15,7 +18,18 @@ class NodeProvisionSheet extends StatefulWidget {
   /// hàng kho chưa gán vai trò: hợp đồng đã nói rõ mã đó là cảm biến hay điều khiển nên không bắt KTV xác nhận lại.
   final Map<String, bool> contractKinds;
   final Future<List<NodeChoice>> Function(Set<String> taken) load;
-  final Future<void> Function(NodeChoice node, String address) provision;
+
+  /// [installAddress]: địa chỉ nơi lắp đặt KTV nhập/lấy từ GPS (tuỳ chọn, null khi để trống).
+  final Future<void> Function(
+    NodeChoice node,
+    String address,
+    String? installAddress,
+  )
+  provision;
+
+  /// Nguồn GPS và hàm tra địa chỉ cho nút "Lấy địa chỉ từ GPS" (thay được để kiểm thử).
+  final GpsProvider gps;
+  final Future<GeocodeResult> Function(double lat, double lng)? addressLookup;
   const NodeProvisionSheet({
     super.key,
     required this.slotLabel,
@@ -24,6 +38,8 @@ class NodeProvisionSheet extends StatefulWidget {
     this.contractKinds = const {},
     required this.load,
     required this.provision,
+    this.gps = const GeolocatorGpsProvider(),
+    this.addressLookup,
   });
 
   @override
@@ -44,10 +60,12 @@ class _NodeProvisionSheetState extends State<NodeProvisionSheet> {
     _reload();
   }
 
+  bool get _hasSlotCode =>
+      widget.slotCode != null && widget.slotCode!.trim().isNotEmpty;
+
   /// Hàng kho cùng mã với dòng hợp đồng đang chấm.
   bool _isExact(NodeChoice n) =>
-      widget.slotCode != null &&
-      widget.slotCode!.trim().isNotEmpty &&
+      _hasSlotCode &&
       n.code.trim().toUpperCase() == widget.slotCode!.trim().toUpperCase();
 
   /// Loại thật của hàng (true = điều khiển): vai trò/chủng loại kho trước, không có thì theo mã trong hợp đồng; null = không rõ.
@@ -72,6 +90,15 @@ class _NodeProvisionSheetState extends State<NodeProvisionSheet> {
       }
 
       r.removeWhere((n) => rank(n) == 3);
+      // BẮT BUỘC đúng loại hợp đồng: dòng đang chấm có mã thì chỉ nhận hàng kho cùng mã; có hợp đồng thì chỉ nhận mã nằm trong hợp đồng.
+      // (Chỉ chặn ở giao diện; máy chủ vẫn chỉ kiểm tra cảm biến/điều khiển.)
+      if (_hasSlotCode) {
+        r.removeWhere((n) => !_isExact(n));
+      } else if (widget.contractKinds.isNotEmpty) {
+        r.removeWhere(
+          (n) => !widget.contractKinds.containsKey(n.code.trim().toUpperCase()),
+        );
+      }
       r.sort((a, b) => rank(a).compareTo(rank(b)));
       if (mounted) setState(() => _items = r);
     } catch (e) {
@@ -81,37 +108,51 @@ class _NodeProvisionSheetState extends State<NodeProvisionSheet> {
     }
   }
 
-  Future<String?> _askAddress(NodeChoice n) async {
+  /// Hộp thoại xác nhận: địa chỉ phần cứng (bắt buộc) và địa chỉ nơi lắp đặt (tuỳ chọn, lấy được từ GPS).
+  Future<({String hardware, String install})?> _askAddress(NodeChoice n) async {
     final ctrl = TextEditingController(text: n.suggestedAddress);
+    final installCtrl = TextEditingController();
     String? err;
-    final v = await showDialog<String>(
+    final v = await showDialog<({String hardware, String install})>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text(
-            'Địa chỉ phần cứng của Node',
-            style: TextStyle(fontSize: 15),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '[${n.code}] ${n.name}',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                key: const ValueKey('node-address'),
-                controller: ctrl,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  labelText: 'Địa chỉ phần cứng (in trên thiết bị)',
-                  errorText: err,
+          title: const Text('Địa chỉ của Node', style: TextStyle(fontSize: 15)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '[${n.code}] ${n.name}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                TextField(
+                  key: const ValueKey('node-address'),
+                  controller: ctrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'Địa chỉ phần cứng (in trên thiết bị)',
+                    errorText: err,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                NodeAddressField(
+                  controller: installCtrl,
+                  gps: widget.gps,
+                  lookup: widget.addressLookup,
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Địa chỉ nơi lắp đặt được lưu cùng vị trí khi bạn bấm Lưu ở bước chấm Node.',
+                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -126,7 +167,10 @@ class _NodeProvisionSheetState extends State<NodeProvisionSheet> {
                   setLocal(() => err = e);
                   return;
                 }
-                Navigator.pop(ctx, ctrl.text.trim());
+                Navigator.pop(ctx, (
+                  hardware: ctrl.text.trim(),
+                  install: installCtrl.text.trim(),
+                ));
               },
               child: const Text('Cấp phát'),
             ),
@@ -139,14 +183,19 @@ class _NodeProvisionSheetState extends State<NodeProvisionSheet> {
   }
 
   Future<void> _pick(NodeChoice n) async {
-    final address = await _askAddress(n);
-    if (address == null || !mounted) return;
+    final input = await _askAddress(n);
+    if (input == null || !mounted) return;
+    final address = input.hardware;
     setState(() {
       _busyId = n.hardwareItemId;
       _error = null;
     });
     try {
-      await widget.provision(n, address);
+      await widget.provision(
+        n,
+        address,
+        input.install.isEmpty ? null : input.install,
+      );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -211,10 +260,10 @@ class _NodeProvisionSheetState extends State<NodeProvisionSheet> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else if (_items.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Kho của bạn chưa có Node phù hợp với dòng này (cùng loại cảm biến/điều khiển trong hợp đồng). Tạo phiếu xuất kho (Kho & Xuất kho IoT) để nhận Node từ kho chính; Admin duyệt và hoàn thành phiếu thì Node vào kho của bạn.',
+                  child: const Text(
+                    'Kho của bạn chưa có đúng thiết bị ghi trong hợp đồng cho dòng này. Tạo phiếu xuất kho (Kho & Xuất kho IoT) để nhận Node từ kho chính; Admin duyệt và hoàn thành phiếu thì Node vào kho của bạn.',
                     style: TextStyle(color: Color(0xFFB45309)),
                   ),
                 )

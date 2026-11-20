@@ -39,6 +39,13 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
   final _discount = TextEditingController();
   final _terms = TextEditingController();
   final _notes = TextEditingController();
+  final _voucherCode = TextEditingController();
+  bool _validatingVoucher = false;
+  Map<String, dynamic>? _appliedVoucher;
+  String? _voucherMessage;
+  bool _voucherSuccess = false;
+  List<Map<String, dynamic>> _availableVouchers = [];
+  bool _loadingVouchers = false;
   DateTime _start = DateTime.now();
   int _months = 6; // 0 = tuỳ chọn ngày kết thúc
   DateTime? _customEnd;
@@ -86,10 +93,155 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     BusinessParametersStore.refresh().then((_) {
       if (mounted) setState(() {});
     });
-    for (final c in [_rent, _deposit, _discount]) {
+    for (final c in [_rent, _deposit]) {
       c.addListener(() => setState(() {}));
     }
+    _discount.addListener(() {
+      if (_appliedVoucher != null) {
+        final currentPct =
+            double.tryParse(_discount.text.trim().replaceAll(',', '.'));
+        final voucherPct =
+            (_appliedVoucher!['discountPercent'] as num?)?.toDouble();
+        if (currentPct != voucherPct) {
+          setState(() {
+            _appliedVoucher = null;
+            _voucherCode.clear();
+            _voucherMessage =
+                'Đã hủy áp dụng mã vì phần trăm chiết khấu đã thay đổi thủ công.';
+            _voucherSuccess = false;
+          });
+        }
+      }
+      setState(() {});
+    });
     _loadPackages();
+    _loadVouchers();
+  }
+
+  Future<void> _loadVouchers() async {
+    setState(() => _loadingVouchers = true);
+    try {
+      final list = await ContractApi.getDiscountCodes(activeOnly: true);
+      if (mounted) setState(() => _availableVouchers = list);
+    } catch (_) {
+      // Bỏ qua nếu server chưa sẵn sàng hoặc mạng yếu
+    } finally {
+      if (mounted) setState(() => _loadingVouchers = false);
+    }
+  }
+
+  double _rawContractAmount() {
+    final rent = _money(_rent) ?? 0;
+    final months = contractMonths(_start, _end);
+    return (rent * months) + _packagePrice;
+  }
+
+  Future<void> _applyVoucherCode(String codeToApply) async {
+    final trimmed = codeToApply.trim().toUpperCase();
+    if (trimmed.isEmpty) return;
+    final raw = _rawContractAmount();
+    if (raw <= 0) {
+      setState(() {
+        _voucherMessage =
+            'Vui lòng nhập phí dịch vụ / tháng trước khi áp dụng mã giảm giá.';
+        _voucherSuccess = false;
+      });
+      return;
+    }
+    setState(() {
+      _validatingVoucher = true;
+      _voucherMessage = null;
+    });
+    try {
+      final res = await ContractApi.validateDiscountCode(
+        code: trimmed,
+        contractAmount: raw,
+      );
+      if (!mounted) return;
+      if (res['isValid'] == true) {
+        setState(() {
+          _appliedVoucher = res;
+          final pct = (res['discountPercent'] as num?)?.toDouble() ?? 0.0;
+          _discount.text = pct > 0
+              ? (pct == pct.roundToDouble()
+                    ? pct.toInt().toString()
+                    : pct.toString())
+              : '';
+          _voucherMessage =
+              res['message']?.toString() ??
+              'Áp dụng mã giảm giá [$trimmed] thành công!';
+          _voucherSuccess = true;
+          _voucherCode.text = trimmed;
+        });
+      } else {
+        setState(() {
+          _voucherMessage =
+              res['message']?.toString() ??
+              'Mã giảm giá không hợp lệ hoặc chưa đủ điều kiện.';
+          _voucherSuccess = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _voucherMessage = 'Lỗi kiểm tra mã giảm giá: ${_err(e)}';
+          _voucherSuccess = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _validatingVoucher = false);
+    }
+  }
+
+  Future<void> _autoBestVoucher() async {
+    final raw = _rawContractAmount();
+    if (raw <= 0) {
+      setState(() {
+        _voucherMessage =
+            'Vui lòng nhập phí dịch vụ / tháng trước khi tìm mã ưu đãi.';
+        _voucherSuccess = false;
+      });
+      return;
+    }
+    setState(() {
+      _validatingVoucher = true;
+      _voucherMessage = null;
+    });
+    try {
+      final res = await ContractApi.getBestDiscount(raw);
+      if (!mounted) return;
+      if (res != null && res['hasDiscount'] == true && res['code'] != null) {
+        final code = res['code'].toString();
+        _voucherCode.text = code;
+        await _applyVoucherCode(code);
+      } else {
+        setState(() {
+          _voucherMessage =
+              'Hợp đồng hiện tại chưa đủ điều kiện áp dụng mã giảm giá nào.';
+          _voucherSuccess = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _voucherMessage =
+              'Không thể kiểm tra mã giảm giá tự động: ${_err(e)}';
+          _voucherSuccess = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _validatingVoucher = false);
+    }
+  }
+
+  void _removeVoucher() {
+    setState(() {
+      _appliedVoucher = null;
+      _voucherCode.clear();
+      _discount.clear();
+      _voucherMessage = null;
+      _voucherSuccess = false;
+    });
   }
 
   Future<void> _loadPackages() async {
@@ -129,6 +281,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       _discount,
       _terms,
       _notes,
+      _voucherCode,
     ]) {
       c.dispose();
     }
@@ -152,7 +305,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
   String? _validate() {
     final isOwner = context.read<FarmProvider>().canManageFarmStructure;
     final zone = widget.zones.where((z) => z.zoneId == _zoneId).firstOrNull;
-    return validateZoneContractInput(
+    final baseErr = validateZoneContractInput(
       isOwner: isOwner,
       zoneInSelectedFarm:
           zone != null &&
@@ -167,6 +320,16 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       depositText: _deposit.text,
       depositValue: _money(_deposit),
     );
+    if (baseErr != null) return baseErr;
+    if (_appliedVoucher != null) {
+      final minVal =
+          (_appliedVoucher!['minContractValue'] as num?)?.toDouble() ?? 0.0;
+      final raw = _rawContractAmount();
+      if (minVal > 0 && raw < minVal) {
+        return 'Mã [${_appliedVoucher!['code']}] yêu cầu giá trị hợp đồng tối thiểu ${_vnd.format(minVal)} (hiện tại: ${_vnd.format(raw)}). Vui lòng chọn mã khác hoặc điều chỉnh lại giá trị hợp đồng.';
+      }
+    }
+    return null;
   }
 
   Future<void> _submit() async {
@@ -176,6 +339,26 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     setState(() => _busy = true);
     String? opt(TextEditingController c) =>
         c.text.trim().isEmpty ? null : c.text.trim();
+    String? notesText = opt(_notes);
+    double? discountAmount;
+    if (_appliedVoucher != null) {
+      final vCode = _appliedVoucher!['code'];
+      final raw = _rawContractAmount();
+      final pct = double.tryParse(_discount.text.trim().replaceAll(',', '.'));
+      double calcAmt = (pct != null && pct > 0) ? (raw * pct / 100) : 0.0;
+      final maxDisc =
+          (_appliedVoucher!['maxDiscountAmount'] as num?)?.toDouble();
+      if (maxDisc != null && maxDisc > 0 && calcAmt > maxDisc) {
+        calcAmt = maxDisc;
+      }
+      final fixedDisc =
+          (_appliedVoucher!['discountAmount'] as num?)?.toDouble() ?? 0.0;
+      final vAmt = calcAmt > 0 ? calcAmt : fixedDisc;
+      if (vAmt > 0) discountAmount = vAmt;
+      final vPrefix =
+          '[Mã ưu đãi: $vCode - Giảm ${_vnd.format(vAmt)}]. ';
+      notesText = vPrefix + (notesText ?? '');
+    }
     try {
       final created = await ContractApi.createZoneContract(_zoneId, {
         'farmId': widget.farmId,
@@ -190,6 +373,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
         'discountPercent': _discount.text.trim().isEmpty
             ? null
             : double.parse(_discount.text.trim().replaceAll(',', '.')),
+        'discountAmount': discountAmount,
         'startDate': _ymd.format(_start),
         'endDate': _ymd.format(_end),
         'lesseeName': _name.text.trim(),
@@ -197,7 +381,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
         'lesseeIdentityNumber': opt(_cccd),
         'lesseeAddress': opt(_address),
         'specialTerms': opt(_terms),
-        'notes': opt(_notes),
+        'notes': notesText,
         'contractPackageId': _applyPackage ? _selectedPackageId : null,
       });
       if (!mounted) return;
@@ -360,12 +544,19 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
               bold: true,
             ),
           row('Thành tiền trước CK', _vnd.format(raw)),
-          row(
-            'Chiết khấu',
-            pct == null
-                ? 'Tự động theo ưu đãi'
-                : '-${_vnd.format(discount)} ($pct%)',
-          ),
+          if (_appliedVoucher != null)
+            row(
+              'Mã ưu đãi [${_appliedVoucher!['code']}] (${pct ?? 0}%)',
+              '-${_vnd.format(discount)}',
+              bold: true,
+            )
+          else
+            row(
+              'Chiết khấu',
+              pct == null
+                  ? 'Tự động theo ưu đãi'
+                  : '-${_vnd.format(discount)} ($pct%)',
+            ),
           row(
             'Tổng giá trị',
             pct == null ? '≤ ${_vnd.format(raw)}' : _vnd.format(total),
@@ -408,30 +599,33 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            dense: true,
-            title: const Text(
-              'Đăng ký kèm Gói Dịch Vụ Canh Tác (Contract Package)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: const Text(
+                'Đăng ký kèm Gói Dịch Vụ Canh Tác (Contract Package)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              subtitle: const Text(
+                'Tích để thêm gói IoT và bảo trì; tiền gói được cộng vào tổng hợp đồng.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              ),
+              value: _applyPackage,
+              onChanged: (v) {
+                setState(() {
+                  _applyPackage = v ?? false;
+                  if (_applyPackage &&
+                      _selectedPackageId == null &&
+                      _packages.isNotEmpty) {
+                    _selectedPackageId = _packages.first['id']?.toString();
+                  }
+                  if (_applyPackage) _syncMonthsToPackage(_selectedPackage);
+                });
+              },
             ),
-            subtitle: const Text(
-              'Tích để thêm gói IoT và bảo trì; tiền gói được cộng vào tổng hợp đồng.',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-            ),
-            value: _applyPackage,
-            onChanged: (v) {
-              setState(() {
-                _applyPackage = v ?? false;
-                if (_applyPackage &&
-                    _selectedPackageId == null &&
-                    _packages.isNotEmpty) {
-                  _selectedPackageId = _packages.first['id']?.toString();
-                }
-                if (_applyPackage) _syncMonthsToPackage(_selectedPackage);
-              });
-            },
           ),
           if (_applyPackage) ...[
             const Divider(height: 16),
@@ -498,8 +692,8 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final parents = widget.existingContracts;
-    if (context.watch<FarmProvider>().currentRole == 'OWNER' ||
-        !context.watch<FarmProvider>().canManageFarmStructure) {
+    final role = context.watch<FarmProvider>().currentRole;
+    if (role == 'OWNER' || role == 'FARMER') {
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
@@ -508,7 +702,11 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
           elevation: 0,
           title: const Text(
             'Tạo hợp đồng Zone',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         body: const AppEmptyState(
@@ -526,7 +724,11 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
         elevation: 0,
         title: const Text(
           'Tạo hợp đồng Zone',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       body: ListView(
@@ -706,6 +908,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
           ),
           const SizedBox(height: 12),
           _packageSection(),
+          _voucherSection(),
           _estimate(),
           const SizedBox(height: 12),
           TextField(
@@ -739,6 +942,306 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
                 : const Text('Ký & lưu hợp đồng'),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _voucherSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _appliedVoucher != null
+            ? const Color(0xFFF0FDF4)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _appliedVoucher != null
+              ? const Color(0xFF10B981)
+              : const Color(0xFFCBD5E1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.local_offer_outlined,
+                size: 16,
+                color: Color(0xFF047857),
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'MÃ GIẢM GIÁ & ƯU ĐÃI',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              if (_appliedVoucher == null) ...[
+                if (_loadingVouchers)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF047857),
+                    ),
+                  )
+                else
+                  TextButton.icon(
+                    onPressed: _validatingVoucher ? null : _autoBestVoucher,
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: const Color(0xFF047857),
+                    ),
+                    icon: const Icon(Icons.auto_awesome, size: 13),
+                    label: const Text(
+                      'Tìm mã tốt nhất',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_appliedVoucher != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF047857),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${_appliedVoucher!['code']}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Giảm ${_appliedVoucher!['discountPercent']}% (-${_vnd.format((_appliedVoucher!['discountAmount'] as num?)?.toDouble() ?? 0)})',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF047857),
+                          ),
+                        ),
+                        if (_voucherMessage != null)
+                          Text(
+                            _voucherMessage!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFF065F46),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
+                    onPressed: _removeVoucher,
+                    tooltip: 'Hủy áp dụng mã',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            if (_availableVouchers.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: null,
+                    hint: Text(
+                      '-- Chọn mã ưu đãi có sẵn (${_availableVouchers.length} mã) --',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: Color(0xFF047857),
+                    ),
+                    items: [
+                      for (final v in _availableVouchers)
+                        DropdownMenuItem<String>(
+                          value: '${v['code']}',
+                          child: Text(
+                            '[${v['code']}] ${v['description'] ?? ''} (-${v['discountValue']}${v['discountType'] == 0 || v['discountType'] == 'Percentage' ? '%' : '₫'})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (code) {
+                      if (code != null) {
+                        _voucherCode.text = code;
+                        _applyVoucherCode(code);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _voucherCode,
+                    textCapitalization: TextCapitalization.characters,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: _dec(
+                      'Mã giảm giá',
+                      hint: 'VD: TET2026, TRIAN15',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _validatingVoucher
+                      ? null
+                      : () => _applyVoucherCode(_voucherCode.text),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF047857),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: _validatingVoucher
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Áp dụng',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                ),
+              ],
+            ),
+            if (_voucherMessage != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    _voucherSuccess
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+                    size: 14,
+                    color: _voucherSuccess
+                        ? const Color(0xFF047857)
+                        : const Color(0xFFDC2626),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      _voucherMessage!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _voucherSuccess
+                            ? const Color(0xFF047857)
+                            : const Color(0xFFDC2626),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_availableVouchers.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final v in _availableVouchers.take(4))
+                    ActionChip(
+                      avatar: const Icon(
+                        Icons.discount_outlined,
+                        size: 13,
+                        color: Color(0xFF047857),
+                      ),
+                      label: Text(
+                        '${v['code']} (-${v['discountValue']}${v['discountType'] == 0 || v['discountType'] == 'Percentage' ? '%' : '₫'})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFF0FDF4),
+                      side: const BorderSide(color: Color(0xFFBBF7D0)),
+                      onPressed: () {
+                        _voucherCode.text = '${v['code']}';
+                        _applyVoucherCode('${v['code']}');
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ],
       ),
     );
   }

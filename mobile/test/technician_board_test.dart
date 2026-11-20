@@ -137,7 +137,7 @@ void main() {
       final xong = tester.getTopLeft(find.textContaining('Zone xong')).dy;
       expect(lap < ks && ks < cho && cho < xong, isTrue);
 
-      expect(find.text('Khảo sát địa điểm'), findsOneWidget);
+      expect(find.text('Lập báo cáo khảo sát thực địa'), findsOneWidget);
       expect(find.text('2× Node đất'), findsOneWidget);
       expect(find.textContaining('Bước 2/6'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -247,7 +247,9 @@ void main() {
         findsOneWidget,
         reason: 'nhãn bước tiến trình',
       );
-      final action = find.text('Ghi nhận khảo sát địa điểm');
+      // Không còn nút nhập khảo sát thực địa thủ công: lấy 'Tiếp nhận'/'Việc tiếp theo' làm mốc vị trí.
+      expect(find.text('Ghi nhận khảo sát địa điểm'), findsNothing);
+      final action = find.textContaining('Việc tiếp theo:');
       expect(action, findsOneWidget);
       final place = find.text('Nơi lắp đặt');
       expect(

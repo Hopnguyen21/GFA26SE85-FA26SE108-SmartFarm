@@ -1,6 +1,7 @@
 // Quy tắc kiểm tra form hợp đồng thuê Zone (thuần Dart để kiểm thử). Khớp CreateZoneContractCommand của backend:
 // bên thuê bắt buộc, ngày kết thúc sau ngày bắt đầu, tiền không âm, chiết khấu 0–50%.
 // Giá trị chính thức (tổng, VAT/chiết khấu tự động, tiền cọc mặc định 30%) do backend tính; app chỉ ước tính.
+import '../../core/models/models.dart' show ZoneContractModel;
 
 /// Số tháng giống cách backend tính: chênh lệch năm*12 + tháng, tối thiểu 1.
 int contractMonthsBetween(DateTime start, DateTime end) {
@@ -56,4 +57,33 @@ String? validateZoneContractInput({
     }
   }
   return null;
+}
+
+/// Hợp đồng chính cùng các hợp đồng bổ sung của nó (mua thêm thiết bị khi hợp đồng chính còn hạn).
+class ContractGroup {
+  final ZoneContractModel main;
+  final List<ZoneContractModel> supplements;
+  const ContractGroup(this.main, this.supplements);
+}
+
+/// Gom danh sách phẳng thành nhóm: hợp đồng có `parentContractId` trỏ tới một hợp đồng CHƯA bị thay thế (khác `Renewed`)
+/// và có trong danh sách thì là hợp đồng bổ sung của nó; hợp đồng gia hạn (cha đã `Renewed`) hoặc không thấy cha thì đứng riêng.
+/// Giữ thứ tự gốc của hợp đồng chính; hợp đồng bổ sung xếp theo thứ tự xuất hiện.
+List<ContractGroup> groupContractsWithSupplements(
+  List<ZoneContractModel> contracts,
+) {
+  final byId = {for (final c in contracts) c.id: c};
+  bool isSupplement(ZoneContractModel c) {
+    final p = c.parentContractId == null ? null : byId[c.parentContractId];
+    return p != null && p.id != c.id && p.status != 'Renewed';
+  }
+
+  final children = <String, List<ZoneContractModel>>{};
+  for (final c in contracts.where(isSupplement)) {
+    children.putIfAbsent(c.parentContractId!, () => []).add(c);
+  }
+  return [
+    for (final c in contracts.where((c) => !isSupplement(c)))
+      ContractGroup(c, children[c.id] ?? const []),
+  ];
 }

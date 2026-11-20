@@ -203,50 +203,6 @@ extension _HomeScreenOwnerActions on HomeScreen {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
-            Material(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              child: InkWell(
-                onTap: () => open(const Cf1ProgressScreen()),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    border: Border.all(color: const Color(0xFFA7F3D0)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.route_outlined,
-                        size: 20,
-                        color: AppColors.primaryDark,
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Tiến độ thiết lập trang trại & hạ tầng IoT',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF065F46),
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 12,
-                        color: AppColors.primaryDark,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),

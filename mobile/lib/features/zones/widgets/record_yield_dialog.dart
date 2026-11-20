@@ -73,7 +73,9 @@ Future<bool?> showHarvestYieldDialog(
       builder: (ctx, setLocal) {
         final kg = double.tryParse(kgC.text.trim().replaceAll(',', '.')) ?? 0;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           scrollable: true,
           title: Text(
             'Ghi nhận sản lượng · $zoneName',
@@ -108,7 +110,9 @@ Future<bool?> showHarvestYieldDialog(
                 decoration: InputDecoration(
                   labelText: 'Sản lượng thu hoạch thực tế (kg) *',
                   hintText: 'VD: 1250',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               Padding(
@@ -157,7 +161,9 @@ Future<bool?> showHarvestYieldDialog(
                 initialValue: quality,
                 decoration: InputDecoration(
                   labelText: 'Phân loại & tiêu chuẩn chất lượng',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 items: [
                   for (final g in harvestQualityGrades)
@@ -181,7 +187,9 @@ Future<bool?> showHarvestYieldDialog(
                 decoration: InputDecoration(
                   labelText: 'Ghi chú thu hoạch & đánh giá chất lượng',
                   hintText: 'Độ ngọt Brix, ngoại hình, đối tác thu mua...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               if (running)
@@ -220,7 +228,9 @@ Future<bool?> showHarvestYieldDialog(
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF047857),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               key: const Key('yield_save'),
               icon: const Icon(Icons.save_outlined, size: 16),

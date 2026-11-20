@@ -75,14 +75,17 @@ void main() {
         );
         if (readOnly) {
           // Dòng tóm tắt thay cho ô nhập bị khoá: không còn nhãn bị cắt ("Trạ", "No", "VA…").
-          expect(find.text('Trạm'), findsOneWidget);
-          expect(find.text('Đơn giá 3.800.000 đ'), findsOneWidget);
+          expect(find.text('1 Trạm × 3.800.000 đ'), findsOneWidget);
           expect(find.text('VAT 8%'), findsWidgets);
-          expect(find.text('SL 2', skipOffstage: false), findsOneWidget);
         } else {
-          expect(find.text('Đơn giá (đ)'), findsWidgets);
-          expect(find.text('ĐVT'), findsWidgets);
-          expect(find.text('VAT %'), findsWidgets);
+          // Dòng từ dự toán/kho: đơn giá và VAT chỉ hiển thị (không sửa được), chỉ có dropdown thiết bị và số lượng.
+          expect(
+            find.textContaining('Đơn giá 3.800.000 đ · VAT 8%'),
+            findsOneWidget,
+          );
+          expect(find.widgetWithText(TextFormField, 'Đơn giá'), findsNothing);
+          expect(find.widgetWithText(TextFormField, 'VAT %'), findsNothing);
+          expect(find.text('SL'), findsWidgets);
         }
       },
     );

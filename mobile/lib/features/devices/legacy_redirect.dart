@@ -21,7 +21,11 @@ class LegacyFlowRedirectScreen extends StatelessWidget {
         elevation: 0,
         title: Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
       body: ListView(
@@ -37,7 +41,11 @@ class LegacyFlowRedirectScreen extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, size: 20, color: Color(0xFF047857)),
+                const Icon(
+                  Icons.info_outline,
+                  size: 20,
+                  color: Color(0xFF047857),
+                ),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text(
@@ -74,7 +82,11 @@ class LegacyFlowRedirectScreen extends StatelessWidget {
                   'Yêu cầu triển khai thiết bị',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
-                trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Color(0xFF94A3B8),
+                ),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -103,7 +115,11 @@ class LegacyFlowRedirectScreen extends StatelessWidget {
                   'Yêu cầu triển khai (Kỹ thuật viên)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
-                trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Color(0xFF94A3B8),
+                ),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -128,13 +144,23 @@ class LegacyFlowRedirectScreen extends StatelessWidget {
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.support_agent, color: Color(0xFFD97706)),
+                    child: const Icon(
+                      Icons.support_agent,
+                      color: Color(0xFFD97706),
+                    ),
                   ),
                   title: const Text(
                     'Yêu cầu hỗ trợ & báo giá',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: Color(0xFF94A3B8),
+                  ),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(

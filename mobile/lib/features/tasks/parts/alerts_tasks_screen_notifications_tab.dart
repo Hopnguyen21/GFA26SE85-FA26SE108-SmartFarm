@@ -79,11 +79,16 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                         farmProvider.markNotificationAsRead(
                           notif.notificationId,
                         );
+                        final targetZone = resolveZoneForNotification(
+                          notif: notif,
+                          provider: farmProvider,
+                        );
                         openNotificationTarget(
                           context,
                           type: notif.type,
                           referenceId: notif.referenceId,
                           role: farmProvider.currentRole,
+                          zone: targetZone,
                         );
                       },
                       borderRadius: BorderRadius.circular(16),
@@ -161,12 +166,98 @@ extension _AlertsTasksScreenNotificationsTab on AlertsTasksScreen {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    notif.message,
+                                    cleanTrailingZeros(notif.message),
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF475569),
                                       height: 1.35,
                                     ),
+                                  ),
+                                  Builder(
+                                    builder: (context) {
+                                      final targetZone =
+                                          resolveZoneForNotification(
+                                            notif: notif,
+                                            provider: farmProvider,
+                                          );
+                                      if (targetZone == null &&
+                                          notif.type != 'Alert') {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final zoneName =
+                                          targetZone?.name.isNotEmpty == true
+                                          ? targetZone!.name
+                                          : 'Khu vực cảnh báo';
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 6,
+                                          bottom: 2,
+                                        ),
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(
+                                                0xFF047857,
+                                              ),
+                                              side: const BorderSide(
+                                                color: Color(0xFFA7F3D0),
+                                              ),
+                                              backgroundColor: const Color(
+                                                0xFFECFDF5,
+                                              ),
+                                              minimumSize: const Size(0, 32),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.place_outlined,
+                                              size: 13,
+                                            ),
+                                            label: Text(
+                                              'Tới khu vực: $zoneName',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              farmProvider
+                                                  .markNotificationAsRead(
+                                                    notif.notificationId,
+                                                  );
+                                              final z =
+                                                  targetZone ??
+                                                  (farmProvider
+                                                          .allZones
+                                                          .isNotEmpty
+                                                      ? farmProvider
+                                                            .allZones
+                                                            .first
+                                                      : null);
+                                              if (z != null) {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        ZoneDetailScreen(
+                                                          zone: z,
+                                                        ),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                   const SizedBox(height: 6),
                                   Row(

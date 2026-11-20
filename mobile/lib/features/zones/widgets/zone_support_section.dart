@@ -318,7 +318,11 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, size: 14, color: _muted),
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 14,
+                    color: _muted,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -339,7 +343,9 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Loại sự cố *',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               items: [
                 for (final e in zoneSupportFailureCodes.entries)
@@ -376,7 +382,9 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'Thiết bị liên quan (không bắt buộc)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 items: [
                   const DropdownMenuItem<String?>(
@@ -403,7 +411,9 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
               decoration: InputDecoration(
                 labelText: 'Mô tả sự cố *',
                 alignLabelWithHint: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             if (_error != null)
@@ -428,7 +438,9 @@ class _SupportRequestDialogState extends State<_SupportRequestDialog> {
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF047857),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           onPressed: _busy ? null : _submit,
           child: _busy

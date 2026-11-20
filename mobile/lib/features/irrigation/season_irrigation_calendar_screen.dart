@@ -1133,10 +1133,25 @@ class _SeasonIrrigationCalendarScreenState
           // Day cells grid
           Padding(
             padding: const EdgeInsets.all(10),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [for (final d in days) _buildDayCell(c, d)],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final totalWidth = constraints.maxWidth;
+                final cols = totalWidth > 400 ? 5 : 4;
+                const spacing = 6.0;
+                final cellWidth =
+                    ((totalWidth - (cols - 1) * spacing) / cols).floorToDouble();
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: [
+                    for (final d in days)
+                      SizedBox(
+                        width: cellWidth,
+                        child: _buildDayCell(c, d),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -1162,7 +1177,7 @@ class _SeasonIrrigationCalendarScreenState
       onTap: () => _onSelectDay(d.dayNumber),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 68,
+        width: double.infinity,
         constraints: const BoxConstraints(minHeight: 72),
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
@@ -1361,20 +1376,20 @@ class _SeasonIrrigationCalendarScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
-                        Flexible(
-                          child: Text(
-                            'Chi tiết Lịch Tưới Ngày ${selectedDay.dayNumber}',
-                            style: const TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
-                              color: _ink,
-                            ),
+                        Text(
+                          'Chi tiết Lịch Tưới Ngày ${selectedDay.dayNumber}',
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.bold,
+                            color: _ink,
                           ),
                         ),
-                        if (isToday) ...[
-                          const SizedBox(width: 6),
+                        if (isToday)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -1396,9 +1411,7 @@ class _SeasonIrrigationCalendarScreenState
                               ),
                             ),
                           ),
-                        ],
-                        if (selectedDay.isOverride) ...[
-                          const SizedBox(width: 6),
+                        if (selectedDay.isOverride)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -1420,7 +1433,6 @@ class _SeasonIrrigationCalendarScreenState
                               ),
                             ),
                           ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -1434,6 +1446,70 @@ class _SeasonIrrigationCalendarScreenState
             ],
           ),
           const SizedBox(height: 12),
+
+          // Mini KPI Thống kê nhanh trong ngày
+          Builder(
+            builder: (_) {
+              final activeSessions =
+                  _activeDaySessions.where((s) => s.enabled).toList();
+              final totalMinutes = activeSessions.fold<int>(
+                0,
+                (sum, s) => sum + (s.durationSeconds / 60).round(),
+              );
+              final totalWaterMl = activeSessions.fold<int>(
+                0,
+                (sum, s) => sum + (s.waterPerPlantMl ?? 500),
+              );
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _dayKpiItem(
+                        icon: Icons.timer_outlined,
+                        color: const Color(0xFF0284C7),
+                        value: '$totalMinutes phút',
+                        label: 'Tổng thời gian',
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: const Color(0xFFE2E8F0),
+                    ),
+                    Expanded(
+                      child: _dayKpiItem(
+                        icon: Icons.water_drop_outlined,
+                        color: const Color(0xFF0D9488),
+                        value: '$totalWaterMl ml/gốc',
+                        label: 'Lượng nước',
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: const Color(0xFFE2E8F0),
+                    ),
+                    Expanded(
+                      child: _dayKpiItem(
+                        icon: Icons.power_settings_new_rounded,
+                        color: activeSessions.isNotEmpty ? _green : _muted,
+                        value: '${activeSessions.length}/3 ca',
+                        label: 'Ca hoạt động',
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           if (!canEdit)
             Container(
@@ -1746,6 +1822,54 @@ class _SeasonIrrigationCalendarScreenState
                     ),
                   ],
                 ),
+                if (canEdit && session.enabled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 2),
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        for (final preset in [5, 10, 15, 20])
+                          InkWell(
+                            onTap: () {
+                              final delta = preset - durationMinutes;
+                              _adjustDuration(index, delta);
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: durationMinutes == preset
+                                    ? themeColor.withValues(alpha: 0.15)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: durationMinutes == preset
+                                      ? themeColor
+                                      : const Color(0xFFCBD5E1),
+                                ),
+                              ),
+                              child: Text(
+                                '$preset p',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: durationMinutes == preset
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: durationMinutes == preset
+                                      ? themeColor
+                                      : _muted,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 6),
 
                 // Water Volume Row
@@ -1813,6 +1937,46 @@ class _SeasonIrrigationCalendarScreenState
         ),
         child: Icon(icon, size: 14, color: enabled ? _ink : _muted),
       ),
+    );
+  }
+
+  Widget _dayKpiItem({
+    required IconData icon,
+    required Color color,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: _ink,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 1),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 9.5, color: _muted),
+        ),
+      ],
     );
   }
 

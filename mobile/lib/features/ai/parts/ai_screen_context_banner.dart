@@ -385,7 +385,9 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: const Color(0xFFCBD5E1)),
                       ),
+                      // min: Column mặc định giãn hết chiều cao tối đa (40% màn hình) nên thẻ rỗng bị kéo cao, chiếm chỗ khung chat.
                       child: const Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.eco_outlined,
