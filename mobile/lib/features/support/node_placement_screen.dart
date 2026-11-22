@@ -2789,6 +2789,37 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
     return Column(
       children: [
         _headerBanner(),
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFF59E0B)),
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.desktop_windows_outlined,
+                color: Color(0xFFB45309),
+                size: 20,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Thao tác Gán Node trên bản đồ GIS được khuyến nghị thực hiện trên Web Dashboard để đảm bảo độ chính xác tọa độ.',
+                  style: TextStyle(
+                    color: Color(0xFF92400E),
+                    fontSize: 12.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _load,

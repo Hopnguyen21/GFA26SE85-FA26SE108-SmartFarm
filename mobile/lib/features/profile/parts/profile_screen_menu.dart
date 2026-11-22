@@ -86,8 +86,17 @@ extension _ProfileScreenMenu on ProfileScreen {
           ),
         },
       ],
-      // OWNER only: kho vật tư, quản lý nông dân
+      // OWNER only: Báo cáo & Thống kê toàn diện, kho vật tư, quản lý nông dân
       if (isOwner) ...[
+        {
+          'icon': Icons.insights_rounded,
+          'label': 'Báo cáo & Thống kê Trang trại',
+          'color': const Color(0xFF047857),
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ReportsScreen()),
+          ),
+        },
         {
           'icon': Icons.inventory_2_outlined,
           'label': 'Kho Vật tư, Phân bón & Hạt giống',
@@ -106,6 +115,17 @@ extension _ProfileScreenMenu on ProfileScreen {
             MaterialPageRoute(
               builder: (_) => const ContractsDepreciationScreen(),
             ),
+          ),
+        },
+        {
+          'icon': Icons.card_membership_outlined,
+          'label': 'Gói Dịch Vụ Mẫu & Bảng Giá',
+          'color': const Color(0xFF0D9488),
+          'onTap': () => showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const ContractPackagesSheet(),
           ),
         },
         {

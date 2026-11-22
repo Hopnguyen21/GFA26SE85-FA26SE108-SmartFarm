@@ -12,6 +12,7 @@ import '../workforce/workforce_screen.dart';
 // ZonePendingActionsBanner (thông báo việc đang chờ Owner) nằm trong cùng tệp trên.
 import '../crops/crop_profiles_screen.dart';
 import '../contracts/contracts_depreciation_screen.dart';
+import '../home/widgets/zone_ai_advice_card.dart';
 import 'widgets/emergency_stop_button.dart';
 import 'zone_operations_screens.dart';
 import 'widgets/zone_node_summary_card.dart';
@@ -29,6 +30,7 @@ import 'widgets/zone_irrigation_page.dart';
 import 'widgets/actuator_feedback.dart';
 import 'honeycomb_estimate.dart';
 import 'widgets/zone_iot_plan_tab.dart';
+import '../reports/parts/reports_season_summary_sheet.dart';
 import '../../core/utils/user_error.dart';
 
 part 'parts/zone_detail_screen_climate.dart';

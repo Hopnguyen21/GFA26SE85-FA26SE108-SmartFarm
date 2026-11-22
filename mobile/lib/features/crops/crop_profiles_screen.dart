@@ -12,10 +12,8 @@ import '../zones/zone_crop_plan_controller.dart';
 import '../zones/zone_crop_plan_logic.dart';
 import '../zones/widgets/zone_crop_plan_section.dart';
 import '../zones/widgets/zone_profile_detail_page.dart';
-import '../../core/services/api_service.dart';
 import 'crop_detail_screen.dart';
 import 'widgets/create_season_sheet.dart';
-import '../reports/vietgap_documents_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 part 'parts/crop_profiles_screen_create_zone_dialog.dart';
 part 'parts/crop_profiles_screen_card.dart';
@@ -101,10 +99,6 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<FarmProvider>(context);
     final isFarmer = provider.currentRole == 'FARMER';
-    final role = ApiService.userRole?.toLowerCase();
-    // Kho tài liệu VietGAP chỉ dành cho PlatformAdmin (khớp frontend và backend).
-    final canReviewVietGapDocuments =
-        ApiService.isAuthenticated && role == 'platformadmin';
 
     final profiles = provider.defaultCropProfiles.where((p) {
       if (_selectedCategory != 'ALL' && p.realCropId != _selectedCategory) {
@@ -140,20 +134,6 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
           ],
         ),
         actions: [
-          if (canReviewVietGapDocuments)
-            IconButton(
-              tooltip: 'Tài liệu VietGAP',
-              icon: const Icon(
-                Icons.library_books_outlined,
-                color: Colors.white,
-              ),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const VietGapDocumentsScreen(),
-                ),
-              ),
-            ),
           Container(
             margin: EdgeInsets.only(right: isFarmer ? 14 : 0),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

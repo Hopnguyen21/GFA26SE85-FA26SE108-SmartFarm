@@ -203,6 +203,33 @@ extension _HomeScreenOwnerActions on HomeScreen {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: tile(
+                      icon: Icons.insights_rounded,
+                      color: const Color(0xFF047857),
+                      title: 'Báo cáo Tổng hợp',
+                      subtitle: 'Trang trại, zone, vụ, năng suất',
+                      onTap: () => open(const ReportsScreen()),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: tile(
+                      icon: Icons.corporate_fare_rounded,
+                      color: const Color(0xFF0284C7),
+                      title: 'Quản lý Farm & Zone',
+                      subtitle: 'Cấu trúc & ranh giới GIS',
+                      onTap: () => open(const FarmsManagementScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

@@ -46,6 +46,36 @@ extension _ZoneDetailScreenStateCultivation on _ZoneDetailScreenState {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
+                onPressed: () => showZoneSeasonSummarySheet(
+                  context,
+                  zoneId: zone.zoneId,
+                  zoneName: zone.name,
+                  cropLabel: zone.currentCrop,
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: const Color(0xFF047857),
+                  side: const BorderSide(color: Color(0xFF047857), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  backgroundColor: const Color(0xFFF0FDF4),
+                ),
+                icon: const Icon(
+                  Icons.assessment_outlined,
+                  size: 18,
+                  color: Color(0xFF047857),
+                ),
+                label: const Text(
+                  'Báo cáo Mùa vụ & Năng suất Zone',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
                 onPressed: () async {
                   await Navigator.push(
                     context,

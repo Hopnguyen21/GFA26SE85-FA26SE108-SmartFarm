@@ -1,9 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../core/models/discount_code_model.dart';
 import '../../core/models/iot_deployment.dart';
 import '../../core/models/models.dart' show BusinessParameters;
 import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
+import '../bills/discount_codes_sheet.dart';
 
 /// Kết quả soạn báo giá. [notes] và [terms] cùng là nội dung ô "Ghi chú điều khoản & phạm vi lắp đặt".
 class QuotationDraft {
@@ -163,6 +166,7 @@ class _QuotationEditorState extends State<QuotationEditor> {
   List<Map<String, dynamic>> _packages = const [];
   bool _loadingPackages = false;
   String? _packagesError;
+  ValidateDiscountResult? _appliedDiscount;
 
   bool get _ro => widget.readOnly;
 
@@ -399,8 +403,108 @@ class _QuotationEditorState extends State<QuotationEditor> {
   double get _vat => _ro && widget.initial != null
       ? widget.initial!.vatAmount
       : _chosen.fold(0, (s, l) => s + l.vatAmount);
-  double get _total =>
-      _ro && widget.initial != null ? widget.initial!.totalAmount : _net + _vat;
+  double get _discountValue => _appliedDiscount?.discountAmount ?? 0.0;
+  double get _total => _ro && widget.initial != null
+      ? widget.initial!.totalAmount
+      : math.max(0.0, (_net + _vat) - _discountValue);
+
+  Widget _discountCard() {
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      elevation: 0,
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.local_offer_outlined,
+                  color: Color(0xFF7C3AED),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Mã giảm giá & Chiết khấu hợp đồng',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                  ),
+                ),
+                if (!_ro)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    icon: const Icon(Icons.add, size: 14),
+                    label: Text(
+                      _appliedDiscount != null ? 'Đổi mã' : 'Nhập mã',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: true,
+                        builder: (_) => FractionallySizedBox(
+                          heightFactor: 0.85,
+                          child: DiscountCodesSheet(
+                            currentAmount: _net + _vat,
+                            onApply: (res) {
+                              setState(() => _appliedDiscount = res);
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+            if (_appliedDiscount != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3E8FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFD8B4FE)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_outlined, size: 16, color: Color(0xFF7C3AED)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Đã áp dụng mã ${_appliedDiscount!.code}: Giảm ${formatMoney(_appliedDiscount!.discountAmount)} (${_appliedDiscount!.discountPercent}%)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF6B21A8),
+                        ),
+                      ),
+                    ),
+                    if (!_ro)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 16, color: Color(0xFF6B21A8)),
+                        tooltip: 'Bỏ mã',
+                        onPressed: () => setState(() => _appliedDiscount = null),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   /// Ô nhập của một dòng; dòng không được chọn không bị kiểm tra bắt buộc, chế độ chỉ đọc khóa ô.
   Widget _field(
@@ -770,7 +874,12 @@ class _QuotationEditorState extends State<QuotationEditor> {
       );
       return;
     }
-    final text = _terms.text.trim();
+    var text = _terms.text.trim();
+    if (_appliedDiscount != null) {
+      final discountNote =
+          '[Áp dụng ưu đãi: Mã ${_appliedDiscount!.code} giảm ${formatMoney(_appliedDiscount!.discountAmount)} (${_appliedDiscount!.discountPercent}%)]';
+      text = text.isEmpty ? discountNote : '$text\n$discountNote';
+    }
     Navigator.pop(
       context,
       QuotationDraft(_chosen.map((l) => l.toJson()).toList(), text, text),
@@ -1183,6 +1292,7 @@ class _QuotationEditorState extends State<QuotationEditor> {
               ),
             ),
             if (!_ro) _packagesCard(),
+            _discountCard(),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
@@ -1200,6 +1310,11 @@ class _QuotationEditorState extends State<QuotationEditor> {
                       _chosenPackages.fold<double>(0, (s, l) => s + l.net),
                     ),
                   _moneyRow('Thuế VAT', _vat),
+                  if (_discountValue > 0)
+                    _moneyRow(
+                      'Chiết khấu (${_appliedDiscount!.code})',
+                      -_discountValue,
+                    ),
                   const Divider(),
                   _moneyRow('TỔNG GIÁ TRỊ HỢP ĐỒNG', _total, strong: true),
                   const SizedBox(height: 8),

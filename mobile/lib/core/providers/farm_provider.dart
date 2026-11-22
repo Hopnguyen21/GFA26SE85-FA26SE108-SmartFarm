@@ -41,6 +41,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isLoadingWeather = false;
   bool get isLoadingWeather => _isLoadingWeather;
 
+  /// Mô hình thời tiết có cấu trúc (type-safe) được giải mã từ OpenMeteo
+  WeatherModel? get weatherModel =>
+      _farmWeather != null ? WeatherModel.fromJson(_farmWeather!) : null;
+
   Map<String, dynamic>? _me;
 
   /// Tổ chức của tài khoản (GET /tenants/me); null nếu chưa tải được hoặc tài khoản không thuộc tenant.
@@ -60,8 +64,23 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   @visibleForTesting
+  void setWeatherForTesting(Map<String, dynamic>? weather, {bool isLoading = false}) {
+    _farmWeather = weather;
+    _isLoadingWeather = isLoading;
+    notifyListeners();
+  }
+
+  @visibleForTesting
   void setSelectedFarmIdForTesting(String farmId) {
     _selectedFarmId = farmId;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setFarmsForTesting(List<FarmModel> farms) {
+    _farms
+      ..clear()
+      ..addAll(farms);
     notifyListeners();
   }
 

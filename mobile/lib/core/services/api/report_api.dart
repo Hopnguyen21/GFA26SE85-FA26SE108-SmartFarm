@@ -45,15 +45,44 @@ abstract final class ReportApi {
     DateTime? from,
     DateTime? to,
   }) async {
-    if (kind != null && !_reportKinds.contains(kind))
+    if (kind != null && !_reportKinds.contains(kind)) {
       throw ArgumentError('Loại báo cáo không hợp lệ: $kind');
+    }
     final path = kind == null ? 'report/excel' : 'report/$kind/excel';
     final resp = await ApiService._getWithAuth(
       '${ApiService.baseUrl}/api/v1/farms/$farmId/$path${kind == 'overview' ? '' : _reportQuery(from, to)}',
       timeout: const Duration(seconds: 60),
     );
-    if (resp == null || resp.statusCode != 200)
+    if (resp == null || resp.statusCode != 200) {
       throw Exception(ApiService._apiErrorMessage(resp));
+    }
+    return resp.bodyBytes;
+  }
+
+  /// Báo cáo tóm tắt mùa vụ của Zone (GET /api/v1/zones/{zoneId}/report/season-summary).
+  static Future<Map<String, dynamic>> getZoneSeasonSummaryReport(
+    String zoneId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/zones/$zoneId/report/season-summary',
+    );
+    if (resp == null || resp.statusCode != 200) {
+      throw Exception(ApiService._apiErrorMessage(resp));
+    }
+    return jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Tải tệp Excel báo cáo mùa vụ của Zone (GET /api/v1/zones/{zoneId}/report/season-summary/excel).
+  static Future<Uint8List> downloadZoneSeasonReportExcel(
+    String zoneId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/zones/$zoneId/report/season-summary/excel',
+      timeout: const Duration(seconds: 60),
+    );
+    if (resp == null || resp.statusCode != 200) {
+      throw Exception(ApiService._apiErrorMessage(resp));
+    }
     return resp.bodyBytes;
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
@@ -16,7 +17,7 @@ class MonitoringHistoryScreen extends StatefulWidget {
 }
 
 class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
-  // Selected metric: 'SOIL_MOISTURE', 'TEMP', 'HUMIDITY'
+  // Selected metric: 'SOIL_MOISTURE', 'TEMP', 'HUMIDITY', 'LIGHT', 'PH', 'EC'
   String _selectedMetric = 'SOIL_MOISTURE';
   String _timeRange = '24 Giờ';
   bool _isLoadingLive = false;
@@ -47,6 +48,9 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
       final paramCode = switch (_selectedMetric) {
         'TEMP' => 'Temperature',
         'HUMIDITY' => 'AirHumidity',
+        'LIGHT' => 'LightIntensity',
+        'PH' => 'Ph',
+        'EC' => 'Ec',
         _ => 'SoilMoisture',
       };
       final now = DateTime.now().toUtc();
@@ -138,84 +142,78 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
     final provider = Provider.of<FarmProvider>(context);
     final zoneId = provider.currentZone.zoneId;
 
-    List<double> currentData;
-    List<String> currentLabels;
-    String unit;
-    String metricTitle;
-    Color chartColor;
-    double minTarget;
-    double maxTarget;
+    final currentData = _liveData ?? const <double>[];
+    final currentLabels = _liveLabels ?? const <String>[];
+    final hasData = currentData.isNotEmpty;
+
+    final String unit;
+    final String metricTitle;
+    final Color chartColor;
+    final double minTarget;
+    final double maxTarget;
 
     switch (_selectedMetric) {
       case 'TEMP':
-        currentData = _liveData ?? const <double>[];
-        currentLabels = _liveLabels ?? const <String>[];
         unit = '°C';
-        metricTitle = _liveData != null
-            ? 'Nhiệt độ không khí'
-            : 'Nhiệt độ không khí';
+        metricTitle = 'Nhiệt độ không khí';
         chartColor = const Color(0xFFD97706);
         minTarget = 18.0;
         maxTarget = 28.0;
         break;
       case 'HUMIDITY':
-        currentData = _liveData ?? const <double>[];
-        currentLabels = _liveLabels ?? const <String>[];
         unit = '%';
-        metricTitle = _liveData != null ? 'Độ ẩm không khí' : 'Độ ẩm không khí';
+        metricTitle = 'Độ ẩm không khí';
         chartColor = const Color(0xFF0284C7);
         minTarget = 65.0;
         maxTarget = 85.0;
         break;
+      case 'LIGHT':
+        unit = ' lux';
+        metricTitle = 'Cường độ ánh sáng';
+        chartColor = const Color(0xFFCA8A04);
+        minTarget = 10000.0;
+        maxTarget = 45000.0;
+        break;
+      case 'PH':
+        unit = ' pH';
+        metricTitle = 'Độ chua (pH)';
+        chartColor = const Color(0xFF7C3AED);
+        minTarget = 5.5;
+        maxTarget = 6.8;
+        break;
+      case 'EC':
+        unit = ' mS/cm';
+        metricTitle = 'Độ dẫn điện (EC)';
+        chartColor = const Color(0xFF0891B2);
+        minTarget = 1.2;
+        maxTarget = 2.5;
+        break;
       default:
-        currentData = _liveData ?? const <double>[];
-        currentLabels = _liveLabels ?? const <String>[];
         unit = '%';
-        metricTitle = _liveData != null ? 'Độ ẩm đất' : 'Độ ẩm đất';
+        metricTitle = 'Độ ẩm đất';
         chartColor = const Color(0xFF10B981);
         minTarget = 60.0;
         maxTarget = 80.0;
     }
 
-    if (currentData.isEmpty) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF062326),
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'Lịch Sử Vi Khí Hậu',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        body: Center(
-          child: _isLoadingLive
-              ? const CircularProgressIndicator()
-              : Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _historyError ??
-                            'Chưa có dữ liệu lịch sử cho khu vực và khoảng thời gian này.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => _fetchLiveHistory(zoneId),
-                        child: const Text('Tải lại'),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-      );
-    }
+    final double minY = 0.0;
+    final double maxY = switch (_selectedMetric) {
+      'PH' => 14.0,
+      'EC' => 5.0,
+      'LIGHT' => math.max(
+        60000.0,
+        ((hasData ? currentData.reduce(math.max) : 0.0) * 1.15),
+      ),
+      'TEMP' => 50.0,
+      _ => 100.0,
+    };
+    final double yInterval = switch (_selectedMetric) {
+      'PH' => 2.0,
+      'EC' => 1.0,
+      'LIGHT' => (maxY / 5).roundToDouble(),
+      'TEMP' => 10.0,
+      _ => 20.0,
+    };
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -226,7 +224,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Lịch Sử Vi Khí Hậu',
+              'Lịch Sử Vi Khí Hậu & Đất',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -234,7 +232,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
               ),
             ),
             Text(
-              'Phân tích chuỗi thời gian & ngưỡng an toàn cây trồng',
+              '6 thông số vi khí hậu & ngưỡng an toàn cây trồng',
               style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
@@ -243,7 +241,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
           IconButton(
             icon: const Icon(Icons.file_download_outlined, color: Colors.white),
             tooltip: 'Xuất CSV/Excel',
-            onPressed: _exporting
+            onPressed: (_exporting || !hasData)
                 ? null
                 : () => _exportCsv(provider.currentZone.name),
           ),
@@ -254,340 +252,469 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filter Metric Chips
-            Row(
-              children: [
-                _buildMetricChip(
-                  'SOIL_MOISTURE',
-                  'Độ ẩm đất',
-                  Icons.water_drop,
-                  const Color(0xFF10B981),
-                  zoneId,
-                ),
-                const SizedBox(width: 8),
-                _buildMetricChip(
-                  'TEMP',
-                  'Nhiệt độ',
-                  Icons.thermostat,
-                  const Color(0xFFD97706),
-                  zoneId,
-                ),
-                const SizedBox(width: 8),
-                _buildMetricChip(
-                  'HUMIDITY',
-                  'Độ ẩm KK',
-                  Icons.cloud,
-                  const Color(0xFF0284C7),
-                  zoneId,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Main Chart Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+            // Filter Metric Chips (Scrollable horizontal row)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildMetricChip(
+                    'SOIL_MOISTURE',
+                    'Độ ẩm đất',
+                    Icons.water_drop,
+                    const Color(0xFF10B981),
+                    zoneId,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMetricChip(
+                    'TEMP',
+                    'Nhiệt độ',
+                    Icons.thermostat,
+                    const Color(0xFFD97706),
+                    zoneId,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMetricChip(
+                    'HUMIDITY',
+                    'Độ ẩm KK',
+                    Icons.cloud,
+                    const Color(0xFF0284C7),
+                    zoneId,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMetricChip(
+                    'LIGHT',
+                    'Ánh sáng',
+                    Icons.wb_sunny_outlined,
+                    const Color(0xFFCA8A04),
+                    zoneId,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMetricChip(
+                    'PH',
+                    'Độ pH',
+                    Icons.science_outlined,
+                    const Color(0xFF7C3AED),
+                    zoneId,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMetricChip(
+                    'EC',
+                    'Dinh dưỡng EC',
+                    Icons.bolt,
+                    const Color(0xFF0891B2),
+                    zoneId,
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                metricTitle,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Color(0xFF0F172A),
+            ),
+            const SizedBox(height: 16),
+
+            if (!hasData)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 48,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isLoadingLive)
+                      const CircularProgressIndicator()
+                    else ...[
+                      Icon(
+                        Icons.query_stats_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _historyError ??
+                            'Chưa có dữ liệu lịch sử ($metricTitle) cho khoảng thời gian này.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(100, 44)),
+                        onPressed: () => _fetchLiveHistory(zoneId),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Tải lại'),
+                      ),
+                    ],
+                  ],
+                ),
+              )
+            else ...[
+              // Main Chart Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  metricTitle,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: Color(0xFF0F172A),
+                                  ),
                                 ),
-                              ),
-                              if (_isLoadingLive) ...[
-                                const SizedBox(width: 8),
-                                const SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF10B981),
+                                if (_isLoadingLive) ...[
+                                  const SizedBox(width: 8),
+                                  const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: chartColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Hiện tại: ${currentData.last}$unit',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: chartColor,
                                   ),
                                 ),
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: chartColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Hiện tại: ${currentData.last}$unit',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: chartColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      // Time Filter
-                      DropdownButton<String>(
-                        value: _timeRange,
-                        underline: const SizedBox(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF062326),
-                        ),
-                        items: ['24 Giờ', '7 Ngày', '30 Ngày'].map((e) {
-                          return DropdownMenuItem(value: e, child: Text(e));
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _timeRange = val);
-                            _fetchLiveHistory(zoneId);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Target Bounds Legend
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 12,
-                              height: 2,
-                              color: const Color(0xFFE11D48),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Ngưỡng Min ($minTarget$unit)',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
                             ),
                           ],
                         ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 12,
-                              height: 2,
-                              color: const Color(0xFFE11D48),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Ngưỡng Max ($maxTarget$unit)',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
+                        // Time Filter
+                        DropdownButton<String>(
+                          value: _timeRange,
+                          underline: const SizedBox(),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF062326),
+                          ),
+                          items: ['24 Giờ', '7 Ngày', '30 Ngày'].map((e) {
+                            return DropdownMenuItem(value: e, child: Text(e));
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _timeRange = val);
+                              _fetchLiveHistory(zoneId);
+                            }
+                          },
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 14),
 
-                  // FlChart
-                  SizedBox(
-                    height: 220,
-                    child: LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: 15,
-                          getDrawingHorizontalLine: (value) {
-                            return const FlLine(
-                              color: Color(0xFFF1F5F9),
-                              strokeWidth: 1,
-                            );
-                          },
-                        ),
-                        titlesData: FlTitlesData(
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
+                    // Target Bounds Legend
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 2,
+                                color: const Color(0xFFE11D48),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Ngưỡng Min ($minTarget$unit)',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
                           ),
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 32,
-                              interval: 20,
-                              getTitlesWidget: (value, meta) {
-                                return Text(
-                                  value.toInt().toString(),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              interval: currentLabels.length > 8
-                                  ? (currentLabels.length / 5).ceil().toDouble()
-                                  : 2,
-                              getTitlesWidget: (value, meta) {
-                                int idx = value.toInt();
-                                if (idx >= 0 && idx < currentLabels.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      currentLabels[idx],
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF94A3B8),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return const SizedBox();
-                              },
-                            ),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        minX: 0,
-                        maxX: (currentData.length - 1).toDouble(),
-                        minY: 0,
-                        maxY: 100,
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: List.generate(
-                              currentData.length,
-                              (i) => FlSpot(i.toDouble(), currentData[i]),
-                            ),
-                            isCurved: true,
-                            color: chartColor,
-                            barWidth: 2.5,
-                            isStrokeCapRound: true,
-                            dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: chartColor.withValues(alpha: 0.1),
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 2,
+                                color: const Color(0xFFE11D48),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Ngưỡng Max ($maxTarget$unit)',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
-            // Statistics Summary Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.analytics_outlined,
-                        size: 16,
-                        color: Color(0xFF047857),
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Tổng quan thống kê trong khoảng thời gian',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Color(0xFF0F172A),
+                    // FlChart
+                    SizedBox(
+                      height: 220,
+                      child: LineChart(
+                        LineChartData(
+                          lineTouchData: LineTouchData(
+                            enabled: true,
+                            handleBuiltInTouches: true,
+                            touchTooltipData: LineTouchTooltipData(
+                              getTooltipColor: (_) => const Color(0xFF0F172A),
+                              tooltipBorderRadius: BorderRadius.circular(8),
+                              tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              getTooltipItems: (touchedSpots) {
+                                return touchedSpots.map((spot) {
+                                  final idx = spot.spotIndex;
+                                  final timeStr = (idx >= 0 && idx < currentLabels.length) ? currentLabels[idx] : '';
+                                  return LineTooltipItem(
+                                    '${timeStr.isNotEmpty ? '$timeStr\n' : ''}${spot.y}$unit',
+                                    const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  );
+                                }).toList();
+                              },
+                            ),
+                          ),
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            horizontalInterval: yInterval,
+                            getDrawingHorizontalLine: (value) {
+                              return const FlLine(
+                                color: Color(0xFFF1F5F9),
+                                strokeWidth: 1,
+                              );
+                            },
+                          ),
+                          extraLinesData: ExtraLinesData(
+                            horizontalLines: [
+                              HorizontalLine(
+                                y: minTarget,
+                                color: const Color(
+                                  0xFFE11D48,
+                                ).withValues(alpha: 0.5),
+                                strokeWidth: 1,
+                                dashArray: [4, 4],
+                              ),
+                              HorizontalLine(
+                                y: maxTarget,
+                                color: const Color(
+                                  0xFFE11D48,
+                                ).withValues(alpha: 0.5),
+                                strokeWidth: 1,
+                                dashArray: [4, 4],
+                              ),
+                            ],
+                          ),
+                          titlesData: FlTitlesData(
+                            rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: _selectedMetric == 'LIGHT'
+                                    ? 44
+                                    : 32,
+                                interval: yInterval,
+                                getTitlesWidget: (value, meta) {
+                                  if (value > maxY || value < minY) {
+                                    return const SizedBox();
+                                  }
+                                  final label =
+                                      (_selectedMetric == 'PH' ||
+                                          _selectedMetric == 'EC')
+                                      ? value.toStringAsFixed(1)
+                                      : value.toInt().toString();
+                                  return Text(
+                                    label,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: currentLabels.length > 8
+                                    ? (currentLabels.length / 5)
+                                          .ceil()
+                                          .toDouble()
+                                    : 2,
+                                getTitlesWidget: (value, meta) {
+                                  int idx = value.toInt();
+                                  if (idx >= 0 && idx < currentLabels.length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Text(
+                                        currentLabels[idx],
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox();
+                                },
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          minX: 0,
+                          maxX: (currentData.length - 1).toDouble(),
+                          minY: minY,
+                          maxY: maxY,
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: List.generate(
+                                currentData.length,
+                                (i) => FlSpot(i.toDouble(), currentData[i]),
+                              ),
+                              isCurved: true,
+                              color: chartColor,
+                              barWidth: 2.5,
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: chartColor.withValues(alpha: 0.1),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        'Cao nhất',
-                        '${currentData.reduce((a, b) => a > b ? a : b)}$unit',
-                        const Color(0xFFDC2626),
-                        Icons.arrow_upward,
-                      ),
-                      _buildStatItem(
-                        'Thấp nhất',
-                        '${currentData.reduce((a, b) => a < b ? a : b)}$unit',
-                        const Color(0xFF2563EB),
-                        Icons.arrow_downward,
-                      ),
-                      _buildStatItem(
-                        'Trung bình',
-                        '${(currentData.reduce((a, b) => a + b) / currentData.length).toStringAsFixed(1)}$unit',
-                        const Color(0xFF047857),
-                        Icons.functions,
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+
+              // Statistics Summary Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: 16,
+                          color: Color(0xFF047857),
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Tổng quan thống kê trong khoảng thời gian',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                          'Cao nhất',
+                          '${currentData.reduce((a, b) => a > b ? a : b)}$unit',
+                          const Color(0xFFDC2626),
+                          Icons.arrow_upward,
+                        ),
+                        _buildStatItem(
+                          'Thấp nhất',
+                          '${currentData.reduce((a, b) => a < b ? a : b)}$unit',
+                          const Color(0xFF2563EB),
+                          Icons.arrow_downward,
+                        ),
+                        _buildStatItem(
+                          'Trung bình',
+                          '${(currentData.reduce((a, b) => a + b) / currentData.length).toStringAsFixed(1)}$unit',
+                          const Color(0xFF047857),
+                          Icons.functions,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -602,51 +729,62 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
     String zoneId,
   ) {
     final isSelected = _selectedMetric == metricKey;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _selectedMetric = metricKey);
-          _fetchLiveHistory(zoneId);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? color : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? color : const Color(0xFFE2E8F0),
-              width: isSelected ? 1.5 : 1,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 14, color: isSelected ? Colors.white : color),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : const Color(0xFF334155),
-                ),
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label, ${isSelected ? "đang chọn" : ""}',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            if (_selectedMetric != metricKey) {
+              setState(() => _selectedMetric = metricKey);
+              _fetchLiveHistory(zoneId);
+            }
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? color : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? color : const Color(0xFFE2E8F0),
+                width: isSelected ? 1.5 : 1,
               ),
-            ],
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: isSelected ? Colors.white : color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : const Color(0xFF334155),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
