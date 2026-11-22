@@ -124,14 +124,14 @@ public sealed class PlatformAdminService(
                 if (plain.Length > 0 && SecretProtector.LooksMasked(plain)) continue;
                 if (plain.Length > 0)
                 {
-                    if (plain.Length < 20 || plain.Any(char.IsWhiteSpace))
-                        throw new RequestValidationException(update.Key, "Khoá API không hợp lệ (tối thiểu 20 ký tự, không có khoảng trắng).");
+                    if (plain.Length < 10 || plain.Any(char.IsWhiteSpace))
+                        throw new RequestValidationException(update.Key, "Khoá API / Token không hợp lệ (tối thiểu 10 ký tự, không có khoảng trắng).");
                     if (SigningKey.Length < 32)
                         throw new RequestValidationException(update.Key, "Chưa cấu hình Jwt:SigningKey nên không thể mã hoá khoá API để lưu.");
                     plain = SecretProtector.Protect(plain, SigningKey);
                 }
                 update = new UpdatePlatformSettingItem(update.Key, plain);
-                geminiTouched = true;
+                if (update.Key == PlatformSettingKeys.GeminiApiKey) geminiTouched = true;
             }
             else if (update.Key == PlatformSettingKeys.GeminiModel)
             {
@@ -155,7 +155,8 @@ public sealed class PlatformAdminService(
             });
             if (existing is null)
             {
-                db.PlatformSettings.Add(new PlatformSetting { Key = update.Key, Value = update.Value, Group = isSecretKey || update.Key == PlatformSettingKeys.GeminiModel ? "Ai" : "Custom", DataType = "String", IsSecret = isSecretKey, UpdatedByUserId = updatedByUserId, UpdatedAtUtc = DateTime.UtcNow });
+                var group = update.Key.StartsWith("PayOS") ? "Payment" : (update.Key.StartsWith("Cloudinary") ? "Media" : (isSecretKey || update.Key == PlatformSettingKeys.GeminiModel ? "Ai" : "Custom"));
+                db.PlatformSettings.Add(new PlatformSetting { Key = update.Key, Value = update.Value, Group = group, DataType = "String", IsSecret = isSecretKey, UpdatedByUserId = updatedByUserId, UpdatedAtUtc = DateTime.UtcNow });
             }
             else
             {
@@ -325,6 +326,13 @@ public sealed class PlatformAdminService(
                 db.PlatformHardwareItems.Add(technicianItem);
             }
         }
+        Notifications.FlowNotifications.Add(db, technician.Id, null,
+            "Cấp phát thiết bị phần cứng mới",
+            $"Bạn vừa được cấp phát thiết bị “{item.Name}” ({item.Code}) số lượng {quantity} vào kho cá nhân.",
+            NotificationType.IoT,
+            item.Id.ToString(),
+            AlertSeverity.Info,
+            "/technician/inventory");
         await db.SaveChangesAsync(ct);
         return ToView(item.AssignedTechnicianId == technician.Id ? item : await db.PlatformHardwareItems.AsNoTracking().OrderByDescending(x => x.CreatedAtUtc).FirstAsync(x => x.AssignedTechnicianId == technician.Id && x.Code == item.Code, ct));
     }
@@ -847,26 +855,30 @@ public sealed class GisService(SmartFarmDbContext db) : IGisService
         ServiceRequest? srCheck = null;
         if (command.ServiceRequestId.HasValue)
         {
-            srCheck = await db.ServiceRequests.FirstOrDefaultAsync(x => x.Id == command.ServiceRequestId.Value && x.ZoneId == zoneId && x.TenantId == zone.Field.Farm.TenantId, ct);
+            srCheck = await db.ServiceRequests.FirstOrDefaultAsync(x => x.Id == command.ServiceRequestId.Value, ct);
+            if (srCheck != null && srCheck.ZoneId == Guid.Empty)
+            {
+                srCheck.ZoneId = zoneId;
+            }
         }
         else
         {
-            srCheck = await db.ServiceRequests.FirstOrDefaultAsync(x => x.ZoneId == zoneId && x.AssignedTechnicianId == technicianId, ct);
+            srCheck = await db.ServiceRequests.FirstOrDefaultAsync(x => x.ZoneId == zoneId && (x.AssignedTechnicianId == technicianId || x.AssignedTechnicianId == null), ct);
         }
 
         var depReq = command.DeploymentRequestId.HasValue
             ? await db.DeploymentRequests.Include(r => r.PlanItems).FirstOrDefaultAsync(r => r.Id == command.DeploymentRequestId.Value, ct)
             : (srCheck?.DeploymentRequestId is Guid requestId && requestId != Guid.Empty
                 ? await db.DeploymentRequests.Include(r => r.PlanItems).FirstOrDefaultAsync(r => r.Id == requestId, ct)
-                : await db.DeploymentRequests.Include(r => r.PlanItems).FirstOrDefaultAsync(r => r.ZoneId == zoneId && r.TechnicianUserId == technicianId, ct));
+                : await db.DeploymentRequests.Include(r => r.PlanItems).FirstOrDefaultAsync(r => r.ZoneId == zoneId && (r.TechnicianUserId == technicianId || r.TechnicianUserId == null), ct));
 
         // A technician can be assigned either on the deployment request or on
         // the linked service request. Older installation records populated
         // only ServiceRequest.AssignedTechnicianId, so accepting only the
         // deployment field incorrectly returned 403 for valid GIS mappings.
-        // For FarmOwner / PlatformAdmin, zone access has already been verified by EnsureZoneAccessAsync.
+        // For FarmOwner / PlatformAdmin / PlatformTechnician, zone access has already been verified by EnsureZoneAccessAsync.
         var caller = await db.AppUsers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == technicianId, ct);
-        var isPlatformOrOwner = caller?.Role is UserRole.PlatformAdmin or UserRole.FarmOwner;
+        var isPlatformOrOwner = caller?.Role is UserRole.PlatformAdmin or UserRole.PlatformTechnician or UserRole.FarmOwner;
 
         if (!isPlatformOrOwner)
         {
@@ -1031,11 +1043,10 @@ public sealed class GisService(SmartFarmDbContext db) : IGisService
         var allowed = caller.Role switch
         {
             UserRole.PlatformAdmin => true,
+            UserRole.PlatformTechnician => true,
             UserRole.FarmOwner => caller.TenantId == zone.Field.Farm.TenantId,
             UserRole.Farmer => !write && caller.TenantId == zone.Field.Farm.TenantId
                 && await db.UserZoneAccesses.AnyAsync(a => a.AppUserId == userId && a.ZoneId == zoneId, ct),
-            UserRole.PlatformTechnician => await db.DeploymentRequests.AnyAsync(r => r.ZoneId == zoneId && (r.TechnicianUserId == userId || r.TechnicianUserId == null), ct)
-                || await db.ServiceRequests.AnyAsync(r => r.ZoneId == zoneId && (r.AssignedTechnicianId == userId || r.AssignedTechnicianId == null), ct),
             _ => false
         };
         if (!allowed) throw new ResourceNotFoundException("Zone was not found.");
@@ -1272,7 +1283,10 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
             DueDate = x.DueAtUtc,
             DueAtUtc = x.DueAtUtc,
             ZoneName = x.Zone != null ? x.Zone.Name : null,
-            CreatedAtUtc = x.CreatedAtUtc
+            CreatedAtUtc = x.CreatedAtUtc,
+            ImageUrls = (caller != null && caller.Role == UserRole.Farmer
+                ? x.Assignments.Where(a => a.FarmerId == farmerId).Select(a => a.ImageUrls).FirstOrDefault()
+                : null)
         }).ToList();
     }
 
@@ -1289,6 +1303,10 @@ public sealed class FarmerService(SmartFarmDbContext db) : IFarmerService
         mine.AcceptedAtUtc ??= now; mine.StartedAtUtc ??= now;
         mine.Status = FarmTaskStatus.CompletedPendingReview;
         mine.Result = command.ResultNotes;
+        if (command.ImageUrls is not null)
+        {
+            mine.ImageUrls = System.Text.Json.JsonSerializer.Serialize(command.ImageUrls);
+        }
         mine.ProgressPercent = 100;
         mine.SubmittedAtUtc = now;
         task.Status = SmartFarm.Application.Features.Inventory.FarmTaskAggregate.Compute(task.Assignments);

@@ -128,16 +128,40 @@ export const userService = {
     return res.data;
   },
 
+  /** POST /api/v1/users (PlatformAdmin) */
+  createUser: async (data: { email: string; fullName: string; phone?: string; role: string; password: string; tenantId?: string; farmId?: string }) => {
+    const res = await apiClient.post('/api/v1/users', data);
+    return res.data;
+  },
+
+  /** PUT /api/v1/users/{userId} (PlatformAdmin) */
+  updateUser: async (userId: string, data: { fullName: string; phone?: string; role: string; status: string; tenantId?: string; farmId?: string }) => {
+    const res = await apiClient.put(`/api/v1/users/${userId}`, data);
+    return res.data;
+  },
+
+  /** PATCH /api/v1/users/{userId}/toggle-status (PlatformAdmin) */
+  toggleStatus: async (userId: string) => {
+    const res = await apiClient.patch(`/api/v1/users/${userId}/toggle-status`);
+    return res.data;
+  },
+
+  /** POST /api/v1/users/{userId}/reset-password (PlatformAdmin) */
+  resetPasswordAdmin: async (userId: string, newPassword: string) => {
+    const res = await apiClient.post(`/api/v1/users/${userId}/reset-password`, { newPassword });
+    return res.data;
+  },
+
+  /** DELETE /api/v1/users/{userId} (PlatformAdmin) */
+  deleteUser: async (userId: string) => {
+    const res = await apiClient.delete(`/api/v1/users/${userId}`);
+    return res.data;
+  },
+
   /** Alias: getEmployees = getUsers */
   getEmployees: async () => {
     const res = await apiClient.get('/api/v1/users');
     return res.data?.value ?? res.data ?? [];
-  },
-
-  /** PUT /api/v1/users/{userId} */
-  updateUser: async (userId: string, data: Record<string, unknown>) => {
-    const res = await apiClient.put(`/api/v1/users/${userId}`, data);
-    return res.data;
   },
 
   /**
@@ -1936,7 +1960,7 @@ export const supportService = {
   updateTask: async (
     farmId: string,
     taskId: string,
-    data: { action: string; result?: string; failureReason?: string; farmerId?: string; progressPercent?: number; notes?: string }
+    data: { action: string; result?: string; failureReason?: string; farmerId?: string; progressPercent?: number; notes?: string; imageUrls?: string[] }
   ) => {
     const res = await apiClient.put(`/api/v1/farms/${farmId}/tasks/${taskId}`, data);
     return res.data;
@@ -2136,8 +2160,8 @@ export const farmerService = {
   },
 
   /** PUT /api/v1/farmer/tasks/{taskId}/complete */
-  completeTask: async (taskId: string, resultNotes?: string) => {
-    const res = await apiClient.put(`/api/v1/farmer/tasks/${taskId}/complete`, { resultNotes });
+  completeTask: async (taskId: string, resultNotes?: string, imageUrls?: string[]) => {
+    const res = await apiClient.put(`/api/v1/farmer/tasks/${taskId}/complete`, { resultNotes, imageUrls });
     return res.data;
   },
 
@@ -2158,7 +2182,7 @@ export interface NotificationItem {
   tenantId?: string | null;
   title: string;
   message: string;
-  type: 'System' | 'Alert' | 'Task' | 'IoT' | 'Inventory' | 'Advice';
+  type: 'System' | 'Alert' | 'Task' | 'IoT' | 'Inventory' | 'Advice' | 'Service' | 'StockOut' | 'Contract';
   severity: 'Info' | 'Warning' | 'Critical';
   isRead: boolean;
   readAtUtc?: string | null;
@@ -2516,6 +2540,40 @@ export const billService = {
   recordPayment: async (id: string, data: any) => (await apiClient.post(`/api/v1/bills/${id}/payments`, data)).data,
   updateStatus: async (id: string, status: string | number, notes?: string) => (await apiClient.put(`/api/v1/bills/${id}/status`, { status, notes })).data,
   delete: async (id: string) => (await apiClient.delete(`/api/v1/bills/${id}`)).data,
+};
+
+export const paymentService = {
+  getPayOSConfig: async () => (await apiClient.get('/api/v1/payments/payos/config')).data,
+  updatePayOSConfig: async (data: { clientId: string; apiKey?: string; checksumKey?: string }) =>
+    (await apiClient.put('/api/v1/payments/payos/config', data)).data,
+  testPayOSConnection: async () => (await apiClient.post('/api/v1/payments/payos/test-connection')).data,
+  confirmPayOSWebhook: async (webhookUrl: string) =>
+    (await apiClient.post('/api/v1/payments/payos/confirm-webhook', { webhookUrl })).data,
+  createBillPayment: async (billId: string, data?: { amount?: number; returnUrl?: string; cancelUrl?: string }) =>
+    (await apiClient.post(`/api/v1/payments/payos/create-bill-payment/${billId}`, data || {})).data,
+  checkPayOSStatus: async (orderCode: number | string) =>
+    (await apiClient.get(`/api/v1/payments/payos/check-status/${orderCode}`)).data,
+  confirmManualPayOS: async (orderCode: number | string) =>
+    (await apiClient.post(`/api/v1/payments/payos/confirm-manual/${orderCode}`)).data,
+  getBillTransactions: async (billId: string) =>
+    (await apiClient.get(`/api/v1/payments/payos/transactions/${billId}`)).data,
+};
+
+export const cloudinaryService = {
+  getConfig: async () => (await apiClient.get('/api/v1/media/cloudinary/config')).data,
+  updateConfig: async (data: { cloudName: string; apiKey: string; apiSecret?: string }) =>
+    (await apiClient.put('/api/v1/media/cloudinary/config', data)).data,
+  testConnection: async () => (await apiClient.post('/api/v1/media/cloudinary/test-connection')).data,
+  uploadFile: async (file: File, folder?: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (folder) fd.append('folder', folder);
+    return (await apiClient.post('/api/v1/media/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })).data;
+  },
+  uploadBase64: async (base64Data: string, fileName?: string, folder?: string) =>
+    (await apiClient.post('/api/v1/media/upload-base64', { base64Data, fileName, folder })).data,
 };
 export const contractPackageService = {
   getAll: async (activeOnly?: boolean, isCustom = false) => (await apiClient.get('/api/v1/contract-packages', { params: { activeOnly, isCustom } })).data,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthContext';
-import { alertService, farmerService, supportService, telemetryService, controlService } from '../../services';
+import { alertService, farmerService, supportService, telemetryService, controlService, cloudinaryService } from '../../services';
 import { Alert, Zone } from '../../types';
 import { Button, Modal } from '../../components/ui/BaseUI';
 import { dueLabel, DUE_TONE_CLASS as TONE } from '../../utils/dueLabel';
@@ -11,7 +11,8 @@ import {
   Sprout, CheckSquare, ShieldAlert, Power, ClipboardList, Gauge,
   AlertTriangle, CheckCircle2, Clock, MapPin, Calendar, Droplets,
   Thermometer, Sun, CloudRain, Wind, Play, Send, ChevronRight,
-  Sparkles, RefreshCw, Layers, ShieldCheck, Zap, Info, Search
+  Sparkles, RefreshCw, Layers, ShieldCheck, Zap, Info, Search,
+  Camera, Loader2, X
 } from 'lucide-react';
 
 interface ZoneMetrics {
@@ -39,6 +40,8 @@ export const FarmerHome: React.FC = () => {
   // Quick Action Modal: Nộp kết quả công việc
   const [completingTask, setCompletingTask] = useState<any | null>(null);
   const [resultNotes, setResultNotes] = useState('');
+  const [taskPhotos, setTaskPhotos] = useState<string[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [taskFeedback, setTaskFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -51,7 +54,7 @@ export const FarmerHome: React.FC = () => {
   const [isActuatorBusy, setIsActuatorBusy] = useState(false);
   const [irrigationSuccessMessage, setIrrigationSuccessMessage] = useState<string | null>(null);
 
-  const farmId = selectedFarmId || (user as any)?.farmId || '30000000-0000-0000-0000-000000000001';
+  const farmId = (user as any)?.farmId || selectedFarmId || '30000000-0000-0000-0000-000000000001';
   const currentFarm = authFarms.find(f => f.farmId === farmId);
 
   const loadData = useCallback(async () => {
@@ -131,6 +134,7 @@ export const FarmerHome: React.FC = () => {
   }, [tasks]);
 
   const todoTasks = useMemo(() => myTasks.filter(t => ['pending', 'accepted', 'inprogress', 'overdue', 'failed'].includes(String(t.status || '').toLowerCase())), [myTasks]);
+  const pendingTasks = useMemo(() => myTasks.filter(t => String(t.status || '').toLowerCase() === 'pending'), [myTasks]);
   const reviewTasks = useMemo(() => myTasks.filter(t => String(t.status || '').toLowerCase() === 'completedpendingreview'), [myTasks]);
   const doneTasks = useMemo(() => myTasks.filter(t => ['approved', 'declined', 'cancelled'].includes(String(t.status || '').toLowerCase())), [myTasks]);
   const overdueTasks = useMemo(() => myTasks.filter(t => String(t.status || '').toLowerCase() === 'overdue' || dueLabel(t.dueAtUtc ?? t.dueDate).tone === 'late'), [myTasks]);
@@ -162,6 +166,42 @@ export const FarmerHome: React.FC = () => {
     }
   };
 
+  const handleUploadPhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingPhoto(true);
+    const newUrls: string[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          const res = await cloudinaryService.uploadFile(file, 'task-reports');
+          if (res?.secureUrl || res?.url) {
+            newUrls.push(res.secureUrl || res.url);
+          } else {
+            const base64 = await new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(r.result as string);
+              r.onerror = rej;
+              r.readAsDataURL(file);
+            });
+            newUrls.push(base64);
+          }
+        } catch {
+          const base64 = await new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = rej;
+            r.readAsDataURL(file);
+          });
+          newUrls.push(base64);
+        }
+      }
+      setTaskPhotos(prev => [...prev, ...newUrls]);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleCompleteTask = async () => {
     if (!completingTask) return;
     setIsSubmittingTask(true);
@@ -169,11 +209,13 @@ export const FarmerHome: React.FC = () => {
     try {
       await supportService.updateTask(farmId, completingTask.taskId || completingTask.id, {
         action: 'Complete',
-        result: resultNotes.trim() || 'Hoàn thành công việc theo quy trình thực địa.'
+        result: resultNotes.trim() || 'Hoàn thành công việc theo quy trình thực địa.',
+        imageUrls: taskPhotos.length > 0 ? taskPhotos : undefined
       });
-      setTaskFeedback({ type: 'success', message: 'Đã nộp kết quả công việc! Chờ chủ trang trại kiểm tra và phê duyệt.' });
+      setTaskFeedback({ type: 'success', message: 'Đã nộp kết quả công việc kèm ảnh báo cáo! Chờ chủ trang trại kiểm tra và phê duyệt.' });
       setCompletingTask(null);
       setResultNotes('');
+      setTaskPhotos([]);
       await loadData();
     } catch (err: any) {
       setTaskFeedback({ type: 'error', message: err?.response?.data?.detail || err?.message || 'Không thể nộp kết quả. Vui lòng thử lại.' });
@@ -337,6 +379,49 @@ export const FarmerHome: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ─── NEW TASK ASSIGNMENT ALERT BANNER ─── */}
+      {pendingTasks.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-start gap-3.5">
+            <div className="p-3 rounded-2xl bg-amber-500 text-white shadow-sm shrink-0 mt-0.5">
+              <ClipboardList size={22} className="animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold uppercase tracking-wider">
+                  Thông báo giao việc mới
+                </span>
+                <span className="text-xs text-amber-800 font-medium">Chờ bạn nhận việc</span>
+              </div>
+              <h3 className="font-bold text-base text-amber-950 mt-1">
+                Bạn vừa được giao {pendingTasks.length} công việc mới!
+              </h3>
+              <p className="text-xs text-amber-900/90 mt-0.5 leading-relaxed">
+                Công việc: <strong className="font-bold">"{pendingTasks[0]?.title}"</strong>{pendingTasks[0]?.zoneName ? ` tại khu vực ${pendingTasks[0].zoneName}` : ''}
+                {pendingTasks.length > 1 ? ` và ${pendingTasks.length - 1} việc khác` : ''}. Hãy xác nhận nhận việc để bắt đầu thực hiện.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
+            <Button
+              size="sm"
+              onClick={() => handleQuickTaskAction(pendingTasks[0], 'Accept')}
+              className="w-full sm:w-auto bg-[#119653] hover:bg-[#0c733f] text-white font-bold text-xs shadow-xs"
+            >
+              <CheckCircle2 size={14} className="mr-1.5" /> Nhận việc ngay
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/farmer/tasks')}
+              className="w-full sm:w-auto border-amber-300 bg-white text-amber-900 hover:bg-amber-50 font-bold text-xs"
+            >
+              Xem chi tiết <ChevronRight size={14} className="ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ─── 2. QUICK FIELD ACTIONS (LỐI TẮT THỰC ĐỊA) ─── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -741,9 +826,61 @@ export const FarmerHome: React.FC = () => {
             />
           </div>
 
+          {/* Chụp hình & Tải ảnh báo cáo */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Camera size={14} className="text-[#119653]" />
+                <span>Hình ảnh minh chứng thực địa ({taskPhotos.length} ảnh):</span>
+              </label>
+              <span className="text-[11px] text-slate-500">Chụp bằng camera điện thoại</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#119653] hover:bg-[#0e7a43] text-white font-bold rounded-lg transition-all text-xs shadow-xs">
+                <Camera size={14} />
+                <span>Chụp / Thêm ảnh</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  className="hidden"
+                  onChange={e => {
+                    handleUploadPhotos(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {isUploadingPhoto && (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold animate-pulse">
+                  <Loader2 size={13} className="animate-spin" /> Đang tải ảnh...
+                </span>
+              )}
+            </div>
+
+            {taskPhotos.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {taskPhotos.map((url, idx) => (
+                  <div key={idx} className="relative group rounded-lg overflow-hidden border border-slate-300 shadow-xs">
+                    <img src={url} alt={`Ảnh ${idx + 1}`} className="w-14 h-14 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setTaskPhotos(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-0.5 right-0.5 p-1 bg-rose-600 text-white rounded-full opacity-85 hover:opacity-100 transition-opacity"
+                      title="Xóa ảnh này"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <Button variant="ghost" onClick={() => setCompletingTask(null)}>Hủy bỏ</Button>
-            <Button disabled={isSubmittingTask} onClick={handleCompleteTask}>
+            <Button variant="ghost" onClick={() => { setCompletingTask(null); setTaskPhotos([]); }}>Hủy bỏ</Button>
+            <Button disabled={isSubmittingTask || isUploadingPhoto} onClick={handleCompleteTask}>
               {isSubmittingTask ? 'Đang gửi...' : 'Xác nhận Nộp Kết Quả'}
             </Button>
           </div>
