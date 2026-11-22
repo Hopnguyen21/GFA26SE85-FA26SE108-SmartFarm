@@ -1,44 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
-import '../../core/utils/export_utils.dart';
 import '../../core/utils/user_error.dart';
+import 'parts/reports_farm_overview_tab.dart';
+import 'parts/reports_zones_tab.dart';
+import 'parts/reports_seasons_tab.dart';
+import 'parts/reports_harvest_tab.dart';
+import 'parts/reports_export_sheet.dart';
 
-/// Gom các bucket (theo zone/tháng) thành tổng theo zone.
-Map<String, double> sumBucketsByZone(Map<String, dynamic>? report) {
-  final out = <String, double>{};
-  final buckets = (report?['buckets'] as List?) ?? const [];
-  for (final b in buckets) {
-    if (b is! Map) continue;
-    final name = '${b['zoneName'] ?? ''}';
-    out[name] = (out[name] ?? 0) + ((b['value'] as num?)?.toDouble() ?? 0);
-  }
-  return out;
-}
-
-/// Báo cáo tài nguyên lấy từ API báo cáo của backend; xuất Excel do backend tạo.
+/// Màn hình Báo Cáo & Thống Kê Trang Trại dành cho Chủ Trang Trại (Owner).
+/// Cung cấp cái nhìn toàn diện & chính xác về:
+/// 1. Tổng quan Trang trại (KPIs, tài chính, tài nguyên, công việc)
+/// 2. Phân khu & Vi khí hậu (Telemetry, tiêu thụ nước/điện theo Zone)
+/// 3. Mùa vụ & Tiến độ sinh trưởng (Giai đoạn, VietGAP, báo cáo vụ)
+/// 4. Thu hoạch & Năng suất (Sản lượng thực tế, kg/m², so sánh vụ trước)
+/// Xuất Excel đa dạng do máy chủ backend tạo.
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key});
+  final int initialTabIndex;
+
+  const ReportsScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _ReportsScreenState extends State<ReportsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   int _days = 30;
   bool _loading = true;
-  bool _exporting = false;
   String? _error;
+
   Map<String, dynamic>? _overview;
   Map<String, dynamic>? _water;
   Map<String, dynamic>? _power;
+  Map<String, dynamic>? _tasks;
+  Map<String, dynamic>? _inventory;
+  List<Map<String, dynamic>> _plantingSeasons = [];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   DateTime get _to => DateTime.now().toUtc();
@@ -62,21 +77,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
       });
       return;
     }
+
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
-      final r = await Future.wait([
+      final results = await Future.wait([
         ReportApi.getFarmReport(farmId, 'overview'),
         ReportApi.getFarmReport(farmId, 'water-usage', from: _from, to: _to),
         ReportApi.getFarmReport(farmId, 'electricity', from: _from, to: _to),
+        ReportApi.getFarmReport(farmId, 'tasks', from: _from, to: _to),
+        ReportApi.getFarmReport(farmId, 'inventory'),
+        CropApi.getPlantingSeasons(farmId: farmId),
       ]);
+
       if (!mounted) return;
       setState(() {
-        _overview = r[0];
-        _water = r[1];
-        _power = r[2];
+        _overview = results[0] as Map<String, dynamic>;
+        _water = results[1] as Map<String, dynamic>;
+        _power = results[2] as Map<String, dynamic>;
+        _tasks = results[3] as Map<String, dynamic>;
+        _inventory = results[4] as Map<String, dynamic>;
+        _plantingSeasons = results[5] as List<Map<String, dynamic>>;
       });
     } catch (e) {
       if (mounted) {
@@ -96,344 +120,297 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  Future<void> _exportExcel() async {
-    if (_exporting) return;
-    final farmId = Provider.of<FarmProvider>(
-      context,
-      listen: false,
-    ).selectedFarmId;
-    setState(() => _exporting = true);
-    try {
-      final bytes = await ReportApi.downloadFarmReportExcel(
-        farmId,
-        from: _from,
-        to: _to,
-      );
-      await saveAndShareFile(
-        'bao-cao-tai-nguyen-${DateTime.now().toIso8601String().substring(0, 10)}.xlsx',
-        bytes,
-        mimeType:
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Xuất Excel thất bại: ${userFacingError(e)}')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _exporting = false);
-    }
+  void _onFarmSelected(String farmId) {
+    final provider = Provider.of<FarmProvider>(context, listen: false);
+    provider.selectFarm(farmId);
+    _load();
   }
-
-  String _fmt(num? v, String unit) =>
-      v == null ? '—' : '${v.toStringAsFixed(v % 1 == 0 ? 0 : 1)} $unit';
 
   @override
   Widget build(BuildContext context) {
+    final farmProvider = Provider.of<FarmProvider>(context);
+    final farmName = farmProvider.currentFarm.name;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Báo Cáo Tài Nguyên',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: _exporting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.table_chart_outlined, color: Colors.white),
-            tooltip: 'Xuất Excel (.xlsx) từ máy chủ',
-            onPressed: _loading || _exporting || _error != null
-                ? null
-                : _exportExcel,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Làm mới',
-            onPressed: _loading ? null : _load,
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFFDC2626)),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _load,
-                      child: const Text('Thử lại'),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : _content(),
-    );
-  }
-
-  Widget _content() {
-    final waterByZone = sumBucketsByZone(_water);
-    final totalWater = (_water?['total'] as num?)?.toDouble();
-    final totalPower = (_power?['total'] as num?)?.toDouble();
-    final o = _overview;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 7, label: Text('7 ngày')),
-              ButtonSegment(value: 30, label: Text('30 ngày')),
-              ButtonSegment(value: 90, label: Text('90 ngày')),
-            ],
-            selected: {_days},
-            onSelectionChanged: (s) {
-              setState(() => _days = s.first);
-              _load();
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _kpi(
-                  'Nước tưới',
-                  _fmt(totalWater, '${_water?['unit'] ?? 'L'}'),
-                  Icons.water_drop,
-                  const Color(0xFF0284C7),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _kpi(
-                  'Điện năng',
-                  _fmt(totalPower, '${_power?['unit'] ?? 'kWh'}'),
-                  Icons.bolt,
-                  const Color(0xFFD97706),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _card(
-            'Nước tưới theo Zone',
-            waterByZone.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(
-                      child: Text(
-                        'Không có dữ liệu trong khoảng thời gian này.',
-                      ),
-                    ),
-                  )
-                : SizedBox(height: 200, child: _zoneChart(waterByZone)),
-          ),
-          if (o != null) ...[
-            const SizedBox(height: 16),
-            _card(
-              'Tổng quan trang trại',
-              Column(
-                children: [
-                  _row('Zone', '${o['zoneCount']}'),
-                  _row('Thiết bị online', '${o['onlineDeviceCount']}'),
-                  _row('Cảnh báo đang mở', '${o['openAlertCount']}'),
-                  _row('Công việc đang mở', '${o['openTaskCount']}'),
-                  _row('Vật tư sắp hết', '${o['lowStockItemCount']}'),
-                  _row('Yêu cầu bảo trì mở', '${o['openServiceRequestCount']}'),
-                  _row('Thu tháng này', '${o['revenueCurrentMonth']}'),
-                  _row('Chi tháng này', '${o['expenseCurrentMonth']}'),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          const Text(
-            'Xuất PDF chưa được hỗ trợ (backend chỉ tạo Excel).',
-            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _zoneChart(Map<String, double> data) {
-    final entries = data.entries.toList();
-    final maxY = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    return BarChart(
-      BarChartData(
-        maxY: maxY <= 0 ? 1 : maxY * 1.2,
-        titlesData: FlTitlesData(
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          leftTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 40),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (v, _) {
-                final i = v.toInt();
-                if (i < 0 || i >= entries.length) return const SizedBox();
-                final n = entries[i].key;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    n.length > 8 ? '${n.substring(0, 8)}…' : n,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        barGroups: [
-          for (var i = 0; i < entries.length; i++)
-            BarChartGroupData(
-              x: i,
-              barRods: [
-                BarChartRodData(
-                  toY: entries[i].value,
-                  color: const Color(0xFF047857),
-                  width: 16,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(4),
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _kpi(String title, String value, IconData icon, Color color) =>
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
+        elevation: 0,
+        titleSpacing: 8,
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 15, color: color),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
+            const Text(
+              'Báo Cáo & Thống Kê',
               style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 17,
-                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              farmName,
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: Color(0xFF86EFAC),
+                fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
-      );
-
-  Widget _card(String title, Widget child) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.02),
-          blurRadius: 6,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        ),
-        const SizedBox(height: 12),
-        child,
-      ],
-    ),
-  );
-
-  Widget _row(String l, String v) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            l,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.table_chart_rounded, color: Colors.white),
+            tooltip: 'Xuất Báo Cáo Excel (.xlsx)',
+            onPressed: _loading || _error != null
+                ? null
+                : () => showReportExportSheet(
+                      context,
+                      farmId: farmProvider.selectedFarmId,
+                      farmName: farmName,
+                      from: _from,
+                      to: _to,
+                    ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            tooltip: 'Làm mới dữ liệu',
+            onPressed: _loading ? null : _load,
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(52),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF082F35),
+              border: Border(
+                top: BorderSide(color: Color(0xFF0D474E), width: 1),
+                bottom: BorderSide(color: Color(0xFF0D474E), width: 1),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicator: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: const Color(0xFF34D399),
+                  width: 1.5,
+                ),
+              ),
+              indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              labelColor: const Color(0xFF6EE7B7),
+              unselectedLabelColor: const Color(0xFF94A3B8),
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              tabs: const [
+                Tab(
+                  icon: Icon(Icons.insights_rounded, size: 18),
+                  text: 'Tổng quan',
+                  iconMargin: EdgeInsets.only(bottom: 2),
+                ),
+                Tab(
+                  icon: Icon(Icons.grid_view_rounded, size: 18),
+                  text: 'Phân khu',
+                  iconMargin: EdgeInsets.only(bottom: 2),
+                ),
+                Tab(
+                  icon: Icon(Icons.eco_rounded, size: 18),
+                  text: 'Mùa vụ',
+                  iconMargin: EdgeInsets.only(bottom: 2),
+                ),
+                Tab(
+                  icon: Icon(Icons.scale_rounded, size: 18),
+                  text: 'Thu hoạch',
+                  iconMargin: EdgeInsets.only(bottom: 2),
+                ),
+              ],
+            ),
           ),
         ),
-        Text(
-          v,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        ),
-      ],
-    ),
-  );
+      ),
+      body: _loading
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x08000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF047857),
+                          strokeWidth: 3.5,
+                        ),
+                      ),
+                      SizedBox(height: 18),
+                      Text(
+                        'Đang tổng hợp dữ liệu báo cáo...',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF1E293B),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Đồng bộ số liệu vi khí hậu, điện nước và mùa vụ',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x06000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.error_outline_rounded,
+                          size: 36,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF1E293B),
+                          fontSize: 13.5,
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: _load,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF047857),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text(
+                          'Thử lại',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                ReportsFarmOverviewTab(
+                  farmProvider: farmProvider,
+                  overview: _overview,
+                  water: _water,
+                  power: _power,
+                  tasks: _tasks,
+                  inventory: _inventory,
+                  days: _days,
+                  onDaysChanged: (d) {
+                    setState(() => _days = d);
+                    _load();
+                  },
+                  onFarmSelected: _onFarmSelected,
+                  onRefresh: _load,
+                ),
+                ReportsZonesTab(
+                  farmProvider: farmProvider,
+                  water: _water,
+                  power: _power,
+                  onRefresh: _load,
+                ),
+                ReportsSeasonsTab(
+                  farmProvider: farmProvider,
+                  plantingSeasons: _plantingSeasons,
+                  onRefresh: _load,
+                ),
+                ReportsHarvestTab(
+                  farmProvider: farmProvider,
+                  plantingSeasons: _plantingSeasons,
+                  onRefresh: _load,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Helper gộp tổng giá trị theo zoneName từ mảng buckets trong report.
+Map<String, double> sumBucketsByZone(Map<String, dynamic>? report) {
+  final out = <String, double>{};
+  final buckets = (report?['buckets'] as List?) ?? const [];
+  for (final b in buckets) {
+    if (b is! Map) continue;
+    final name = '${b['zoneName'] ?? ''}'.trim();
+    if (name.isEmpty) continue;
+    out[name] = (out[name] ?? 0) + ((b['value'] as num?)?.toDouble() ?? 0);
+  }
+  return out;
 }

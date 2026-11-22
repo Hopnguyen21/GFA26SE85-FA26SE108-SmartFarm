@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'quotation_editor.dart';
 import 'acceptance_report.dart';
 import 'acceptance_report_flow.dart';
@@ -121,6 +122,7 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
       text:
           'Đề nghị khảo sát và thống nhất thiết bị cần lắp đặt/bổ sung cho $zoneName0.',
     );
+    var isUploadingImage = false;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -237,6 +239,71 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
                   maxLines: 3,
                   decoration: const InputDecoration(
                     labelText: 'Mô tả chi tiết *',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0F766E),
+                      side: const BorderSide(color: Color(0xFF0F766E)),
+                    ),
+                    onPressed: isUploadingImage
+                        ? null
+                        : () async {
+                            final picked = await FilePicker.pickFile(
+                              type: FileType.custom,
+                              allowedExtensions: const [
+                                'jpg',
+                                'jpeg',
+                                'png',
+                                'webp',
+                              ],
+                            );
+                            if (picked == null) return;
+                            final bytes = await picked.readAsBytes();
+                            if (bytes.isEmpty) return;
+                            setLocal(() => isUploadingImage = true);
+                            try {
+                              final upload = await MediaApi.uploadFile(
+                                bytes: bytes,
+                                fileName: picked.name,
+                                folder: 'service_requests',
+                              );
+                              if (upload.secureUrl.isNotEmpty) {
+                                final current = description.text.trim();
+                                description.text = current.isEmpty
+                                    ? 'Ảnh hiện trường: ${upload.secureUrl}'
+                                    : '$current\n\nẢnh hiện trường: ${upload.secureUrl}';
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Tải ảnh thất bại: ${userFacingError(e)}',
+                                    ),
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setLocal(() => isUploadingImage = false);
+                            }
+                          },
+                    icon: isUploadingImage
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_photo_alternate_outlined, size: 16),
+                    label: Text(
+                      isUploadingImage
+                          ? 'Đang tải ảnh...'
+                          : 'Đính kèm ảnh hiện trường (Cloudinary)',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
               ],
@@ -1625,7 +1692,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
               lockedButton:
                   'ĐÃ KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC (NÚT ĐÃ KHÓA HOÀN TOÀN)',
               footer:
-                  'Kỹ thuật viên hiện đã được mở khóa quyền Vào Zone Chấm Node (Node Mapper) trên bản đồ!',
+                  'Hợp đồng & cọc đã hoàn tất. Kỹ thuật viên sẽ thực hiện Gán Node vào Zone trên Web Dashboard (thao tác bản đồ GIS được xử lý trên máy tính để đảm bảo độ chính xác).',
             ),
           ],
         ),
@@ -1833,7 +1900,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${_nodeCount ?? 'Chưa tải'} Nodes đã chấm trên GIS Map',
+                    '${_nodeCount ?? 'Chưa tải'} Nodes đã chấm trên GIS Map (thực hiện trên Web)',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 12.5,

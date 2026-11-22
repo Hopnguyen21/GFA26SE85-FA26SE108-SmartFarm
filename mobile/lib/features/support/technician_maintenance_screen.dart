@@ -958,6 +958,78 @@ class _ServiceRequestDetailScreenState
       );
       return;
     }
+    final proceedToMap = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.desktop_windows_outlined, color: Color(0xFF0284C7)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Gán Node trên Web Dashboard',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Thao tác Gán Node và định vị tọa độ thiết bị trên bản đồ GIS phức tạp nên đã được khóa trên Mobile và chuyển sang thực hiện trên Web Dashboard.',
+              style: TextStyle(fontSize: 13.5, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBAE6FD)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Color(0xFF0369A1)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Vui lòng đăng nhập Web Portal Kỹ thuật viên (Zone Node Mapper) trên máy tính để gán và chấm tọa độ Node chính xác.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF0369A1),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (zoneId.isNotEmpty)
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(ctx, false);
+                _openPlacedNodes(r);
+              },
+              child: const Text('Xem danh sách Node'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+            ),
+            child: const Text('Đã hiểu (Làm trên Web)'),
+          ),
+        ],
+      ),
+    );
+    if (proceedToMap != true || !mounted) return;
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -981,7 +1053,7 @@ class _ServiceRequestDetailScreenState
         gate.block == NodePlacementBlock.serviceFinished ||
         gate.block == NodePlacementBlock.deploymentFinished;
     return [
-      if (gate.allowed)
+      if (gate.allowed) ...[
         FilledButton.icon(
           onPressed: () => _openNodes(r),
           style: FilledButton.styleFrom(
@@ -992,7 +1064,21 @@ class _ServiceRequestDetailScreenState
           label: Text(
             _nodes == null ? 'Gắn Node' : 'Gắn Node ($_nodes đã có vị trí)',
           ),
-        )
+        ),
+        Chip(
+          backgroundColor: const Color(0xFF0F172A),
+          side: const BorderSide(color: Color(0xFF334155)),
+          avatar: const Icon(
+            Icons.desktop_windows_outlined,
+            size: 15,
+            color: Color(0xFF38BDF8),
+          ),
+          label: const Text(
+            'Gán Node GIS thực hiện trên Web',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+          ),
+        ),
+      ]
       else if (!finished)
         Chip(
           backgroundColor: const Color(0xFF1E293B),

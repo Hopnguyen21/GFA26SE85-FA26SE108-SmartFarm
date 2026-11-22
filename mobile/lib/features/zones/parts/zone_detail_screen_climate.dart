@@ -11,6 +11,15 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Thẻ so sánh Vi khí hậu Zone & Thời tiết ngoài trời
+          _buildZoneWeatherComparisonCard(zone, provider),
+          const SizedBox(height: 12),
+          // Thẻ khuyến nghị AI Nông học của Zone
+          ZoneAiAdviceCard(
+            key: ValueKey('zone_ai_${zone.zoneId}'),
+            zoneId: zone.zoneId,
+          ),
+          const SizedBox(height: 12),
           // Quy tắc cảnh báo an toàn + nhật ký cảnh báo của Zone (chỉ Owner/KTV quản lý, ẩn với Farmer).
           if (!isFarmer) ...[
             OutlinedButton.icon(
@@ -39,6 +48,354 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
             const SizedBox(height: 12),
           ],
           _buildZoneGisSection(zone),
+        ],
+      ),
+    );
+  }
+
+  /// Thẻ so sánh Vi khí hậu bên trong nhà màng với Thời tiết ngoài trời của Farm,
+  /// tính toán độ chênh lệch nhiệt ẩm (ΔT, ΔH) và cảnh báo quy tắc hoãn tưới khi mưa (BR-AUTOMATION-01).
+  Widget _buildZoneWeatherComparisonCard(
+    ZoneModel zone,
+    FarmProvider provider,
+  ) {
+    final weather = provider.weatherModel;
+    final outTemp = weather?.temperature?.toDouble();
+    final outHumidity = weather?.humidity?.toDouble();
+    final inTemp = zone.currentTemp;
+    final inHumidity = zone.currentHumidity;
+    final hasOutdoorWeather = weather != null;
+    final hasIndoorTelemetry = inTemp > 0 || inHumidity > 0;
+
+    final deltaTemp = (hasOutdoorWeather && outTemp != null && hasIndoorTelemetry && inTemp > 0)
+        ? (inTemp - outTemp)
+        : null;
+    final deltaHumidity = (hasOutdoorWeather && outHumidity != null && hasIndoorTelemetry && inHumidity > 0)
+        ? (inHumidity - outHumidity)
+        : null;
+
+    final rainProb = weather?.precipitationProbability?.toInt() ?? 0;
+    final isRainDelay = weather?.triggersRainDelay ?? (rainProb >= 70);
+
+    return Container(
+      key: const Key('zone_weather_comparison_card'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  weather?.icon ?? Icons.cloud_outlined,
+                  size: 18,
+                  color: weather?.iconColor ?? const Color(0xFF0284C7),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Thời tiết & Vi khí hậu Zone',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      weather != null
+                          ? '${weather.weatherDescription} · Ngoài trời ${weather.formattedTemp}'
+                          : 'Đang tải dữ liệu thời tiết...',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (weather?.isRainRisk == true || isRainDelay)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isRainDelay
+                        ? const Color(0xFFFEF2F2)
+                        : const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isRainDelay
+                          ? const Color(0xFFFECACA)
+                          : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isRainDelay
+                            ? Icons.thunderstorm_rounded
+                            : Icons.water_drop,
+                        size: 12,
+                        color: isRainDelay
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isRainDelay ? 'Hoãn tưới BR-01' : 'Mưa $rainProb%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isRainDelay
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Bảng so sánh 2 cột: Trong nhà màng vs Ngoài trời
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                // Cột trong nhà màng
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(
+                            Icons.home_outlined,
+                            size: 14,
+                            color: Color(0xFF10B981),
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Trong nhà màng',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF047857),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${inTemp > 0 ? inTemp.toStringAsFixed(1) : '--'}°C',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        'Độ ẩm KK: ${inHumidity > 0 ? inHumidity.toInt() : '--'}%',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        'Độ ẩm đất: ${zone.currentSoilMoisture > 0 ? zone.currentSoilMoisture.toInt() : '--'}%',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 60, color: const Color(0xFFE2E8F0)),
+                const SizedBox(width: 12),
+                // Cột ngoài trời
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(
+                            Icons.wb_cloudy_outlined,
+                            size: 14,
+                            color: Color(0xFF0284C7),
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Ngoài trời',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0284C7),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        weather?.formattedTemp ?? '--°C',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        'Độ ẩm: ${weather?.formattedHumidity ?? '--'}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        'Mưa: ${weather?.formattedRain ?? '--'} · Gió: ${weather?.formattedWind ?? '--'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (deltaTemp != null || deltaHumidity != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (deltaTemp != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        deltaTemp >= 0
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                        size: 13,
+                        color: deltaTemp >= 0
+                            ? const Color(0xFFEA580C)
+                            : const Color(0xFF0284C7),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        'ΔT: ${deltaTemp >= 0 ? '+' : ''}${deltaTemp.toStringAsFixed(1)}°C',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: deltaTemp >= 0
+                              ? const Color(0xFFEA580C)
+                              : const Color(0xFF0284C7),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (deltaHumidity != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        deltaHumidity >= 0
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                        size: 13,
+                        color: deltaHumidity >= 0
+                            ? const Color(0xFF0284C7)
+                            : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        'ΔH: ${deltaHumidity >= 0 ? '+' : ''}${deltaHumidity.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: deltaHumidity >= 0
+                              ? const Color(0xFF0284C7)
+                              : const Color(0xFFD97706),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+          if (isRainDelay) ...[
+            const SizedBox(height: 10),
+            Container(
+              key: const Key('zone_weather_rain_delay_banner'),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Color(0xFFDC2626),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'BR-AUTOMATION-01: Xác suất mưa ngoài trời ($rainProb% ≥ 70%) sẽ kích hoạt hoãn các chu kỳ tưới tự động của Zone để tránh ngập úng.',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF991B1B),
+                        fontWeight: FontWeight.w500,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

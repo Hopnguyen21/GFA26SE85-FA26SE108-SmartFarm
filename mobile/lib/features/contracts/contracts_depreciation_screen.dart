@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
+import 'contract_packages_sheet.dart';
 
 import 'zone_contract_forms.dart';
 import 'zone_contract_logic.dart';
@@ -181,6 +182,18 @@ class _ContractsDepreciationScreenState
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.card_membership_outlined, color: Colors.white),
+            tooltip: 'Gói Dịch Vụ Mẫu',
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const ContractPackagesSheet(),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Làm mới',

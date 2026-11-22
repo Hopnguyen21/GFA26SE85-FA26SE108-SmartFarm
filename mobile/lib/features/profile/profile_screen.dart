@@ -19,6 +19,11 @@ import '../support/field_survey_reports_screen.dart';
 import '../../core/widgets/dispose_later.dart';
 import '../devices/technician_gateway_tools_screen.dart';
 import '../inventory/stock_out_screen.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import '../../core/utils/user_error.dart';
+import '../reports/reports_screen.dart';
+import '../contracts/contract_packages_sheet.dart';
 
 part 'parts/profile_screen_widgets.dart';
 part 'parts/profile_screen_menu.dart';
@@ -32,6 +37,85 @@ class ProfileScreen extends StatelessWidget {
     return d == null
         ? '—'
         : '${d.toLocal().day.toString().padLeft(2, '0')}/${d.toLocal().month.toString().padLeft(2, '0')}/${d.toLocal().year}';
+  }
+
+  Future<void> _uploadAvatar(BuildContext context) async {
+    final picked = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+    );
+    if (picked == null || !context.mounted) return;
+
+    final length = await picked.length();
+    if (!context.mounted) return;
+    if (length == null || length == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không đọc được tệp ảnh hoặc tệp rỗng.')),
+      );
+      return;
+    }
+
+    if (length > 20 * 1024 * 1024) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dung lượng ảnh vượt quá giới hạn 20MB.')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Đang tải ảnh lên Cloudinary CDN...'),
+          ],
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    try {
+      final bytes = await picked.readAsBytes();
+      final result = await MediaApi.uploadFile(
+        fileName: picked.name,
+        bytes: bytes,
+        folder: 'avatars',
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Đã tải ảnh lên Cloudinary CDN: ${result.format.toUpperCase()} (${(result.bytes / 1024).toStringAsFixed(1)} KB)',
+          ),
+          backgroundColor: const Color(0xFF047857),
+          action: SnackBarAction(
+            label: 'Sao chép link',
+            textColor: Colors.white,
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: result.secureUrl));
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tải ảnh thất bại: ${userFacingError(e)}'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
   }
 
   @override
@@ -95,58 +179,65 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Avatar
-                        Stack(
-                          children: [
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    roleColor,
-                                    roleColor.withValues(alpha: 0.7),
-                                  ],
-                                ),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 3,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  userInitials,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 22,
+                        // Avatar (Tải ảnh đại diện qua Cloudinary)
+                        Tooltip(
+                          message: 'Chạm để tải ảnh đại diện lên Cloudinary',
+                          child: InkWell(
+                            onTap: () => _uploadAvatar(context),
+                            borderRadius: BorderRadius.circular(40),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        roleColor,
+                                        roleColor.withValues(alpha: 0.7),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      userInitials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 22,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
-                                child: const Icon(
-                                  Icons.check,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Text(

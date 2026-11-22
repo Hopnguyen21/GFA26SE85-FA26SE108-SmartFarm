@@ -399,6 +399,15 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
     final condition = has
         ? (w['weatherDescription']?.toString() ?? 'Khí hậu địa phương')
         : (provider.isLoadingWeather ? 'Đang cập nhật...' : 'Chưa có dữ liệu');
+
+    final rainNum = w?['precipitationProbability'] as num? ??
+        (w?['dailyForecast'] is List &&
+                (w!['dailyForecast'] as List).isNotEmpty &&
+                (w['dailyForecast'] as List).first is Map
+            ? (w['dailyForecast'] as List).first['precipitationProbability']
+                as num?
+            : null);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -411,7 +420,11 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
         children: [
           Row(
             children: [
-              const Icon(Icons.wb_sunny, size: 14, color: Color(0xFFFCD34D)),
+              Icon(
+                WeatherModel.mapWeatherIcon(condition),
+                size: 14,
+                color: WeatherModel.mapWeatherColor(condition),
+              ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
@@ -468,12 +481,35 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
               ),
             ],
           ),
-          if (w?['precipitationProbability'] is num) ...[
+          if (rainNum != null) ...[
             const SizedBox(height: 6),
-            _wxLine(
-              Icons.grain,
-              'Khả năng mưa',
-              num0('precipitationProbability', unit: '%'),
+            Row(
+              children: [
+                Expanded(
+                  child: _wxLine(
+                    Icons.grain,
+                    'Khả năng mưa',
+                    '${rainNum.toInt()}%',
+                  ),
+                ),
+                if (rainNum >= 70)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      '🌧️ Hoãn tưới',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ],

@@ -5,6 +5,8 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../support/quotation_editor.dart' show formatMoney;
 import 'bill_dialogs.dart';
+import 'discount_codes_sheet.dart';
+import 'payos_payment_sheet.dart';
 import '../../core/utils/user_error.dart';
 
 const _kGreen = Color(0xFF119653);
@@ -230,6 +232,24 @@ class _BillsScreenState extends State<BillsScreen> {
     return _act(() => BillApi.delete(b.id), 'Đã xóa hóa đơn.');
   }
 
+  Future<void> _payWithPayOS(BillModel b) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: PayOSPaymentSheet(
+          bill: b,
+          onPaymentSuccess: _load,
+        ),
+      ),
+    );
+    if (result == true) {
+      _load();
+    }
+  }
+
   Future<void> _openDetail(BillModel b) async {
     final manager = _isManager;
     await showModalBottomSheet<void>(
@@ -242,6 +262,10 @@ class _BillsScreenState extends State<BillsScreen> {
       builder: (ctx) => _BillDetailSheet(
         bill: b,
         manager: manager,
+        onPayWithPayOS: () {
+          Navigator.pop(ctx);
+          _payWithPayOS(b);
+        },
         onCollect: () async {
           if (await _collect(b) && ctx.mounted) Navigator.pop(ctx);
         },
@@ -282,6 +306,26 @@ class _BillsScreenState extends State<BillsScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Mã giảm giá & Khuyến mãi',
+            icon: const Icon(Icons.local_offer_outlined),
+            onPressed: () {
+              final unpaidTotal = list
+                  .where((b) => b.status != 'Paid' && b.status != 'Cancelled')
+                  .fold<double>(0, (sum, b) => sum + b.remainingAmount);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (_) => FractionallySizedBox(
+                  heightFactor: 0.85,
+                  child: DiscountCodesSheet(
+                    currentAmount: unpaidTotal > 0 ? unpaidTotal : 1000000.0,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Tải lại',
             icon: const Icon(Icons.refresh),
@@ -596,12 +640,32 @@ class _BillsScreenState extends State<BillsScreen> {
                       ),
                     ),
                   ),
+                  if (b.remainingAmount > 0 && b.status != 'Cancelled' && b.status != 'Paid')
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: FilledButton.icon(
+                        onPressed: () => _payWithPayOS(b),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF047857),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.qr_code_rounded, size: 15),
+                        label: const Text('PayOS QR', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                   if (manager && b.canCollect)
-                    FilledButton.icon(
-                      onPressed: () => _collect(b),
-                      style: FilledButton.styleFrom(backgroundColor: _kGreen),
-                      icon: const Icon(Icons.payments_outlined, size: 16),
-                      label: const Text('Thu tiền'),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: OutlinedButton.icon(
+                        onPressed: () => _collect(b),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.payments_outlined, size: 15),
+                        label: const Text('Thu tiền', style: TextStyle(fontSize: 11.5)),
+                      ),
                     ),
                 ],
               ),
@@ -634,6 +698,7 @@ class _BillsScreenState extends State<BillsScreen> {
 class _BillDetailSheet extends StatelessWidget {
   final BillModel bill;
   final bool manager;
+  final VoidCallback onPayWithPayOS;
   final VoidCallback onCollect;
   final VoidCallback onEdit;
   final VoidCallback onCancel;
@@ -641,6 +706,7 @@ class _BillDetailSheet extends StatelessWidget {
   const _BillDetailSheet({
     required this.bill,
     required this.manager,
+    required this.onPayWithPayOS,
     required this.onCollect,
     required this.onEdit,
     required this.onCancel,
@@ -727,6 +793,25 @@ class _BillDetailSheet extends StatelessWidget {
             if (bill.createdByName.isNotEmpty)
               row('Người lập', bill.createdByName),
             if ((bill.notes ?? '').isNotEmpty) row('Ghi chú', bill.notes!),
+            if (bill.remainingAmount > 0 && bill.status != 'Cancelled' && bill.status != 'Paid') ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onPayWithPayOS,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF047857),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.qr_code_rounded, size: 18),
+                  label: const Text(
+                    'Thanh toán PayOS (VietQR)',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
             if (manager) ...[
               const SizedBox(height: 12),
               Wrap(

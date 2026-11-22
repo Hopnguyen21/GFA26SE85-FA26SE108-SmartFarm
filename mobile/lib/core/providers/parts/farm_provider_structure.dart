@@ -6,9 +6,12 @@ extension FarmProviderStructure on FarmProvider {
     _isLoadingWeather = true;
     _notify();
     try {
-      _farmWeather = await FarmApi.getFarmWeather(_selectedFarmId);
+      final res = await FarmApi.getFarmWeather(_selectedFarmId);
+      if (res != null) {
+        _farmWeather = res;
+      }
     } catch (_) {
-      _farmWeather = null;
+      // Giữ nguyên dữ liệu thời tiết trước đó nếu kết nối tạm thời thất bại
     } finally {
       _isLoadingWeather = false;
       _notify();

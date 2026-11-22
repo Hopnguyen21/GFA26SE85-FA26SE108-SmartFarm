@@ -47,6 +47,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       'Thời tiết dự báo tiếp theo có thích hợp cho sự phát triển của cây không?',
     ),
     ('⏰ Lịch tưới', 'Có lịch tưới tự động nào sắp chạy trong hôm nay không?'),
+    (
+      '🌧️ Hoãn tưới khi mưa',
+      'Với xác suất mưa ngoài trời hiện tại, quy tắc tự động hóa BR-AUTOMATION-01 có tạm dừng các ca tưới của Zone không?',
+    ),
   ];
 
   bool _isLoadingHistory = false;

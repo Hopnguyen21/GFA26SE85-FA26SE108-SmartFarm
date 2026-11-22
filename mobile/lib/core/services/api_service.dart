@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart'
-    show kIsWeb, kReleaseMode, ValueNotifier, debugPrint;
+    show kIsWeb, kReleaseMode, ValueNotifier, debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,11 +11,13 @@ import '../models/models.dart';
 import '../models/agriculture_document.dart';
 import '../models/iot_deployment.dart';
 import '../models/field_survey_report.dart';
+import '../models/payos_payment_model.dart';
 import 'app_role.dart';
 import 'geocode_result.dart';
 import '../utils/profile_name.dart';
 import '../utils/user_error.dart';
 export 'geocode_result.dart';
+export '../models/payos_payment_model.dart';
 part 'api/deployment_api.dart';
 part 'api/support_api.dart';
 part 'api/farm_api.dart';
@@ -31,6 +33,9 @@ part 'api/bill_api.dart';
 part 'api/alert_api.dart';
 part 'api/stock_out_api.dart';
 part 'api/field_survey_api.dart';
+part 'api/media_api.dart';
+part 'api/discount_and_packages_api.dart';
+part 'api/payment_api.dart';
 
 class SecurityException implements Exception {
   final String message;
@@ -41,7 +46,17 @@ class SecurityException implements Exception {
 
 class ApiService {
   // Dùng chung một client để tái sử dụng kết nối (keep-alive) thay vì mở kết nối mới ở mỗi lệnh gọi.
-  static final http.Client _client = http.Client();
+  static http.Client _client = http.Client();
+
+  @visibleForTesting
+  static void setClientForTesting(http.Client? client) {
+    _client = client ?? http.Client();
+  }
+
+  @visibleForTesting
+  static void resetClientForTesting() {
+    _client = http.Client();
+  }
 
   // Danh sách host phát hành chính thức được tin cậy
   static const Set<String> _trustedReleaseHosts = {

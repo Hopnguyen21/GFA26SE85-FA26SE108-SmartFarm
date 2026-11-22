@@ -177,15 +177,20 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
-                    child: Text(
-                      summary,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _showSensors
-                            ? Colors.white
-                            : const Color(0xFF065F46),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width - 64,
+                      ),
+                      child: Text(
+                        summary,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _showSensors
+                              ? Colors.white
+                              : const Color(0xFF065F46),
+                        ),
                       ),
                     ),
                   ),
@@ -201,7 +206,7 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
               ),
             ),
           ),
-          if (_showSensors && telemetry.isNotEmpty) ...[
+          if (_showSensors && (telemetry.isNotEmpty || weatherOk)) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -209,26 +214,108 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
               children: [
                 for (final t in _sortedTelemetry(telemetry))
                   _sensorChip(t, requirements),
-                if (weather?['temperatureCelsius'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F9FF),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBAE6FD)),
-                    ),
-                    child: Text(
-                      'Dự báo 6h: ${weather?['rainProbabilityNext6HoursMaxPercent'] ?? 0}% mưa',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0369A1),
+                if (weatherOk) ...[
+                  if (weather?['temperatureCelsius'] != null ||
+                      weather?['summary'] != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F9FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.wb_sunny_outlined,
+                            size: 13,
+                            color: Color(0xFF0284C7),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Ngoài trời: ${weather?['temperatureCelsius'] != null ? '${weather!['temperatureCelsius']}°C' : ''}${weather?['summary'] != null ? ' · ${weather!['summary']}' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0369A1),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
+                  if (weather?['rainProbabilityNext6HoursMaxPercent'] != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            ((weather!['rainProbabilityNext6HoursMaxPercent']
+                                            as num?) ??
+                                        0) >=
+                                    70
+                                ? const Color(0xFFFEF2F2)
+                                : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color:
+                              ((weather['rainProbabilityNext6HoursMaxPercent']
+                                              as num?) ??
+                                          0) >=
+                                      70
+                                  ? const Color(0xFFFECACA)
+                                  : const Color(0xFFBBF7D0),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            ((weather['rainProbabilityNext6HoursMaxPercent']
+                                            as num?) ??
+                                        0) >=
+                                    70
+                                ? Icons.thunderstorm_outlined
+                                : Icons.water_drop_outlined,
+                            size: 13,
+                            color:
+                                ((weather['rainProbabilityNext6HoursMaxPercent']
+                                                as num?) ??
+                                            0) >=
+                                        70
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF16A34A),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Dự báo 6h: ${weather['rainProbabilityNext6HoursMaxPercent']}% mưa${((weather['rainProbabilityNext6HoursMaxPercent'] as num?) ?? 0) >= 70 ? ' (Hoãn tưới BR-01)' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    ((weather['rainProbabilityNext6HoursMaxPercent']
+                                                    as num?) ??
+                                                0) >=
+                                            70
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFF16A34A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ],
             ),
           ],
