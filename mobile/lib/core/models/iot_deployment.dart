@@ -349,6 +349,7 @@ class IotDevice {
   final String? zoneId;
   final String? deviceModelId;
   final String hardwareAddress;
+  final int? loraAddress;
   final String deviceType;
   final String status;
   final ConnectionTest? latestTest;
@@ -359,6 +360,7 @@ class IotDevice {
     this.zoneId,
     this.deviceModelId,
     required this.hardwareAddress,
+    this.loraAddress,
     required this.deviceType,
     required this.status,
     this.latestTest,
@@ -370,6 +372,7 @@ class IotDevice {
     zoneId: j['zoneId']?.toString(),
     deviceModelId: j['deviceModelId']?.toString(),
     hardwareAddress: '${j['hardwareAddress']}',
+    loraAddress: (j['loRaAddress'] ?? j['loraAddress']) as int?,
     deviceType: enumName(j['deviceType'], deviceTypes),
     status: enumName(j['status'], deviceStatuses),
     latestTest: j['latestConnectionTest'] is Map<String, dynamic>

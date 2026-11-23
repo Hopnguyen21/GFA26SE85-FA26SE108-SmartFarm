@@ -26,6 +26,7 @@ class _PayOSPaymentSheetState extends State<PayOSPaymentSheet> {
   late final TextEditingController _amountController;
   bool _loading = false;
   bool _checking = false;
+  bool _manualConfirming = false;
   String? _error;
   PayOSPaymentLinkModel? _paymentData;
   bool _isSuccess = false;
@@ -142,6 +143,32 @@ class _PayOSPaymentSheetState extends State<PayOSPaymentSheet> {
       if (!mounted) return;
       setState(() {
         _checking = false;
+        _error = userFacingError(e);
+      });
+    }
+  }
+
+  Future<void> _confirmManualPayment() async {
+    if (_paymentData == null) return;
+    setState(() {
+      _manualConfirming = true;
+      _error = null;
+    });
+    try {
+      final res = await PaymentApi.confirmManualPayOS(_paymentData!.orderCode);
+      if (!mounted) return;
+      if (res.isSuccess) {
+        _handleSuccess();
+      } else {
+        setState(() {
+          _manualConfirming = false;
+          _error = 'Hệ thống chưa thể xác nhận thanh toán tự động. Vui lòng thử lại.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _manualConfirming = false;
         _error = userFacingError(e);
       });
     }
@@ -524,17 +551,65 @@ class _PayOSPaymentSheetState extends State<PayOSPaymentSheet> {
         if (_error != null) ...[
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFFFF1F2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFFECDD3)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.error_outline, size: 18, color: Color(0xFFE11D48)),
-                const SizedBox(width: 8),
-                Expanded(child: Text(_error!, style: const TextStyle(fontSize: 12, color: Color(0xFFBE123C)))),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, size: 18, color: Color(0xFFE11D48)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFBE123C), height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 16, color: Color(0xFFFECDD3)),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Bạn đã chuyển tiền qua ngân hàng rồi?',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF9F1239),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _manualConfirming ? null : _confirmManualPayment,
+                      icon: _manualConfirming
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.check_circle_outline_rounded, size: 14),
+                      label: Text(
+                        _manualConfirming ? 'Đang xác nhận...' : 'Xác nhận ngay',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

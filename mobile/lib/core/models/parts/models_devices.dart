@@ -77,6 +77,7 @@ class DeviceHealthModel {
   final String?
   deviceId; // id thiết bị thật (null với gateway); dùng cho thao tác kỹ thuật
   final String? zoneId; // Zone đang gán, null nếu chưa gán
+  final int? loraAddress; // Địa chỉ vật lý LoRa (1-254)
 
   DeviceHealthModel({
     required this.nodeId,
@@ -88,6 +89,7 @@ class DeviceHealthModel {
     this.batteryPercent,
     this.deviceId,
     this.zoneId,
+    this.loraAddress,
   });
 
   /// Phát hiện theo thời gian im lặng (timeout), không đếm gói rớt: ≤ 3× chu kỳ → ONLINE,

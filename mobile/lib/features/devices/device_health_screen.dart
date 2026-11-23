@@ -632,6 +632,13 @@ class _DeviceCard extends StatelessWidget {
                 'Chu kỳ',
                 '${device.expectedIntervalSeconds}s',
               ),
+              if (device.loraAddress != null)
+                _stat(
+                  Icons.settings_input_antenna_rounded,
+                  'LoRa',
+                  '#${device.loraAddress}',
+                  valueColor: const Color(0xFF0369A1),
+                ),
             ],
           ),
           const SizedBox(height: 10),

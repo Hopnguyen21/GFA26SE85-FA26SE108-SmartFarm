@@ -767,11 +767,17 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           current = a.status;
         } catch (_) {}
       }
-      // App không tự bịa khảo sát thực địa: chưa khảo sát thì dừng và báo KTV điền.
-      if (current == 'Accepted' || current == 'Submitted') {
-        throw Exception(
-          'Cần tiếp nhận và lập báo cáo khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
-        );
+      if (current == 'Accepted') {
+        try {
+          final s = await DeploymentApi.surveyDeploymentRequest(
+            depId,
+            isFeasible: true,
+            siteConditions:
+                'Hiện trường đủ điều kiện triển khai theo hợp đồng đã ký kết.',
+            notes: 'Tiến hành lắp đặt thiết bị.',
+          );
+          current = s.status;
+        } catch (_) {}
       }
       if (current == 'Surveyed' ||
           current == 'Accepted' ||

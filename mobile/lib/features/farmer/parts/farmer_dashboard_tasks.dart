@@ -407,6 +407,73 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
               ),
             ),
           ],
+          if (mine != null && mine.imageUrls.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.photo_library_outlined, size: 14, color: Color(0xFF047857)),
+                const SizedBox(width: 4),
+                Text(
+                  'Ảnh báo cáo thực địa (${mine.imageUrls.length} ảnh):',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF047857),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 52,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: mine.imageUrls.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (ctx, idx) {
+                  final url = mine.imageUrls[idx];
+                  return GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          child: Stack(
+                            alignment: Alignment.topRight,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(url, fit: BoxFit.contain),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        url,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          width: 52,
+                          height: 52,
+                          color: const Color(0xFFE2E8F0),
+                          child: const Icon(Icons.broken_image_rounded, size: 20, color: Color(0xFF94A3B8)),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
           if ((mine?.failureReason ?? '').isNotEmpty) ...[
             const SizedBox(height: 5),
             Container(
@@ -1005,6 +1072,8 @@ class _CompleteTaskDialog extends StatefulWidget {
 class _CompleteTaskDialogState extends State<_CompleteTaskDialog> {
   late final TextEditingController _ctrl;
   bool _submitting = false;
+  bool _uploadingImage = false;
+  final List<String> _imageUrls = [];
   String? _localError;
 
   @override
@@ -1017,6 +1086,40 @@ class _CompleteTaskDialogState extends State<_CompleteTaskDialog> {
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final picked = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (bytes.isEmpty) return;
+    setState(() {
+      _uploadingImage = true;
+      _localError = null;
+    });
+    try {
+      final upload = await MediaApi.uploadFile(
+        bytes: bytes,
+        fileName: picked.name,
+        folder: 'tasks',
+      );
+      if (upload.secureUrl.isNotEmpty && mounted) {
+        setState(() {
+          _imageUrls.add(upload.secureUrl);
+          _uploadingImage = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _uploadingImage = false;
+          _localError = 'Tải ảnh thất bại: ${userFacingError(e)}';
+        });
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -1033,6 +1136,7 @@ class _CompleteTaskDialogState extends State<_CompleteTaskDialog> {
       widget.task.taskId,
       'Complete',
       result: text,
+      imageUrls: _imageUrls.isNotEmpty ? _imageUrls : null,
     );
     if (!mounted) return;
     if (error == null) {
@@ -1108,8 +1212,85 @@ class _CompleteTaskDialogState extends State<_CompleteTaskDialog> {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Ảnh minh chứng:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: const Color(0xFF047857),
+                  ),
+                  onPressed: (_submitting || _uploadingImage) ? null : _pickAndUploadImage,
+                  icon: _uploadingImage
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
+                        )
+                      : const Icon(Icons.add_a_photo_outlined, size: 16),
+                  label: Text(
+                    _uploadingImage ? 'Đang tải...' : 'Thêm ảnh',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            if (_imageUrls.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 64,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _imageUrls.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (ctx, idx) {
+                    final url = _imageUrls[idx];
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            url,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 64,
+                              height: 64,
+                              color: const Color(0xFFE2E8F0),
+                              child: const Icon(Icons.broken_image_rounded, size: 24, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _imageUrls.removeAt(idx)),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
             if (_localError != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 _localError!,
                 style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626)),

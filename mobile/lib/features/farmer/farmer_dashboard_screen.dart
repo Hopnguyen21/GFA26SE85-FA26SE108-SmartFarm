@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
 import '../../core/utils/due_label.dart';
+import '../../core/utils/user_error.dart';
 import '../tasks/alerts_tasks_screen.dart';
 import '../zones/zone_detail_screen.dart';
 
@@ -82,6 +85,10 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     final overdue = todo.where(_isOverdue).length;
     final openAlerts = provider.alerts.where((a) => !a.isAcknowledged).toList();
     final shown = tasks.where((t) => _matches(_filter, t)).toList();
+    final pendingTasks = tasks.where((t) {
+      final s = t.status.toLowerCase();
+      return s == 'pending' || s == 'assigned';
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -111,6 +118,10 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               _buildAlertBanner(openAlerts, {
                 for (final z in zones) z.zoneId: z.name,
               }),
+            ],
+            if (pendingTasks.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _buildNewTaskAlertBanner(provider, pendingTasks),
             ],
             if (_feedback != null) ...[
               const SizedBox(height: 14),

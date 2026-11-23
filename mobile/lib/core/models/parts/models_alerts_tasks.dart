@@ -135,6 +135,7 @@ class TaskAssignmentModel {
   final String? progressNote;
   final String? result;
   final String? failureReason;
+  final List<String> imageUrls;
 
   const TaskAssignmentModel({
     required this.farmerId,
@@ -144,18 +145,39 @@ class TaskAssignmentModel {
     this.progressNote,
     this.result,
     this.failureReason,
+    this.imageUrls = const [],
   });
 
-  factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) =>
-      TaskAssignmentModel(
-        farmerId: json['farmerId']?.toString() ?? '',
-        farmerName: json['farmerName']?.toString() ?? 'Nhân công',
-        status: json['status']?.toString() ?? '',
-        progressPercent: (json['progressPercent'] as num?)?.toInt() ?? 0,
-        progressNote: json['progressNote']?.toString(),
-        result: json['result']?.toString(),
-        failureReason: json['failureReason']?.toString(),
-      );
+  factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) {
+    List<String> parseImages(dynamic raw) {
+      if (raw == null) return const [];
+      if (raw is List) {
+        return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      }
+      if (raw is String && raw.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+          }
+        } catch (_) {
+          return [raw.trim()];
+        }
+      }
+      return const [];
+    }
+
+    return TaskAssignmentModel(
+      farmerId: json['farmerId']?.toString() ?? '',
+      farmerName: json['farmerName']?.toString() ?? 'Nhân công',
+      status: json['status']?.toString() ?? '',
+      progressPercent: (json['progressPercent'] as num?)?.toInt() ?? 0,
+      progressNote: json['progressNote']?.toString(),
+      result: json['result']?.toString(),
+      failureReason: json['failureReason']?.toString(),
+      imageUrls: parseImages(json['imageUrls'] ?? json['ImageUrls']),
+    );
+  }
 }
 
 class TaskModel {

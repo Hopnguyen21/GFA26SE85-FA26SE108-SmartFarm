@@ -41,4 +41,20 @@ abstract final class PaymentApi {
     final resultData = data['value'] is Map ? data['value'] as Map<String, dynamic> : data;
     return PayOSPaymentStatusModel.fromJson(resultData);
   }
+
+  /// Xác nhận thanh toán thủ công khi ngân hàng/PayOS đồng bộ chậm hoặc kiểm thử (POST /api/v1/payments/payos/confirm-manual/{orderCode})
+  static Future<PayOSPaymentStatusModel> confirmManualPayOS(int orderCode) async {
+    final resp = await ApiService._postWithAuth(
+      '${ApiService.baseUrl}/api/v1/payments/payos/confirm-manual/$orderCode',
+      {},
+    );
+
+    if (resp == null || resp.statusCode != 200) {
+      throw Exception(ApiService._apiErrorMessage(resp));
+    }
+
+    final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    final resultData = data['value'] is Map ? data['value'] as Map<String, dynamic> : data;
+    return PayOSPaymentStatusModel.fromJson(resultData);
+  }
 }

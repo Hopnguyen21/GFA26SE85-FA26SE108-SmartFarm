@@ -88,6 +88,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
     int? progressPercent,
     String? farmerId,
     String? notes,
+    List<String>? imageUrls,
   }) async {
     try {
       final updated = await TaskApi.updateTaskAction(_selectedFarmId, taskId, {
@@ -97,6 +98,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
         'progressPercent': ?progressPercent,
         'farmerId': ?farmerId,
         'notes': ?notes,
+        if (imageUrls != null && imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       });
       final idx = _tasks.indexWhere((t) => t.taskId == taskId);
       if (idx != -1) _tasks[idx] = _withZoneName(updated);
