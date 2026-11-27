@@ -44,27 +44,48 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
     setState(() => _busy = true);
     try {
       await AccountApi.respondInvitation(id, accept);
-      if (accept) {
+    } catch (e) {
+      // Backend chưa xử lý (từ chối/hết hạn/xung đột): lời mời còn nguyên, báo lỗi để người dùng thử lại hoặc tải lại.
+      if (mounted) {
+        setState(() {
+          _error = userFacingError(e);
+          _busy = false;
+        });
+      }
+      return;
+    }
+    // Từ đây backend ĐÃ ghi nhận câu trả lời. Các bước làm mới phiên bên dưới lỗi cũng không được báo như thể
+    // chưa tham gia (trước đây bấm lại sẽ gặp 409 vì lời mời đã được chấp nhận).
+    var sessionRefreshed = true;
+    if (accept) {
+      try {
         // Phiên cần token mới để mang thông tin Tenant/Farm vừa tham gia.
         await ApiService.refreshToken();
         if (mounted) await context.read<FarmProvider>().fetchFromApi();
+      } catch (_) {
+        sessionRefreshed = false;
       }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            accept
-                ? 'Đã tham gia trang trại. Chủ trang trại sẽ cấp quyền Zone cho bạn.'
-                : 'Đã từ chối lời mời.',
-          ),
-        ),
-      );
-      await _load();
-    } catch (e) {
-      if (mounted) setState(() => _error = userFacingError(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          !accept
+              ? 'Đã từ chối lời mời.'
+              : sessionRefreshed
+              ? 'Đã tham gia trang trại. Chủ trang trại sẽ cấp quyền Zone cho bạn.'
+              : 'Đã tham gia trang trại nhưng chưa làm mới được phiên. Hãy kéo để tải lại hoặc đăng nhập lại.',
+        ),
+      ),
+    );
+    await _load();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// Lời mời đã quá hạn thì không cho chấp nhận (backend sẽ từ chối); thiếu ngày hết hạn thì để backend quyết định.
+  bool _expired(Map<String, dynamic> inv) {
+    final d = DateTime.tryParse('${inv['expiresAtUtc'] ?? ''}');
+    return d != null && d.isBefore(DateTime.now().toUtc());
   }
 
   @override
@@ -87,6 +108,8 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          // Danh sách ngắn/rỗng vẫn kéo để làm mới được (trên Android mặc định không cuộn được thì không kéo được).
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
             if (_error != null)
@@ -207,10 +230,14 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Hết hạn: ${_date(inv['expiresAtUtc'])}',
-                                    style: const TextStyle(
+                                    _expired(inv)
+                                        ? 'Đã hết hạn: ${_date(inv['expiresAtUtc'])}'
+                                        : 'Hết hạn: ${_date(inv['expiresAtUtc'])}',
+                                    style: TextStyle(
                                       fontSize: 11.5,
-                                      color: Color(0xFF64748B),
+                                      color: _expired(inv)
+                                          ? const Color(0xFFDC2626)
+                                          : const Color(0xFF64748B),
                                     ),
                                   ),
                                 ],
@@ -254,7 +281,7 @@ class _FarmInvitationsScreenState extends State<FarmInvitationsScreen> {
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 11),
                             ),
-                            onPressed: _busy
+                            onPressed: _busy || _expired(inv)
                                 ? null
                                 : () => _respond(inv['id'].toString(), true),
                             child: const Text(

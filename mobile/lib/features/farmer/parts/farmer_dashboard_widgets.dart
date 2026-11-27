@@ -400,12 +400,13 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
         ? (w['weatherDescription']?.toString() ?? 'Khí hậu địa phương')
         : (provider.isLoadingWeather ? 'Đang cập nhật...' : 'Chưa có dữ liệu');
 
-    final rainNum = w?['precipitationProbability'] as num? ??
+    final rainNum =
+        w?['precipitationProbability'] as num? ??
         (w?['dailyForecast'] is List &&
                 (w!['dailyForecast'] as List).isNotEmpty &&
                 (w['dailyForecast'] as List).first is Map
             ? (w['dailyForecast'] as List).first['precipitationProbability']
-                as num?
+                  as num?
             : null);
 
     return Container(
@@ -494,8 +495,10 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                 ),
                 if (rainNum >= 70)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(4),
@@ -924,7 +927,10 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(6),
@@ -941,7 +947,10 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                         ),
                         const Text(
                           'Chờ bạn nhận việc',
-                          style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFB45309),
+                          ),
                         ),
                       ],
                     ),
@@ -958,7 +967,11 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                     Text(
                       'Công việc: "${first.title}"${first.zoneName.isNotEmpty ? ' tại ${first.zoneName}' : ''}'
                       '${pendingTasks.length > 1 ? ' và ${pendingTasks.length - 1} việc khác' : ''}.',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.3),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF92400E),
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
@@ -974,20 +987,31 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                     backgroundColor: const Color(0xFF119653),
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 44),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: () async {
-                    final err = await provider.performTaskAction(first.taskId, 'Accept');
+                    final err = await provider.performTaskAction(
+                      first.taskId,
+                      'Accept',
+                    );
                     if (!mounted) return;
                     _rebuild(() {
                       if (err == null) {
-                        _feedback = (ok: true, message: 'Đã nhận việc "${first.title}" thành công!');
+                        _feedback = (
+                          ok: true,
+                          message: 'Đã nhận việc "${first.title}" thành công!',
+                        );
                       } else {
                         _feedback = (ok: false, message: err);
                       }
                     });
                   },
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                  icon: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 16,
+                  ),
                   label: const Text(
                     'Nhận việc ngay',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -1001,10 +1025,15 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                   foregroundColor: const Color(0xFF92400E),
                   side: const BorderSide(color: Color(0xFFFCD34D)),
                   minimumSize: const Size(0, 44),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () => _rebuild(() => _filter = _TaskFilter.todo),
-                child: const Text('Xem danh sách', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Xem danh sách',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

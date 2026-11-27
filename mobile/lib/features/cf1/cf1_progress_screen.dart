@@ -63,16 +63,15 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
     setState(() => _loading = true);
     final farmId = p.selectedFarmId;
     final zones = p.allZones.where((z) => z.farmId == farmId).toList();
-    final seasons = await _try(
-      () => CropApi.getPlantingSeasons(farmId: farmId),
-    );
-    final contracts = await _try(
-      () => ContractApi.getZoneContracts(farmId: farmId),
-    );
-    final invitations = await _try(() => AccountApi.getFarmInvitations(farmId));
-    final deployments = await _try(
-      () => DeploymentApi.getOwnerDeploymentRequests(),
-    );
+    // 4 nguồn độc lập: bắt đầu cùng lúc rồi mới chờ, thay vì chờ lần lượt (chậm gấp ~4 lần trên mạng yếu).
+    final seasonsF = _try(() => CropApi.getPlantingSeasons(farmId: farmId));
+    final contractsF = _try(() => ContractApi.getZoneContracts(farmId: farmId));
+    final invitationsF = _try(() => AccountApi.getFarmInvitations(farmId));
+    final deploymentsF = _try(() => DeploymentApi.getOwnerDeploymentRequests());
+    final seasons = await seasonsF;
+    final contracts = await contractsF;
+    final invitations = await invitationsF;
+    final deployments = await deploymentsF;
     if (!mounted) return;
     final farmers = p.allFarmers.where((f) => f.farmId == farmId).toList();
     final pending = invitations
@@ -179,6 +178,7 @@ class _Cf1ProgressScreenState extends State<Cf1ProgressScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
                   if (_loading) const LinearProgressIndicator(),

@@ -1,11 +1,18 @@
 part of '../inventory_screen.dart';
 
 extension _InventoryScreenStateDialogs on _InventoryScreenState {
+  /// Số thực người dùng gõ; chấp nhận dấu phẩy kiểu Việt (1,5). null khi không phải số hữu hạn.
+  double? _parseQty(String raw) {
+    final v = double.tryParse(raw.trim().replaceAll(',', '.'));
+    return v != null && v.isFinite ? v : null;
+  }
+
   void _showAdjustStockModal(
     BuildContext context,
     FarmProvider provider,
     MaterialInventoryModel item,
   ) {
+    var busy = false;
     final qtyCtrl = TextEditingController(
       text: item.quantity.toStringAsFixed(
         item.quantity.truncateToDouble() == item.quantity ? 0 : 1,
@@ -71,53 +78,74 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final newQty =
-                        double.tryParse(qtyCtrl.text.trim()) ?? item.quantity;
-                    final diff = newQty - item.quantity;
+                    if (busy)
+                      return; // chặn bấm đúp: mỗi lần bấm là một dòng trong sổ kho
                     final messenger = ScaffoldMessenger.of(context);
-                    if (diff == 0 || newQty < 0) {
+                    final newQty = _parseQty(qtyCtrl.text);
+                    if (newQty == null || newQty < 0) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Nhập số lượng tồn là một số không âm (ví dụ 12 hoặc 1,5).',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    final diff = newQty - item.quantity;
+                    if (diff == 0) {
                       Navigator.pop(ctx);
                       return;
                     }
-                    String? error;
-                    if (diff > 0) {
-                      error = await provider.receiveStock(
-                        item.inventoryId,
-                        diff,
-                      );
-                    } else {
-                      // Xuất kho phải ghi rõ Zone sử dụng để giữ lịch sử.
-                      final zoneId = await showDialog<String>(
-                        context: ctx,
-                        builder: (dCtx) => SimpleDialog(
-                          title: const Text(
-                            'Xuất cho Zone nào?',
-                            style: TextStyle(fontSize: 15),
+                    busy = true;
+                    try {
+                      String? error;
+                      if (diff > 0) {
+                        error = await provider.receiveStock(
+                          item.inventoryId,
+                          diff,
+                        );
+                      } else {
+                        // Xuất kho phải ghi rõ Zone sử dụng để giữ lịch sử.
+                        final zoneId = await showDialog<String>(
+                          context: ctx,
+                          builder: (dCtx) => SimpleDialog(
+                            title: const Text(
+                              'Xuất cho Zone nào?',
+                              style: TextStyle(fontSize: 15),
+                            ),
+                            children: [
+                              // Chỉ Zone của trang trại đang chọn: sổ kho thuộc từng trang trại, Zone trang trại khác sẽ bị backend từ chối.
+                              for (final z in provider.allZones.where(
+                                (z) => z.farmId == provider.selectedFarmId,
+                              ))
+                                SimpleDialogOption(
+                                  onPressed: () =>
+                                      Navigator.pop(dCtx, z.zoneId),
+                                  child: Text(z.name),
+                                ),
+                            ],
                           ),
-                          children: [
-                            for (final z in provider.allZones)
-                              SimpleDialogOption(
-                                onPressed: () => Navigator.pop(dCtx, z.zoneId),
-                                child: Text(z.name),
-                              ),
-                          ],
+                        );
+                        if (zoneId == null) return;
+                        error = await provider.issueStock(
+                          item.inventoryId,
+                          -diff,
+                          zoneId,
+                        );
+                      }
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            error ??
+                                'Đã cập nhật tồn kho: $newQty ${item.unit}',
+                          ),
                         ),
                       );
-                      if (zoneId == null) return;
-                      error = await provider.issueStock(
-                        item.inventoryId,
-                        -diff,
-                        zoneId,
-                      );
+                    } finally {
+                      busy = false;
                     }
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          error ?? 'Đã cập nhật tồn kho: $newQty ${item.unit}',
-                        ),
-                      ),
-                    );
                   },
                   icon: const Icon(Icons.check, size: 18),
                   label: const Text(
@@ -147,6 +175,7 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
     final unitCtrl = TextEditingController(text: 'kg');
     final minStockCtrl = TextEditingController(text: '20');
     String selectedCat = 'FERTILIZER';
+    var adding = false;
 
     showModalBottomSheet(
       context: context,
@@ -302,6 +331,7 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
+                        if (adding) return; // chặn bấm đúp (tạo trùng vật tư)
                         final name = nameCtrl.text.trim();
                         if (name.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -311,15 +341,36 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                           );
                           return;
                         }
+                        // Số sai (chữ, âm) phải báo lỗi, không được lặng lẽ đổi thành 0 rồi vẫn tạo vật tư.
+                        final qty = _parseQty(qtyCtrl.text);
+                        final minStock = _parseQty(minStockCtrl.text);
+                        if (qty == null ||
+                            qty < 0 ||
+                            minStock == null ||
+                            minStock < 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Số lượng nhập và mức tồn tối thiểu phải là số không âm (ví dụ 100 hoặc 1,5).',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                         final messenger = ScaffoldMessenger.of(context);
-                        final error = await provider.addInventoryItem(
-                          materialName: name,
-                          category: selectedCat,
-                          quantity: double.tryParse(qtyCtrl.text.trim()) ?? 0,
-                          unit: unitCtrl.text.trim(),
-                          minimumStock:
-                              double.tryParse(minStockCtrl.text.trim()) ?? 0,
-                        );
+                        adding = true;
+                        final String? error;
+                        try {
+                          error = await provider.addInventoryItem(
+                            materialName: name,
+                            category: selectedCat,
+                            quantity: qty,
+                            unit: unitCtrl.text.trim(),
+                            minimumStock: minStock,
+                          );
+                        } finally {
+                          adding = false;
+                        }
                         if (error != null) {
                           messenger.showSnackBar(
                             SnackBar(content: Text(error)),
@@ -415,6 +466,22 @@ extension _InventoryScreenStateDialogs on _InventoryScreenState {
                 builder: (fCtx, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
+                  }
+                  // Lỗi tải khác với "chưa có phiếu": không được hiển thị lỗi như danh sách rỗng.
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'Không tải được phiếu nhập kho: ${userFacingError(snapshot.error!)}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
                   }
                   final list = snapshot.data ?? [];
                   if (list.isEmpty) {

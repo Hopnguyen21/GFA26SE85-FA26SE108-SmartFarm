@@ -12,6 +12,7 @@ import '../zones/honeycomb_estimate.dart';
 import 'deployment_board_logic.dart';
 import '../support/acceptance_report.dart';
 import '../support/acceptance_report_flow.dart';
+import '../support/estimate_snapshot_dialog.dart';
 import '../support/gateway_activation_flow.dart';
 import 'widgets/cancel_deployment_dialog.dart';
 import 'widgets/deployment_progress_bar.dart';

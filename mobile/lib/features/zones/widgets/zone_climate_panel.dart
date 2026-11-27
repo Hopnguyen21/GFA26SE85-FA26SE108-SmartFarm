@@ -24,10 +24,30 @@ class _MetricSpec {
 }
 
 const _knownMetricSpecs = <String, _MetricSpec>{
-  'soilmoisture': _MetricSpec('soilmoisture', 'Độ ẩm đất', Icons.water_drop, Color(0xFF0284C7)),
-  'temperature': _MetricSpec('temperature', 'Nhiệt độ', Icons.thermostat, Color(0xFFEA580C)),
-  'airhumidity': _MetricSpec('airhumidity', 'Độ ẩm không khí', Icons.cloud, _green),
-  'lightintensity': _MetricSpec('lightintensity', 'Ánh sáng', Icons.wb_sunny, Color(0xFFCA8A04)),
+  'soilmoisture': _MetricSpec(
+    'soilmoisture',
+    'Độ ẩm đất',
+    Icons.water_drop,
+    Color(0xFF0284C7),
+  ),
+  'temperature': _MetricSpec(
+    'temperature',
+    'Nhiệt độ',
+    Icons.thermostat,
+    Color(0xFFEA580C),
+  ),
+  'airhumidity': _MetricSpec(
+    'airhumidity',
+    'Độ ẩm không khí',
+    Icons.cloud,
+    _green,
+  ),
+  'lightintensity': _MetricSpec(
+    'lightintensity',
+    'Ánh sáng',
+    Icons.wb_sunny,
+    Color(0xFFCA8A04),
+  ),
   'ph': _MetricSpec('ph', 'pH', Icons.science_outlined, Color(0xFF7C3AED)),
   'ec': _MetricSpec('ec', 'EC', Icons.bolt_outlined, Color(0xFF0E7490)),
 };

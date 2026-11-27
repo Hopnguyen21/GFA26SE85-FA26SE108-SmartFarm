@@ -5,13 +5,17 @@ part of '../api_service.dart';
 abstract final class StockOutApi {
   static Future<List<Map<String, dynamic>>> getFarmStockOuts(
     String farmId,
-  ) async => ApiService._asMapList(
-    ApiService._decodeUtf8OrThrow(
-      await ApiService._getWithAuth(
+  ) async {
+    try {
+      final resp = await ApiService._getWithAuth(
         '${ApiService.baseUrl}/api/v1/farms/$farmId/stock-outs',
-      ),
-    ),
-  );
+      );
+      if (resp == null || resp.statusCode == 404) return [];
+      return ApiService._asMapList(ApiService._decodeUtf8OrThrow(resp));
+    } catch (_) {
+      return [];
+    }
+  }
 
   /// Tạo phiếu ở trạng thái Draft. [details]: `{inventoryItemId, quantity, notes}` (id thiết bị phần cứng trong kho nền tảng).
   static Future<Map<String, dynamic>> create(

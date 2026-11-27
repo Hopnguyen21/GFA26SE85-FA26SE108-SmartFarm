@@ -9,8 +9,9 @@ abstract final class DiscountApi {
     final query = <String, String>{
       if (activeOnly != null) 'activeOnly': activeOnly.toString(),
     };
-    final uri = Uri.parse('${ApiService.baseUrl}/api/v1/discount-codes')
-        .replace(queryParameters: query.isEmpty ? null : query);
+    final uri = Uri.parse(
+      '${ApiService.baseUrl}/api/v1/discount-codes',
+    ).replace(queryParameters: query.isEmpty ? null : query);
 
     final resp = await ApiService._getWithAuth(uri.toString());
     if (resp == null || resp.statusCode != 200) {
@@ -40,18 +41,18 @@ abstract final class DiscountApi {
 
     final resp = await ApiService._postWithAuth(
       '${ApiService.baseUrl}/api/v1/discount-codes/validate',
-      {
-        'code': code.trim(),
-        'contractAmount': contractAmount,
-      },
+      {'code': code.trim(), 'contractAmount': contractAmount},
     );
 
     if (resp == null || (resp.statusCode != 200 && resp.statusCode != 400)) {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
 
-    final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-    final resultData = data['value'] is Map ? data['value'] as Map<String, dynamic> : data;
+    final data =
+        jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    final resultData = data['value'] is Map
+        ? data['value'] as Map<String, dynamic>
+        : data;
     return ValidateDiscountResult.fromJson(resultData);
   }
 
@@ -59,16 +60,20 @@ abstract final class DiscountApi {
   static Future<BestDiscountResult> getBestDiscount({
     required double contractAmount,
   }) async {
-    final uri = Uri.parse('${ApiService.baseUrl}/api/v1/discount-codes/best-applicable')
-        .replace(queryParameters: {'contractAmount': contractAmount.toString()});
+    final uri = Uri.parse(
+      '${ApiService.baseUrl}/api/v1/discount-codes/best-applicable',
+    ).replace(queryParameters: {'contractAmount': contractAmount.toString()});
 
     final resp = await ApiService._getWithAuth(uri.toString());
     if (resp == null || resp.statusCode != 200) {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
 
-    final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-    final resultData = data['value'] is Map ? data['value'] as Map<String, dynamic> : data;
+    final data =
+        jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    final resultData = data['value'] is Map
+        ? data['value'] as Map<String, dynamic>
+        : data;
     return BestDiscountResult.fromJson(resultData);
   }
 }
@@ -84,8 +89,9 @@ abstract final class ContractPackageApi {
       if (activeOnly != null) 'activeOnly': activeOnly.toString(),
       'isCustom': isCustom.toString(),
     };
-    final uri = Uri.parse('${ApiService.baseUrl}/api/v1/contract-packages')
-        .replace(queryParameters: query);
+    final uri = Uri.parse(
+      '${ApiService.baseUrl}/api/v1/contract-packages',
+    ).replace(queryParameters: query);
 
     final resp = await ApiService._getWithAuth(uri.toString());
     if (resp == null || resp.statusCode != 200) {
@@ -113,8 +119,11 @@ abstract final class ContractPackageApi {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
 
-    final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-    final resultData = data['value'] is Map ? data['value'] as Map<String, dynamic> : data;
+    final data =
+        jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    final resultData = data['value'] is Map
+        ? data['value'] as Map<String, dynamic>
+        : data;
     return ContractPackageModel.fromJson(resultData);
   }
 }

@@ -159,17 +159,14 @@ void main() {
           ],
         );
         await c.chooseCrop('c1');
-        expect(
-          c.profiles.map((p) => p['profileId']),
-          ['general'],
-          reason: 'chưa chọn giống: chỉ hồ sơ chung',
-        );
+        expect(c.profiles.map((p) => p['profileId']), [
+          'general',
+        ], reason: 'chưa chọn giống: chỉ hồ sơ chung');
         await c.chooseVariety('v1');
-        expect(
-          c.profiles.map((p) => p['profileId']),
-          ['general', 'forV1'],
-          reason: 'không có hồ sơ của giống khác',
-        );
+        expect(c.profiles.map((p) => p['profileId']), [
+          'general',
+          'forV1',
+        ], reason: 'không có hồ sơ của giống khác');
         expect(c.selection.profileId, isNull);
         c.chooseProfile('forV1');
         c.chooseProfile('general');

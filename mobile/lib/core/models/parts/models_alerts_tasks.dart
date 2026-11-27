@@ -30,8 +30,14 @@ String cleanTrailingZeros(String text) {
   return text
       .replaceAllMapped(RegExp(r'(\d+)[.,]000(?!\d)'), (m) => m[1]!)
       .replaceAllMapped(RegExp(r'(\d+)[.,]00(?!\d)'), (m) => m[1]!)
-      .replaceAllMapped(RegExp(r'(\d+)\.(\d*?)0+(?!\d)'), (m) => m[2]!.isEmpty ? m[1]! : '${m[1]}.${m[2]}')
-      .replaceAllMapped(RegExp(r'(\d+),(\d*?)0+(?!\d)'), (m) => m[2]!.isEmpty ? m[1]! : '${m[1]},${m[2]}');
+      .replaceAllMapped(
+        RegExp(r'(\d+)\.(\d*?)0+(?!\d)'),
+        (m) => m[2]!.isEmpty ? m[1]! : '${m[1]}.${m[2]}',
+      )
+      .replaceAllMapped(
+        RegExp(r'(\d+),(\d*?)0+(?!\d)'),
+        (m) => m[2]!.isEmpty ? m[1]! : '${m[1]},${m[2]}',
+      );
 }
 
 /// Câu cảnh báo khi backend không gửi `message`: nêu THÔNG SỐ, giá trị đo và ngưỡng (trước đây chỉ có "Giá trị đo được: 65.1 %"
@@ -158,7 +164,10 @@ class TaskAssignmentModel {
         try {
           final decoded = jsonDecode(raw);
           if (decoded is List) {
-            return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+            return decoded
+                .map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList();
           }
         } catch (_) {
           return [raw.trim()];
@@ -240,7 +249,8 @@ class TaskModel {
       taskId: json['id']?.toString() ?? json['taskId']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Công việc chăm sóc đồng ruộng',
       zoneName: json['zoneName']?.toString() ?? defaultZoneName,
-      priority: json['priority']?.toString() ?? 'Trung bình',
+      // Backend không có ưu tiên cho công việc: để rỗng (giao diện ẩn nhãn) thay vì bịa "Trung bình".
+      priority: json['priority']?.toString() ?? '',
       dueDate: dueStr,
       assignedFarmerName: assignments.isNotEmpty
           ? assignments.map((a) => a.farmerName).join(', ')
@@ -300,7 +310,9 @@ class AppNotificationModel {
   factory AppNotificationModel.fromJson(Map<String, dynamic> json) {
     return AppNotificationModel(
       notificationId: json['notificationId']?.toString() ?? '',
-      title: cleanTrailingZeros(json['title']?.toString() ?? 'Thông báo hệ thống'),
+      title: cleanTrailingZeros(
+        json['title']?.toString() ?? 'Thông báo hệ thống',
+      ),
       message: cleanTrailingZeros(json['message']?.toString() ?? ''),
       type: json['type']?.toString() ?? 'System',
       severity: json['severity']?.toString() ?? 'Info',

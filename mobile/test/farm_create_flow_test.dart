@@ -92,6 +92,10 @@ void main() {
         d.addressSync.onUserChanged(d.addressCtrl.text);
         d.addressSync.onResolved('Địa chỉ từ bản đồ');
         expect(d.addressCtrl.text, 'Thôn 3, tự nhập');
+        // Diện tích trang trại bắt buộc người dùng nhập (không gán sẵn 1.000.000 m² như trước).
+        expect(d.validate(), contains('diện tích'));
+        d.areaCtrl.text = '12.000';
+        expect(parseAreaM2(d.areaCtrl.text), 12000);
         expect(d.validate(), isNull);
         expect(d.lat, 11.94);
         d.dispose();
@@ -308,7 +312,6 @@ void main() {
                               messenger: ScaffoldMessenger.of(home),
                               provider: provider,
                               draft: draft,
-                              totalAreaM2: 100,
                             ),
                             child: const Text('Tạo'),
                           ),
@@ -350,7 +353,8 @@ void main() {
       final (provider, draft) = await pumpForm(tester);
       draft
         ..onPinChosen(11.94, 108.45)
-        ..addressCtrl.text = 'Xã A, Lâm Đồng';
+        ..addressCtrl.text = 'Xã A, Lâm Đồng'
+        ..areaCtrl.text = '5000';
 
       await tester.tap(find.text('Tạo'));
       await tester.pump();
@@ -377,7 +381,8 @@ void main() {
         final (provider, draft) = await pumpForm(tester);
         draft
           ..onPinChosen(11.94, 108.45)
-          ..addressCtrl.text = 'Xã A, Lâm Đồng';
+          ..addressCtrl.text = 'Xã A, Lâm Đồng'
+        ..areaCtrl.text = '5000';
 
         await tester.tap(find.text('Tạo'));
         await tester.pumpAndSettle();

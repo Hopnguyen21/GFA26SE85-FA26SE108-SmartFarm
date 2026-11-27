@@ -64,7 +64,10 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   @visibleForTesting
-  void setWeatherForTesting(Map<String, dynamic>? weather, {bool isLoading = false}) {
+  void setWeatherForTesting(
+    Map<String, dynamic>? weather, {
+    bool isLoading = false,
+  }) {
     _farmWeather = weather;
     _isLoadingWeather = isLoading;
     notifyListeners();
@@ -96,6 +99,32 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   void setZonesForTesting(List<ZoneModel> zones) {
     _zones.clear();
     _zones.addAll(zones);
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setActuatorsForTesting(
+    List<ActuatorModel> actuators, {
+    bool apiConnected = true,
+  }) {
+    _actuators
+      ..clear()
+      ..addAll(actuators);
+    _isApiConnected = apiConnected;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setSchedulesForTesting(List<ScheduleModel> schedules) {
+    _schedules = schedules;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setAutomationRulesForTesting(List<AutomationRuleModel> rules) {
+    _automationRules
+      ..clear()
+      ..addAll(rules);
     notifyListeners();
   }
 
@@ -148,6 +177,9 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   DateTime get lastTelemetryReceivedAt => _lastTelemetryReceivedAt;
 
   bool _pollInFlight = false;
+  int _actuatorPollTick = 0;
+  Future<void>? _fetchInFlight; // lượt đồng bộ đang chạy (xem fetchFromApi)
+  DateTime? _fetchStartedAt;
   int _techNotifTick = 0;
   DateTime?
   _lastAllZonesTelemetryAt; // lần gần nhất tải số đo cho MỌI Zone (không chỉ Zone đang chọn)
@@ -364,6 +396,12 @@ class FarmProvider with ChangeNotifier, WidgetsBindingObserver {
   /// Owner và Farmer được gọi dừng khẩn cấp (khớp [Authorize(Roles = "FarmOwner,Farmer")] ở backend).
   bool get canEmergencyStop =>
       _currentRole == 'OWNER' || _currentRole == 'FARMER';
+
+  /// Bộ hỏi lại trạng thái thật của rơ-le sau khi gửi lệnh (như web: mỗi 2 giây cho tới khi gateway phản hồi).
+  final Map<String, Timer> _actuatorWatchers = {};
+
+  /// Thông báo kết quả của lệnh điều khiển gần nhất (để UI hiện đúng: đã ACK hay mới gửi, chờ gateway).
+  String? lastActuatorNotice;
 
   bool _isEmergencyStopping = false;
   bool get isEmergencyStopping => _isEmergencyStopping;

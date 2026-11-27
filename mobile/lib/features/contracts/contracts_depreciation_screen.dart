@@ -183,7 +183,10 @@ class _ContractsDepreciationScreenState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.card_membership_outlined, color: Colors.white),
+            icon: const Icon(
+              Icons.card_membership_outlined,
+              color: Colors.white,
+            ),
             tooltip: 'Gói Dịch Vụ Mẫu',
             onPressed: () {
               showModalBottomSheet<void>(

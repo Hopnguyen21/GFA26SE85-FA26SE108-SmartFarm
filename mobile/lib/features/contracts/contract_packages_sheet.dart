@@ -101,7 +101,10 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
                         ),
                         Text(
                           'Danh mục gói triển khai SmartFarm tiêu chuẩn',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -112,7 +115,11 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
                     onPressed: _load,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: Color(0xFF64748B),
+                    ),
                     tooltip: 'Đóng',
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -123,7 +130,9 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
               Expanded(
                 child: _loading
                     ? const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF10B981)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF10B981),
+                        ),
                       )
                     : _error != null
                     ? Center(
@@ -132,12 +141,21 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.error_outline, size: 36, color: Colors.orange),
+                              const Icon(
+                                Icons.error_outline,
+                                size: 36,
+                                color: Colors.orange,
+                              ),
                               const SizedBox(height: 8),
-                              Text('Không tải được danh mục gói: $_error', textAlign: TextAlign.center),
+                              Text(
+                                'Không tải được danh mục gói: $_error',
+                                textAlign: TextAlign.center,
+                              ),
                               const SizedBox(height: 12),
                               FilledButton.tonal(
-                                style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(100, 44),
+                                ),
                                 onPressed: _load,
                                 child: const Text('Thử lại'),
                               ),
@@ -171,10 +189,14 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.02),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.02,
+                                      ),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     ),
@@ -183,7 +205,8 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(14),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -220,19 +243,40 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
                                       const SizedBox(height: 10),
                                       Row(
                                         children: [
-                                          _tag('${p.durationMonths} tháng', Icons.calendar_month_outlined),
+                                          _tag(
+                                            '${p.durationMonths} tháng',
+                                            Icons.calendar_month_outlined,
+                                          ),
                                           const SizedBox(width: 8),
-                                          _tag('Tối đa ${p.maxZones} Zone', Icons.grid_view_outlined),
+                                          _tag(
+                                            'Tối đa ${p.maxZones} Zone',
+                                            Icons.grid_view_outlined,
+                                          ),
                                           const Spacer(),
                                           if (widget.onSelect != null)
                                             FilledButton.icon(
                                               style: FilledButton.styleFrom(
-                                                backgroundColor: const Color(0xFF047857),
-                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                backgroundColor: const Color(
+                                                  0xFF047857,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 8,
+                                                    ),
                                                 minimumSize: const Size(0, 44),
                                               ),
-                                              icon: const Icon(Icons.check, size: 16),
-                                              label: const Text('Chọn gói', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                                              icon: const Icon(
+                                                Icons.check,
+                                                size: 16,
+                                              ),
+                                              label: const Text(
+                                                'Chọn gói',
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                               onPressed: () {
                                                 widget.onSelect!(p);
                                                 Navigator.pop(context);
@@ -268,7 +312,14 @@ class _ContractPackagesSheetState extends State<ContractPackagesSheet> {
         children: [
           Icon(icon, size: 12, color: const Color(0xFF475569)),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
+          ),
         ],
       ),
     );

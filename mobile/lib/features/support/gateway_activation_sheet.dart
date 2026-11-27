@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/state_views.dart';
 import 'gateway_activation_logic.dart';
+import '../../core/services/api_service.dart' show kAllowGatewaySimulation;
 
 /// Bảng "Kích hoạt Gateway": liệt kê Gateway trong kho KTV kèm trạng thái đăng ký; Gateway đã đăng ký thì kích hoạt cho yêu cầu;
 /// chưa có phần cứng thật thì "Mô phỏng Gateway" (app đóng vai thiết bị tự đăng ký rồi kích hoạt). Đóng bảng trả true khi đã
@@ -186,21 +187,22 @@ class _GatewayActivationSheetState extends State<GatewayActivationSheet> {
                   child: Text(_message!),
                 ),
               const SizedBox(height: 8),
-              OutlinedButton.icon(
-                key: const ValueKey('simulate-gateway'),
-                onPressed: _busy || _loading
-                    ? null
-                    : () => _run(() async {
-                        final msg = await widget.simulate();
-                        return msg;
-                      }),
-                icon: const Icon(Icons.science_outlined),
-                label: Text(
-                  _busy
-                      ? 'Đang xử lý…'
-                      : 'Mô phỏng Gateway (chưa có phần cứng)',
+              if (kAllowGatewaySimulation)
+                OutlinedButton.icon(
+                  key: const ValueKey('simulate-gateway'),
+                  onPressed: _busy || _loading
+                      ? null
+                      : () => _run(() async {
+                          final msg = await widget.simulate();
+                          return msg;
+                        }),
+                  icon: const Icon(Icons.science_outlined),
+                  label: Text(
+                    _busy
+                        ? 'Đang xử lý…'
+                        : 'Mô phỏng Gateway (chưa có phần cứng)',
+                  ),
                 ),
-              ),
             ],
           ),
         ),

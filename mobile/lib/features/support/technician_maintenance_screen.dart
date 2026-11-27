@@ -442,6 +442,7 @@ class _TechnicianMaintenanceScreenState
             total: open.length,
             onPage: (p) => setState(() => _page = p),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -472,106 +473,36 @@ class _TechnicianMaintenanceScreenState
 
   Widget _assignedAlertBanner(List<Map<String, dynamic>> assigned) {
     if (assigned.isEmpty) return const SizedBox.shrink();
-    final first = assigned.first;
-    final title = first['title'] ?? first['description'] ?? 'Yêu cầu kỹ thuật';
-    final location = _whereOf(first) ?? 'Trang trại';
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F9FF),
-        borderRadius: BorderRadius.circular(AppSpacing.radius),
-        border: Border.all(color: const Color(0xFF7DD3FC), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.build_circle_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0F2FE),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFFBAE6FD)),
-                          ),
-                          child: const Text(
-                            'PHÂN CÔNG MỚI',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0369A1),
-                            ),
-                          ),
-                        ),
-                        const Text(
-                          'Chờ KTV tiếp nhận',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF0284C7)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Bạn có ${assigned.length} yêu cầu kỹ thuật mới được Admin phân công!',
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0C4A6E),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Yêu cầu: "$title" tại $location'
-                      '${assigned.length > 1 ? ' và ${assigned.length - 1} yêu cầu khác' : ''}.',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF0369A1), height: 1.3),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    const blue = Color(0xFF0369A1);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: OutlinedButton(
+        onPressed: () => _open(assigned.first),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          foregroundColor: blue,
+          backgroundColor: const Color(0xFFF0F9FF),
+          side: const BorderSide(color: Color(0xFF7DD3FC)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radius),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 36,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () => _open(first),
-              icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-              label: const Text(
-                'Tiếp nhận & Xử lý ngay',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.assignment_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${assigned.length} yêu cầu chờ tiếp nhận',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            const Text('Xem'),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
+        ),
       ),
     );
   }
@@ -1183,8 +1114,7 @@ class _ServiceRequestDetailScreenState
             ),
           ),
         ),
-      ]
-      else if (!finished)
+      ] else if (!finished)
         Chip(
           backgroundColor: const Color(0xFFFFFBEB),
           side: const BorderSide(color: Color(0xFFFCD34D)),
@@ -1819,6 +1749,7 @@ class _ServiceRequestDetailScreenState
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           _header(r, st, res, isInstall),

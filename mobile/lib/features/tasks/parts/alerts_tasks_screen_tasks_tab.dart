@@ -172,7 +172,9 @@ extension _AlertsTasksScreenTasksTab on AlertsTasksScreen {
                               children: [
                                 ConstrainedBox(
                                   constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * 0.55,
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width *
+                                        0.55,
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,

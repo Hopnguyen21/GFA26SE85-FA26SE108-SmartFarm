@@ -126,6 +126,7 @@ class _TechnicianGatewayToolsScreenState
                   onRefresh: _reload,
                   child: items.isEmpty
                       ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           children: const [
                             SizedBox(height: 80),
                             Center(
@@ -136,6 +137,7 @@ class _TechnicianGatewayToolsScreenState
                           ],
                         )
                       : ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
                           children: [
                             for (final b in items)
@@ -189,14 +191,19 @@ class _GatewayCardState extends State<_GatewayCard> {
     }
   }
 
-  Future<void> _simulate() => _guard(() async {
-    final g = await DeploymentApi.simulateGatewayConnection(
+  /// Kiểm tra kết nối MQTT THẬT từ backend (GET /gateways/{id}/mqtt-status); không đánh dấu Online thủ công.
+  Future<void> _checkMqtt() => _guard(() async {
+    final r = await SupportApi.getGatewayMqttStatus(
       widget.bundle.gateway.gatewayId,
     );
     if (!mounted) return;
+    final ok = r['mqttConnected'] == true;
     _snack(
       context,
-      'Kết nối thử: ${g['status'] ?? 'OK'} · ${g['connectedNodes'] ?? 0} node.',
+      ok
+          ? 'Gateway đã kết nối MQTT với broker.'
+          : 'Gateway chưa kết nối MQTT với broker (cần cấp nguồn, WiFi và nạp firmware).',
+      error: !ok,
     );
     await widget.onChanged();
   });
@@ -231,6 +238,219 @@ class _GatewayCardState extends State<_GatewayCard> {
             child: const Text('Đóng'),
           ),
         ],
+      ),
+    );
+  });
+
+  Future<void> _otaFirmware() => _guard(() async {
+    final results = await Future.wait([
+      DeploymentApi.getLatestGatewayFirmwareJob(
+        widget.bundle.gateway.gatewayId,
+      ),
+      DeploymentApi.listApprovedFirmwareReleases(),
+    ]);
+    final job = results[0] as FirmwareJob?;
+    final releases = results[1] as List<FirmwareRelease>;
+    if (!mounted) return;
+
+    String? selectedReleaseId = releases.firstOrNull?.id;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.system_update_alt,
+                        color: Color(0xFF047857),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Cập nhật Firmware OTA · ${widget.bundle.gateway.gatewaySerial}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (job != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Công việc OTA gần nhất: ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: job.status == 'Succeeded'
+                                      ? const Color(0xFFD1FAE5)
+                                      : job.status == 'Failed'
+                                      ? const Color(0xFFFEE2E2)
+                                      : const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  job.status,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: job.status == 'Succeeded'
+                                        ? const Color(0xFF065F46)
+                                        : job.status == 'Failed'
+                                        ? const Color(0xFF991B1B)
+                                        : const Color(0xFF92400E),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Phiên bản đích: ${job.targetVersion}',
+                            style: const TextStyle(fontSize: 11.5),
+                          ),
+                          if (job.errorMessage != null &&
+                              job.errorMessage!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Lỗi: ${job.errorMessage}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ),
+                          if (job.status == 'Failed') ...[
+                            const SizedBox(height: 6),
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(ctx);
+                                await _guard(() async {
+                                  await DeploymentApi.retryGatewayFirmware(
+                                    widget.bundle.gateway.gatewayId,
+                                  );
+                                  if (mounted)
+                                    _snack(
+                                      context,
+                                      'Đã kích hoạt thử lại nạp firmware.',
+                                    );
+                                });
+                              },
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Thử lại (Retry OTA)'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (releases.isEmpty)
+                    const Text(
+                      'Hiện chưa có bản firmware đã duyệt nào trên hệ thống.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    )
+                  else ...[
+                    const Text(
+                      'Chọn bản phát hành đã duyệt:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedReleaseId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      items: [
+                        for (final r in releases)
+                          DropdownMenuItem(
+                            value: r.id,
+                            child: Text(
+                              '${r.hardwareTarget} v${r.version} (${r.protocolVersion})',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) =>
+                          setModalState(() => selectedReleaseId = v),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                      ),
+                      onPressed: selectedReleaseId == null
+                          ? null
+                          : () async {
+                              Navigator.pop(ctx);
+                              await _guard(() async {
+                                await DeploymentApi.scheduleGatewayFirmware(
+                                  widget.bundle.gateway.gatewayId,
+                                  firmwareReleaseId: selectedReleaseId!,
+                                );
+                                if (mounted)
+                                  _snack(
+                                    context,
+                                    'Đã lên lịch cập nhật firmware OTA thành công.',
+                                  );
+                              });
+                            },
+                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: const Text('Lên lịch Cập nhật OTA'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   });
@@ -445,9 +665,14 @@ class _GatewayCardState extends State<_GatewayCard> {
                   label: const Text('Firmware'),
                 ),
                 TextButton.icon(
-                  onPressed: _busy ? null : _simulate,
+                  onPressed: _busy ? null : _checkMqtt,
                   icon: const Icon(Icons.wifi_tethering, size: 16),
-                  label: const Text('Thử kết nối'),
+                  label: const Text('Kiểm tra MQTT'),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : _otaFirmware,
+                  icon: const Icon(Icons.system_update_alt, size: 16),
+                  label: const Text('Cập nhật OTA'),
                 ),
                 if (b.request.zoneId.isNotEmpty)
                   TextButton.icon(
@@ -672,6 +897,7 @@ class _SparePartsTabState extends State<_SparePartsTab> {
           onRefresh: _reload,
           child: parts.isEmpty
               ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     _receiveButton(),
                     const SizedBox(height: 60),
@@ -679,6 +905,7 @@ class _SparePartsTabState extends State<_SparePartsTab> {
                   ],
                 )
               : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: parts.length + 1,
                   separatorBuilder: (_, _) => const Divider(height: 1),

@@ -129,3 +129,23 @@ String? validateNewPassword(String value) {
   }
   return null;
 }
+
+/// Quy tắc mật khẩu bảo mật chuẩn (đồng bộ chính sách Backend .NET AuthService.ValidatePassword:
+/// 8-100 ký tự, gồm chữ in hoa, chữ in thường, chữ số và ký tự đặc biệt). Trả null nếu hợp lệ.
+String? validateStrongPassword(String value) {
+  if (value.length < 8) return 'Mật khẩu phải chứa ít nhất 8 ký tự.';
+  if (value.length > 100) return 'Mật khẩu tối đa 100 ký tự.';
+  if (!RegExp(r'[A-Z]').hasMatch(value)) {
+    return 'Mật khẩu phải có ít nhất 1 chữ in hoa (A-Z).';
+  }
+  if (!RegExp(r'[a-z]').hasMatch(value)) {
+    return 'Mật khẩu phải có ít nhất 1 chữ in thường (a-z).';
+  }
+  if (!RegExp(r'\d').hasMatch(value)) {
+    return 'Mật khẩu phải có ít nhất 1 chữ số (0-9).';
+  }
+  if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
+    return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt (@, #, \$, !...).';
+  }
+  return null;
+}

@@ -55,9 +55,8 @@ class _ReportExportSheetState extends State<_ReportExportSheet> {
         to: widget.to,
       );
       final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-      final fileName =
-          'bao-cao-$fileSuffix-${widget.farmName}-$dateStr.xlsx'
-              .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final fileName = 'bao-cao-$fileSuffix-${widget.farmName}-$dateStr.xlsx'
+          .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 
       if (mounted) Navigator.pop(context);
 
@@ -157,7 +156,11 @@ class _ReportExportSheetState extends State<_ReportExportSheet> {
             const SizedBox(height: 10),
             const Text(
               'Chọn loại báo cáo bạn muốn tải về máy. File Excel được tạo chuẩn từ máy chủ backend:',
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 14),
 
@@ -166,7 +169,8 @@ class _ReportExportSheetState extends State<_ReportExportSheet> {
               kindKey: 'all',
               kindParam: null,
               title: 'Báo Cáo Tài Nguyên Toàn Diện (6 Sheets)',
-              subtitle: 'Gồm Tổng quan, Nước tưới, Điện năng, Zone và Chi tiết đo',
+              subtitle:
+                  'Gồm Tổng quan, Nước tưới, Điện năng, Zone và Chi tiết đo',
               icon: Icons.layers_rounded,
               color: const Color(0xFF047857),
               fileSuffix: 'tai-nguyen-toan-dien',
@@ -212,7 +216,8 @@ class _ReportExportSheetState extends State<_ReportExportSheet> {
               kindKey: 'inventory',
               kindParam: 'inventory',
               title: 'Báo Cáo Kho Vật Tư & Phân Bón',
-              subtitle: 'Tồn kho, nhập xuất và các mặt hàng dưới ngưỡng an toàn',
+              subtitle:
+                  'Tồn kho, nhập xuất và các mặt hàng dưới ngưỡng an toàn',
               icon: Icons.inventory_2_rounded,
               color: const Color(0xFF0F766E),
               fileSuffix: 'kho-vat-tu',
@@ -251,18 +256,14 @@ class _ReportExportSheetState extends State<_ReportExportSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          onTap: isBusy
-              ? null
-              : () => _doExport(kindParam, title, fileSuffix),
+          onTap: isBusy ? null : () => _doExport(kindParam, title, fileSuffix),
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isThisExporting
-                    ? color
-                    : const Color(0xFFE2E8F0),
+                color: isThisExporting ? color : const Color(0xFFE2E8F0),
                 width: isThisExporting ? 1.5 : 1,
               ),
               boxShadow: const [
@@ -304,11 +305,16 @@ class _ReportExportSheetState extends State<_ReportExportSheet> {
                           if (badge != null) ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFECFDF5),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFA7F3D0)),
+                                border: Border.all(
+                                  color: const Color(0xFFA7F3D0),
+                                ),
                               ),
                               child: Text(
                                 badge,

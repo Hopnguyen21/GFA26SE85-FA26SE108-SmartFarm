@@ -199,6 +199,7 @@ class _ZoneIotPlanTabState extends State<ZoneIotPlanTab> {
     return RefreshIndicator(
       onRefresh: _reload,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           if (isOwner)

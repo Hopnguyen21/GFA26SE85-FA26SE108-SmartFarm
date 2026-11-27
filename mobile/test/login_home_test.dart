@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartfarm_mobile/core/services/api_service.dart';
+import 'package:smartfarm_mobile/main.dart';
 import 'package:smartfarm_mobile/features/auth/landing_screen.dart';
 import 'package:smartfarm_mobile/features/auth/login_screen.dart';
 
@@ -232,6 +233,30 @@ void main() {
     expect(find.text('cu@trai.vn'), findsOneWidget);
   });
 
+  testWidgets(
+    'AppEntryPoint vào trực tiếp màn hình Đăng nhập (bỏ màn hình landing)',
+    (tester) async {
+      tester.view.physicalSize = const Size(420, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: AppEntryPoint()),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.byType(LoginScreen), findsOneWidget);
+        expect(find.text('Đăng nhập Hệ thống'), findsOneWidget);
+        expect(
+          find.text('HỆ THỐNG QUẢN TRỊ NÔNG NGHIỆP THÔNG MINH SỐ 1'),
+          findsNothing,
+        );
+      }, () => MockClient(handler));
+    },
+  );
+
   group('trang chủ theo web', () {
     Future<void> pumpHome(WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -287,7 +312,7 @@ void main() {
       expect(find.text('Họ và tên (*)'), findsOneWidget);
     });
 
-    testWidgets('tư vấn: gửi xong hiện xác nhận rồi tự đóng sau 2,5 giây', (
+    testWidgets('tư vấn: không giả vờ đã gửi, báo rõ chưa gửi được rồi tự đóng sau 2,5 giây', (
       tester,
     ) async {
       await pumpHome(tester);
@@ -299,12 +324,13 @@ void main() {
       await tester.enterText(fields.at(1), '0988123456');
       await tester.tap(find.text('Xác nhận gửi thông tin khảo sát'));
       await tester.pump();
-      expect(find.text('Gửi thông tin thành công!'), findsOneWidget);
+      expect(find.text('Chưa gửi được yêu cầu tư vấn'), findsOneWidget);
+      expect(find.text('Gửi thông tin thành công!'), findsNothing);
       await tester.pump(const Duration(milliseconds: 2600));
       await tester.pumpAndSettle();
       // dispose_later giải phóng ô nhập sau một nhịp nghỉ: xả hết bộ hẹn giờ trước khi kết thúc test.
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('Gửi thông tin thành công!'), findsNothing);
+      expect(find.text('Chưa gửi được yêu cầu tư vấn'), findsNothing);
     });
 
     testWidgets('tư vấn: thiếu họ tên hoặc số điện thoại thì không gửi', (

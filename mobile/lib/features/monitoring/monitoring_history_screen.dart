@@ -7,6 +7,8 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/export_utils.dart';
 import '../../core/utils/user_error.dart';
+import '../home/zone_sensor_thresholds.dart';
+import 'monitoring_history_logic.dart';
 
 class MonitoringHistoryScreen extends StatefulWidget {
   const MonitoringHistoryScreen({super.key});
@@ -20,12 +22,17 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
   // Selected metric: 'SOIL_MOISTURE', 'TEMP', 'HUMIDITY', 'LIGHT', 'PH', 'EC'
   String _selectedMetric = 'SOIL_MOISTURE';
   String _timeRange = '24 Giờ';
+  String? _selectedDeviceId;
+  List<Map<String, dynamic>> _zoneDevices = [];
+  String? _lastLoadedZoneId;
   bool _isLoadingLive = false;
   String? _historyError;
   int _historySeq = 0;
   List<double>? _liveData;
   List<String>? _liveLabels;
   List<Map<String, dynamic>>? _livePoints;
+  String?
+  _loadedKey; // lựa chọn (Zone|chỉ số|khoảng|thiết bị) mà dữ liệu đang hiển thị thuộc về
   bool _exporting = false;
 
   @override
@@ -39,20 +46,33 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
 
   Future<void> _fetchLiveHistory(String zoneId) async {
     if (zoneId.isEmpty) return;
+    if (_lastLoadedZoneId != zoneId) {
+      _lastLoadedZoneId = zoneId;
+      _selectedDeviceId = null;
+      try {
+        final devs = await FarmApi.getDeviceMapLocations(zoneId);
+        if (mounted) setState(() => _zoneDevices = devs);
+      } catch (_) {}
+    }
     final seq = ++_historySeq;
+    final key = historyKey(
+      zoneId,
+      _selectedMetric,
+      _timeRange,
+      _selectedDeviceId,
+    );
     setState(() {
       _isLoadingLive = true;
       _historyError = null;
+      // Đổi chỉ số/khoảng: bỏ dữ liệu của lựa chọn cũ, nếu không biểu đồ vẽ số của chỉ số trước dưới tiêu đề, đơn vị và trục của chỉ số mới.
+      if (_loadedKey != key) {
+        _liveData = null;
+        _liveLabels = null;
+        _livePoints = null;
+      }
     });
     try {
-      final paramCode = switch (_selectedMetric) {
-        'TEMP' => 'Temperature',
-        'HUMIDITY' => 'AirHumidity',
-        'LIGHT' => 'LightIntensity',
-        'PH' => 'Ph',
-        'EC' => 'Ec',
-        _ => 'SoilMoisture',
-      };
+      final paramCode = monitoringParameterCode(_selectedMetric);
       final now = DateTime.now().toUtc();
       final (from, interval) = switch (_timeRange) {
         '7 Ngày' => (now.subtract(const Duration(days: 7)), '6h'),
@@ -62,29 +82,20 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
       final points = await FarmApi.getTelemetryHistory(
         zoneId: zoneId,
         parameterCode: paramCode,
+        deviceId: _selectedDeviceId,
         fromUtc: from,
         toUtc: now,
         interval: interval,
       );
       if (!mounted || seq != _historySeq) return;
       if (points.isNotEmpty) {
-        final values = <double>[];
-        final labels = <String>[];
-        for (var p in points) {
-          final avg = (p['average'] as num?)?.toDouble();
-          if (avg != null) values.add(double.parse(avg.toStringAsFixed(1)));
-          final start = p['bucketStartUtc']?.toString();
-          if (start != null && start.length >= 16) {
-            labels.add(start.substring(11, 16));
-          } else {
-            labels.add('');
-          }
-        }
-        if (values.isNotEmpty) {
+        final series = buildHistorySeries(points, _timeRange);
+        if (series.values.isNotEmpty) {
           setState(() {
-            _liveData = values;
-            _liveLabels = labels;
+            _liveData = series.values;
+            _liveLabels = series.labels;
             _livePoints = points;
+            _loadedKey = key;
             _isLoadingLive = false;
           });
           return;
@@ -149,53 +160,47 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
     final String unit;
     final String metricTitle;
     final Color chartColor;
-    final double minTarget;
-    final double maxTarget;
 
     switch (_selectedMetric) {
       case 'TEMP':
         unit = '°C';
         metricTitle = 'Nhiệt độ không khí';
         chartColor = const Color(0xFFD97706);
-        minTarget = 18.0;
-        maxTarget = 28.0;
         break;
       case 'HUMIDITY':
         unit = '%';
         metricTitle = 'Độ ẩm không khí';
         chartColor = const Color(0xFF0284C7);
-        minTarget = 65.0;
-        maxTarget = 85.0;
         break;
       case 'LIGHT':
         unit = ' lux';
         metricTitle = 'Cường độ ánh sáng';
         chartColor = const Color(0xFFCA8A04);
-        minTarget = 10000.0;
-        maxTarget = 45000.0;
         break;
       case 'PH':
         unit = ' pH';
         metricTitle = 'Độ chua (pH)';
         chartColor = const Color(0xFF7C3AED);
-        minTarget = 5.5;
-        maxTarget = 6.8;
         break;
       case 'EC':
         unit = ' mS/cm';
         metricTitle = 'Độ dẫn điện (EC)';
         chartColor = const Color(0xFF0891B2);
-        minTarget = 1.2;
-        maxTarget = 2.5;
         break;
       default:
         unit = '%';
         metricTitle = 'Độ ẩm đất';
         chartColor = const Color(0xFF10B981);
-        minTarget = 60.0;
-        maxTarget = 80.0;
     }
 
+    // Ngưỡng THẬT của giai đoạn đang canh tác (zone.appliedRequirements); không có thì không vẽ ngưỡng, không dùng số cố định.
+    final zone = provider.currentZone;
+    final requirement = requirementFor(
+      zone,
+      monitoringParameterCode(_selectedMetric),
+    );
+    final double? minTarget = requirement?.min;
+    final double? maxTarget = requirement?.max;
     final double minY = 0.0;
     final double maxY = switch (_selectedMetric) {
       'PH' => 14.0,
@@ -308,7 +313,94 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            if (_zoneDevices.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.sensors,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Thiết bị: ',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _selectedDeviceId,
+                          isDense: true,
+                          isExpanded: true,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF1E293B),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Tất cả thiết bị trong Zone'),
+                            ),
+                            for (final d in _zoneDevices)
+                              DropdownMenuItem(
+                                value: '${d['deviceId']}',
+                                child: Text(
+                                  '${d['name'] ?? d['serialNumber'] ?? d['deviceId']} (${d['deviceType'] ?? 'Node'})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: (v) {
+                            setState(() => _selectedDeviceId = v);
+                            _fetchLiveHistory(zoneId);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Khoảng thời gian luôn hiển thị (kể cả khi khoảng đang chọn không có dữ liệu) để người dùng đổi lại được.
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text(
+                  'Khoảng thời gian:',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                for (final r in monitoringRanges)
+                  ChoiceChip(
+                    key: ValueKey('range_$r'),
+                    label: Text(r, style: const TextStyle(fontSize: 12)),
+                    selected: _timeRange == r,
+                    onSelected: (_) {
+                      if (_timeRange == r) return;
+                      setState(() => _timeRange = r);
+                      _fetchLiveHistory(zoneId);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
 
             if (!hasData)
               Container(
@@ -345,7 +437,9 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(100, 44)),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(100, 44),
+                        ),
                         onPressed: () => _fetchLiveHistory(zoneId),
                         icon: const Icon(Icons.refresh, size: 16),
                         label: const Text('Tải lại'),
@@ -415,7 +509,8 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Hiện tại: ${currentData.last}$unit',
+                                  // Là trung bình của mốc gần nhất trong khoảng đã chọn, không phải số đo tức thời.
+                                  'Gần nhất: ${currentData.last}$unit',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -426,24 +521,14 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                             ),
                           ],
                         ),
-                        // Time Filter
-                        DropdownButton<String>(
-                          value: _timeRange,
-                          underline: const SizedBox(),
+                        // Khoảng thời gian chọn ở thanh lọc phía trên (luôn hiển thị), ở đây chỉ nhắc lại đang xem khoảng nào.
+                        Text(
+                          _timeRange,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF062326),
                           ),
-                          items: ['24 Giờ', '7 Ngày', '30 Ngày'].map((e) {
-                            return DropdownMenuItem(value: e, child: Text(e));
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _timeRange = val);
-                              _fetchLiveHistory(zoneId);
-                            }
-                          },
                         ),
                       ],
                     ),
@@ -460,52 +545,66 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 2,
-                                color: const Color(0xFFE11D48),
+                      child: (minTarget == null || maxTarget == null)
+                          // Không có ngưỡng của giai đoạn hiện tại: nói rõ lý do, không dùng số cố định.
+                          ? Text(
+                              thresholdCaption(
+                                zone,
+                                monitoringParameterCode(_selectedMetric),
+                                unit,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Ngưỡng Min ($minTarget$unit)',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 2,
+                                      color: const Color(0xFFE11D48),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Ngưỡng Min ($minTarget$unit)',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 2,
-                                color: const Color(0xFFE11D48),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Ngưỡng Max ($maxTarget$unit)',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 12,
+                                      height: 2,
+                                      color: const Color(0xFFE11D48),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Ngưỡng Max ($maxTarget$unit)',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                              ],
+                            ),
                     ),
                     const SizedBox(height: 20),
 
                     // FlChart
                     SizedBox(
                       height: 220,
-                      child: LineChart(
+                      child: RepaintBoundary(
+                        child: LineChart(
                         LineChartData(
                           lineTouchData: LineTouchData(
                             enabled: true,
@@ -513,11 +612,17 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                             touchTooltipData: LineTouchTooltipData(
                               getTooltipColor: (_) => const Color(0xFF0F172A),
                               tooltipBorderRadius: BorderRadius.circular(8),
-                              tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              tooltipPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               getTooltipItems: (touchedSpots) {
                                 return touchedSpots.map((spot) {
                                   final idx = spot.spotIndex;
-                                  final timeStr = (idx >= 0 && idx < currentLabels.length) ? currentLabels[idx] : '';
+                                  final timeStr =
+                                      (idx >= 0 && idx < currentLabels.length)
+                                      ? currentLabels[idx]
+                                      : '';
                                   return LineTooltipItem(
                                     '${timeStr.isNotEmpty ? '$timeStr\n' : ''}${spot.y}$unit',
                                     const TextStyle(
@@ -543,22 +648,24 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                           ),
                           extraLinesData: ExtraLinesData(
                             horizontalLines: [
-                              HorizontalLine(
-                                y: minTarget,
-                                color: const Color(
-                                  0xFFE11D48,
-                                ).withValues(alpha: 0.5),
-                                strokeWidth: 1,
-                                dashArray: [4, 4],
-                              ),
-                              HorizontalLine(
-                                y: maxTarget,
-                                color: const Color(
-                                  0xFFE11D48,
-                                ).withValues(alpha: 0.5),
-                                strokeWidth: 1,
-                                dashArray: [4, 4],
-                              ),
+                              if (minTarget != null && maxTarget != null) ...[
+                                HorizontalLine(
+                                  y: minTarget,
+                                  color: const Color(
+                                    0xFFE11D48,
+                                  ).withValues(alpha: 0.5),
+                                  strokeWidth: 1,
+                                  dashArray: [4, 4],
+                                ),
+                                HorizontalLine(
+                                  y: maxTarget,
+                                  color: const Color(
+                                    0xFFE11D48,
+                                  ).withValues(alpha: 0.5),
+                                  strokeWidth: 1,
+                                  dashArray: [4, 4],
+                                ),
+                              ],
                             ],
                           ),
                           titlesData: FlTitlesData(
@@ -646,6 +753,7 @@ class _MonitoringHistoryScreenState extends State<MonitoringHistoryScreen> {
                         ),
                       ),
                     ),
+                  ),
                   ],
                 ),
               ),

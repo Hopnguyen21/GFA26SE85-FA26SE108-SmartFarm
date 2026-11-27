@@ -9,6 +9,10 @@ import '../../core/utils/user_error.dart';
 
 const _green = Color(0xFF119653);
 const _rememberedEmailKey = 'login_remembered_email';
+const _showDemoAccounts = bool.fromEnvironment(
+  'SHOW_DEMO_ACCOUNTS',
+  defaultValue: !kReleaseMode,
+);
 
 /// Màn đăng nhập, bố cục và hành vi theo trang `LoginPage` của web: khối thương hiệu xanh, form "Đăng nhập Hệ thống",
 /// ghi nhớ email, Quên mật khẩu / Đăng ký, thông báo thành công sau khi đăng ký hoặc đặt lại mật khẩu (kèm điền sẵn email),
@@ -91,6 +95,30 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {}
   }
 
+  Future<bool> _saveServerUrl({bool showConfirmation = false}) async {
+    try {
+      await ApiService.saveDebugBaseUrl(_serverCtrl.text);
+      if (mounted && showConfirmation) {
+        FocusScope.of(context).unfocus();
+        setState(() {
+          _errorMessage = null;
+          _successMessage = 'Đã lưu địa chỉ máy chủ.';
+        });
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _successMessage = null;
+          _errorMessage = error is FormatException
+              ? 'URL máy chủ không hợp lệ.'
+              : 'Không lưu được địa chỉ máy chủ.';
+        });
+      }
+      return false;
+    }
+  }
+
   Future<void> _login() async {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
@@ -102,20 +130,14 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     // Chỉ debug mới cho đổi máy chủ; release luôn dùng URL cấu hình lúc build.
-    if (!kReleaseMode && _serverCtrl.text.isNotEmpty) {
-      try {
-        ApiService.setBaseUrl(_serverCtrl.text.trim());
-      } catch (e) {
-        setState(() => _errorMessage = 'URL máy chủ không hợp lệ.');
-        return;
-      }
-    }
     setState(() {
       _isLoading = true;
       _errorMessage = null;
       _successMessage = null;
     });
     try {
+      if (!kReleaseMode && !await _saveServerUrl()) return;
+      if (!mounted) return;
       final result = await ApiService.login(email, password);
       if (!mounted) return;
       if (result != null && !result.containsKey('error')) {
@@ -736,6 +758,12 @@ class _LoginScreenState extends State<LoginScreen> {
             icon: Icons.dns_outlined,
             keyboardType: TextInputType.url,
           ),
+          TextButton(
+            onPressed: _isLoading
+                ? null
+                : () => _saveServerUrl(showConfirmation: true),
+            child: const Text('Lưu địa chỉ máy chủ'),
+          ),
           const SizedBox(height: 4),
           const Text(
             '• Android emulator: http://10.0.2.2:5144\n• Thiết bị thật (cùng WiFi): http://192.168.x.x:5144',
@@ -822,71 +850,74 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
           ),
         ),
-        // Luôn hiển thị 3 tài khoản mẫu theo yêu cầu: "để nguyên 3 nút tk mẫu"
-        const SizedBox(height: 20),
-        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-        const SizedBox(height: 14),
-        const Row(
-          children: [
-            Icon(Icons.how_to_reg, size: 14, color: _green),
-            SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'CHUYỂN NHANH VAI TRÒ (QUICK SWITCH)',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                  color: Color(0xFF94A3B8),
+        // 3 tài khoản mẫu (mật khẩu chung của dữ liệu seed): hiện ở bản debug/profile; bản release
+        // chỉ hiện khi build với --dart-define=SHOW_DEMO_ACCOUNTS=true (dùng cho buổi demo).
+        if (_showDemoAccounts) ...[
+          const SizedBox(height: 20),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 14),
+          const Row(
+            children: [
+              Icon(Icons.how_to_reg, size: 14, color: _green),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'CHUYỂN NHANH VAI TRÒ (QUICK SWITCH)',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, c) {
-            final cardWidth = c.maxWidth > 350
-                ? (c.maxWidth - 8) / 2
-                : c.maxWidth;
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _roleButton(
-                  '1. Technician',
-                  'Triển khai & Cấp phát IoT',
-                  'technician@smartfarm.demo',
-                  Icons.engineering_outlined,
-                  const Color(0xFF0369A1),
-                  const Color(0xFFF0F9FF),
-                  const Color(0xFFBAE6FD),
-                  cardWidth,
-                ),
-                _roleButton(
-                  '2. Farm Owner',
-                  'Chủ Nông trang Tenant Root',
-                  'owner@smartfarm.demo',
-                  Icons.admin_panel_settings_outlined,
-                  const Color(0xFF065F46),
-                  const Color(0xFFECFDF5),
-                  const Color(0xFFA7F3D0),
-                  cardWidth,
-                ),
-                _roleButton(
-                  '3. Farmer / Worker',
-                  'Công nhân thực địa',
-                  'farmer@smartfarm.demo',
-                  Icons.agriculture_outlined,
-                  const Color(0xFF92400E),
-                  const Color(0xFFFFFBEB),
-                  const Color(0xFFFDE68A),
-                  cardWidth,
-                ),
-              ],
-            );
-          },
-        ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, c) {
+              final cardWidth = c.maxWidth > 350
+                  ? (c.maxWidth - 8) / 2
+                  : c.maxWidth;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _roleButton(
+                    '1. Technician',
+                    'Triển khai & Cấp phát IoT',
+                    'technician@smartfarm.demo',
+                    Icons.engineering_outlined,
+                    const Color(0xFF0369A1),
+                    const Color(0xFFF0F9FF),
+                    const Color(0xFFBAE6FD),
+                    cardWidth,
+                  ),
+                  _roleButton(
+                    '2. Farm Owner',
+                    'Chủ Nông trang Tenant Root',
+                    'owner@smartfarm.demo',
+                    Icons.admin_panel_settings_outlined,
+                    const Color(0xFF065F46),
+                    const Color(0xFFECFDF5),
+                    const Color(0xFFA7F3D0),
+                    cardWidth,
+                  ),
+                  _roleButton(
+                    '3. Farmer / Worker',
+                    'Công nhân thực địa',
+                    'farmer@smartfarm.demo',
+                    Icons.agriculture_outlined,
+                    const Color(0xFF92400E),
+                    const Color(0xFFFFFBEB),
+                    const Color(0xFFFDE68A),
+                    cardWidth,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ],
     );
   }

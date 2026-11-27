@@ -41,33 +41,36 @@ void main() {
     expect(a.message, 'Thiết bị mất kết nối');
   });
 
-  test('cleanTrailingZeros loại bỏ đúng các số 0 thừa trong chuỗi thông báo cảnh báo', () {
-    const raw =
-        'Độ ẩm không khí ghi nhận mức 65.1% (vượt ngưỡng cho phép 70.000 - 80.000%). Vui lòng kiểm tra hệ thống điều hòa & tưới tiêu.';
-    final cleaned = cleanTrailingZeros(raw);
-    expect(
-      cleaned,
-      'Độ ẩm không khí ghi nhận mức 65.1% (vượt ngưỡng cho phép 70 - 80%). Vui lòng kiểm tra hệ thống điều hòa & tưới tiêu.',
-    );
+  test(
+    'cleanTrailingZeros loại bỏ đúng các số 0 thừa trong chuỗi thông báo cảnh báo',
+    () {
+      const raw =
+          'Độ ẩm không khí ghi nhận mức 65.1% (vượt ngưỡng cho phép 70.000 - 80.000%). Vui lòng kiểm tra hệ thống điều hòa & tưới tiêu.';
+      final cleaned = cleanTrailingZeros(raw);
+      expect(
+        cleaned,
+        'Độ ẩm không khí ghi nhận mức 65.1% (vượt ngưỡng cho phép 70 - 80%). Vui lòng kiểm tra hệ thống điều hòa & tưới tiêu.',
+      );
 
-    expect(cleanTrailingZeros('65.100%'), '65.1%');
-    expect(cleanTrailingZeros('70.000'), '70');
-    expect(cleanTrailingZeros('80.00'), '80');
-    expect(cleanTrailingZeros('1000'), '1000');
-    expect(cleanTrailingZeros('25.500 °C'), '25.5 °C');
+      expect(cleanTrailingZeros('65.100%'), '65.1%');
+      expect(cleanTrailingZeros('70.000'), '70');
+      expect(cleanTrailingZeros('80.00'), '80');
+      expect(cleanTrailingZeros('1000'), '1000');
+      expect(cleanTrailingZeros('25.500 °C'), '25.5 °C');
 
-    final alert = AlertModel.fromJson({
-      'alertId': 'a5',
-      'title': 'Cảnh báo 70.000',
-      'message': raw,
-    });
-    expect(alert.message, cleaned);
+      final alert = AlertModel.fromJson({
+        'alertId': 'a5',
+        'title': 'Cảnh báo 70.000',
+        'message': raw,
+      });
+      expect(alert.message, cleaned);
 
-    final notif = AppNotificationModel.fromJson({
-      'notificationId': 'n1',
-      'title': 'Cảnh báo tại Nhà Cà Chua',
-      'message': raw,
-    });
-    expect(notif.message, cleaned);
-  });
+      final notif = AppNotificationModel.fromJson({
+        'notificationId': 'n1',
+        'title': 'Cảnh báo tại Nhà Cà Chua',
+        'message': raw,
+      });
+      expect(notif.message, cleaned);
+    },
+  );
 }

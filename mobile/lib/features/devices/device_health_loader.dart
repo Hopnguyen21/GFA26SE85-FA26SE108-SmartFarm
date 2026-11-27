@@ -108,7 +108,12 @@ Future<List<DeviceHealthModel>> loadDeviceHealth(FarmProvider provider) async {
           batteryPercent: (loc?['batteryLevel'] as num?)?.toInt(),
           deviceId: '${d['deviceId']}',
           zoneId: '${d['zoneId'] ?? ''}'.isEmpty ? null : '${d['zoneId']}',
-          loraAddress: (d['loRaAddress'] ?? d['loraAddress'] ?? loc?['loRaAddress'] ?? loc?['loraAddress']) as int?,
+          loraAddress:
+              (d['loRaAddress'] ??
+                      d['loraAddress'] ??
+                      loc?['loRaAddress'] ??
+                      loc?['loraAddress'])
+                  as int?,
         ),
       );
     }

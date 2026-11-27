@@ -18,6 +18,7 @@ String? validateNewFarmInput({
   required double? lat,
   required double? lng,
   required String address,
+  String? areaText,
 }) {
   if (!pinConfirmed || !isValidLatLng(lat, lng)) {
     return 'Chưa chọn vị trí trang trại. Kéo/chạm bản đồ hoặc dùng nút tìm kiếm để đặt ghim.';
@@ -25,7 +26,20 @@ String? validateNewFarmInput({
   if (address.trim().isEmpty) {
     return 'Nhập địa chỉ thực địa hoặc bấm "Lấy tên địa điểm từ ghim". Bạn có thể nhập tay khi không lấy được tên.';
   }
+  // Tổng diện tích do người dùng nhập (không tự gán): backend dùng nó để chặn thửa đất vượt diện tích trang trại.
+  if (areaText != null) {
+    final a = parseAreaM2(areaText);
+    if (a == null || a <= 0)
+      return 'Nhập tổng diện tích trang trại (m²) lớn hơn 0.';
+  }
   return null;
+}
+
+/// Đọc số m² người dùng gõ ("12000", "12.000", "1,5"): dấu chấm ngăn nghìn khi theo sau là đúng 3 chữ số.
+double? parseAreaM2(String text) {
+  var t = text.trim().replaceAll(' ', '');
+  if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(t)) t = t.replaceAll('.', '');
+  return double.tryParse(t.replaceAll(',', '.'));
 }
 
 /// Gợi ý tên Farm theo khu vực của bản đồ, nhưng không bao giờ ghi đè tên người dùng đã nhập.
@@ -66,6 +80,9 @@ class FarmCreateDraft extends ChangeNotifier {
   final int nextNum;
   final TextEditingController nameCtrl = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
+
+  /// Tổng diện tích trang trại (m²) người dùng nhập; trống cho tới khi nhập (không gán sẵn con số).
+  final TextEditingController areaCtrl = TextEditingController();
   late final AddressAutofill addressSync = AddressAutofill(addressCtrl);
   late final FarmNameAutofill nameSync = FarmNameAutofill(nameCtrl);
 
@@ -100,13 +117,11 @@ class FarmCreateDraft extends ChangeNotifier {
     lat: pinConfirmed ? lat : null,
     lng: pinConfirmed ? lng : null,
     address: addressCtrl.text,
+    areaText: areaCtrl.text,
   );
 
   /// Kiểm tra rồi gửi. Gọi lặp trong lúc đang gửi sẽ bị bỏ qua (trả null).
-  Future<FarmCreateOutcome?> submit(
-    FarmProvider provider, {
-    required double totalAreaM2,
-  }) async {
+  Future<FarmCreateOutcome?> submit(FarmProvider provider) async {
     if (submitting) return null;
     final err = validate();
     if (err != null) return FarmCreateOutcome.invalid(err);
@@ -116,7 +131,7 @@ class FarmCreateDraft extends ChangeNotifier {
       final r = await provider.createFarm(
         name: effectiveName,
         address: addressCtrl.text.trim(),
-        totalAreaM2: totalAreaM2,
+        totalAreaM2: parseAreaM2(areaCtrl.text)!,
         latitude: lat,
         longitude: lng,
       );
@@ -161,7 +176,6 @@ Future<void> runFarmCreate({
   required ScaffoldMessengerState messenger,
   required FarmProvider provider,
   required FarmCreateDraft draft,
-  required double totalAreaM2,
 }) async {
   if (draft.submitting) return;
   void snack(String text, {Color? color, SnackBarAction? action}) =>
@@ -180,7 +194,7 @@ Future<void> runFarmCreate({
     return;
   }
   final name = draft.effectiveName;
-  final outcome = await draft.submit(provider, totalAreaM2: totalAreaM2);
+  final outcome = await draft.submit(provider);
   if (outcome == null) return;
   if (outcome.validationError != null) {
     snack(outcome.validationError!, color: const Color(0xFFB45309));
@@ -217,3 +231,20 @@ String farmCreateIntro(FarmProvider p) {
       ? 'Khởi tạo cơ sở sản xuất mới.'
       : 'Khởi tạo cơ sở sản xuất mới thuộc tổ chức $t.';
 }
+
+/// Ô nhập tổng diện tích trang trại (bắt buộc) dùng chung cho hai form tạo Farm.
+Widget farmAreaField(FarmCreateDraft d) => Padding(
+  padding: const EdgeInsets.only(top: 12),
+  child: TextField(
+    key: const ValueKey('farm-total-area'),
+    controller: d.areaCtrl,
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    style: const TextStyle(fontSize: 13),
+    decoration: InputDecoration(
+      labelText: 'Tổng diện tích trang trại (m²) *',
+      hintText: 'Ví dụ: 20000 (= 2 ha)',
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+  ),
+);

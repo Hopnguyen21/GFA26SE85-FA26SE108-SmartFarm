@@ -340,7 +340,7 @@ abstract final class DeploymentApi {
   // Cấp phát Gateway tay (`POST /gateways`) đã bị backend tắt (410): dùng getGatewayEnrollmentByHardware + activateGatewayEnrollment.
 
   static Future<List<IotDevice>> provisionDevices({
-    required String deploymentRequestId,
+    String? deploymentRequestId,
     required String gatewayId,
     required String farmId,
     required List<Map<String, dynamic>> nodes,
@@ -350,7 +350,9 @@ abstract final class DeploymentApi {
               await ApiService._postWithAuth(
                 '${ApiService.baseUrl}/api/v1/devices/provision',
                 {
-                  'deploymentRequestId': deploymentRequestId,
+                  if (deploymentRequestId != null &&
+                      deploymentRequestId.isNotEmpty)
+                    'deploymentRequestId': deploymentRequestId,
                   'gatewayId': gatewayId,
                   'farmId': farmId,
                   'nodes': nodes,
@@ -399,18 +401,6 @@ abstract final class DeploymentApi {
     ApiService._decodeOrThrow(
           await ApiService._getWithAuth(
             '${ApiService.baseUrl}/api/v1/gateways/$gatewayId/firmware-config',
-          ),
-        )
-        as Map,
-  );
-
-  static Future<Map<String, dynamic>> simulateGatewayConnection(
-    String gatewayId,
-  ) async => Map<String, dynamic>.from(
-    ApiService._decodeOrThrow(
-          await ApiService._postWithAuth(
-            '${ApiService.baseUrl}/api/v1/gateways/$gatewayId/simulate-connection',
-            {},
           ),
         )
         as Map,
@@ -608,7 +598,7 @@ abstract final class DeploymentApi {
   static Future<Map<String, dynamic>> activateGatewayEnrollment(
     String enrollmentId, {
     required String farmId,
-    required String deploymentRequestId,
+    String? deploymentRequestId,
     String frequencyBand = '433MHz',
   }) async => Map<String, dynamic>.from(
     ApiService._decodeOrThrow(
@@ -616,9 +606,79 @@ abstract final class DeploymentApi {
             '${ApiService.baseUrl}/api/v1/gateway-enrollment/$enrollmentId/activate',
             {
               'farmId': farmId,
-              'deploymentRequestId': deploymentRequestId,
+              if (deploymentRequestId != null && deploymentRequestId.isNotEmpty)
+                'deploymentRequestId': deploymentRequestId,
               'frequencyBand': frequencyBand,
             },
+          ),
+        )
+        as Map,
+  );
+
+  /// Lên lịch cập nhật firmware OTA cho Gateway (PUT /gateways/{gatewayId}/firmware)
+  static Future<Map<String, dynamic>> scheduleGatewayFirmware(
+    String gatewayId, {
+    required String firmwareReleaseId,
+    DateTime? scheduledAtUtc,
+  }) async => Map<String, dynamic>.from(
+    ApiService._decodeOrThrow(
+          await ApiService._putWithAuth(
+            '${ApiService.baseUrl}/api/v1/gateways/$gatewayId/firmware',
+            {
+              'firmwareReleaseId': firmwareReleaseId,
+              'scheduledAtUtc': (scheduledAtUtc ?? DateTime.now().toUtc())
+                  .toIso8601String(),
+            },
+          ),
+        )
+        as Map,
+  );
+
+  /// Lấy thông tin công việc nạp firmware OTA gần nhất của Gateway (GET /gateways/{gatewayId}/firmware-job)
+  static Future<FirmwareJob?> getLatestGatewayFirmwareJob(
+    String gatewayId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/gateways/$gatewayId/firmware-job',
+    );
+    if (resp == null || resp.statusCode == 204 || resp.body.trim().isEmpty) {
+      return null;
+    }
+    final decoded = ApiService._decodeOrThrow(resp);
+    if (decoded is Map<String, dynamic>) {
+      return FirmwareJob.fromJson(decoded);
+    }
+    return null;
+  }
+
+  /// Danh sách các bản phát hành firmware đã duyệt (GET /technician/firmware/releases)
+  static Future<List<FirmwareRelease>> listApprovedFirmwareReleases() async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/technician/firmware/releases',
+    );
+    if (resp == null || resp.statusCode == 204 || resp.body.trim().isEmpty) {
+      return [];
+    }
+    final decoded = ApiService._decodeOrThrow(resp);
+    if (decoded is List) {
+      return decoded
+          .map(
+            (e) =>
+                FirmwareRelease.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList();
+    }
+    return [];
+  }
+
+  /// Thử lại công việc nạp firmware OTA cho Gateway (POST /gateways/{gatewayId}/firmware/retry)
+  static Future<Map<String, dynamic>> retryGatewayFirmware(
+    String gatewayId,
+  ) async => Map<String, dynamic>.from(
+    ApiService._decodeOrThrow(
+          await ApiService._postWithAuth(
+            '${ApiService.baseUrl}/api/v1/gateways/$gatewayId/firmware/retry',
+            {},
           ),
         )
         as Map,
@@ -631,35 +691,51 @@ abstract final class DeploymentApi {
     required String chipId,
     String? gatewaySerial,
     String bootstrapFirmwareVersion = 'sim-1.0.0',
-  }) async => Map<String, dynamic>.from(
-    ApiService._decodeOrThrow(
-          await ApiService._postWithAuth(
-            '${ApiService.baseUrl}/api/v1/gateway-enrollment/auto',
-            {
-              'macAddress': macAddress,
-              'chipId': chipId,
-              'gatewaySerial': ?gatewaySerial,
-              'bootstrapFirmwareVersion': bootstrapFirmwareVersion,
-            },
-          ),
-        )
-        as Map,
-  );
+  }) async {
+    _assertSimulationAllowed();
+    return Map<String, dynamic>.from(
+      ApiService._decodeOrThrow(
+            await ApiService._postWithAuth(
+              '${ApiService.baseUrl}/api/v1/gateway-enrollment/auto',
+              {
+                'macAddress': macAddress,
+                'chipId': chipId,
+                'gatewaySerial': ?gatewaySerial,
+                'bootstrapFirmwareVersion': bootstrapFirmwareVersion,
+              },
+            ),
+          )
+          as Map,
+    );
+  }
 
   /// MÔ PHỎNG Gateway ở backend (chỉ môi trường bật SimulatedIot:Enabled; nơi khác trả 404): dựng Gateway mô phỏng trong kho KTV rồi
   /// tự đăng ký + kích hoạt cho yêu cầu. Dùng khi KTV chưa được Admin giao Gateway nào và cũng chưa có phần cứng thật.
   static Future<Map<String, dynamic>> simulateGatewayOnBackend({
     required String farmId,
     required String deploymentRequestId,
-  }) async => Map<String, dynamic>.from(
-    ApiService._decodeOrThrow(
-          await ApiService._postWithAuth(
-            '${ApiService.baseUrl}/api/v1/gateway-enrollment/simulate',
-            {'farmId': farmId, 'deploymentRequestId': deploymentRequestId},
-          ),
-        )
-        as Map,
-  );
+  }) async {
+    _assertSimulationAllowed();
+    return Map<String, dynamic>.from(
+      ApiService._decodeOrThrow(
+            await ApiService._postWithAuth(
+              '${ApiService.baseUrl}/api/v1/gateway-enrollment/simulate',
+              {'farmId': farmId, 'deploymentRequestId': deploymentRequestId},
+            ),
+          )
+          as Map,
+    );
+  }
+
+  /// Mô phỏng Gateway chỉ dùng khi phát triển/demo: bản release chặn, trừ khi build với
+  /// --dart-define=ALLOW_GATEWAY_SIMULATION=true.
+  static void _assertSimulationAllowed() {
+    if (!kAllowGatewaySimulation) {
+      throw UnsupportedApiException(
+        'Bản phát hành không cho mô phỏng Gateway. Hãy cấp nguồn Gateway thật để thiết bị tự đăng ký.',
+      );
+    }
+  }
 
   // ── Chuẩn bị phần cứng (màn Kho & chuẩn bị thiết bị của KTV) ──
   static Future<List<Map<String, dynamic>>> listHardwarePreparations() async =>
@@ -670,15 +746,6 @@ abstract final class DeploymentApi {
           ),
         ),
       );
-
-  static Future<List<Map<String, dynamic>>>
-  listApprovedFirmwareReleases() async => ApiService._listOf(
-    ApiService._decodeOrThrow(
-      await ApiService._getWithAuth(
-        '${ApiService.baseUrl}/api/v1/technician/firmware/releases',
-      ),
-    ),
-  );
 
   static Future<Map<String, dynamic>> _postMap(
     String path,

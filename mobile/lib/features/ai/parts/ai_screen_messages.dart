@@ -14,65 +14,143 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
 
   Widget _buildMessage(ChatMessageModel msg, FarmProvider provider) {
     final width = MediaQuery.of(context).size.width;
+    final isWarn = msg.id.startsWith('ai-warn') || msg.id.startsWith('ai-err');
     return Row(
       mainAxisAlignment: msg.isUser
           ? MainAxisAlignment.end
           : MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!msg.isUser) ...[_botAvatar(), const SizedBox(width: 8)],
+        if (!msg.isUser) ...[
+          isWarn
+              ? Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF59E0B),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                )
+              : _botAvatar(),
+          const SizedBox(width: 8),
+        ],
         Flexible(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: width * 0.88),
-            child: Container(
-              padding: msg.isUser
-                  ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)
-                  : const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: msg.isUser ? _kAiGreen : Colors.white,
-                borderRadius: BorderRadius.circular(16).copyWith(
-                  bottomRight: msg.isUser ? const Radius.circular(4) : null,
-                  bottomLeft: !msg.isUser ? const Radius.circular(4) : null,
-                ),
-                border: Border.all(
-                  color: msg.isUser
-                      ? Colors.transparent
-                      : const Color(0xFFE2E8F0),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    cleanTechnicalIds(msg.text),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: msg.isUser
-                          ? Colors.white
-                          : const Color(0xFF1E293B),
-                      height: 1.45,
+            child: GestureDetector(
+              onLongPress: () {
+                final cleaned = cleanTechnicalIds(msg.text);
+                if (cleaned.isNotEmpty) {
+                  Clipboard.setData(ClipboardData(text: cleaned));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đã sao chép nội dung tin nhắn'),
+                      duration: Duration(seconds: 2),
                     ),
+                  );
+                }
+              },
+              child: Container(
+                padding: msg.isUser
+                    ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)
+                    : const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: msg.isUser
+                      ? _kAiGreen
+                      : isWarn
+                          ? const Color(0xFFFFFBEB)
+                          : Colors.white,
+                  borderRadius: BorderRadius.circular(16).copyWith(
+                    bottomRight: msg.isUser ? const Radius.circular(4) : null,
+                    bottomLeft: !msg.isUser ? const Radius.circular(4) : null,
                   ),
-                  if (msg.recommendation != null)
-                    _recCard(provider, msg.recommendation!),
-                  if (!msg.isUser &&
-                      msg.sources != null &&
-                      msg.sources!.isNotEmpty)
-                    _RagSourcesAccordion(sources: msg.sources!),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Text(
-                      msg.time,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: msg.isUser
-                            ? const Color(0xFFD1FAE5)
-                            : const Color(0xFF94A3B8),
+                  border: Border.all(
+                    color: msg.isUser
+                        ? Colors.transparent
+                        : isWarn
+                            ? const Color(0xFFFDE68A)
+                            : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: parseAiMarkdownSpans(
+                          cleanTechnicalIds(msg.text),
+                          TextStyle(
+                            fontSize: 14,
+                            color: msg.isUser
+                                ? Colors.white
+                                : isWarn
+                                    ? const Color(0xFF92400E)
+                                    : const Color(0xFF1E293B),
+                            height: 1.45,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    if (msg.recommendation != null)
+                      _recCard(provider, msg.recommendation!),
+                    if (!msg.isUser &&
+                        msg.sources != null &&
+                        msg.sources!.isNotEmpty)
+                      _RagSourcesAccordion(sources: msg.sources!),
+                    if (!msg.isUser) _payloadButton(context, msg),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!msg.isUser)
+                            InkWell(
+                              onTap: () {
+                                Clipboard.setData(
+                                  ClipboardData(
+                                    text: cleanTechnicalIds(msg.text),
+                                  ),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Đã sao chép nội dung tư vấn'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(4),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
+                                child: Icon(
+                                  Icons.copy_rounded,
+                                  size: 13,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ),
+                          Text(
+                            msg.time,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: msg.isUser
+                                  ? const Color(0xFFD1FAE5)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -232,6 +310,33 @@ extension _AiAssistantScreenStateMessages on _AiAssistantScreenState {
   }
 
   /// Thẻ "Đề xuất giải pháp" nằm trong tin nhắn AI.
+  /// Nút "Dữ liệu AI đã dùng" dưới câu trả lời có kèm dữ liệu backend gửi cho AI (cảm biến, ngưỡng, RAG, prompt).
+  Widget _payloadButton(BuildContext context, ChatMessageModel msg) {
+    final snap = AiPayloadSnapshot.tryParse(msg.contextSnapshotJson);
+    if (snap == null || snap.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: ValueKey('ai-payload-${msg.id}'),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            foregroundColor: const Color(0xFF047857),
+            backgroundColor: const Color(0xFFECFDF5),
+          ),
+          onPressed: () => AiPayloadSheet.show(context, snap),
+          icon: const Icon(Icons.terminal, size: 14),
+          label: Text(
+            'Dữ liệu AI đã dùng · ${snap.summary}',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _recCard(FarmProvider provider, AiRecCard rec) {
     return Container(
       width: double.infinity,

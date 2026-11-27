@@ -73,9 +73,7 @@ abstract final class ReportApi {
   }
 
   /// Tải tệp Excel báo cáo mùa vụ của Zone (GET /api/v1/zones/{zoneId}/report/season-summary/excel).
-  static Future<Uint8List> downloadZoneSeasonReportExcel(
-    String zoneId,
-  ) async {
+  static Future<Uint8List> downloadZoneSeasonReportExcel(String zoneId) async {
     final resp = await ApiService._getWithAuth(
       '${ApiService.baseUrl}/api/v1/zones/$zoneId/report/season-summary/excel',
       timeout: const Duration(seconds: 60),

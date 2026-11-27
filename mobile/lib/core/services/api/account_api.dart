@@ -103,7 +103,7 @@ abstract final class AccountApi {
   }
 
   // ─── Mật khẩu tài khoản ─────────────────────────────────────────────
-  // Backend hiện CHƯA có các endpoint này (404/405/501 → UnsupportedApiException), app không giả lập thành công.
+  // Backend hỗ trợ đầy đủ các endpoint: POST /auth/forgot-password, POST /auth/reset-password, PUT /users/me/password
   static Never _throwPasswordError(http.Response? resp) {
     final code = resp?.statusCode;
     if (code == 404 || code == 405 || code == 501) {
@@ -141,6 +141,7 @@ abstract final class AccountApi {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'email': email,
+            'otp': token,
             'token': token,
             'newPassword': newPassword,
           }),

@@ -7,18 +7,18 @@ import 'package:smartfarm_mobile/features/farmer/farmer_dashboard_screen.dart';
 import 'package:smartfarm_mobile/features/tasks/widgets/task_actions.dart';
 
 ZoneModel _zone(String id, String name) => ZoneModel(
-      zoneId: id,
-      farmId: 'farm1',
-      name: name,
-      currentCrop: 'Dưa lưới',
-      currentStage: 'Phát triển thân lá',
-      areaM2: 800,
-      currentSoilMoisture: 65,
-      currentTemp: 27,
-      currentHumidity: 72,
-      currentLux: 600,
-      telemetryIsFresh: true,
-    );
+  zoneId: id,
+  farmId: 'farm1',
+  name: name,
+  currentCrop: 'Dưa lưới',
+  currentStage: 'Phát triển thân lá',
+  areaM2: 800,
+  currentSoilMoisture: 65,
+  currentTemp: 27,
+  currentHumidity: 72,
+  currentLux: 600,
+  telemetryIsFresh: true,
+);
 
 TaskModel _createTask({
   required String id,
@@ -72,7 +72,10 @@ FarmProvider _setupProvider({required String role}) {
   return provider;
 }
 
-Future<void> _pumpFarmerDashboard(WidgetTester tester, FarmProvider provider) async {
+Future<void> _pumpFarmerDashboard(
+  WidgetTester tester,
+  FarmProvider provider,
+) async {
   tester.view.physicalSize = const Size(420, 2400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -113,61 +116,64 @@ Future<void> _pumpTaskActions(
 
 void main() {
   group('TaskModel & TaskAssignmentModel JSON Deserialization', () {
-    test('Parse đầy đủ các trường mới: requirements, progressNote, failureReason', () {
-      final json = {
-        'id': 't100',
-        'title': 'Cắt tỉa cành thừa',
-        'description': 'Tỉa nhánh phụ phía dưới gốc',
-        'requirements': 'Dùng kéo vô trùng, đeo găng tay',
-        'status': 'InProgress',
-        'dueAtUtc': '2026-11-25T17:00:00Z',
-        'assignments': [
-          {
-            'farmerId': 'f101',
-            'farmerName': 'Trần Văn B',
-            'status': 'InProgress',
-            'progressPercent': 45,
-            'progressNote': 'Đã tỉa xong 4 luống đầu',
-            'result': null,
-            'failureReason': null,
-          },
-          {
-            'farmerId': 'f102',
-            'farmerName': 'Lê Văn C',
-            'status': 'Declined',
-            'progressPercent': 0,
-            'progressNote': null,
-            'result': null,
-            'failureReason': 'Trùng ca thu hoạch nhà màng 2',
-          },
-        ],
-      };
+    test(
+      'Parse đầy đủ các trường mới: requirements, progressNote, failureReason',
+      () {
+        final json = {
+          'id': 't100',
+          'title': 'Cắt tỉa cành thừa',
+          'description': 'Tỉa nhánh phụ phía dưới gốc',
+          'requirements': 'Dùng kéo vô trùng, đeo găng tay',
+          'status': 'InProgress',
+          'dueAtUtc': '2026-11-25T17:00:00Z',
+          'assignments': [
+            {
+              'farmerId': 'f101',
+              'farmerName': 'Trần Văn B',
+              'status': 'InProgress',
+              'progressPercent': 45,
+              'progressNote': 'Đã tỉa xong 4 luống đầu',
+              'result': null,
+              'failureReason': null,
+            },
+            {
+              'farmerId': 'f102',
+              'farmerName': 'Lê Văn C',
+              'status': 'Declined',
+              'progressPercent': 0,
+              'progressNote': null,
+              'result': null,
+              'failureReason': 'Trùng ca thu hoạch nhà màng 2',
+            },
+          ],
+        };
 
-      final task = TaskModel.fromJson(json);
+        final task = TaskModel.fromJson(json);
 
-      expect(task.taskId, 't100');
-      expect(task.title, 'Cắt tỉa cành thừa');
-      expect(task.description, 'Tỉa nhánh phụ phía dưới gốc');
-      expect(task.requirements, 'Dùng kéo vô trùng, đeo găng tay');
-      expect(task.status, 'InProgress');
-      expect(task.assignments.length, 2);
+        expect(task.taskId, 't100');
+        expect(task.title, 'Cắt tỉa cành thừa');
+        expect(task.description, 'Tỉa nhánh phụ phía dưới gốc');
+        expect(task.requirements, 'Dùng kéo vô trùng, đeo găng tay');
+        expect(task.status, 'InProgress');
+        expect(task.assignments.length, 2);
 
-      final a1 = task.assignments[0];
-      expect(a1.farmerId, 'f101');
-      expect(a1.farmerName, 'Trần Văn B');
-      expect(a1.status, 'InProgress');
-      expect(a1.progressPercent, 45);
-      expect(a1.progressNote, 'Đã tỉa xong 4 luống đầu');
-      expect(a1.result, isNull);
-      expect(a1.failureReason, isNull);
+        final a1 = task.assignments[0];
+        expect(a1.farmerId, 'f101');
+        expect(a1.farmerName, 'Trần Văn B');
+        expect(a1.status, 'InProgress');
+        expect(a1.progressPercent, 45);
+        expect(a1.progressNote, 'Đã tỉa xong 4 luống đầu');
+        expect(a1.result, isNull);
+        expect(a1.failureReason, isNull);
 
-      final a2 = task.assignments[1];
-      expect(a2.farmerId, 'f102');
-      expect(a2.farmerName, 'Lê Văn C');
-      expect(a2.status, 'Declined');
-      expect(a2.progressPercent, 0);
-      expect(a2.failureReason, 'Trùng ca thu hoạch nhà màng 2');
-    });
+        final a2 = task.assignments[1];
+        expect(a2.farmerId, 'f102');
+        expect(a2.farmerName, 'Lê Văn C');
+        expect(a2.status, 'Declined');
+        expect(a2.progressPercent, 0);
+        expect(a2.failureReason, 'Trùng ca thu hoạch nhà màng 2');
+      },
+    );
 
     test('Xử lý an toàn khi các trường mới bị null hoặc khuyết', () {
       final json = {
@@ -175,11 +181,7 @@ void main() {
         'title': 'Tưới phân NPK đợt 1',
         'status': 'Pending',
         'assignments': [
-          {
-            'farmerId': 'f103',
-            'farmerName': 'Phạm D',
-            'status': 'Pending',
-          },
+          {'farmerId': 'f103', 'farmerName': 'Phạm D', 'status': 'Pending'},
         ],
       };
 
@@ -193,7 +195,9 @@ void main() {
   });
 
   group('Farmer Dashboard Task Display & Web Parity', () {
-    testWidgets('Hiển thị yêu cầu kỹ thuật, tiến độ %, ghi chú và kết quả nộp', (tester) async {
+    testWidgets('Hiển thị yêu cầu kỹ thuật, tiến độ %, ghi chú và kết quả nộp', (
+      tester,
+    ) async {
       final provider = _setupProvider(role: 'FARMER');
       final task = _createTask(
         id: 't_review',
@@ -217,25 +221,35 @@ void main() {
       expect(find.text('Đã nộp, chờ chủ trang trại duyệt'), findsOneWidget);
 
       // Kiểm tra ô yêu cầu kỹ thuật
-      expect(find.text('Yêu cầu: Kiểm tra mặt dưới lá bánh tẻ'), findsOneWidget);
+      expect(
+        find.text('Yêu cầu: Kiểm tra mặt dưới lá bánh tẻ'),
+        findsOneWidget,
+      );
 
       // Kiểm tra thanh tiến độ 100%
       expect(find.text('100%'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
       // Kiểm tra ghi chú tiến độ
-      expect(find.text('Ghi chú tiến độ: Đã hoàn tất toàn bộ khu vực'), findsOneWidget);
+      expect(
+        find.text('Ghi chú tiến độ: Đã hoàn tất toàn bộ khu vực'),
+        findsOneWidget,
+      );
 
       // Kiểm tra kết quả đã nộp
       expect(
-        find.text('Kết quả đã nộp: Đã buộc 20 hàng cây thẳng đứng, không phát hiện bọ trĩ.'),
+        find.text(
+          'Kết quả đã nộp: Đã buộc 20 hàng cây thẳng đứng, không phát hiện bọ trĩ.',
+        ),
         findsOneWidget,
       );
 
       provider.dispose();
     });
 
-    testWidgets('Hiển thị lý do từ chối hoặc thất bại khi có failureReason', (tester) async {
+    testWidgets('Hiển thị lý do từ chối hoặc thất bại khi có failureReason', (
+      tester,
+    ) async {
       final provider = _setupProvider(role: 'FARMER');
       final taskFailed = _createTask(
         id: 't_failed',
@@ -250,14 +264,19 @@ void main() {
       // Mặc định ở tab "Cần làm"
       expect(find.text('Phun thuốc phòng nấm phấn trắng'), findsOneWidget);
       expect(find.text('Bạn báo không hoàn thành'), findsOneWidget);
-      expect(find.text('Lý do: Trời mưa to đột xuất, nước ngập lối đi'), findsOneWidget);
+      expect(
+        find.text('Lý do: Trời mưa to đột xuất, nước ngập lối đi'),
+        findsOneWidget,
+      );
 
       provider.dispose();
     });
   });
 
   group('Farmer Task Dialogs & Workflow Actions', () {
-    testWidgets('Từ chối công việc: mở dialog, nhập lý do và đóng dialog', (tester) async {
+    testWidgets('Từ chối công việc: mở dialog, nhập lý do và đóng dialog', (
+      tester,
+    ) async {
       final provider = _setupProvider(role: 'FARMER');
       final task = _createTask(
         id: 't_pending',
@@ -283,7 +302,10 @@ void main() {
 
       // Nhập lý do
       await tester.enterText(
-        find.widgetWithText(TextField, 'Nhập lý do bạn không thể nhận công việc này...'),
+        find.widgetWithText(
+          TextField,
+          'Nhập lý do bạn không thể nhận công việc này...',
+        ),
         'Bận ca trực tưới khu B',
       );
       await tester.pump();
@@ -299,7 +321,9 @@ void main() {
       provider.dispose();
     });
 
-    testWidgets('Báo không thể hoàn thành: validate bắt buộc nhập lý do', (tester) async {
+    testWidgets('Báo không thể hoàn thành: validate bắt buộc nhập lý do', (
+      tester,
+    ) async {
       final provider = _setupProvider(role: 'FARMER');
       final task = _createTask(
         id: 't_accepted',
@@ -324,11 +348,17 @@ void main() {
       // Bấm gửi khi chưa nhập gì -> Hiển thị thông báo lỗi xác thực
       await tester.tap(find.text('Gửi báo cáo'));
       await tester.pump();
-      expect(find.text('Vui lòng nhập lý do không thể hoàn thành.'), findsOneWidget);
+      expect(
+        find.text('Vui lòng nhập lý do không thể hoàn thành.'),
+        findsOneWidget,
+      );
 
       // Nhập lý do
       await tester.enterText(
-        find.widgetWithText(TextField, 'Mô tả trở ngại, sự cố thiết bị, thời tiết...'),
+        find.widgetWithText(
+          TextField,
+          'Mô tả trở ngại, sự cố thiết bị, thời tiết...',
+        ),
         'Kho hết bẫy dính màu vàng',
       );
       await tester.pump();
@@ -341,7 +371,9 @@ void main() {
       provider.dispose();
     });
 
-    testWidgets('Cập nhật tiến độ: hiển thị Slider và ô nhập ghi chú tiến độ', (tester) async {
+    testWidgets('Cập nhật tiến độ: hiển thị Slider và ô nhập ghi chú tiến độ', (
+      tester,
+    ) async {
       final provider = _setupProvider(role: 'FARMER');
       final task = _createTask(
         id: 't_in_progress',
@@ -377,7 +409,9 @@ void main() {
       provider.dispose();
     });
 
-    testWidgets('Nộp kết quả: validate bắt buộc nhập mô tả kết quả', (tester) async {
+    testWidgets('Nộp kết quả: validate bắt buộc nhập mô tả kết quả', (
+      tester,
+    ) async {
       final provider = _setupProvider(role: 'FARMER');
       final task = _createTask(
         id: 't_complete_test',
@@ -402,7 +436,10 @@ void main() {
 
       // Nhập nội dung
       await tester.enterText(
-        find.widgetWithText(TextField, 'Ví dụ: Đã kiểm tra xong toàn bộ đầu vòi phun sương, vệ sinh 1 vòi nghẹt, cây phát triển đồng đều...'),
+        find.widgetWithText(
+          TextField,
+          'Ví dụ: Đã kiểm tra xong toàn bộ đầu vòi phun sương, vệ sinh 1 vòi nghẹt, cây phát triển đồng đều...',
+        ),
         'Đã vệ sinh 3 đầu cảm biến trong nhà màng, số đo gửi về bình thường.',
       );
       await tester.pump();
@@ -417,74 +454,91 @@ void main() {
   });
 
   group('TaskActions Widget: Owner & Farmer Views', () {
-    testWidgets('Giao diện Chủ trang trại (Owner): hiển thị thẻ phân công con, tiến độ và nút Duyệt kết quả', (tester) async {
-      final provider = _setupProvider(role: 'OWNER');
-      final multiAssignTask = TaskModel(
-        taskId: 't_multi',
-        title: 'Thu hoạch cà chua đợt 2',
-        zoneName: 'Khu A',
-        priority: 'Khẩn cấp',
-        dueDate: '22/11/2026',
-        status: 'InProgress',
-        assignments: [
-          const TaskAssignmentModel(
-            farmerId: 'f1',
-            farmerName: 'Nguyễn Văn A',
-            status: 'CompletedPendingReview',
-            progressPercent: 100,
-            progressNote: 'Thu xong 10 giỏ',
-            result: 'Đã thu hoạch 150kg cà chua chín đều.',
-          ),
-          const TaskAssignmentModel(
-            farmerId: 'f2',
-            farmerName: 'Lê Thị B',
-            status: 'InProgress',
-            progressPercent: 60,
-            progressNote: 'Đang xếp giỏ số 7',
-          ),
-        ],
-      );
+    testWidgets(
+      'Giao diện Chủ trang trại (Owner): hiển thị thẻ phân công con, tiến độ và nút Duyệt kết quả',
+      (tester) async {
+        final provider = _setupProvider(role: 'OWNER');
+        final multiAssignTask = TaskModel(
+          taskId: 't_multi',
+          title: 'Thu hoạch cà chua đợt 2',
+          zoneName: 'Khu A',
+          priority: 'Khẩn cấp',
+          dueDate: '22/11/2026',
+          status: 'InProgress',
+          assignments: [
+            const TaskAssignmentModel(
+              farmerId: 'f1',
+              farmerName: 'Nguyễn Văn A',
+              status: 'CompletedPendingReview',
+              progressPercent: 100,
+              progressNote: 'Thu xong 10 giỏ',
+              result: 'Đã thu hoạch 150kg cà chua chín đều.',
+            ),
+            const TaskAssignmentModel(
+              farmerId: 'f2',
+              farmerName: 'Lê Thị B',
+              status: 'InProgress',
+              progressPercent: 60,
+              progressNote: 'Đang xếp giỏ số 7',
+            ),
+          ],
+        );
 
-      await _pumpTaskActions(tester, provider, multiAssignTask, isOwner: true);
+        await _pumpTaskActions(
+          tester,
+          provider,
+          multiAssignTask,
+          isOwner: true,
+        );
 
-      // Hiển thị tên nhân công
-      expect(find.text('Nguyễn Văn A'), findsOneWidget);
-      expect(find.text('Lê Thị B'), findsOneWidget);
+        // Hiển thị tên nhân công
+        expect(find.text('Nguyễn Văn A'), findsOneWidget);
+        expect(find.text('Lê Thị B'), findsOneWidget);
 
-      // Thẻ Nguyễn Văn A có nút "Duyệt kết quả" vì trạng thái là CompletedPendingReview
-      expect(find.text('Duyệt kết quả'), findsOneWidget);
-      expect(find.text('Kết quả: Đã thu hoạch 150kg cà chua chín đều.'), findsOneWidget);
+        // Thẻ Nguyễn Văn A có nút "Duyệt kết quả" vì trạng thái là CompletedPendingReview
+        expect(find.text('Duyệt kết quả'), findsOneWidget);
+        expect(
+          find.text('Kết quả: Đã thu hoạch 150kg cà chua chín đều.'),
+          findsOneWidget,
+        );
 
-      // Hiển thị tiến độ của cả 2 nhân công
-      expect(find.text('100%'), findsOneWidget);
-      expect(find.text('60%'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
+        // Hiển thị tiến độ của cả 2 nhân công
+        expect(find.text('100%'), findsOneWidget);
+        expect(find.text('60%'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
 
-      // Nút quản lý người thực hiện
-      expect(find.text('Người thực hiện'), findsOneWidget);
+        // Nút quản lý người thực hiện
+        expect(find.text('Người thực hiện'), findsOneWidget);
 
-      provider.dispose();
-    });
+        provider.dispose();
+      },
+    );
 
-    testWidgets('Giao diện Nông dân (Farmer): hiển thị tiến độ cá nhân và nút hành động', (tester) async {
-      final provider = _setupProvider(role: 'FARMER');
-      final farmerTask = _createTask(
-        id: 't_action_farmer',
-        status: 'InProgress',
-        progressPercent: 75,
-        progressNote: 'Xong 3/4 diện tích',
-      );
+    testWidgets(
+      'Giao diện Nông dân (Farmer): hiển thị tiến độ cá nhân và nút hành động',
+      (tester) async {
+        final provider = _setupProvider(role: 'FARMER');
+        final farmerTask = _createTask(
+          id: 't_action_farmer',
+          status: 'InProgress',
+          progressPercent: 75,
+          progressNote: 'Xong 3/4 diện tích',
+        );
 
-      await _pumpTaskActions(tester, provider, farmerTask, isOwner: false);
+        await _pumpTaskActions(tester, provider, farmerTask, isOwner: false);
 
-      expect(find.text('Đang thực hiện'), findsOneWidget);
-      expect(find.text('75%'), findsOneWidget);
-      expect(find.text('Ghi chú tiến độ: Xong 3/4 diện tích'), findsOneWidget);
-      expect(find.text('Nộp kết quả'), findsOneWidget);
-      expect(find.text('Cập nhật %'), findsOneWidget);
-      expect(find.text('Báo không hoàn thành'), findsOneWidget);
+        expect(find.text('Đang thực hiện'), findsOneWidget);
+        expect(find.text('75%'), findsOneWidget);
+        expect(
+          find.text('Ghi chú tiến độ: Xong 3/4 diện tích'),
+          findsOneWidget,
+        );
+        expect(find.text('Nộp kết quả'), findsOneWidget);
+        expect(find.text('Cập nhật %'), findsOneWidget);
+        expect(find.text('Báo không hoàn thành'), findsOneWidget);
 
-      provider.dispose();
-    });
+        provider.dispose();
+      },
+    );
   });
 }

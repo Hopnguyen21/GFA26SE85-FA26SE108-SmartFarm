@@ -76,10 +76,10 @@ class _OutdoorWeatherCardState extends State<OutdoorWeatherCard> {
         ? '${(weather['windSpeed'] as num).toStringAsFixed(1)} km/h'
         : '--';
 
-    final weatherIcon = model?.icon ??
-        WeatherModel.mapWeatherIcon(weatherCondition);
-    final iconColor = model?.iconColor ??
-        WeatherModel.mapWeatherColor(weatherCondition);
+    final weatherIcon =
+        model?.icon ?? WeatherModel.mapWeatherIcon(weatherCondition);
+    final iconColor =
+        model?.iconColor ?? WeatherModel.mapWeatherColor(weatherCondition);
     final forecastList = model?.dailyForecast ?? const <DailyForecastModel>[];
 
     return Container(
@@ -113,11 +113,7 @@ class _OutdoorWeatherCardState extends State<OutdoorWeatherCard> {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  weatherIcon,
-                  color: iconColor,
-                  size: 18,
-                ),
+                child: Icon(weatherIcon, color: iconColor, size: 18),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -324,13 +320,16 @@ class _OutdoorWeatherCardState extends State<OutdoorWeatherCard> {
                 });
               },
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -526,10 +525,7 @@ class _OutdoorWeatherCardState extends State<OutdoorWeatherCard> {
                   : 'Khí hậu địa phương',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFE2E8F0),
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 11),
             ),
           ),
           const SizedBox(width: 6),

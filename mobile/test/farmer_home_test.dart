@@ -143,7 +143,8 @@ void main() {
     final p = _provider();
     await _pump(t, p);
     await t.enterText(find.byType(TextField), 'không có');
-    await t.pump();
+    // Ô tìm kiếm chờ 300 ms sau lần gõ cuối mới lọc (Debouncer).
+    await t.pump(const Duration(milliseconds: 350));
     expect(
       find.text('Không tìm thấy khu vực nhà màng phù hợp.'),
       findsOneWidget,

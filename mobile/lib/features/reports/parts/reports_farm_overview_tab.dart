@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/providers/farm_provider.dart';
+import '../reports_overview_logic.dart';
 
 /// Tab 0: Tổng quan Trang trại (KPIs vận hành, Tài chính, Tiêu thụ tài nguyên & Biểu đồ, Tiến độ công việc).
 class ReportsFarmOverviewTab extends StatefulWidget {
@@ -50,23 +51,15 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
     return '${isNegative ? '-' : ''}$s đ';
   }
 
-  Map<String, double> _sumBucketsByZone(Map<String, dynamic>? report) {
-    final out = <String, double>{};
-    final buckets = (report?['buckets'] as List?) ?? const [];
-    for (final b in buckets) {
-      if (b is! Map) continue;
-      final name = '${b['zoneName'] ?? ''}'.trim();
-      if (name.isEmpty) continue;
-      out[name] = (out[name] ?? 0) + ((b['value'] as num?)?.toDouble() ?? 0);
-    }
-    return out;
-  }
+  Map<String, double> _sumBucketsByZone(Map<String, dynamic>? report) =>
+      sumBucketsByZone(report);
 
   @override
   Widget build(BuildContext context) {
     final o = widget.overview;
     final waterByZone = _sumBucketsByZone(widget.water);
     final powerByZone = _sumBucketsByZone(widget.power);
+    final unmeasured = unmeasuredCommands(widget.water, widget.power);
     final totalWater = (widget.water?['total'] as num?)?.toDouble();
     final totalPower = (widget.power?['total'] as num?)?.toDouble();
 
@@ -80,6 +73,7 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
     return RefreshIndicator(
       onRefresh: () async => widget.onRefresh(),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
           // ─── Farm Selector (nếu Owner có nhiều hơn 1 trang trại) ──────
@@ -127,7 +121,10 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                       child: DropdownButton<String>(
                         value: widget.farmProvider.selectedFarmId,
                         isExpanded: true,
-                        icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF64748B)),
+                        icon: const Icon(
+                          Icons.arrow_drop_down_rounded,
+                          color: Color(0xFF64748B),
+                        ),
                         items: widget.farmProvider.farms.map((f) {
                           return DropdownMenuItem<String>(
                             value: f.farmId,
@@ -143,7 +140,8 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                           );
                         }).toList(),
                         onChanged: (id) {
-                          if (id != null && id != widget.farmProvider.selectedFarmId) {
+                          if (id != null &&
+                              id != widget.farmProvider.selectedFarmId) {
                             widget.onFarmSelected(id);
                           }
                         },
@@ -171,13 +169,17 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
             ),
             child: SegmentedButton<int>(
               style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                  states,
+                ) {
                   if (states.contains(WidgetState.selected)) {
                     return const Color(0xFF047857);
                   }
                   return Colors.transparent;
                 }),
-                foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                foregroundColor: WidgetStateProperty.resolveWith<Color>((
+                  states,
+                ) {
                   if (states.contains(WidgetState.selected)) {
                     return Colors.white;
                   }
@@ -190,7 +192,9 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                   const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
                 shape: WidgetStateProperty.all(
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
               segments: const [
@@ -301,7 +305,10 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -366,7 +373,9 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: ((o['netCashFlowCurrentMonth'] as num?) ?? 0) >= 0
+                            color:
+                                ((o['netCashFlowCurrentMonth'] as num?) ?? 0) >=
+                                    0
                                 ? const Color(0xFF047857)
                                 : const Color(0xFFDC2626),
                           ),
@@ -409,10 +418,14 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                          color: const Color(
+                            0xFF0284C7,
+                          ).withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                            color: const Color(
+                              0xFF0284C7,
+                            ).withValues(alpha: 0.2),
                           ),
                         ),
                         child: Column(
@@ -438,7 +451,10 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _fmt(totalWater, '${widget.water?['unit'] ?? 'L'}'),
+                              _fmt(
+                                totalWater,
+                                '${widget.water?['unit'] ?? 'L'}',
+                              ),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -454,10 +470,14 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD97706).withValues(alpha: 0.08),
+                          color: const Color(
+                            0xFFD97706,
+                          ).withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: const Color(0xFFD97706).withValues(alpha: 0.2),
+                            color: const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.2),
                           ),
                         ),
                         child: Column(
@@ -483,7 +503,10 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _fmt(totalPower, '${widget.power?['unit'] ?? 'kWh'}'),
+                              _fmt(
+                                totalPower,
+                                '${widget.power?['unit'] ?? 'kWh'}',
+                              ),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -496,6 +519,28 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                     ),
                   ],
                 ),
+                if (unmeasured > 0) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    key: const ValueKey('unmeasured_notice'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Text(
+                      '$unmeasured lệnh chưa được tính vào tổng vì thiết bị chưa khai báo lưu lượng (L/phút) hoặc công suất định mức (W). '
+                      'Tổng nước/điện ở trên có thể thấp hơn thực tế.',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // Chart header with metric switcher
@@ -527,9 +572,14 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                           GestureDetector(
                             onTap: () => setState(() => _showWaterChart = true),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: _showWaterChart ? const Color(0xFF0284C7) : Colors.transparent,
+                                color: _showWaterChart
+                                    ? const Color(0xFF0284C7)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Text(
@@ -537,17 +587,25 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: _showWaterChart ? Colors.white : const Color(0xFF64748B),
+                                  color: _showWaterChart
+                                      ? Colors.white
+                                      : const Color(0xFF64748B),
                                 ),
                               ),
                             ),
                           ),
                           GestureDetector(
-                            onTap: () => setState(() => _showWaterChart = false),
+                            onTap: () =>
+                                setState(() => _showWaterChart = false),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: !_showWaterChart ? const Color(0xFFD97706) : Colors.transparent,
+                                color: !_showWaterChart
+                                    ? const Color(0xFFD97706)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Text(
@@ -555,7 +613,9 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: !_showWaterChart ? Colors.white : const Color(0xFF64748B),
+                                  color: !_showWaterChart
+                                      ? Colors.white
+                                      : const Color(0xFF64748B),
                                 ),
                               ),
                             ),
@@ -648,8 +708,14 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    _taskBadge('Đã duyệt: $taskApproved', const Color(0xFF047857)),
-                    _taskBadge('Quá hạn: $taskOverdue', const Color(0xFFDC2626)),
+                    _taskBadge(
+                      'Đã duyệt: $taskApproved',
+                      const Color(0xFF047857),
+                    ),
+                    _taskBadge(
+                      'Quá hạn: $taskOverdue',
+                      const Color(0xFFDC2626),
+                    ),
                     _taskBadge(
                       'Thất bại: ${(widget.tasks?['failed'] as num?) ?? 0}',
                       const Color(0xFF64748B),
@@ -673,7 +739,10 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                     if (a is Map)
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(10),
@@ -683,7 +752,9 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                           children: [
                             CircleAvatar(
                               radius: 14,
-                              backgroundColor: const Color(0xFF047857).withValues(alpha: 0.12),
+                              backgroundColor: const Color(
+                                0xFF047857,
+                              ).withValues(alpha: 0.12),
                               child: Text(
                                 _farmerInitials('${a['farmerName'] ?? 'ND'}'),
                                 style: const TextStyle(
@@ -732,22 +803,29 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty || parts[0].isEmpty) return 'ND';
     if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-    return '${parts[0].substring(0, 1)}${parts.last.substring(0, 1)}'.toUpperCase();
+    return '${parts[0].substring(0, 1)}${parts.last.substring(0, 1)}'
+        .toUpperCase();
   }
 
   Widget _zoneBarChart(Map<String, double> data, {required bool isWater}) {
     final entries = data.entries.toList();
-    final maxY = entries.map((e) => e.value).fold<double>(0.0, (a, b) => a > b ? a : b);
+    final maxY = entries
+        .map((e) => e.value)
+        .fold<double>(0.0, (a, b) => a > b ? a : b);
     final unit = isWater ? 'L' : 'kWh';
 
-    return BarChart(
+    return RepaintBoundary(
+      child: BarChart(
       BarChartData(
         maxY: maxY <= 0 ? 1 : maxY * 1.25,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
             getTooltipColor: (_) => const Color(0xFF0F172A),
             tooltipBorderRadius: BorderRadius.circular(8),
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            tooltipPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               final n = entries[groupIndex].key;
               final val = rod.toY;
@@ -763,14 +841,20 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
           ),
         ),
         titlesData: FlTitlesData(
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 42,
               getTitlesWidget: (v, _) => Text(
-                v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toInt().toString(),
+                v >= 1000
+                    ? '${(v / 1000).toStringAsFixed(1)}k'
+                    : v.toInt().toString(),
                 style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
               ),
             ),
@@ -822,14 +906,17 @@ class _ReportsFarmOverviewTabState extends State<ReportsFarmOverviewTab> {
                     end: Alignment.bottomCenter,
                   ),
                   width: 18,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(6),
+                  ),
                 ),
               ],
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _kpiCard({
     required String title,

@@ -73,7 +73,7 @@ extension _FarmerDashboardZones on _FarmerDashboardScreenState {
           const SizedBox(height: 10),
           TextField(
             controller: _zoneSearch,
-            onChanged: (v) => _rebuild(() => _zoneQuery = v),
+            onChanged: (v) => _searchDebouncer.run(() => _rebuild(() => _zoneQuery = v)),
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Tìm kiếm khu vực...',
@@ -350,9 +350,7 @@ extension _FarmerDashboardZones on _FarmerDashboardScreenState {
               OutlinedButton.icon(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => ZoneDetailScreen(zone: z),
-                  ),
+                  MaterialPageRoute(builder: (_) => ZoneDetailScreen(zone: z)),
                 ),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 44),

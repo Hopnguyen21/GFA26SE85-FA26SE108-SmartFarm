@@ -83,7 +83,9 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
     if (_exporting) return;
     setState(() => _exporting = true);
     try {
-      final bytes = await ReportApi.downloadZoneSeasonReportExcel(widget.zoneId);
+      final bytes = await ReportApi.downloadZoneSeasonReportExcel(
+        widget.zoneId,
+      );
       final seasonName = _data?['seasonName'] ?? 'mua-vu';
       final safeName =
           'bao-cao-vu-${widget.zoneName}-$seasonName-${DateTime.now().toIso8601String().substring(0, 10)}.xlsx'
@@ -226,7 +228,9 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
             Expanded(
               child: _loading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF047857)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF047857),
+                      ),
                     )
                   : _error != null
                   ? Center(
@@ -281,7 +285,8 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
     final previousYieldKg = d['previousYieldKg'] as num?;
     final waterLiters = (d['waterLiters'] as num?)?.toDouble() ?? 0.0;
     final electricityKWh = (d['electricityKWh'] as num?)?.toDouble() ?? 0.0;
-    final materialIssued = (d['materialIssuedQuantity'] as num?)?.toDouble() ?? 0.0;
+    final materialIssued =
+        (d['materialIssuedQuantity'] as num?)?.toDouble() ?? 0.0;
     final alertCount = (d['alertCount'] as num?)?.toInt() ?? 0;
     final cmdCount =
         (d['acknowledgedIrrigationCommandCount'] as num?)?.toInt() ?? 0;
@@ -335,7 +340,10 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(cropEmoji(cropName), style: const TextStyle(fontSize: 24)),
+                    child: Text(
+                      cropEmoji(cropName),
+                      style: const TextStyle(fontSize: 24),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -535,7 +543,11 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
                   const Expanded(
                     child: Text(
                       'Sản lượng thực tế vụ này',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   Text(
@@ -562,7 +574,11 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
                   const Expanded(
                     child: Text(
                       'Sản lượng vụ trước',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   Text(
@@ -666,10 +682,7 @@ class _ZoneSeasonSummarySheetState extends State<_ZoneSeasonSummarySheet> {
               _exporting
                   ? 'Đang chuẩn bị file Excel...'
                   : 'Xuất Báo Cáo Vụ Này (.xlsx)',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
         ),

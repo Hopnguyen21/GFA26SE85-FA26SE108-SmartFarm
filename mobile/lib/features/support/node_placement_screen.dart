@@ -865,11 +865,6 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
           }
           return v;
         },
-        onSimulate: () async {
-          final id = '${_gateways.first['gatewayId']}';
-          await DeploymentApi.simulateGatewayConnection(id);
-          if (mounted) setState(() => _mqtt = true);
-        },
       ),
     );
   }
@@ -2087,7 +2082,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
       borderRadius: BorderRadius.circular(12),
       child: Stack(
         children: [
-          FlutterMap(
+          RepaintBoundary(
+            child: FlutterMap(
             mapController: _map,
             options: MapOptions(
               initialCenter: center,
@@ -2140,7 +2136,8 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
               MarkerLayer(markers: markers),
             ],
           ),
-          Positioned(
+        ),
+        Positioned(
             left: 8,
             top: 8,
             right: 8,
@@ -2891,17 +2888,15 @@ class _NodePlacementScreenState extends State<NodePlacementScreen> {
   );
 }
 
-/// Hộp thoại Gateway: thông tin Gateway của yêu cầu, kiểm tra MQTT thật hoặc mô phỏng kết nối (như web).
+/// Hộp thoại Gateway: thông tin Gateway của yêu cầu và kiểm tra MQTT thật (không có đánh dấu Online thủ công).
 class _GatewayDialog extends StatefulWidget {
   final List<Map<String, dynamic>> gateways;
   final bool initialConnected;
   final Future<bool?> Function() onCheck;
-  final Future<void> Function() onSimulate;
   const _GatewayDialog({
     required this.gateways,
     required this.initialConnected,
     required this.onCheck,
-    required this.onSimulate,
   });
 
   @override
@@ -2935,29 +2930,6 @@ class _GatewayDialogState extends State<_GatewayDialog> {
                 ? 'Gateway chỉ đang Online trên Backend, chưa xác nhận MQTT thật (cần nạp WiFi + JSON firmware và kiểm tra ESP báo MQTT_CONNECTED).'
                 : 'Không thể xác minh kết nối MQTT với Gateway.');
     });
-  }
-
-  Future<void> _simulate() async {
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-    try {
-      await widget.onSimulate();
-      if (!mounted) return;
-      setState(() {
-        _connected = true;
-        _message =
-            'Đã mô phỏng Gateway Online. Đây không phải kết nối MQTT thật.';
-      });
-    } catch (e) {
-      if (mounted)
-        setState(
-          () => _message = 'Mô phỏng Gateway thất bại: ${friendlyError(e)}',
-        );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   @override
@@ -3010,10 +2982,6 @@ class _GatewayDialogState extends State<_GatewayDialog> {
           onPressed: _busy ? null : () => Navigator.pop(context),
           child: const Text('Đóng'),
         ),
-        OutlinedButton(
-          onPressed: _busy ? null : _simulate,
-          child: const Text('Mô phỏng'),
-        ),
         FilledButton(
           onPressed: _busy ? null : _check,
           child: Text(
@@ -3057,10 +3025,11 @@ class _ManualCoordinateDialogState extends State<_ManualCoordinateDialog> {
         lat < -90 ||
         lat > 90 ||
         lng < -180 ||
-        lng > 180) {
+        lng > 180 ||
+        (lat == 0 && lng == 0)) {
       setState(
         () => _error =
-            'Nhập tọa độ hợp lệ: vĩ độ từ -90 đến 90, kinh độ từ -180 đến 180.',
+            'Nhập tọa độ hợp lệ: vĩ độ từ -90 đến 90, kinh độ từ -180 đến 180 (không nhận 0, 0).',
       );
       return;
     }

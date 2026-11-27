@@ -353,7 +353,7 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                         width: 5.5,
                         height: 5.5,
                         decoration: BoxDecoration(
-                          color: notReady != null
+                          color: notReady != null || act.awaitingAck
                               ? const Color(0xFFD97706)
                               : (act.isRunning
                                     ? const Color(0xFF10B981)
@@ -365,7 +365,9 @@ extension _ZoneDetailScreenStateDevices on _ZoneDetailScreenState {
                       Expanded(
                         child: Text(
                           notReady ??
-                              (act.isRunning
+                              (act.awaitingAck
+                                  ? 'Đã gửi lệnh — chờ gateway xác nhận'
+                                  : act.isRunning
                                   ? 'Đang bật — còn ${act.remainingMinutes} phút'
                                   : 'Đang tắt'),
                           style: TextStyle(

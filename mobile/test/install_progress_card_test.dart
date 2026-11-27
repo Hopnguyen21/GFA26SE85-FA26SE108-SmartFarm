@@ -80,6 +80,9 @@ Map<String, dynamic> _deployment(String status, {bool feasible = true}) => {
 String? voucherStatus = 'Approved';
 int voucherHttp = 200;
 
+/// Mobile không còn nút "Gắn Node"; thay bằng chip chỉ dẫn sang Web khi backend cho phép gán Node (đã cọc).
+const webNodeChip = 'Gán Node GIS thực hiện trên Web';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final calls = <http.Request>[];
@@ -296,7 +299,7 @@ void main() {
   );
 
   testWidgets(
-    'khảo sát xong: có nút Soạn báo giá & hợp đồng; mở ra là có sẵn dự toán của Owner',
+    'khảo sát xong: có nút Soạn báo giá & hợp đồng; dự toán của Owner hiện ở khung đề xuất, KTV tự đưa vào HĐ',
     (tester) async {
       quote = null;
       depStatus = 'Surveyed';
@@ -316,11 +319,18 @@ void main() {
       expect(find.textContaining('trước khi soạn báo giá'), findsNothing);
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Đã dựng sẵn 1 hạng mục'), findsWidgets);
+      // Hợp đồng KHÔNG tự đổ dự toán: bảng trống, đề xuất của Owner nằm ở khung tham khảo.
+      expect(
+        find.text('1 hạng mục đề xuất (nhấn để xem chi tiết)'),
+        findsOneWidget,
+      );
+      expect(find.text('Chưa có hạng mục nào trong hợp đồng.'), findsOneWidget);
+      await _addProposals(tester);
       // Dòng dựng theo LOẠI + số lượng đề xuất; thiết bị cụ thể chọn từ kho bằng dropdown.
       expect(find.text('Gateway LoRa'), findsOneWidget);
       expect(find.text('Chưa chọn thiết bị'), findsOneWidget);
-      expect(find.text('Trạm Central Gateway'), findsNothing);
+      // Tên Owner đề xuất chỉ hiện ở khung tham khảo, không thành tên dòng hợp đồng.
+      expect(find.text('Trạm Central Gateway'), findsOneWidget);
       expect(find.text('4.104.000 đ'), findsWidgets);
     },
   );
@@ -364,7 +374,7 @@ void main() {
       expect(find.text('Nhận việc'), findsNothing);
       expect(find.text('Ghi nhận khảo sát địa điểm'), findsNothing);
       expect(find.text('Xác nhận kế hoạch'), findsNothing);
-      expect(find.textContaining('Gắn Node ('), findsNothing);
+      expect(find.text(webNodeChip), findsNothing);
       expect(posts(), isEmpty);
     },
   );
@@ -375,7 +385,7 @@ void main() {
     for (final status in ['Completed', 'Cancelled', 'MaintenanceRequired']) {
       depStatus = status;
       await pump(tester);
-      expect(find.textContaining('Gắn Node ('), findsNothing);
+      expect(find.text(webNodeChip), findsNothing);
       expect(find.text('Bắt đầu lắp đặt'), findsNothing);
     }
   });
@@ -387,7 +397,7 @@ void main() {
     quote = 'SentToOwner';
     await pump(tester);
     expect(find.text('Bắt đầu lắp đặt'), findsNothing);
-    expect(find.textContaining('Gắn Node ('), findsNothing);
+    expect(find.text(webNodeChip), findsNothing);
     expect(posts(), isEmpty);
   });
 
@@ -537,15 +547,11 @@ void main() {
       ]) {
         depStatus = status;
         await pump(tester);
-        expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
+        expect(find.text(webNodeChip), findsOneWidget);
         // Sau cọc không còn "Xác nhận kế hoạch" (đã tự xác nhận); Đã khảo sát / Đã xác nhận kế hoạch → "Bắt đầu lắp đặt".
         expect(find.text('Xác nhận kế hoạch'), findsNothing);
-        expect(
-          find.text('Bắt đầu lắp đặt'),
-          status == 'PlanConfirmed' || status == 'Surveyed'
-              ? findsOneWidget
-              : findsNothing,
-        );
+        // Nút "Bắt đầu lắp đặt" đã bỏ trên Mobile (chuyển sang quản lý trên Web).
+        expect(find.text('Bắt đầu lắp đặt'), findsNothing);
         expect(find.text('Nhận việc'), findsNothing);
         expect(posts(), isEmpty);
       }
@@ -591,7 +597,7 @@ void main() {
   };
 
   testWidgets(
-    'soạn báo giá: dựng sẵn các dòng từ "Thiết bị đề xuất & dự toán" của Owner, tổng và cọc tính từ đó',
+    'soạn báo giá: đưa các dòng từ "Thiết bị đề xuất & dự toán" của Owner vào HĐ, tổng và cọc tính từ đó',
     (tester) async {
       quote = null;
       depStatus = 'Surveyed';
@@ -602,7 +608,11 @@ void main() {
       await pump(tester);
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Đã dựng sẵn 2 hạng mục'), findsWidgets);
+      expect(
+        find.text('2 hạng mục đề xuất (nhấn để xem chi tiết)'),
+        findsOneWidget,
+      );
+      await _addProposals(tester);
       expect(find.text('Gateway LoRa'), findsOneWidget);
       expect(find.text('Node cảm biến'), findsOneWidget);
       expect(find.text('Chưa chọn thiết bị'), findsNWidgets(2));
@@ -657,7 +667,7 @@ void main() {
       await pump(tester);
       expect(find.text('THAO TÁC THỰC ĐỊA KỸ THUẬT'), findsOneWidget);
       expect(find.text('Mở chi tiết triển khai'), findsNothing);
-      expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
+      expect(find.text(webNodeChip), findsOneWidget);
       expect(find.textContaining('Chờ Owner ký & cọc 30%'), findsNothing);
     },
   );
@@ -668,7 +678,7 @@ void main() {
       quote = 'SentToOwner';
       await pump(tester);
       expect(find.byIcon(Icons.my_location), findsNothing);
-      expect(find.textContaining('Gắn Node'), findsNothing);
+      expect(find.text(webNodeChip), findsNothing);
       expect(find.text('Chờ Owner ký & cọc 30% mới gắn Node'), findsOneWidget);
     },
   );
@@ -780,7 +790,7 @@ void main() {
   }
 
   testWidgets(
-    'Owner chưa lưu dự toán: bảng hợp đồng để trống và báo rõ, app KHÔNG tự tính thiết bị theo diện tích Zone',
+    'Owner chưa lưu dự toán: bảng hợp đồng để trống, không có khung đề xuất, app KHÔNG tự tính thiết bị theo diện tích Zone',
     (tester) async {
       quote = null;
       depStatus = 'Surveyed';
@@ -792,7 +802,10 @@ void main() {
       await pumpWithZone(tester);
       await tester.tap(find.text('Soạn báo giá & hợp đồng'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Owner chưa lưu dự toán'), findsOneWidget);
+      expect(
+        find.text('Đề xuất thiết bị & Dự toán từ khách hàng'),
+        findsNothing,
+      );
       // Bảng trống (không còn dòng trống/nhập ngoài): chỉ thêm thiết bị từ kho.
       expect(find.byType(Checkbox), findsNothing);
       expect(find.textContaining('Chưa có hạng mục nào'), findsOneWidget);
@@ -815,7 +828,7 @@ void main() {
         depStatus = dep;
         srStatus = 'Assigned'; // chưa bấm Nhận việc cũng không bị bắt nhận lại
         await pump(tester);
-        expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
+        expect(find.text(webNodeChip), findsOneWidget);
         for (final obsolete in [
           'Nhận việc',
           'Tiếp nhận yêu cầu triển khai',
@@ -882,7 +895,7 @@ void main() {
       Future<void> expectNoPlacement(String why) async {
         await pump(tester);
         expect(find.byIcon(Icons.my_location), findsNothing, reason: why);
-        expect(find.textContaining('Gắn Node'), findsNothing, reason: why);
+        expect(find.text(webNodeChip), findsNothing, reason: why);
       }
 
       quote = 'SignedByOwner';
@@ -930,15 +943,15 @@ void main() {
     (tester) async {
       quote = 'SignedByOwner';
       await pump(tester);
-      expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
+      expect(find.text(webNodeChip), findsOneWidget);
       quoteFail = true;
       await tester.tap(find.byTooltip('Làm mới'));
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.my_location), findsNothing);
+      expect(find.text(webNodeChip), findsNothing);
       quoteFail = false;
       await tester.tap(find.byTooltip('Làm mới'));
       await tester.pumpAndSettle();
-      expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
+      expect(find.text(webNodeChip), findsOneWidget);
     },
   );
 
@@ -947,14 +960,14 @@ void main() {
     (tester) async {
       quote = 'SignedByOwner';
       await pump(tester);
-      expect(find.text('Gắn Node (3 đã có vị trí)'), findsOneWidget);
+      expect(find.text(webNodeChip), findsOneWidget);
       quoteFail = true; // lúc bấm đọc lại báo giá bị lỗi
-      await tester.tap(find.text('Gắn Node (3 đã có vị trí)'));
+      await tester.tap(find.text(webNodeChip));
       await tester.pumpAndSettle();
       expect(find.text('Cập nhật vị trí'), findsNothing);
       expect(find.textContaining('Chưa xác nhận được hợp đồng'), findsWidgets);
-      // Đọc lại lỗi cũng khoá luôn nút trên thẻ.
-      expect(find.byIcon(Icons.my_location), findsNothing);
+      // Đọc lại lỗi cũng khoá luôn chip trên thẻ.
+      expect(find.text(webNodeChip), findsNothing);
     },
   );
 
@@ -971,43 +984,32 @@ void main() {
       placedNodes = 3;
       await pump(tester);
       expect(find.text('Xem Node (3)'), findsOneWidget);
-      expect(
-        find.byIcon(Icons.my_location),
-        findsNothing,
-      ); // vẫn không có Gắn Node
+      expect(find.text(webNodeChip), findsNothing); // chưa cọc: chưa gán Node
 
       quote = 'SignedByOwner';
       depStatus = 'Installing';
       await pump(tester);
       expect(find.text('Xem Node (3)'), findsOneWidget);
-      expect(find.textContaining('Gắn Node ('), findsOneWidget);
+      expect(find.text(webNodeChip), findsOneWidget);
 
       depStatus = 'Completed';
       await pump(tester);
       expect(find.text('Xem Node (3)'), findsOneWidget);
-      expect(find.textContaining('Gắn Node'), findsNothing);
+      expect(find.text(webNodeChip), findsNothing);
     },
   );
   testWidgets(
-    'đã cọc + Đã khảo sát: bấm Bắt đầu lắp đặt → gọi confirm rồi installation/start',
+    'đã cọc + Đã khảo sát: Mobile không còn nút Bắt đầu lắp đặt và không gọi confirm/installation/start',
     (tester) async {
       quote = 'SignedByOwner';
       depStatus = 'Surveyed';
       srStatus = 'InProgress';
       await pump(tester);
-      calls.clear();
-      await http.runWithClient(() async {
-        await tester.tap(find.text('Bắt đầu lắp đặt'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Xác nhận'));
-        await tester.pumpAndSettle();
-      }, () => MockClient(handler));
+      expect(find.text('Bắt đầu lắp đặt'), findsNothing);
+      expect(find.text(webNodeChip), findsOneWidget);
       final paths = posts().map((c) => c.url.path).toList();
-      expect(paths.where((p) => p.endsWith('/confirm')), hasLength(1));
-      expect(
-        paths.where((p) => p.endsWith('/installation/start')),
-        hasLength(1),
-      );
+      expect(paths.where((p) => p.endsWith('/confirm')), isEmpty);
+      expect(paths.where((p) => p.endsWith('/installation/start')), isEmpty);
     },
   );
 }
@@ -1023,4 +1025,22 @@ class _OneZone extends FarmProvider {
       fieldName: 'Lô A',
     ),
   ];
+}
+
+/// Mở khung "Đề xuất thiết bị & Dự toán từ khách hàng" rồi bấm "Đưa vào HĐ" cho từng dòng đề xuất.
+Future<void> _addProposals(WidgetTester tester) async {
+  final title = find.text('Đề xuất thiết bị & Dự toán từ khách hàng');
+  await tester.ensureVisible(title);
+  await tester.tap(title);
+  await tester.pumpAndSettle();
+  final count = find.text('Đưa vào HĐ').evaluate().length;
+  for (var i = 0; i < count; i++) {
+    final btn = find.text('Đưa vào HĐ').at(i);
+    await tester.ensureVisible(btn);
+    await tester.tap(btn);
+    await tester.pumpAndSettle();
+  }
+  // Snackbar xác nhận tự ẩn sau 2 giây.
+  await tester.pump(const Duration(seconds: 3));
+  await tester.pumpAndSettle();
 }

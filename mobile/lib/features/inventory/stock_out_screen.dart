@@ -276,6 +276,7 @@ class _StockOutScreenState extends State<StockOutScreen> {
       onRefresh: _load,
       child: shown.isEmpty
           ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               children: const [
                 SizedBox(height: 80),
                 Icon(

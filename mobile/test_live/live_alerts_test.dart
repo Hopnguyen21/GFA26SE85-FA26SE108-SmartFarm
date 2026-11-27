@@ -4,13 +4,13 @@ import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smartfarm_mobile/core/providers/farm_provider.dart';
 import 'package:smartfarm_mobile/core/services/api_service.dart';
 import 'package:smartfarm_mobile/features/alerts/alert_rules_logic.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = null;
-  const zone = '84742c3a-0a60-4d0b-9e69-9948df619f70';
   for (final acc in [
     ['OWNER', 'owner@smartfarm.demo'],
     ['FARMER', 'farmer@smartfarm.demo'],
@@ -19,6 +19,15 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       FlutterSecureStorage.setMockInitialValues({});
       expect(await ApiService.login(acc[1], 'Demo@12345'), isNotNull);
+      // Không cứng mã Zone (mã thay đổi theo từng cơ sở dữ liệu): lấy Zone đầu tiên mà tài khoản này truy cập được.
+      final provider = FarmProvider()..switchRole(acc[0]);
+      await provider.fetchFromApi();
+      final zone = provider.allZones.firstOrNull?.zoneId;
+      provider.dispose();
+      if (zone == null) {
+        markTestSkipped('Tài khoản ${acc[0]} chưa có Zone nào trong cơ sở dữ liệu này.');
+        return;
+      }
       final rules = await AlertApi.getRules(zone);
       final alerts = await AlertApi.getZoneAlerts(zone);
       // ignore: avoid_print

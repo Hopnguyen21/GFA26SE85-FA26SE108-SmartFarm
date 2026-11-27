@@ -3,31 +3,29 @@ part of '../api_service.dart';
 /// Cảnh báo, công việc, kho vật tư và thông báo.
 abstract final class TaskApi {
   // ─── 8. Alerts ───────────────────────────────────────────────────────
+  /// Ném lỗi khi không tải được: KHÔNG trả danh sách rỗng, vì "không có cảnh báo"
+  /// và "không tải được cảnh báo" phải được phân biệt với người dùng.
   static Future<List<AlertModel>> getAlerts(String farmId) async {
-    try {
-      final resp = await ApiService._getWithAuth(
+    final data = ApiService._decodeUtf8OrThrow(
+      await ApiService._getWithAuth(
         '${ApiService.baseUrl}/api/v1/farms/$farmId/alerts',
-      );
-      if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
-        return list.map((item) => AlertModel.fromJson(item)).toList();
-      }
-    } catch (_) {}
-    return [];
+      ),
+    );
+    return [
+      for (final item in ApiService._asMapList(data)) AlertModel.fromJson(item),
+    ];
   }
 
   // ─── 9. Tasks ────────────────────────────────────────────────────────
   static Future<List<TaskModel>> getTasks(String farmId) async {
-    try {
-      final resp = await ApiService._getWithAuth(
+    final data = ApiService._decodeUtf8OrThrow(
+      await ApiService._getWithAuth(
         '${ApiService.baseUrl}/api/v1/farms/$farmId/tasks',
-      );
-      if (resp != null && resp.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(utf8.decode(resp.bodyBytes));
-        return list.map((item) => TaskModel.fromJson(item)).toList();
-      }
-    } catch (_) {}
-    return [];
+      ),
+    );
+    return [
+      for (final item in ApiService._asMapList(data)) TaskModel.fromJson(item),
+    ];
   }
 
   /// Giao việc cho các Farmer đã có quyền Zone; lỗi nghiệp vụ được báo nguyên văn từ backend.
@@ -113,20 +111,15 @@ abstract final class TaskApi {
     );
   }
 
-  static Future<List<Map<String, dynamic>>> getStockIns(String farmId) async {
-    try {
-      final resp = await ApiService._getWithAuth(
-        '${ApiService.baseUrl}/api/v1/farms/$farmId/stock-ins',
+  /// NÉM lỗi (mạng/401/403/500) thay vì trả danh sách rỗng, để màn hình phân biệt "chưa có phiếu" với "không tải được".
+  static Future<List<Map<String, dynamic>>> getStockIns(String farmId) async =>
+      ApiService._asMapList(
+        ApiService._decodeOrThrow(
+          await ApiService._getWithAuth(
+            '${ApiService.baseUrl}/api/v1/farms/$farmId/stock-ins',
+          ),
+        ),
       );
-      if (resp != null && resp.statusCode == 200) {
-        final dynamic decoded = jsonDecode(utf8.decode(resp.bodyBytes));
-        if (decoded is List) {
-          return decoded.cast<Map<String, dynamic>>();
-        }
-      }
-    } catch (_) {}
-    return [];
-  }
 
   /// POST /farms/{f}/tasks/{t}/assignees (Owner): giao thêm Farmer cho task.
   static Future<TaskModel> addTaskAssignees(
@@ -271,12 +264,13 @@ abstract final class TaskApi {
     }
   }
 
-  /// Xóa tất cả thông báo đã đọc
+  /// Xóa tất cả thông báo đã đọc. Trả số thông báo đã xóa; **-1 khi thất bại** (để UI biết mà đồng bộ lại, không nhầm với "xóa 0").
   static Future<int> deleteAllReadNotifications() async {
     try {
       final resp = await ApiService._client
           .delete(
-            Uri.parse('${ApiService.baseUrl}/api/v1/notifications/read-all'),
+            // Backend: DELETE /notifications/read (xóa các thông báo ĐÃ ĐỌC); "read-all" chỉ có ở PUT (đánh dấu đã đọc).
+            Uri.parse('${ApiService.baseUrl}/api/v1/notifications/read'),
             headers: ApiService._headers,
           )
           .timeout(const Duration(seconds: 6));
@@ -285,6 +279,6 @@ abstract final class TaskApi {
         return (data['deletedCount'] as num?)?.toInt() ?? 0;
       }
     } catch (_) {}
-    return 0;
+    return -1;
   }
 }

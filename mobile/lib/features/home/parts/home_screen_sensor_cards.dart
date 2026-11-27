@@ -143,8 +143,8 @@ extension _HomeScreenSensorCards on HomeScreen {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: RichText(
-                      text: TextSpan(
+                    child: Text.rich(
+                      TextSpan(
                         children: [
                           TextSpan(
                             text: numStr,
@@ -424,82 +424,84 @@ extension _HomeScreenSensorCards on HomeScreen {
 
                   return SizedBox(
                     height: 180,
-                    child: LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: (maxY - minY) > 0
-                              ? (maxY - minY) / 4
-                              : 1,
-                          getDrawingHorizontalLine: (_) => const FlLine(
-                            color: Color(0xFFF1F5F9),
-                            strokeWidth: 1,
+                    child: RepaintBoundary(
+                      child: LineChart(
+                        LineChartData(
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            horizontalInterval: (maxY - minY) > 0
+                                ? (maxY - minY) / 4
+                                : 1,
+                            getDrawingHorizontalLine: (_) => const FlLine(
+                              color: Color(0xFFF1F5F9),
+                              strokeWidth: 1,
+                            ),
                           ),
-                        ),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 36,
-                              getTitlesWidget: (v, meta) => Text(
-                                '${v.toInt()}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF94A3B8),
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 36,
+                                getTitlesWidget: (v, meta) => Text(
+                                  '${v.toInt()}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 22,
-                              getTitlesWidget: (v, meta) {
-                                final idx = v.toInt();
-                                if (idx >= 0 && idx < points.length) {
-                                  final start = points[idx]['bucketStartUtc']
-                                      ?.toString();
-                                  if (start != null && start.length >= 16) {
-                                    return Text(
-                                      start.substring(11, 16),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF94A3B8),
-                                      ),
-                                    );
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 22,
+                                getTitlesWidget: (v, meta) {
+                                  final idx = v.toInt();
+                                  if (idx >= 0 && idx < points.length) {
+                                    final start = points[idx]['bucketStartUtc']
+                                        ?.toString();
+                                    if (start != null && start.length >= 16) {
+                                      return Text(
+                                        start.substring(11, 16),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      );
+                                    }
                                   }
-                                }
-                                return const SizedBox.shrink();
-                              },
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                            ),
+                            rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
                             ),
                           ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
+                          borderData: FlBorderData(show: false),
+                          minX: 0,
+                          maxX: (history.length - 1).toDouble(),
+                          minY: minY,
+                          maxY: maxY,
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: spots,
+                              isCurved: true,
+                              color: iconColor,
+                              barWidth: 3,
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: true),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: iconColor.withValues(alpha: 0.12),
+                              ),
+                            ),
+                          ],
                         ),
-                        borderData: FlBorderData(show: false),
-                        minX: 0,
-                        maxX: (history.length - 1).toDouble(),
-                        minY: minY,
-                        maxY: maxY,
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: spots,
-                            isCurved: true,
-                            color: iconColor,
-                            barWidth: 3,
-                            isStrokeCapRound: true,
-                            dotData: const FlDotData(show: true),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: iconColor.withValues(alpha: 0.12),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   );

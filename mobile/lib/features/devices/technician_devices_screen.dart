@@ -173,6 +173,17 @@ class _GatewaysTabState extends State<_GatewaysTab> {
   }
 
   Future<void> _openEnrollmentDialog() async {
+    // Bảng này đăng ký Gateway bằng API mô phỏng (app đóng vai thiết bị): bản release không cho dùng.
+    if (!kAllowGatewaySimulation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Gateway thật tự đăng ký khi cấp nguồn và kết nối mạng; sau đó kích hoạt trong yêu cầu triển khai.',
+          ),
+        ),
+      );
+      return;
+    }
     final created = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -207,6 +218,7 @@ class _GatewaysTabState extends State<_GatewaysTab> {
       onRefresh: _load,
       color: const Color(0xFF10B981),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           // Banner hành động đầu trang
@@ -1532,6 +1544,7 @@ class _SparePartsAndStockOutTabState extends State<_SparePartsAndStockOutTab> {
       onRefresh: _load,
       color: const Color(0xFF10B981),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           // Nhận thiết bị từ kho chính = lập phiếu xuất kho

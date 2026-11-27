@@ -68,23 +68,24 @@ void main() {
     );
   });
 
-  test('nhãn thời gian: vừa xong, phút, giờ, ngày giờ; chuỗi lạ giữ nguyên', () {
-    final now = DateTime.utc(2026, 11, 18, 10, 0);
-    String l(DateTime t) => notificationTimeLabel(
-      t.toIso8601String(),
-      now: now.toLocal(),
-    );
-    expect(l(now.subtract(const Duration(seconds: 20))), 'Vừa xong');
-    expect(l(now.subtract(const Duration(minutes: 5))), '5 phút trước');
-    expect(l(now.subtract(const Duration(hours: 3))), '3 giờ trước');
-    expect(
-      l(now.subtract(const Duration(days: 2))),
-      matches(RegExp(r'^\d{2}/\d{2}/2026 \d{2}:\d{2}$')),
-    );
-    // Giờ trong tương lai (lệch đồng hồ máy) không âm: coi là vừa xong.
-    expect(l(now.add(const Duration(minutes: 3))), 'Vừa xong');
-    expect(notificationTimeLabel('Vừa xong'), 'Vừa xong');
-  });
+  test(
+    'nhãn thời gian: vừa xong, phút, giờ, ngày giờ; chuỗi lạ giữ nguyên',
+    () {
+      final now = DateTime.utc(2026, 11, 18, 10, 0);
+      String l(DateTime t) =>
+          notificationTimeLabel(t.toIso8601String(), now: now.toLocal());
+      expect(l(now.subtract(const Duration(seconds: 20))), 'Vừa xong');
+      expect(l(now.subtract(const Duration(minutes: 5))), '5 phút trước');
+      expect(l(now.subtract(const Duration(hours: 3))), '3 giờ trước');
+      expect(
+        l(now.subtract(const Duration(days: 2))),
+        matches(RegExp(r'^\d{2}/\d{2}/2026 \d{2}:\d{2}$')),
+      );
+      // Giờ trong tương lai (lệch đồng hồ máy) không âm: coi là vừa xong.
+      expect(l(now.add(const Duration(minutes: 3))), 'Vừa xong');
+      expect(notificationTimeLabel('Vừa xong'), 'Vừa xong');
+    },
+  );
 
   testWidgets(
     'thông báo KTV: mới nhất lên đầu, có giờ, chưa đọc nổi bật; chạm đánh dấu đã đọc, "Đọc hết" đọc tất cả',
@@ -140,7 +141,8 @@ void main() {
 
       double y(String t) => tester.getTopLeft(find.text(t)).dy;
       expect(
-        y('Bạn có yêu cầu mới') < y('Chủ trang trại đã ký hợp đồng và đóng cọc'),
+        y('Bạn có yêu cầu mới') <
+            y('Chủ trang trại đã ký hợp đồng và đóng cọc'),
         isTrue,
       );
       expect(
@@ -163,7 +165,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         calls.any(
-          (c) => c.method != 'GET' && c.url.path == '/api/v1/notifications/mid/read',
+          (c) =>
+              c.method != 'GET' &&
+              c.url.path == '/api/v1/notifications/mid/read',
         ),
         isTrue,
       );
@@ -191,188 +195,209 @@ void main() {
     },
   );
 
-  test('chạm thông báo: KTV mở phiếu theo mã; hợp đồng sắp hết hạn chỉ dành cho Owner', () {
-    expect(
-      notificationDestination(
-        type: 'Service',
-        referenceId: 'sr-1',
-        role: 'TECHNICIAN',
-      ),
-      NotificationDestination.serviceRequest,
-    );
-    expect(
-      notificationDestination(
-        type: 'Contract',
-        referenceId: 'x',
-        role: 'TECHNICIAN',
-      ),
-      NotificationDestination.none,
-    );
-    expect(ServiceRequestDetailScreen, isNotNull);
-  });
+  test(
+    'chạm thông báo: KTV mở phiếu theo mã; hợp đồng sắp hết hạn chỉ dành cho Owner',
+    () {
+      expect(
+        notificationDestination(
+          type: 'Service',
+          referenceId: 'sr-1',
+          role: 'TECHNICIAN',
+        ),
+        NotificationDestination.serviceRequest,
+      );
+      expect(
+        notificationDestination(
+          type: 'Contract',
+          referenceId: 'x',
+          role: 'TECHNICIAN',
+        ),
+        NotificationDestination.none,
+      );
+      expect(ServiceRequestDetailScreen, isNotNull);
+    },
+  );
 
-  testWidgets('KTV: thông báo mới tự xuất hiện sau ~30 giây không cần mở lại màn', (
-    tester,
-  ) async {
-    var served = false;
-    handler = (r) async {
-      if (r.url.path == '/api/v1/notifications' && r.method == 'GET') {
-        return json(
-          served
-              ? [_n('n1', 'Bạn có yêu cầu mới', 'Service', DateTime.now(), ref: 'sr-9')]
-              : <Object>[],
-        );
+  testWidgets(
+    'KTV: thông báo mới tự xuất hiện sau ~30 giây không cần mở lại màn',
+    (tester) async {
+      var served = false;
+      handler = (r) async {
+        if (r.url.path == '/api/v1/notifications' && r.method == 'GET') {
+          return json(
+            served
+                ? [
+                    _n(
+                      'n1',
+                      'Bạn có yêu cầu mới',
+                      'Service',
+                      DateTime.now(),
+                      ref: 'sr-9',
+                    ),
+                  ]
+                : <Object>[],
+          );
+        }
+        return http.Response('[]', 200);
+      };
+      final provider = FarmProvider();
+      provider.switchRole('TECHNICIAN');
+      await tester.pump(const Duration(seconds: 1));
+      expect(provider.notifications, isEmpty);
+      served = true;
+      final before = calls
+          .where((c) => c.url.path == '/api/v1/notifications')
+          .length;
+      // 6 vòng × 5 giây của bộ đếm nền.
+      for (var i = 0; i < 7; i++) {
+        await tester.pump(const Duration(seconds: 5));
       }
-      return http.Response('[]', 200);
-    };
-    final provider = FarmProvider();
-    provider.switchRole('TECHNICIAN');
-    await tester.pump(const Duration(seconds: 1));
-    expect(provider.notifications, isEmpty);
-    served = true;
-    final before = calls
-        .where((c) => c.url.path == '/api/v1/notifications')
-        .length;
-    // 6 vòng × 5 giây của bộ đếm nền.
-    for (var i = 0; i < 7; i++) {
-      await tester.pump(const Duration(seconds: 5));
-    }
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(
-      calls.where((c) => c.url.path == '/api/v1/notifications').length,
-      greaterThan(before),
-    );
-    expect(provider.notifications.map((n) => n.title), ['Bạn có yêu cầu mới']);
-    // KTV không bị gọi telemetry của farm (403): chỉ thông báo.
-    expect(calls.any((c) => c.url.path.contains('telemetry')), isFalse);
-    provider.dispose();
-    await tester.pump(const Duration(seconds: 6));
-  });
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        calls.where((c) => c.url.path == '/api/v1/notifications').length,
+        greaterThan(before),
+      );
+      expect(provider.notifications.map((n) => n.title), [
+        'Bạn có yêu cầu mới',
+      ]);
+      // KTV không bị gọi telemetry của farm (403): chỉ thông báo.
+      expect(calls.any((c) => c.url.path.contains('telemetry')), isFalse);
+      provider.dispose();
+      await tester.pump(const Duration(seconds: 6));
+    },
+  );
 
-  testWidgets('KTV: bộ lọc (chưa đọc, lắp đặt, xuất kho, tất cả) và xóa thông báo đã đọc', (
-    tester,
-  ) async {
-    final now = DateTime.now();
-    handler = (r) async {
-      if (r.url.path == '/api/v1/notifications' && r.method == 'GET') {
-        return json([
-          _n(
-            'n_read',
-            'Phiếu xuất kho đã duyệt',
-            'StockOut',
-            now.subtract(const Duration(hours: 4)),
-            read: true,
-          ),
-          _n(
-            'n_service',
-            'Bạn có yêu cầu mới',
-            'Service',
-            now.subtract(const Duration(minutes: 10)),
-            ref: 'sr-1',
-          ),
-          _n(
-            'n_service2',
-            'Chủ trang trại đã ký nghiệm thu',
-            'Service',
-            now.subtract(const Duration(minutes: 30)),
-            ref: 'sr-2',
-          ),
-        ]);
-      }
-      if (r.url.path == '/api/v1/notifications/read-all' && r.method == 'DELETE') {
-        return json({'deletedCount': 1});
-      }
-      if (r.url.path.startsWith('/api/v1/notifications/') && r.method == 'DELETE') {
-        return json({'success': true});
-      }
-      return http.Response('{}', 200);
-    };
+  testWidgets(
+    'KTV: bộ lọc (chưa đọc, lắp đặt, xuất kho, tất cả) và xóa thông báo đã đọc',
+    (tester) async {
+      final now = DateTime.now();
+      handler = (r) async {
+        if (r.url.path == '/api/v1/notifications' && r.method == 'GET') {
+          return json([
+            _n(
+              'n_read',
+              'Phiếu xuất kho đã duyệt',
+              'StockOut',
+              now.subtract(const Duration(hours: 4)),
+              read: true,
+            ),
+            _n(
+              'n_service',
+              'Bạn có yêu cầu mới',
+              'Service',
+              now.subtract(const Duration(minutes: 10)),
+              ref: 'sr-1',
+            ),
+            _n(
+              'n_service2',
+              'Chủ trang trại đã ký nghiệm thu',
+              'Service',
+              now.subtract(const Duration(minutes: 30)),
+              ref: 'sr-2',
+            ),
+          ]);
+        }
+        if (r.url.path == '/api/v1/notifications/read' &&
+            r.method == 'DELETE') {
+          return json({'deletedCount': 1});
+        }
+        if (r.url.path.startsWith('/api/v1/notifications/') &&
+            r.method == 'DELETE') {
+          return json({'success': true});
+        }
+        return http.Response('{}', 200);
+      };
 
-    tester.view.physicalSize = const Size(420, 1600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(420, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final provider = FarmProvider();
-    provider.switchRole('TECHNICIAN');
-    await tester.pumpWidget(
-      ChangeNotifierProvider<FarmProvider>.value(
-        value: provider,
-        child: const MaterialApp(home: TechnicianNotificationsScreen()),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
+      final provider = FarmProvider();
+      provider.switchRole('TECHNICIAN');
+      await tester.pumpWidget(
+        ChangeNotifierProvider<FarmProvider>.value(
+          value: provider,
+          child: const MaterialApp(home: TechnicianNotificationsScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
 
-    // Hiển thị banner thống kê và các chip lọc
-    expect(find.text('Bạn có 2 thông báo chưa đọc'), findsOneWidget);
-    expect(find.text('Tất cả (3)'), findsOneWidget);
-    expect(find.text('Chưa đọc (2)'), findsOneWidget);
-    expect(find.text('Dịch vụ & Lắp đặt (2)'), findsOneWidget);
-    expect(find.text('Phiếu xuất kho (1)'), findsOneWidget);
+      // Hiển thị banner thống kê và các chip lọc
+      expect(find.text('Bạn có 2 thông báo chưa đọc'), findsOneWidget);
+      expect(find.text('Tất cả (3)'), findsOneWidget);
+      expect(find.text('Chưa đọc (2)'), findsOneWidget);
+      expect(find.text('Dịch vụ & Lắp đặt (2)'), findsOneWidget);
+      expect(find.text('Phiếu xuất kho (1)'), findsOneWidget);
 
-    // 1. Chuyển sang bộ lọc "Chưa đọc"
-    await tester.tap(find.text('Chưa đọc (2)'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Bạn có yêu cầu mới'), findsOneWidget);
-    expect(find.text('Chủ trang trại đã ký nghiệm thu'), findsOneWidget);
-    expect(find.text('Phiếu xuất kho đã duyệt'), findsNothing);
+      // 1. Chuyển sang bộ lọc "Chưa đọc"
+      await tester.tap(find.text('Chưa đọc (2)'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Bạn có yêu cầu mới'), findsOneWidget);
+      expect(find.text('Chủ trang trại đã ký nghiệm thu'), findsOneWidget);
+      expect(find.text('Phiếu xuất kho đã duyệt'), findsNothing);
 
-    // 2. Chuyển sang bộ lọc "Phiếu xuất kho"
-    await tester.tap(find.text('Phiếu xuất kho (1)'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Phiếu xuất kho đã duyệt'), findsOneWidget);
-    expect(find.text('Bạn có yêu cầu mới'), findsNothing);
+      // 2. Chuyển sang bộ lọc "Phiếu xuất kho"
+      await tester.tap(find.text('Phiếu xuất kho (1)'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Phiếu xuất kho đã duyệt'), findsOneWidget);
+      expect(find.text('Bạn có yêu cầu mới'), findsNothing);
 
-    // 3. Chuyển sang "Dịch vụ & Lắp đặt"
-    await tester.tap(find.text('Dịch vụ & Lắp đặt (2)'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Bạn có yêu cầu mới'), findsOneWidget);
-    expect(find.text('Chủ trang trại đã ký nghiệm thu'), findsOneWidget);
-    expect(find.text('Phiếu xuất kho đã duyệt'), findsNothing);
+      // 3. Chuyển sang "Dịch vụ & Lắp đặt"
+      await tester.tap(find.text('Dịch vụ & Lắp đặt (2)'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Bạn có yêu cầu mới'), findsOneWidget);
+      expect(find.text('Chủ trang trại đã ký nghiệm thu'), findsOneWidget);
+      expect(find.text('Phiếu xuất kho đã duyệt'), findsNothing);
 
-    // 4. Quay lại "Tất cả"
-    await tester.tap(find.text('Tất cả (3)'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Phiếu xuất kho đã duyệt'), findsOneWidget);
-    expect(find.text('Bạn có yêu cầu mới'), findsOneWidget);
+      // 4. Quay lại "Tất cả"
+      await tester.tap(find.text('Tất cả (3)'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Phiếu xuất kho đã duyệt'), findsOneWidget);
+      expect(find.text('Bạn có yêu cầu mới'), findsOneWidget);
 
-    // 5. Thử popup menu "Xóa thông báo đã đọc"
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    expect(find.text('Xóa thông báo đã đọc'), findsOneWidget);
-    await tester.tap(find.text('Xóa thông báo đã đọc'));
-    await tester.pumpAndSettle();
+      // 5. Thử popup menu "Xóa thông báo đã đọc"
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      expect(find.text('Xóa thông báo đã đọc'), findsOneWidget);
+      await tester.tap(find.text('Xóa thông báo đã đọc'));
+      await tester.pumpAndSettle();
 
-    // Xuất hiện dialog xác nhận
-    expect(find.text('Xóa tất cả'), findsOneWidget);
-    await tester.tap(find.text('Xóa tất cả'));
-    await tester.pumpAndSettle();
+      // Xuất hiện dialog xác nhận
+      expect(find.text('Xóa tất cả'), findsOneWidget);
+      await tester.tap(find.text('Xóa tất cả'));
+      await tester.pumpAndSettle();
 
-    expect(
-      calls.any(
-        (c) => c.url.path == '/api/v1/notifications/read-all' && c.method == 'DELETE',
-      ),
-      isTrue,
-    );
-    expect(provider.notifications.length, 2);
+      expect(
+        calls.any(
+          (c) =>
+              c.url.path == '/api/v1/notifications/read' &&
+              c.method == 'DELETE',
+        ),
+        isTrue,
+      );
+      expect(provider.notifications.length, 2);
 
-    // 6. Vuốt để xóa thông báo lẻ (Dismissible)
-    final dismissItem = find.byKey(const ValueKey('dismiss_n_service2'));
-    expect(dismissItem, findsOneWidget);
-    await tester.drag(dismissItem, const Offset(-500, 0));
-    await tester.pumpAndSettle();
+      // 6. Vuốt để xóa thông báo lẻ (Dismissible)
+      final dismissItem = find.byKey(const ValueKey('dismiss_n_service2'));
+      expect(dismissItem, findsOneWidget);
+      await tester.drag(dismissItem, const Offset(-500, 0));
+      await tester.pumpAndSettle();
 
-    expect(
-      calls.any(
-        (c) => c.url.path == '/api/v1/notifications/n_service2' && c.method == 'DELETE',
-      ),
-      isTrue,
-    );
-    expect(provider.notifications.length, 1);
+      expect(
+        calls.any(
+          (c) =>
+              c.url.path == '/api/v1/notifications/n_service2' &&
+              c.method == 'DELETE',
+        ),
+        isTrue,
+      );
+      expect(provider.notifications.length, 1);
 
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 1));
-    provider.dispose();
-  });
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+      provider.dispose();
+    },
+  );
 }

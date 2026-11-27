@@ -247,6 +247,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '💡 Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt (@#\$!...).',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _confirm,
@@ -428,7 +436,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       obscureText: _obscure,
                       enableSuggestions: false,
                       autocorrect: false,
-                      decoration: _dec('Mật khẩu mới'),
+                      decoration: _dec('Mật khẩu mới', suffix: toggle),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '💡 Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt (@#\$!...).',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 12),
                     TextField(

@@ -6,11 +6,13 @@ import '../../../core/services/api_service.dart';
 import '../../../core/utils/cron_utils.dart';
 import '../profile_irrigation_logic.dart';
 import '../zone_irrigation_logic.dart';
+import '../crop_sync_logic.dart';
 import '../actuator_labels.dart';
 import 'profile_irrigation_view.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
 import '../../irrigation/season_irrigation_logic.dart' show syncSourceText;
 import '../../../core/utils/user_error.dart';
+import '../../../core/utils/haptics.dart';
 
 const _muted = Color(0xFF64748B);
 
@@ -157,6 +159,7 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
   }
 
   Future<void> _toggle(ScheduleModel s, bool on) async {
+    AppHaptics.selection();
     await _saveSchedule(
       s,
       isActive: on,
@@ -197,6 +200,47 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
       });
     } catch (e) {
       if (mounted) setState(() => _message = 'Không lưu được lịch: ${_err(e)}');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _triggerScheduleActuator(ScheduleModel s) async {
+    final usable = irrigationActuators(_actuators);
+    final actId = s.actuatorId.isNotEmpty
+        ? s.actuatorId
+        : usable.firstOrNull?.actuatorId;
+    if (actId == null) {
+      setState(() => _message = 'Lịch chưa gán thiết bị rơ-le bơm/van.');
+      return;
+    }
+    final mins = (s.durationSeconds / 60).clamp(1, 15).round();
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      final result = await AutomationApi.sendActuatorCommand(
+        zoneId: widget.zone.zoneId,
+        actuatorId: actId,
+        action: 'TurnOn',
+        durationSeconds: mins * 60,
+      );
+      if (!mounted) return;
+      // HTTP 202 chỉ nghĩa là đã lưu/đã gửi: chỉ báo "đã bật" khi gateway ACK.
+      setState(() {
+        _message = result.failed
+            ? 'Gateway không thực hiện được lệnh (${result.status})'
+                  '${result.errorMessage?.isNotEmpty == true ? ': ${result.errorMessage}' : '.'}'
+            : result.acknowledged
+            ? 'Gateway đã xác nhận BẬT rơ-le cho lịch "${s.name}". Tự ngắt an toàn sau $mins phút (BR-SAFE-01).'
+            : 'Đã gửi lệnh BẬT rơ-le cho lịch "${s.name}", đang chờ gateway xác nhận. Tự ngắt an toàn sau $mins phút (BR-SAFE-01).';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _message = 'Không kích hoạt được rơ-le: ${_err(e)}';
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -388,6 +432,68 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
     }
   }
 
+  /// Như web "Đồng bộ từ Thư viện Cây": chọn một cây trong thư viện, xem trước 3 ca Sáng-Trưa-Chiều rồi áp vào Zone.
+  Future<void> _syncFromCrop() async {
+    final actuatorId = _actuatorId;
+    if (actuatorId == null) {
+      setState(
+        () => _message =
+            'Zone chưa có bơm/van tưới để gắn lịch. Thiết bị do kỹ thuật viên lắp và gán vào Zone.',
+      );
+      return;
+    }
+    List<Map<String, dynamic>> crops;
+    try {
+      crops = await CropApi.getCropsForProfiles();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _message = 'Không tải được Thư viện Cây: ${_err(e)}');
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (crops.isEmpty) {
+      setState(() => _message = 'Thư viện Cây trồng đang trống.');
+      return;
+    }
+    final cropId = await showDialog<String>(
+      context: context,
+      builder: (_) => _CropSyncDialog(crops: crops),
+    );
+    if (cropId == null || !mounted) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+      _problem = null;
+    });
+    try {
+      final created = await AutomationApi.syncScheduleFromCrop(
+        widget.zone.zoneId,
+        cropId: cropId,
+        actuatorId: actuatorId,
+      );
+      final fresh = await AutomationApi.fetchZoneSchedules(widget.zone.zoneId);
+      if (!mounted) return;
+      setState(() {
+        _schedules = fresh;
+        _message =
+            'Đã đồng bộ ${created.length} ca tưới Sáng-Trưa-Chiều & vi khí hậu từ Thư viện Cây sang Zone "${widget.zone.name}".';
+      });
+    } catch (e) {
+      final msg = _err(e);
+      if (mounted) {
+        setState(
+          () => _message =
+              msg.contains('403') || msg.toLowerCase().contains('quyền')
+              ? 'Quyền truy cập: Chỉ tài khoản có thẩm quyền (Chủ trang trại / Kỹ thuật viên) mới được đồng bộ lịch sang Zone.'
+              : 'Không thể đồng bộ lịch tưới sang Zone lúc này: $msg',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Hồ sơ của Zone đổi (ở phần hồ sơ phía trên) thì tải lại lịch của hồ sơ mới.
@@ -442,13 +548,28 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
         if (_schedulesError != null)
           _error('Không tải được lịch của Zone: $_schedulesError')
         else if (_schedules.isEmpty)
-          const _Note('Zone chưa có lịch tưới nào đang áp dụng.')
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Note('Zone chưa có lịch tưới nào đang áp dụng.'),
+              if (usable.isNotEmpty)
+                TextButton.icon(
+                  key: const ValueKey('sync-crop-empty'),
+                  onPressed: _busy ? null : _syncFromCrop,
+                  icon: const Icon(Icons.sync, size: 16),
+                  label: const Text(
+                    'Đồng bộ lịch Sáng-Trưa-Chiều từ Thư viện Cây',
+                  ),
+                ),
+            ],
+          )
         else
           for (final s in _schedules)
             Card(
               margin: const EdgeInsets.only(top: 6),
               child: ListTile(
                 dense: true,
+                leading: _sessionIcon(s),
                 title: Text(
                   s.name,
                   style: const TextStyle(
@@ -457,13 +578,24 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
                   ),
                 ),
                 subtitle: Text(
-                  '${describeSchedule(s)}${s.nextRunFormatted == null ? '' : '\nLần chạy tới: ${s.nextRunFormatted}'}',
+                  '${[s.zoneName, s.actuatorName].where((x) => x.isNotEmpty).join(' • ')}\n${describeSchedule(s)}${s.nextRunFormatted == null ? '' : '\nLần chạy tới: ${s.nextRunFormatted}'}',
                   style: const TextStyle(fontSize: 11),
                 ),
-                isThreeLine: s.nextRunFormatted != null,
+                isThreeLine: true,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    IconButton(
+                      tooltip: 'Bật tưới ngay qua LoRa',
+                      icon: const Icon(
+                        Icons.play_circle_fill_rounded,
+                        size: 20,
+                        color: Color(0xFF047857),
+                      ),
+                      onPressed: _busy
+                          ? null
+                          : () => _triggerScheduleActuator(s),
+                    ),
                     IconButton(
                       tooltip: 'Sửa lịch',
                       icon: const Icon(Icons.edit_outlined, size: 18),
@@ -584,6 +716,17 @@ class _ZoneIrrigationPanelState extends State<ZoneIrrigationPanel> {
             label: const Text('Đồng bộ lịch của hồ sơ'),
           ),
         ],
+        // Như web: đồng bộ từ Thư viện Cây không cần Zone đã gắn hồ sơ (chọn cây tùy ý).
+        if (usable.isNotEmpty && _actuatorsError == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: OutlinedButton.icon(
+              key: const ValueKey('sync-crop-button'),
+              onPressed: _busy ? null : _syncFromCrop,
+              icon: const Icon(Icons.local_florist_outlined, size: 18),
+              label: const Text('Đồng bộ từ Thư viện Cây'),
+            ),
+          ),
         if (_message != null) _Note(_message!),
         if (_problem != null) ...[
           _error(_problem!.message),
@@ -617,4 +760,160 @@ class _Note extends StatelessWidget {
       style: const TextStyle(fontSize: 11, color: _muted, height: 1.35),
     ),
   );
+}
+
+Widget _sessionIcon(ScheduleModel s) => switch (scheduleSessionKind(s)) {
+  IrrigationSessionKind.morning => const Icon(
+    Icons.wb_twilight,
+    size: 20,
+    color: Color(0xFFD97706),
+  ),
+  IrrigationSessionKind.noon => const Icon(
+    Icons.wb_sunny_outlined,
+    size: 20,
+    color: Color(0xFFE11D48),
+  ),
+  IrrigationSessionKind.afternoon => const Icon(
+    Icons.nights_stay_outlined,
+    size: 20,
+    color: Color(0xFF4F46E5),
+  ),
+  IrrigationSessionKind.other => const Icon(
+    Icons.schedule,
+    size: 20,
+    color: _muted,
+  ),
+};
+
+/// Hộp thoại "Đồng bộ lịch tưới Sáng-Trưa-Chiều từ Thư viện Cây trồng" (giống web): chọn cây + xem trước 3 ca.
+class _CropSyncDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> crops;
+  const _CropSyncDialog({required this.crops});
+
+  @override
+  State<_CropSyncDialog> createState() => _CropSyncDialogState();
+}
+
+class _CropSyncDialogState extends State<_CropSyncDialog> {
+  static String _id(Map<String, dynamic> c) => '${c['cropId'] ?? c['id']}';
+
+  late String _cropId = _id(widget.crops.first);
+
+  Map<String, dynamic> get _crop => widget.crops.firstWhere(
+    (c) => _id(c) == _cropId,
+    orElse: () => widget.crops.first,
+  );
+
+  String _label(Map<String, dynamic> c) {
+    final sci = '${c['scientificName'] ?? ''}'.trim();
+    final cat = '${c['category'] ?? ''}'.trim();
+    return '${c['name'] ?? 'Cây trồng'}${sci.isEmpty ? '' : ' ($sci)'} - ${cat.isEmpty ? 'VietGAP' : cat}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sessions = parseCropPlanSessions(
+      _crop['calendarIrrigationPlan'] ?? _crop['CalendarIrrigationPlan'],
+    );
+    Widget cell(String title, String key, Color color) {
+      final x = planSessionOf(sessions, key);
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                x?.label ?? 'Chưa có',
+                style: const TextStyle(fontSize: 10.5, color: _muted),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final cycle = (_crop['growthCycleDays'] as num?)?.toInt();
+    return AlertDialog(
+      key: const ValueKey('crop-sync-dialog'),
+      title: const Text(
+        'Đồng bộ lịch tưới Sáng-Trưa-Chiều từ Thư viện Cây trồng',
+        style: TextStyle(fontSize: 15),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Chọn loài cây mẫu từ thư viện để tải lịch tưới 3 ca (Sáng, Trưa, Chiều) và dải vi khí hậu tối ưu vào Zone hiện tại.',
+              style: TextStyle(fontSize: 11.5, color: _muted, height: 1.35),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              key: const ValueKey('crop-sync-select'),
+              initialValue: _cropId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Chọn loại cây trồng',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final c in widget.crops)
+                  DropdownMenuItem(
+                    value: _id(c),
+                    child: Text(_label(c), overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _cropId = v ?? _cropId),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              cycle == null ? 'Chưa có chu kỳ' : '$cycle ngày vụ',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                cell('🌅 Ca Sáng', 'MORNING', const Color(0xFFB45309)),
+                const SizedBox(width: 6),
+                cell('☀️ Ca Trưa', 'NOON', const Color(0xFFBE123C)),
+                const SizedBox(width: 6),
+                cell('🌇 Ca Chiều', 'AFTERNOON', const Color(0xFF4338CA)),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          key: const ValueKey('crop-sync-apply'),
+          onPressed: () => Navigator.pop(context, _cropId),
+          child: const Text('Áp dụng & đồng bộ sang Zone'),
+        ),
+      ],
+    );
+  }
 }

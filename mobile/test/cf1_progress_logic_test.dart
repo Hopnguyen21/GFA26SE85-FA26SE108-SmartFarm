@@ -69,4 +69,23 @@ void main() {
       Cf1StepState.needsAction,
     );
   });
+
+  test('yêu cầu đã huỷ là lịch sử: không làm bước IoT "Cần xử lý" mãi mãi', () {
+    expect(deploymentState(['Cancelled']), Cf1StepState.notStarted);
+    expect(
+      deploymentState(['Cancelled', 'Cancelled']),
+      Cf1StepState.notStarted,
+    );
+    expect(deploymentState(['Cancelled', 'Completed']), Cf1StepState.done);
+    expect(
+      deploymentState(['Cancelled', 'Submitted']),
+      Cf1StepState.inProgress,
+    );
+    // Vấn đề thật vẫn được báo.
+    expect(
+      deploymentState(['Cancelled', 'MaintenanceRequired']),
+      Cf1StepState.needsAction,
+    );
+    expect(deploymentState(['Failed']), Cf1StepState.needsAction);
+  });
 }

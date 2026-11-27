@@ -114,40 +114,40 @@ void main() {
           // telemetry
           final tl = await raw('/api/v1/zones/$id/telemetry/latest');
           if (tl is Map && tl['metrics'] is List) {
-            double? tv(String c) =>
-                ((tl['metrics'] as List)
-                            .cast<Map>()
-                            .where((x) => x['parameterCode'] == c)
-                            .firstOrNull?['value']
-                        as num?)
-                    ?.toDouble();
-            final t = tl['hasFreshTelemetry'] == true
-                ? tv('Temperature')
-                : null;
+            // Chỉ số cũ (isFresh=false, quá cửa sổ 5 phút) được mobile CỐ Ý không hiển thị; `hasFreshTelemetry` của cả Zone là "có ÍT NHẤT
+            // một chỉ số mới" nên không dùng nó để suy ra từng chỉ số. So từng chỉ số theo cờ isFresh của chính nó.
+            double? tv(String c) {
+              final x = (tl['metrics'] as List)
+                  .cast<Map>()
+                  .where((x) => x['parameterCode'] == c && x['isFresh'] == true)
+                  .firstOrNull;
+              return (x?['value'] as num?)?.toDouble();
+            }
+
+            final t = tv('Temperature');
             if (t != null && (t - m.currentTemp).abs() > 0.05)
               bad('zone ${m.name}: temp API=$t model=${m.currentTemp}');
-            final so = tl['hasFreshTelemetry'] == true
-                ? tv('SoilMoisture')
-                : null;
+            final so = tv('SoilMoisture');
             if (so != null && (so - m.currentSoilMoisture).abs() > 0.05)
               bad(
                 'zone ${m.name}: soil API=$so model=${m.currentSoilMoisture}',
               );
-            final h = tl['hasFreshTelemetry'] == true
-                ? tv('AirHumidity')
-                : null;
+            final h = tv('AirHumidity');
             if (h != null && (h - m.currentHumidity).abs() > 0.05)
               bad('zone ${m.name}: humidity API=$h model=${m.currentHumidity}');
-            final lx = tl['hasFreshTelemetry'] == true
-                ? tv('LightIntensity')
-                : null;
+            final lx = tv('LightIntensity');
             if (lx != null && (lx - m.currentLux).abs() > 0.5)
               bad('zone ${m.name}: lux API=$lx model=${m.currentLux}');
-            if (tl['hasFreshTelemetry'] != true) {
-              /* số đo cũ: cố ý không hiển thị */
-            } else if (true != m.telemetryIsFresh)
+            // Mobile chỉ coi Zone là "mới" khi đủ 4 chỉ số chính đều mới (xem _zoneWithTelemetry).
+            final allFresh =
+                tl['hasFreshTelemetry'] == true &&
+                t != null &&
+                so != null &&
+                h != null &&
+                lx != null;
+            if (allFresh != m.telemetryIsFresh)
               bad(
-                'zone ${m.name}: fresh API=${tl['hasFreshTelemetry']} model=${m.telemetryIsFresh}',
+                'zone ${m.name}: fresh(đủ 4 chỉ số) API=$allFresh model=${m.telemetryIsFresh}',
               );
           }
           // vụ đang chạy thực tế (planting-seasons) so với trạng thái/giai đoạn trên model

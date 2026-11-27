@@ -3,8 +3,9 @@ part of '../schedules_automation_screen.dart';
 extension _SchedulesAutomationScreenStateLists
     on _SchedulesAutomationScreenState {
   Widget _buildAutoRulesTab(BuildContext context, FarmProvider provider) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    final rules = sortedRules(provider.automationRules);
+    final rows = _zoneRows<AutomationRuleModel>(rules, (r) => r.zoneName);
+    final banner = Column(
       children: [
         // Issue 2 Explanation Banner
         Container(
@@ -49,11 +50,33 @@ extension _SchedulesAutomationScreenStateLists
           ),
         ),
         const SizedBox(height: 14),
-        ...provider.automationRules.map(
-          (rule) => _buildRuleCard(context, provider, rule),
-        ),
-        const SizedBox(height: 60),
       ],
+    );
+    return RefreshIndicator(
+      onRefresh: provider.refreshSchedulesAndRules,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: (rows.isEmpty ? 1 : rows.length) + 2,
+        itemBuilder: (context, i) {
+          if (i == 0) return banner;
+          if (i == (rows.isEmpty ? 1 : rows.length) + 1) {
+            return const SizedBox(height: 60);
+          }
+          if (rows.isEmpty) {
+            return _emptyCard(
+              Icons.flash_on,
+              'Chưa có luật tự động nào',
+              _canConfigSchedule(provider)
+                  ? 'Bấm "Thêm Mới" để tạo luật NẾU – THÌ (ví dụ: độ ẩm đất dưới 50% thì bật bơm 10 phút).'
+                  : 'Chủ trang trại chưa thiết lập luật tự động cho các Zone.',
+            );
+          }
+          final row = rows[i - 1];
+          if (row is _ZoneHeader) return _zoneHeader(row);
+          return _buildRuleCard(context, provider, row as AutomationRuleModel);
+        },
+      ),
     );
   }
 
@@ -261,23 +284,12 @@ extension _SchedulesAutomationScreenStateLists
     );
   }
 
-  Widget _buildSchedulesTab(BuildContext context, FarmProvider provider) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ...provider.schedules.map(
-          (sch) => _buildScheduleCard(context, provider, sch),
-        ),
-        const SizedBox(height: 60),
-      ],
-    );
-  }
-
   Widget _buildScheduleCard(
     BuildContext context,
     FarmProvider provider,
-    ScheduleModel sch,
-  ) {
+    ScheduleModel sch, {
+    bool conflict = false,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -357,6 +369,7 @@ extension _SchedulesAutomationScreenStateLists
             '${sch.zoneName} • ${sch.actuatorName}',
             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
           ),
+          _scheduleChips(sch, conflict),
           const SizedBox(height: 12),
           Row(
             children: [

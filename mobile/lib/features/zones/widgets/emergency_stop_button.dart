@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/farm_provider.dart';
+import '../../../core/utils/haptics.dart';
 import '../../../core/utils/user_error.dart';
 
 /// Nút Dừng khẩn cấp (E-Stop, BR-CANCEL-01): tắt toàn bộ rơ-le bơm/quạt/van/đèn.
@@ -23,7 +23,7 @@ class EmergencyStopButton extends StatelessWidget {
     BuildContext context,
     FarmProvider provider,
   ) async {
-    HapticFeedback.heavyImpact();
+    AppHaptics.warning();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -52,6 +52,7 @@ class EmergencyStopButton extends StatelessWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
+    AppHaptics.error();
 
     final messenger = ScaffoldMessenger.of(context);
     try {

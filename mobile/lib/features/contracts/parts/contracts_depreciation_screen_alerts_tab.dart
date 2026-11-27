@@ -10,6 +10,7 @@ extension _ContractsDepreciationScreenStateAlertsTab
       onRefresh: _loadData,
       color: const Color(0xFF10B981),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           Container(

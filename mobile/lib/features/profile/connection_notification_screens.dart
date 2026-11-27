@@ -153,6 +153,7 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
               onRefresh: _load,
               child: _states.isEmpty
                   ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       children: const [
                         SizedBox(height: 120),
                         Center(
@@ -161,6 +162,7 @@ class _MqttStatusScreenState extends State<MqttStatusScreen> {
                       ],
                     )
                   : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(16),
                       itemCount: _states.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),

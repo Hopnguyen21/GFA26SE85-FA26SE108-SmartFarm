@@ -15,6 +15,7 @@ import '../zones/widgets/zone_profile_detail_page.dart';
 import 'crop_detail_screen.dart';
 import 'widgets/create_season_sheet.dart';
 import '../../core/widgets/dispose_later.dart';
+import '../../core/utils/debouncer.dart';
 part 'parts/crop_profiles_screen_create_zone_dialog.dart';
 part 'parts/crop_profiles_screen_card.dart';
 
@@ -35,6 +36,13 @@ class CropProfilesScreen extends StatefulWidget {
 class _CropProfilesScreenState extends State<CropProfilesScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'ALL';
+  final _searchDebouncer = Debouncer(milliseconds: 300);
+
+  @override
+  void dispose() {
+    _searchDebouncer.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -230,7 +238,7 @@ class _CropProfilesScreenState extends State<CropProfilesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: TextField(
-              onChanged: (v) => setState(() => _searchQuery = v),
+              onChanged: (v) => _searchDebouncer.run(() => setState(() => _searchQuery = v)),
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm cây trồng (Tên, giống, VietGAP)...',

@@ -37,6 +37,13 @@ part 'api/media_api.dart';
 part 'api/discount_and_packages_api.dart';
 part 'api/payment_api.dart';
 
+/// Cho phép mô phỏng Gateway (app đóng vai thiết bị tự đăng ký). Bật sẵn ở debug/profile;
+/// bản release tắt, trừ khi build với --dart-define=ALLOW_GATEWAY_SIMULATION=true (buổi demo).
+const bool kAllowGatewaySimulation = bool.fromEnvironment(
+  'ALLOW_GATEWAY_SIMULATION',
+  defaultValue: !kReleaseMode,
+);
+
 class SecurityException implements Exception {
   final String message;
   const SecurityException(this.message);
@@ -162,6 +169,30 @@ class ApiService {
     } else {
       _baseUrl = validated;
     }
+  }
+
+  static const _debugBaseUrlKey = 'debug_backend_url';
+
+  static Future<void> loadDebugBaseUrl() async {
+    if (kReleaseMode) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved =
+          prefs.getString(_debugBaseUrlKey) ?? prefs.getString('base_url');
+      if (saved != null) setBaseUrl(saved);
+    } catch (_) {
+      _baseUrl = defaultBaseUrl;
+    }
+  }
+
+  static Future<void> saveDebugBaseUrl(String url) async {
+    if (kReleaseMode) return;
+    final validated = validateAndNormalizeBaseUrl(url);
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setString(_debugBaseUrlKey, validated)) {
+      throw StateError('Không lưu được URL máy chủ.');
+    }
+    setBaseUrl(validated);
   }
 
   static void setTokens({
@@ -325,6 +356,8 @@ class ApiService {
     String url, {
     Duration timeout = const Duration(seconds: 15),
   }) async {
+    // Id rỗng ("/zones//..."): chưa có Zone/Trang trại được chọn, gọi lên máy chủ chỉ tốn một lượt mạng rồi lỗi.
+    if (RegExp(r'/(zones|farms|fields)//').hasMatch(url)) return null;
     final uri = Uri.parse(url);
     _assertSecureRequest(uri);
     var resp = await _client.get(uri, headers: _headers).timeout(timeout);
@@ -428,6 +461,8 @@ class ApiService {
           };
         }
         if (token != null && rToken != null) {
+          // Tài khoản khác người dùng trước trên máy: xoá bản nháp/đệm GIS của người cũ.
+          await _claimUserLocalData(email);
           await saveTokens(
             accessToken: token,
             refreshToken: rToken,
@@ -452,11 +487,12 @@ class ApiService {
     try {
       final body = jsonDecode(utf8.decode(response.bodyBytes));
       if (body is Map<String, dynamic>) {
-        final d = body['detail']?.toString().trim();
+        final d = body['detail']?.toString().trim() ??
+            body['message']?.toString().trim();
         if (d != null &&
             d.isNotEmpty &&
             !_genericHttpTitles.contains(d.toLowerCase())) {
-          return d;
+          return _viMessage(d);
         }
       }
     } catch (_) {}
@@ -516,7 +552,42 @@ class ApiService {
       }
     } catch (_) {}
     await clearTokens();
+    await clearUserLocalData();
     return true;
+  }
+
+  /// Khoá lưu cục bộ theo người dùng: bản nháp công việc và bộ nhớ đệm GIS ngoại tuyến.
+  static const List<String> _userLocalDataPrefixes = [
+    'smartfarm_task_draft_',
+    'smartfarm_gis_',
+  ];
+  static const String _localDataOwnerKey = 'local_data_owner';
+
+  /// Xoá dữ liệu cục bộ của tài khoản (bản nháp, đệm GIS) để tài khoản khác dùng chung máy không thấy.
+  /// Gọi khi đăng xuất chủ động. KHÔNG gọi ở [clearTokens] vì app xoá phiên mỗi lần khởi động,
+  /// còn bản nháp cần giữ qua lần mở app sau khi mất mạng.
+  static Future<void> clearUserLocalData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in prefs.getKeys().toList()) {
+        if (_userLocalDataPrefixes.any(key.startsWith)) await prefs.remove(key);
+      }
+      await prefs.remove(_localDataOwnerKey);
+    } catch (_) {}
+  }
+
+  /// Đăng nhập bằng tài khoản khác chủ dữ liệu cục bộ hiện có → xoá dữ liệu cũ trước.
+  static Future<void> _claimUserLocalData(String? email) async {
+    if (email == null || email.trim().isEmpty) return;
+    final owner = email.trim().toLowerCase();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final current = prefs.getString(_localDataOwnerKey);
+      if (current != owner) {
+        await clearUserLocalData();
+        await prefs.setString(_localDataOwnerKey, owner);
+      }
+    } catch (_) {}
   }
 
   // ─── Refresh Token (Concurrency Guarded) ───────────────────────────
@@ -633,6 +704,25 @@ class ApiService {
         'Cần ký hợp đồng và thanh toán cọc trước bước này.',
     'zone already has a non-terminal deployment request':
         'Zone này đang có một yêu cầu triển khai chưa kết thúc. Hãy hoàn tất hoặc hủy yêu cầu đó trước.',
+    'an account with this email already exists':
+        'Email này đã được sử dụng cho một tài khoản khác. Vui lòng đăng nhập hoặc dùng email khác.',
+    'public registration allows only':
+        'Đăng ký công khai chỉ áp dụng cho Chủ trang trại hoặc Nông dân.',
+    'password must be 8-100 characters':
+        'Mật khẩu phải dài 8–100 ký tự và bao gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.',
+    'the otp field is required': 'Vui lòng nhập mã OTP xác thực.',
+    'the account is temporarily locked':
+        'Tài khoản đã bị tạm khóa do nhập sai mật khẩu nhiều lần. Vui lòng thử lại sau 15 phút hoặc liên hệ quản trị viên.',
+    'the account is not active':
+        'Tài khoản hiện đang bị khóa hoặc chưa được kích hoạt.',
+    'invalid email or password':
+        'Email hoặc mật khẩu không chính xác.',
+    'current password is incorrect':
+        'Mật khẩu hiện tại không chính xác.',
+    'an operating zone cannot change area or boundary':
+        'Zone đang ở trạng thái Vận hành nên không đổi được ranh giới/diện tích. Chuyển Zone về Ngừng hoạt động (Inactive) rồi sửa lại.',
+    'exceeds the farm area':
+        'Diện tích thửa đất vượt diện tích còn lại của trang trại. Hãy thu nhỏ thửa đất hoặc cập nhật diện tích trang trại trước.',
   };
 
   static String _viMessage(String text) {

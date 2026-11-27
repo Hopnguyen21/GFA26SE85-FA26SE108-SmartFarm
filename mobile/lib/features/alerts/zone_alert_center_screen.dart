@@ -7,6 +7,7 @@ import '../../core/widgets/state_views.dart';
 import '../ai/ai_screen.dart';
 import 'alert_rules_logic.dart';
 import '../../core/utils/user_error.dart';
+import '../../core/utils/haptics.dart';
 
 const _ink = Color(0xFF0F172A);
 const _muted = Color(0xFF64748B);
@@ -96,20 +97,23 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
     }
   }
 
-  Future<void> _toggle(Map<String, dynamic> r, bool value) => _guard(
-    'rule-${r['ruleId']}',
-    () => AlertApi.updateRule(
-      widget.zone.zoneId,
-      '${r['ruleId']}',
-      parameterCode: '${r['parameterCode']}',
-      minThreshold: (r['minThreshold'] as num).toDouble(),
-      maxThreshold: (r['maxThreshold'] as num).toDouble(),
-      severity: '${r['severity']}',
-      cooldownMinutes: (r['cooldownMinutes'] as num).toInt(),
-      isActive: value,
-    ),
-    value ? 'Đã bật quy tắc.' : 'Đã tắt quy tắc.',
-  );
+  Future<void> _toggle(Map<String, dynamic> r, bool value) {
+    AppHaptics.selection();
+    return _guard(
+      'rule-${r['ruleId']}',
+      () => AlertApi.updateRule(
+        widget.zone.zoneId,
+        '${r['ruleId']}',
+        parameterCode: '${r['parameterCode']}',
+        minThreshold: (r['minThreshold'] as num).toDouble(),
+        maxThreshold: (r['maxThreshold'] as num).toDouble(),
+        severity: '${r['severity']}',
+        cooldownMinutes: (r['cooldownMinutes'] as num).toInt(),
+        isActive: value,
+      ),
+      value ? 'Đã bật quy tắc.' : 'Đã tắt quy tắc.',
+    );
+  }
 
   Future<void> _delete(Map<String, dynamic> r) async {
     final ok = await showDialog<bool>(
@@ -273,6 +277,7 @@ class _ZoneAlertCenterScreenState extends State<ZoneAlertCenterScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
                   _summary(open),

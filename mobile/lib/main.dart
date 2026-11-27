@@ -18,7 +18,8 @@ import 'features/tasks/alerts_tasks_screen.dart';
 import 'features/support/technician_work_screen.dart';
 import 'features/devices/technician_devices_screen.dart';
 import 'features/tasks/technician_notifications_screen.dart';
-import 'features/auth/landing_screen.dart';
+import 'core/utils/haptics.dart';
+import 'features/auth/login_screen.dart';
 
 /// Chỉ dùng cho môi trường Debug/Phát triển nội bộ khi làm việc với chứng chỉ tự ký cục bộ.
 /// Tuyệt đối KHÔNG bỏ qua xác minh chứng chỉ trong bản Release hoặc cho các host ngoài danh sách cục bộ.
@@ -54,7 +55,11 @@ class DebugLocalHttpOverrides extends HttpOverrides {
   }
 }
 
-void main() {
+Future<void> main() async {
+  if (!kReleaseMode) {
+    WidgetsFlutterBinding.ensureInitialized();
+    await ApiService.loadDebugBaseUrl();
+  }
   // Bản release TUYỆT ĐỐI không dùng HttpOverrides, tuân thủ xác minh TLS chuẩn của hệ điều hành
   if (kDebugMode) {
     HttpOverrides.global = DebugLocalHttpOverrides();
@@ -187,7 +192,7 @@ class _AppEntryPointState extends State<AppEntryPoint> {
       );
     }
     if (!ApiService.isAuthenticated) {
-      return LandingScreen(onLoginSuccess: _onLoginSuccess);
+      return LoginScreen(onLoginSuccess: _onLoginSuccess);
     }
     return const MainNavigationShell();
   }
@@ -324,6 +329,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex,
           onDestinationSelected: (index) {
+            AppHaptics.selection();
             setState(() => _currentIndex = index);
           },
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

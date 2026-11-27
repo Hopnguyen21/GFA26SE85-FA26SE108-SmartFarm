@@ -24,6 +24,7 @@ extension _ContractsDepreciationScreenStateContractsTab
       onRefresh: _loadData,
       color: const Color(0xFF10B981),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           // Phân biệt với cọc/nghiệm thu của yêu cầu dịch vụ kỹ thuật (nằm ở "Yêu cầu & Hợp đồng").

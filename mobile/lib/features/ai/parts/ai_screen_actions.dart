@@ -259,7 +259,13 @@ extension _AiAssistantScreenStateActions on _AiAssistantScreenState {
     String zoneId,
     AiRecCard rec,
   ) async {
-    final history = await AiApi.getAiHistory(zoneId);
+    // Được gọi không chờ (fire-and-forget): lỗi mạng phải được nuốt tại đây, không thành ngoại lệ không bắt được.
+    final List<Map<String, dynamic>> history;
+    try {
+      history = await AiApi.getAiHistory(zoneId);
+    } catch (_) {
+      return;
+    }
     if (!mounted || provider.currentZone.zoneId != zoneId) return;
     final match = history
         .where((h) => (h['recommendationId'] ?? h['id'])?.toString() == rec.id)

@@ -161,9 +161,31 @@ abstract final class FarmApi {
         '${ApiService.baseUrl}/api/v1/zones/$zoneId/actuators',
       ),
     );
-    return ApiService._asMapList(
+    final list = ApiService._asMapList(
       data,
     ).map((m) => ActuatorModel.fromJson(m, defaultZoneId: zoneId)).toList();
+    // Danh sách rơ-le báo ON ngay khi lệnh vừa gửi (chưa ACK). Trạng thái thật nằm ở /status:
+    // chỉ RUNNING/ON mới là đang chạy.
+    return Future.wait(list.map((a) => _verifyRunning(zoneId, a)));
+  }
+
+  static Future<ActuatorModel> _verifyRunning(
+    String zoneId,
+    ActuatorModel a,
+  ) async {
+    if (!a.isRunning) return a;
+    try {
+      final live = await AutomationApi.getActuatorStatus(zoneId, a.actuatorId);
+      if (live == null) return a;
+      if (live.isOn) {
+        a.remainingMinutes = (live.remainingSeconds / 60).ceil();
+      } else {
+        a.isRunning = false;
+        a.remainingMinutes = 0;
+        a.awaitingAck = live.state == 'PENDINGFEEDBACK';
+      }
+    } catch (_) {}
+    return a;
   }
 
   // ─── 6.6. Telemetry History (Database backed) ────────────────────────
@@ -173,6 +195,7 @@ abstract final class FarmApi {
     DateTime? fromUtc,
     DateTime? toUtc,
     String interval = '1h',
+    String? deviceId,
   }) async {
     final from =
         (fromUtc ?? DateTime.now().toUtc().subtract(const Duration(hours: 24)))
@@ -187,6 +210,7 @@ abstract final class FarmApi {
             'fromUtc': from,
             'toUtc': to,
             'interval': interval,
+            if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
           },
         );
     final data = ApiService._decodeOrThrow(

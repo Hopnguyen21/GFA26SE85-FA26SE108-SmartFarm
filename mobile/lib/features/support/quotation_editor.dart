@@ -7,6 +7,7 @@ import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../bills/discount_codes_sheet.dart';
+import 'estimate_snapshot_dialog.dart';
 
 /// Kết quả soạn báo giá. [notes] và [terms] cùng là nội dung ô "Ghi chú điều khoản & phạm vi lắp đặt".
 class QuotationDraft {
@@ -40,8 +41,10 @@ String formatContractDate(DateTime value) {
 class QuotationEditor extends StatefulWidget {
   final Quotation? initial;
 
-  /// Dòng dựng sẵn từ "Thiết bị đề xuất & dự toán" Owner đã lưu (chỉ dùng khi chưa có báo giá). Kỹ thuật viên chỉnh theo khảo sát.
+  /// Dòng đề xuất từ "Thiết bị đề xuất & dự toán" của Owner/GIS để KTV tham khảo ở ô đề xuất.
   final List<QuotationItem>? estimateItems;
+  final String? estimateSnapshotJson;
+  final String? proposalError;
 
   /// Tiêu đề hợp đồng (ví dụ "Hợp đồng lắp đặt IoT #339E17EB-…"), trang trại và phân khu, hiện ở khung đầu bảng.
   final String? contractTitle;
@@ -51,15 +54,22 @@ class QuotationEditor extends StatefulWidget {
 
   /// Lời giải thích nguồn dữ liệu khi dòng dựng sẵn là ước tính theo diện tích Zone (Owner chưa lưu dự toán); thay cho câu mặc định.
   final String? proposalNote;
+
+  /// Cho phép tự động đổ đề xuất vào bảng hợp đồng (mặc định false: hợp đồng không lấy từ đề xuất, KTV tự chọn từ kho).
+  final bool autoFillFromEstimate;
+
   const QuotationEditor({
     super.key,
     this.initial,
     this.estimateItems,
+    this.estimateSnapshotJson,
+    this.proposalError,
     this.contractTitle,
     this.farmName,
     this.zoneName,
     this.readOnly = false,
     this.proposalNote,
+    this.autoFillFromEstimate = false,
   });
 
   @override
@@ -175,10 +185,12 @@ class _QuotationEditorState extends State<QuotationEditor> {
     super.initState();
     _lines =
         widget.initial?.items.map((i) => _Line(i)).toList() ??
-        [
-          for (final i in widget.estimateItems ?? const <QuotationItem>[])
-            _lineFromEstimate(i),
-        ];
+        (widget.autoFillFromEstimate
+            ? [
+                for (final i in widget.estimateItems ?? const <QuotationItem>[])
+                  _lineFromEstimate(i),
+              ]
+            : <_Line>[]);
     if (!_ro) {
       _loadPackages();
       _loadStockSilently();
@@ -280,6 +292,165 @@ class _QuotationEditorState extends State<QuotationEditor> {
       }
       _lines.add(line);
     });
+  }
+
+  Widget _buildProposalReferenceCard() {
+    final items = widget.estimateItems ?? const <QuotationItem>[];
+    final hasSnapshot =
+        widget.estimateSnapshotJson != null &&
+        widget.estimateSnapshotJson!.trim().isNotEmpty;
+    final hasProposals =
+        items.isNotEmpty ||
+        hasSnapshot ||
+        widget.proposalError != null ||
+        widget.proposalNote != null;
+    if (!hasProposals) return const SizedBox.shrink();
+
+    return Card(
+      margin: const EdgeInsets.only(top: 14, bottom: 8),
+      elevation: 0,
+      color: const Color(0xFFF0FDF4),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFBBF7D0)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const PageStorageKey('proposal-ref-card'),
+          initiallyExpanded: false,
+          maintainState: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          leading: Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.lightbulb_outline,
+              color: Color(0xFF047857),
+              size: 20,
+            ),
+          ),
+          title: const Text(
+            'Đề xuất thiết bị & Dự toán từ khách hàng',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
+              color: Color(0xFF065F46),
+            ),
+          ),
+          subtitle: Text(
+            items.isNotEmpty
+                ? '${items.length} hạng mục đề xuất (nhấn để xem chi tiết)'
+                : hasSnapshot
+                ? 'Dự toán GIS tổ ong'
+                : widget.proposalNote != null
+                ? 'Dự toán tham khảo'
+                : 'Thiết bị và dự toán từ khách hàng',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF047857)),
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.proposalError case final error?)
+              Text('Không tải được danh sách đề xuất. $error')
+            else if (widget.proposalNote case final note?)
+              Text(note)
+            else if (!hasSnapshot && items.isEmpty)
+              const Text('Phiếu này chưa có đề xuất thiết bị từ khách hàng.')
+            else
+              Text(
+                _ro
+                    ? 'Đề xuất thiết bị dựa trên diện tích bản đồ GIS.'
+                    : 'Tham khảo đề xuất rồi chọn thiết bị cụ thể từ kho để lập hợp đồng.',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF334155),
+                  height: 1.35,
+                ),
+              ),
+            const SizedBox(height: 10),
+            if (hasSnapshot)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: const Color(0xFF047857),
+                    side: const BorderSide(color: Color(0xFF10B981)),
+                  ),
+                  onPressed: () => EstimateSnapshotDialog.show(
+                    context,
+                    widget.estimateSnapshotJson!,
+                  ),
+                  icon: const Icon(Icons.calculate_outlined, size: 16),
+                  label: const Text('Xem Dự toán Tổ ong (GIS Snapshot)'),
+                ),
+              ),
+            if (items.isNotEmpty) ...[
+              const Divider(height: 16, color: Color(0xFFBBF7D0)),
+              for (final it in items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              it.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              'Đề xuất: ${it.quantity} ${it.unit} · Đơn giá ước tính: ${formatMoney(it.unitPrice)}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!_ro)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _lines.add(_lineFromEstimate(it));
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Đã thêm "${it.name}" vào bảng hợp đồng. Vui lòng chọn thiết bị cụ thể từ kho.',
+                                ),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add_circle_outline, size: 15),
+                          label: const Text(
+                            'Đưa vào HĐ',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _packagesCard() {
@@ -434,12 +605,17 @@ class _QuotationEditorState extends State<QuotationEditor> {
                 const Expanded(
                   child: Text(
                     'Mã giảm giá & Chiết khấu hợp đồng',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
                   ),
                 ),
                 if (!_ro)
                   TextButton.icon(
-                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                     icon: const Icon(Icons.add, size: 14),
                     label: Text(
                       _appliedDiscount != null ? 'Đổi mã' : 'Nhập mã',
@@ -467,7 +643,10 @@ class _QuotationEditorState extends State<QuotationEditor> {
             if (_appliedDiscount != null) ...[
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF3E8FF),
                   borderRadius: BorderRadius.circular(8),
@@ -475,7 +654,11 @@ class _QuotationEditorState extends State<QuotationEditor> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.verified_outlined, size: 16, color: Color(0xFF7C3AED)),
+                    const Icon(
+                      Icons.verified_outlined,
+                      size: 16,
+                      color: Color(0xFF7C3AED),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -489,9 +672,14 @@ class _QuotationEditorState extends State<QuotationEditor> {
                     ),
                     if (!_ro)
                       IconButton(
-                        icon: const Icon(Icons.close, size: 16, color: Color(0xFF6B21A8)),
+                        icon: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Color(0xFF6B21A8),
+                        ),
                         tooltip: 'Bỏ mã',
-                        onPressed: () => setState(() => _appliedDiscount = null),
+                        onPressed: () =>
+                            setState(() => _appliedDiscount = null),
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -1189,6 +1377,9 @@ class _QuotationEditorState extends State<QuotationEditor> {
           padding: const EdgeInsets.all(16),
           children: [
             _banner(),
+            if (!_ro ||
+                (widget.estimateSnapshotJson?.trim().isNotEmpty ?? false))
+              _buildProposalReferenceCard(),
             if (widget.initial case final q?) ...[
               if (q.createdAtUtc != null)
                 Text('Ngày lập: ${formatContractDate(q.createdAtUtc!)}'),
@@ -1213,19 +1404,10 @@ class _QuotationEditorState extends State<QuotationEditor> {
               ),
             ] else ...[
               const SizedBox(height: 12),
-              Text(
-                widget.proposalNote != null
-                    ? widget.proposalNote!
-                    : widget.initial == null &&
-                          (widget.estimateItems?.isNotEmpty ?? false)
-                    ? 'Đã dựng sẵn ${widget.estimateItems!.length} hạng mục từ phần "Thiết bị đề xuất & dự toán" mà Owner đã gửi cùng yêu cầu. '
-                          'Chỉnh số lượng, đơn giá theo khảo sát thực địa; Owner sẽ xem và ký xác nhận báo giá này.'
-                    : 'Điều chỉnh hạng mục theo khảo sát và trao đổi với Owner. '
-                          'Owner sẽ xem và ký xác nhận báo giá này.',
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  color: AppColors.textMuted,
-                ),
+              const Text(
+                'Thiết lập danh mục thiết bị và báo giá theo khảo sát thực tế. '
+                'Bấm "Thêm thiết bị từ kho" để chọn sản phẩm.',
+                style: TextStyle(fontSize: 13.5, color: AppColors.textMuted),
               ),
             ],
             const SizedBox(height: 10),
@@ -1276,11 +1458,48 @@ class _QuotationEditorState extends State<QuotationEditor> {
               child: Column(
                 children: [
                   if (_lines.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        'Chưa có hạng mục nào. Bấm "Thêm thiết bị từ kho" để thêm.',
-                        style: TextStyle(color: AppColors.textMuted),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 24,
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 38,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Chưa có hạng mục nào trong hợp đồng.',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Kỹ thuật viên hãy tham khảo ô đề xuất phía trên và bấm "Thêm thiết bị từ kho" để chọn sản phẩm và số lượng.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          if (!_ro) ...[
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: _loadingStock ? null : _addFromStock,
+                              icon: const Icon(
+                                Icons.add_shopping_cart,
+                                size: 16,
+                              ),
+                              label: const Text('Thêm thiết bị từ kho'),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   for (var k = 0; k < _lines.length; k++) ...[

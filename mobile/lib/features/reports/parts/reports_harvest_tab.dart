@@ -65,8 +65,10 @@ class ReportsHarvestTab extends StatelessWidget {
 
     final sortedHarvest = harvestSeasons.toList()
       ..sort((a, b) {
-        final aDate = '${a['actualEndDate'] ?? a['endDate'] ?? a['startDate'] ?? ''}';
-        final bDate = '${b['actualEndDate'] ?? b['endDate'] ?? b['startDate'] ?? ''}';
+        final aDate =
+            '${a['actualEndDate'] ?? a['endDate'] ?? a['startDate'] ?? ''}';
+        final bDate =
+            '${b['actualEndDate'] ?? b['endDate'] ?? b['startDate'] ?? ''}';
         return bDate.compareTo(aDate);
       });
 
@@ -87,8 +89,9 @@ class ReportsHarvestTab extends StatelessWidget {
         totalAreaForYield += zone.areaM2;
       }
     }
-    final avgYieldPerM2 =
-        totalAreaForYield > 0 ? (totalYieldKg / totalAreaForYield) : 0.0;
+    final avgYieldPerM2 = totalAreaForYield > 0
+        ? (totalYieldKg / totalAreaForYield)
+        : 0.0;
 
     // Các vụ đang canh tác (InProgress) có thể ghi nhận thu hoạch nhanh
     final inProgressSeasons = plantingSeasons
@@ -98,6 +101,7 @@ class ReportsHarvestTab extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () async => onRefresh(),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
           // ─── Header Thống Kê Năng Suất ───────────────────────────────
@@ -167,7 +171,10 @@ class ReportsHarvestTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
@@ -179,20 +186,12 @@ class ReportsHarvestTab extends StatelessWidget {
                         'Năng suất TB',
                         '${avgYieldPerM2.toStringAsFixed(2)} kg/m²',
                       ),
-                      Container(
-                        width: 1,
-                        height: 26,
-                        color: Colors.white24,
-                      ),
+                      Container(width: 1, height: 26, color: Colors.white24),
                       _headerSubStat(
                         'Vụ đã thu hoạch',
                         '${completedSeasons.length} vụ',
                       ),
-                      Container(
-                        width: 1,
-                        height: 26,
-                        color: Colors.white24,
-                      ),
+                      Container(width: 1, height: 26, color: Colors.white24),
                       _headerSubStat(
                         'Vụ đang canh tác',
                         '${inProgressSeasons.length} vụ',
@@ -210,7 +209,8 @@ class ReportsHarvestTab extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _pickAndRecordSeason(context, inProgressSeasons),
+                onPressed: () =>
+                    _pickAndRecordSeason(context, inProgressSeasons),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF047857),
                   foregroundColor: Colors.white,
@@ -344,8 +344,9 @@ class ReportsHarvestTab extends StatelessWidget {
         : _fmtDate(s['expectedEndDate']);
     final isDone = '${s['status']}' == 'Completed';
 
-    final yieldPerArea =
-        (actualYieldKg != null && areaM2 > 0) ? (actualYieldKg / areaM2) : 0.0;
+    final yieldPerArea = (actualYieldKg != null && areaM2 > 0)
+        ? (actualYieldKg / areaM2)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -377,7 +378,10 @@ class ReportsHarvestTab extends StatelessWidget {
                       : const Color(0xFF047857).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(cropEmoji(cropName), style: const TextStyle(fontSize: 24)),
+                child: Text(
+                  cropEmoji(cropName),
+                  style: const TextStyle(fontSize: 24),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -537,7 +541,10 @@ class ReportsHarvestTab extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Ngày kết thúc: $actualEndDate',
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF64748B),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -560,7 +567,10 @@ class ReportsHarvestTab extends StatelessWidget {
                   label: const Text('Cập nhật'),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF047857),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                   ),
                 ),
             ],
@@ -631,7 +641,10 @@ class ReportsHarvestTab extends StatelessWidget {
                     }
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 4,
+                    ),
                     child: Row(
                       children: [
                         Container(
@@ -639,7 +652,9 @@ class ReportsHarvestTab extends StatelessWidget {
                           height: 40,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF047857).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF047857,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -654,17 +669,26 @@ class ReportsHarvestTab extends StatelessWidget {
                             children: [
                               Text(
                                 '${s['name']}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 '${s['cropName']} · Bắt đầu: ${_fmtDate(s['startDate'])}',
-                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ],
                     ),
                   ),

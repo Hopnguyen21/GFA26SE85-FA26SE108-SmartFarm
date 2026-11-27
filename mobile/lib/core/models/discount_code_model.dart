@@ -36,7 +36,8 @@ class DiscountCodeModel {
       code: '${j['code'] ?? ''}',
       description: '${j['description'] ?? ''}',
       discountType: (j['discountType'] as num?)?.toInt() ?? 0,
-      discountTypeText: '${j['discountTypeText'] ?? (j['discountType'] == 1 ? 'Số tiền cố định' : 'Phần trăm (%)')}',
+      discountTypeText:
+          '${j['discountTypeText'] ?? (j['discountType'] == 1 ? 'Số tiền cố định' : 'Phần trăm (%)')}',
       discountValue: (j['discountValue'] as num?)?.toDouble() ?? 0.0,
       minContractValue: (j['minContractValue'] as num?)?.toDouble() ?? 0.0,
       maxDiscountAmount: (j['maxDiscountAmount'] as num?)?.toDouble(),
@@ -133,7 +134,9 @@ class BestDiscountResult {
       hasDiscount: j['hasDiscount'] == true,
       message: j['message']?.toString(),
       discountCode: j['discountCode'] is Map
-          ? DiscountCodeModel.fromJson(Map<String, dynamic>.from(j['discountCode']))
+          ? DiscountCodeModel.fromJson(
+              Map<String, dynamic>.from(j['discountCode']),
+            )
           : null,
       discountAmount: (j['discountAmount'] as num?)?.toDouble() ?? 0.0,
       finalAmount: (j['finalAmount'] as num?)?.toDouble() ?? 0.0,

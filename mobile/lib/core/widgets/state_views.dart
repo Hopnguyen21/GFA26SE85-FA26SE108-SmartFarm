@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/user_error.dart';
+import '../utils/haptics.dart';
 
 /// Chữ lỗi gọn cho người dùng: bỏ tiền tố "Exception: " của lỗi kỹ thuật.
 String friendlyError(Object error) => userFacingError(error);
@@ -133,12 +134,23 @@ class PullToRefresh extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(onRefresh: onRefresh, child: child);
+    return RefreshIndicator(
+      onRefresh: () async {
+        AppHaptics.light();
+        await onRefresh();
+      },
+      child: child,
+    );
   }
 }
 
 /// Thông báo kết quả thống nhất (xanh = thành công, đỏ = lỗi) cho mọi màn hình.
 void showAppSnack(BuildContext context, String message, {bool error = false}) {
+  if (error) {
+    AppHaptics.warning();
+  } else {
+    AppHaptics.success();
+  }
   final messenger = ScaffoldMessenger.of(context);
   messenger
     ..hideCurrentSnackBar()

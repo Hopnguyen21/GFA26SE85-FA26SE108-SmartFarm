@@ -85,6 +85,7 @@ abstract final class SupportApi {
     required String signerFullName,
     required String paymentMethod,
     required String transactionReference,
+    String? notes,
   }) async => ServicePayment.fromJson(
     ApiService._decodeOrThrow(
           await ApiService._postWithAuth(
@@ -93,6 +94,8 @@ abstract final class SupportApi {
               'signerFullName': signerFullName,
               'paymentMethod': paymentMethod,
               'transactionReference': transactionReference,
+              if (notes != null && notes.trim().isNotEmpty)
+                'notes': notes.trim(),
             },
           ),
         )

@@ -463,4 +463,92 @@ void main() {
       }
     });
   });
+
+  group('đồng bộ xuống thiết bị', () {
+    Map<String, dynamic> pump(String id) => {
+      'actuatorId': id,
+      'zoneId': 'z1',
+      'name': 'Bơm $id',
+      'actuatorType': 'PUMP',
+      'status': 'OFF',
+    };
+
+    void routeSync({
+      List<Map<String, dynamic>> actuators = const [],
+      http.Response Function(http.Request)? onSync,
+    }) {
+      _route();
+      final base = handler;
+      handler = (r) async {
+        if (r.url.path == '/api/v1/zones/z1/actuators') {
+          return utf8Json(actuators);
+        }
+        if (r.url.path == '/api/v1/zones/z1/schedules/sync-from-profile') {
+          return onSync?.call(r) ??
+              utf8Json({
+                'source': 'Profile',
+                'schedules': [{}, {}],
+              });
+        }
+        return base(r);
+      };
+    }
+
+    Future<void> tapSync(WidgetTester tester) async {
+      final btn = find.byKey(const ValueKey('sync_to_device'));
+      await tester.ensureVisible(btn);
+      await tester.tap(btn);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('xác nhận rồi POST sync-from-profile với bơm của Zone', (
+      tester,
+    ) async {
+      routeSync(actuators: [pump('a1')]);
+      await _pump(tester);
+      await tapSync(tester);
+      expect(find.text('Đồng bộ lịch xuống thiết bị?'), findsOneWidget);
+      await tester.tap(find.text('Đồng bộ'));
+      await tester.pumpAndSettle();
+
+      final post = calls.singleWhere((c) => c.method == 'POST');
+      expect(post.url.path, '/api/v1/zones/z1/schedules/sync-from-profile');
+      expect(jsonDecode(post.body)['actuatorId'], 'a1');
+      expect(find.textContaining('Đã đồng bộ 2 lịch'), findsOneWidget);
+    });
+
+    testWidgets('Zone chưa có bơm/van: báo lỗi, không gọi đồng bộ', (
+      tester,
+    ) async {
+      routeSync(actuators: []);
+      await _pump(tester);
+      await tapSync(tester);
+      expect(find.textContaining('chưa có bơm/van tưới'), findsOneWidget);
+      expect(calls.where((c) => c.method == 'POST'), isEmpty);
+    });
+
+    testWidgets('backend lỗi 400: báo lỗi, không báo đã đồng bộ', (
+      tester,
+    ) async {
+      routeSync(
+        actuators: [pump('a1')],
+        onSync: (_) =>
+            utf8Json({'message': 'Zone chưa gắn hồ sơ canh tác.'}, 400),
+      );
+      await _pump(tester);
+      await tapSync(tester);
+      await tester.tap(find.text('Đồng bộ'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Đã đồng bộ'), findsNothing);
+      expect(find.textContaining('chưa gắn hồ sơ'), findsOneWidget);
+    });
+
+    testWidgets('không phải Chủ trang trại (isEditable=false): ẩn nút', (
+      tester,
+    ) async {
+      _route(calendar: _calendar(editable: false));
+      await _pump(tester);
+      expect(find.byKey(const ValueKey('sync_to_device')), findsNothing);
+    });
+  });
 }

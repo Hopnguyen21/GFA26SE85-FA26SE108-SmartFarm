@@ -218,7 +218,8 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                 const SizedBox(height: 14),
                 SizedBox(
                   height: 80,
-                  child: BarChart(
+                  child: RepaintBoundary(
+                    child: BarChart(
                     BarChartData(
                       borderData: FlBorderData(show: false),
                       gridData: const FlGridData(show: false),
@@ -270,7 +271,8 @@ extension _CropDetailScreenStateOverview on _CropDetailScreenState {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
                 const Center(
                   child: Text(
                     'Chiều cao = số ngày mỗi giai đoạn',

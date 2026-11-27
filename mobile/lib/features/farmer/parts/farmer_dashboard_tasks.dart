@@ -95,7 +95,7 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
           ),
           const SizedBox(height: 2),
           const Text(
-            'Bạn có thể nhận việc, cập nhật tiến độ và nộp kết quả trực tiếp cho chủ trang trại kiểm duyệt.',
+            'Bạn có thể nhận việc và nộp kết quả trực tiếp cho chủ trang trại kiểm duyệt.',
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 10),
@@ -411,7 +411,11 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.photo_library_outlined, size: 14, color: Color(0xFF047857)),
+                const Icon(
+                  Icons.photo_library_outlined,
+                  size: 14,
+                  color: Color(0xFF047857),
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'Ảnh báo cáo thực địa (${mine.imageUrls.length} ảnh):',
@@ -446,7 +450,11 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
                                 child: Image.network(url, fit: BoxFit.contain),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
                                 onPressed: () => Navigator.pop(context),
                               ),
                             ],
@@ -460,12 +468,18 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
                         url,
                         width: 52,
                         height: 52,
+                        cacheWidth: 104,
+                        cacheHeight: 104,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => Container(
                           width: 52,
                           height: 52,
                           color: const Color(0xFFE2E8F0),
-                          child: const Icon(Icons.broken_image_rounded, size: 20, color: Color(0xFF94A3B8)),
+                          child: const Icon(
+                            Icons.broken_image_rounded,
+                            size: 20,
+                            color: Color(0xFF94A3B8),
+                          ),
                         ),
                       ),
                     ),
@@ -530,10 +544,7 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
                   icon: const Icon(Icons.close, size: 14),
                   label: const Text(
                     'Từ chối',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -557,22 +568,13 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
                   icon: const Icon(Icons.error_outline, size: 14),
                   label: const Text(
                     'Báo không hoàn thành',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
               if (canComplete) ...[
-                FilledButton.icon(
-                  onPressed: () => _completeDialog(provider, t),
-                  style: _btn(bg: const Color(0xFF047857)),
-                  icon: const Icon(Icons.send, size: 13),
-                  label: const Text('Nộp kết quả'),
-                ),
                 OutlinedButton.icon(
-                  onPressed: () => _updateProgressDialog(provider, t, mine),
+                  onPressed: () => _progressDialog(provider, t),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0F766E),
                     minimumSize: const Size(0, 44),
@@ -581,14 +583,17 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: const Icon(Icons.trending_up, size: 14),
+                  icon: const Icon(Icons.sync_alt, size: 14),
                   label: const Text(
                     'Cập nhật tiến độ',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
+                ),
+                FilledButton.icon(
+                  onPressed: () => _completeDialog(provider, t),
+                  style: _btn(bg: const Color(0xFF047857)),
+                  icon: const Icon(Icons.send, size: 13),
+                  label: const Text('Nộp kết quả'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _failDialog(provider, t),
@@ -603,10 +608,7 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
                   icon: const Icon(Icons.error_outline, size: 14),
                   label: const Text(
                     'Báo không hoàn thành',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -694,32 +696,12 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
     }
   }
 
-  Future<void> _updateProgressDialog(
-    FarmProvider provider,
-    TaskModel t,
-    TaskAssignmentModel? mine,
-  ) async {
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _UpdateTaskProgressDialog(
-        task: t,
-        mine: mine,
-        provider: provider,
-      ),
-    );
-    if (submitted == true && mounted) {
-      _rebuild(
-        () => _feedback = (ok: true, message: 'Đã cập nhật tiến độ công việc!'),
-      );
-    }
-  }
-
   /// Nộp kết quả: mô tả kết quả công việc đã hoàn thành như trên web.
   Future<void> _completeDialog(FarmProvider provider, TaskModel t) async {
     final submitted = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _CompleteTaskDialog(task: t, provider: provider),
+      builder: (ctx) => TaskResultDialog(task: t, provider: provider),
     );
     if (submitted == true && mounted) {
       _rebuild(
@@ -727,6 +709,22 @@ extension _FarmerDashboardTasks on _FarmerDashboardScreenState {
           ok: true,
           message:
               'Đã nộp kết quả công việc! Chờ chủ trang trại kiểm tra và phê duyệt.',
+        ),
+      );
+    }
+  }
+
+  /// Cập nhật tiến độ: thay đổi % tiến độ và ghi chú thực địa.
+  Future<void> _progressDialog(FarmProvider provider, TaskModel t) async {
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => TaskProgressDialog(task: t, provider: provider),
+    );
+    if (submitted == true && mounted) {
+      _rebuild(
+        () => _feedback = (
+          ok: true,
+          message: 'Đã cập nhật tiến độ công việc!',
         ),
       );
     }
@@ -928,386 +926,6 @@ class _FailTaskDialogState extends State<_FailTaskDialog> {
           ),
           onPressed: _submitting ? null : _submit,
           child: Text(_submitting ? 'Đang gửi...' : 'Gửi báo cáo'),
-        ),
-      ],
-    );
-  }
-}
-
-class _UpdateTaskProgressDialog extends StatefulWidget {
-  final TaskModel task;
-  final TaskAssignmentModel? mine;
-  final FarmProvider provider;
-  const _UpdateTaskProgressDialog({
-    required this.task,
-    required this.mine,
-    required this.provider,
-  });
-
-  @override
-  State<_UpdateTaskProgressDialog> createState() => _UpdateTaskProgressDialogState();
-}
-
-class _UpdateTaskProgressDialogState extends State<_UpdateTaskProgressDialog> {
-  late double _progress;
-  late final TextEditingController _ctrl;
-  bool _submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _progress = (widget.mine?.progressPercent ?? 0).toDouble();
-    _ctrl = TextEditingController(text: widget.mine?.progressNote ?? '');
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    setState(() => _submitting = true);
-    final note = _ctrl.text.trim();
-    final error = await widget.provider.performTaskAction(
-      widget.task.taskId,
-      'UpdateProgress',
-      progressPercent: _progress.round(),
-      notes: note.isEmpty ? null : note,
-    );
-    if (!mounted) return;
-    if (error == null) {
-      Navigator.pop(context, true);
-    } else {
-      setState(() => _submitting = false);
-      Navigator.pop(context, false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        'Cập Nhật Tiến Độ Thực Địa',
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.task.title,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Tiến độ thực hiện:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${_progress.round()}%',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: _kGreen,
-                  ),
-                ),
-              ],
-            ),
-            Slider(
-              value: _progress,
-              min: 0,
-              max: 100,
-              divisions: 20,
-              activeColor: _kGreen,
-              onChanged: (v) => setState(() => _progress = v),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Ghi chú tiến độ (không bắt buộc):',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _ctrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText:
-                    'Ví dụ: Đã làm xong luống 1 & 2, đang chuyển sang luống 3...',
-                hintStyle: TextStyle(fontSize: 12),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.pop(context, false),
-          child: const Text('Quay lại'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: _kGreen),
-          onPressed: _submitting ? null : _submit,
-          child: Text(_submitting ? 'Đang lưu...' : 'Lưu tiến độ'),
-        ),
-      ],
-    );
-  }
-}
-
-class _CompleteTaskDialog extends StatefulWidget {
-  final TaskModel task;
-  final FarmProvider provider;
-  const _CompleteTaskDialog({required this.task, required this.provider});
-
-  @override
-  State<_CompleteTaskDialog> createState() => _CompleteTaskDialogState();
-}
-
-class _CompleteTaskDialogState extends State<_CompleteTaskDialog> {
-  late final TextEditingController _ctrl;
-  bool _submitting = false;
-  bool _uploadingImage = false;
-  final List<String> _imageUrls = [];
-  String? _localError;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    final picked = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    if (bytes.isEmpty) return;
-    setState(() {
-      _uploadingImage = true;
-      _localError = null;
-    });
-    try {
-      final upload = await MediaApi.uploadFile(
-        bytes: bytes,
-        fileName: picked.name,
-        folder: 'tasks',
-      );
-      if (upload.secureUrl.isNotEmpty && mounted) {
-        setState(() {
-          _imageUrls.add(upload.secureUrl);
-          _uploadingImage = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _uploadingImage = false;
-          _localError = 'Tải ảnh thất bại: ${userFacingError(e)}';
-        });
-      }
-    }
-  }
-
-  Future<void> _submit() async {
-    final text = _ctrl.text.trim();
-    if (text.isEmpty) {
-      setState(() => _localError = 'Vui lòng nhập mô tả kết quả đã làm.');
-      return;
-    }
-    setState(() {
-      _submitting = true;
-      _localError = null;
-    });
-    final error = await widget.provider.performTaskAction(
-      widget.task.taskId,
-      'Complete',
-      result: text,
-      imageUrls: _imageUrls.isNotEmpty ? _imageUrls : null,
-    );
-    if (!mounted) return;
-    if (error == null) {
-      Navigator.pop(context, true);
-    } else {
-      setState(() => _submitting = false);
-      Navigator.pop(context, false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        'Nộp Kết Quả Công Việc Thực Địa',
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.task.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                  Text(
-                    (widget.task.description ?? '').isNotEmpty
-                        ? widget.task.description!
-                        : 'Kiểm tra và thực hiện công việc được giao tại khu vực.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF065F46),
-                    ),
-                  ),
-                  Text(
-                    widget.task.zoneName,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF047857),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Mô tả kết quả đã làm *',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _ctrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText:
-                    'Ví dụ: Đã kiểm tra xong toàn bộ đầu vòi phun sương, vệ sinh 1 vòi nghẹt, cây phát triển đồng đều...',
-                hintStyle: TextStyle(fontSize: 12),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Ảnh minh chứng:',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: const Color(0xFF047857),
-                  ),
-                  onPressed: (_submitting || _uploadingImage) ? null : _pickAndUploadImage,
-                  icon: _uploadingImage
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
-                        )
-                      : const Icon(Icons.add_a_photo_outlined, size: 16),
-                  label: Text(
-                    _uploadingImage ? 'Đang tải...' : 'Thêm ảnh',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            if (_imageUrls.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              SizedBox(
-                height: 64,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _imageUrls.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (ctx, idx) {
-                    final url = _imageUrls[idx];
-                    return Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            url,
-                            width: 64,
-                            height: 64,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              width: 64,
-                              height: 64,
-                              color: const Color(0xFFE2E8F0),
-                              child: const Icon(Icons.broken_image_rounded, size: 24, color: Color(0xFF94A3B8)),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 2,
-                          right: 2,
-                          child: GestureDetector(
-                            onTap: () => setState(() => _imageUrls.removeAt(idx)),
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
-            if (_localError != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _localError!,
-                style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626)),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.pop(context, false),
-          child: const Text('Quay lại'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: _kGreen),
-          onPressed: _submitting ? null : _submit,
-          child: Text(_submitting ? 'Đang gửi...' : 'Nộp kết quả'),
         ),
       ],
     );

@@ -87,6 +87,7 @@ class _OwnerDeploymentRequestsScreenState
               onRefresh: _load,
               child: _requests.isEmpty
                   ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(24),
                       children: const [
                         SizedBox(height: 40),

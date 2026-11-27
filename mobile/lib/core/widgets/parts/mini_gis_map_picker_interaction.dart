@@ -49,6 +49,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
       }
     }
 
+    AppHaptics.light();
     _rebuild(() {
       _polygonPoints.insert(bestIndex, newPoint);
       _selectedVertexIndex = bestIndex;
@@ -57,9 +58,72 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
     _notifyArea();
   }
 
+  int? _nearestVertex(Offset localPosition, {required double radius}) {
+    final camera = _mapController.camera;
+    int? nearest;
+    var distanceSquared = radius * radius;
+    for (var index = 0; index < _polygonPoints.length; index++) {
+      final position = camera.latLngToScreenOffset(_polygonPoints[index]);
+      final distance = (position - localPosition).distanceSquared;
+      if (distance < distanceSquared) {
+        nearest = index;
+        distanceSquared = distance;
+      }
+    }
+    return nearest;
+  }
+
+  void _selectVertex(int index) {
+    if (_selectedVertexIndex == index) return;
+    AppHaptics.selection();
+    _rebuild(() => _selectedVertexIndex = index);
+  }
+
+  /// Bắt đầu kéo đỉnh: ghi nhận vị trí chạm ban đầu để di chuyển mượt mà không bị giật
+  void _onVertexDragStart(int index, DragStartDetails details) {
+    AppHaptics.selection();
+    _isDraggingVertex = true;
+    _selectedVertexIndex = index;
+    try {
+      final mapBox = _mapKey.currentContext?.findRenderObject() as RenderBox?;
+      if (mapBox != null && index >= 0 && index < _polygonPoints.length) {
+        final localTouch = mapBox.globalToLocal(details.globalPosition);
+        final vertexScreen = _mapController.camera.latLngToScreenOffset(
+          _polygonPoints[index],
+        );
+        _dragStartTouchOffset = localTouch - vertexScreen;
+      } else {
+        _dragStartTouchOffset = Offset.zero;
+      }
+    } catch (_) {
+      _dragStartTouchOffset = Offset.zero;
+    }
+    _rebuild(() {});
+  }
+
   /// Cảm ứng kéo trực tiếp một đỉnh cụ thể (#1..#4)
   void _onVertexDragUpdate(int index, DragUpdateDetails details) {
     if (index < 0 || index >= _polygonPoints.length) return;
+    try {
+      final mapBox = _mapKey.currentContext?.findRenderObject() as RenderBox?;
+      if (mapBox != null) {
+        final localTouch = mapBox.globalToLocal(details.globalPosition);
+        final targetOffset =
+            localTouch - (_dragStartTouchOffset ?? Offset.zero);
+        final newLatLng = _mapController.camera.screenOffsetToLatLng(
+          targetOffset,
+        );
+        _rebuild(() {
+          _selectedVertexIndex = index;
+          _polygonPoints[index] = newLatLng;
+        });
+        widget.onPolygonChanged?.call(_polygonPoints);
+        _notifyArea();
+        return;
+      }
+    } catch (_) {}
+
+    // Fallback nếu không có RenderBox (như môi trường test không có màn hình)
     final dGeo = _screenOffsetToLatLngDelta(details.delta);
     _rebuild(() {
       _selectedVertexIndex = index;
@@ -71,6 +135,15 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
     });
     widget.onPolygonChanged?.call(_polygonPoints);
     _notifyArea();
+  }
+
+  /// Kết thúc kéo đỉnh
+  void _onVertexDragEnd() {
+    _dragStartTouchOffset = null;
+    _rebuild(() {
+      _isDraggingVertex = false;
+    });
+    AppHaptics.light();
   }
 
   /// Di chuyển ghim tới điểm bất kỳ (tap / recenter) và lấy địa chỉ ngay.
@@ -104,7 +177,18 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
   void _onMapTapped(TapPosition tapPosition, LatLng point) {
     if (widget.isReadOnly) return;
     if (widget.level == 'FIELD' || widget.level == 'ZONE') {
-      // Nếu đang chọn một đỉnh (#1, #2, #3...): Chạm bất kỳ đâu trên bản đồ để di chuyển đỉnh đó tới vị trí mới
+      // 1. Chạm thông minh: nếu chạm gần bất kỳ đỉnh nào (bán kính 42px trên màn hình), chọn đỉnh đó
+      // Giúp ngón tay chạm dễ dàng mà không bị trượt vào bên trong làm dời ô hay ra ngoài làm thêm đỉnh nhầm!
+      try {
+        final screenTap = _mapController.camera.latLngToScreenOffset(point);
+        final closestVertex = _nearestVertex(screenTap, radius: 24);
+        if (closestVertex != null) {
+          _selectVertex(closestVertex);
+          return;
+        }
+      } catch (_) {}
+
+      // 2. Nếu đang chọn một đỉnh (#1, #2, #3...): Chạm bất kỳ đâu trên bản đồ để di chuyển đỉnh đó tới vị trí mới
       if (_selectedVertexIndex != null) {
         final idx = _selectedVertexIndex!;
         if (idx >= 0 && idx < _polygonPoints.length) {
@@ -112,6 +196,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
           if (widget.parentPolygon != null &&
               widget.parentPolygon!.length >= 3 &&
               !_isPointInsidePolygon(point, widget.parentPolygon!)) {
+            AppHaptics.warning();
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -139,6 +224,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
           }
 
           if (_isVertexInsideAnyOtherZone(point)) {
+            AppHaptics.warning();
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             final typeName = widget.level == 'FIELD'
                 ? 'Thửa đất khác'
@@ -172,6 +258,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
             return;
           }
 
+          AppHaptics.selection();
           _rebuild(() {
             _polygonPoints[idx] = point;
           });
@@ -187,6 +274,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
         if (widget.parentPolygon != null &&
             widget.parentPolygon!.length >= 3 &&
             !_isPointInsidePolygon(point, widget.parentPolygon!)) {
+          AppHaptics.warning();
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -215,6 +303,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
 
         // Kiểm tra xem vị trí chạm có đè lên Vùng khác đã có không
         if (_isVertexInsideAnyOtherZone(point)) {
+          AppHaptics.warning();
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           final typeName = widget.level == 'FIELD'
               ? 'Thửa đất khác'
@@ -255,6 +344,7 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
         final centroid = _getPolygonCentroid();
         final dLat = point.latitude - centroid.latitude;
         final dLng = point.longitude - centroid.longitude;
+        AppHaptics.light();
         _rebuild(() {
           _polygonPoints = _shiftPolygon(_polygonPoints, dLat, dLng);
           _selectedVertexIndex = null;
@@ -270,7 +360,8 @@ extension _MiniGISMapPickerStateInteraction on _MiniGISMapPickerState {
 
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
     // Nếu ở chế độ FIELD: Khóa cứng tâm vào initialCenter của Farm
-    if (_isLockedCenter) return;
+    if (_isLockedCenter || widget.isReadOnly || widget.fitBoundaryOnOpen)
+      return;
 
     // Chỉ xử lý khi người dùng kéo/zoom. Di chuyển bằng code (_moveTo) đã tự xử lý.
     if (!hasGesture) return;

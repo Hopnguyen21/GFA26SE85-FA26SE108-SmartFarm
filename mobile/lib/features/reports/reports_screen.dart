@@ -31,6 +31,8 @@ class _ReportsScreenState extends State<ReportsScreen>
   int _days = 30;
   bool _loading = true;
   String? _error;
+  int _loadSeq =
+      0; // chỉ lượt tải mới nhất được ghi kết quả (đổi trang trại/khoảng ngày liên tiếp không bị dữ liệu cũ đè)
 
   Map<String, dynamic>? _overview;
   Map<String, dynamic>? _water;
@@ -78,6 +80,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       return;
     }
 
+    final seq = ++_loadSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -93,7 +96,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         CropApi.getPlantingSeasons(farmId: farmId),
       ]);
 
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _overview = results[0] as Map<String, dynamic>;
         _water = results[1] as Map<String, dynamic>;
@@ -103,7 +106,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         _plantingSeasons = results[5] as List<Map<String, dynamic>>;
       });
     } catch (e) {
-      if (mounted) {
+      if (mounted && seq == _loadSeq) {
         final msg = userFacingError(e);
         final is403 =
             msg.contains('403') ||
@@ -116,7 +119,8 @@ class _ReportsScreenState extends State<ReportsScreen>
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      // Lượt cũ kết thúc muộn không được tắt trạng thái đang tải của lượt mới.
+      if (mounted && seq == _loadSeq) setState(() => _loading = false);
     }
   }
 
@@ -168,12 +172,12 @@ class _ReportsScreenState extends State<ReportsScreen>
             onPressed: _loading || _error != null
                 ? null
                 : () => showReportExportSheet(
-                      context,
-                      farmId: farmProvider.selectedFarmId,
-                      farmName: farmName,
-                      from: _from,
-                      to: _to,
-                    ),
+                    context,
+                    farmId: farmProvider.selectedFarmId,
+                    farmName: farmName,
+                    from: _from,
+                    to: _to,
+                  ),
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
@@ -199,12 +203,12 @@ class _ReportsScreenState extends State<ReportsScreen>
               indicator: BoxDecoration(
                 color: const Color(0xFF10B981).withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: const Color(0xFF34D399),
-                  width: 1.5,
-                ),
+                border: Border.all(color: const Color(0xFF34D399), width: 1.5),
               ),
-              indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              indicatorPadding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 6,
+              ),
               labelColor: const Color(0xFF6EE7B7),
               unselectedLabelColor: const Color(0xFF94A3B8),
               labelStyle: const TextStyle(
@@ -345,7 +349,10 @@ class _ReportsScreenState extends State<ReportsScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF047857),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -354,7 +361,10 @@ class _ReportsScreenState extends State<ReportsScreen>
                         icon: const Icon(Icons.refresh_rounded, size: 18),
                         label: const Text(
                           'Thử lại',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],

@@ -30,11 +30,23 @@ extension FarmProviderChatSchedules on FarmProvider {
                 .where((z) => z.farmId == targetFarm)
                 .map((z) => z.zoneId)
                 .toList();
+      // fetchZoneSchedules ném lỗi khi không tải được → rơi vào catch và GIỮ danh sách cũ,
+      // thay vì hiểu nhầm lỗi mạng là "Zone không có lịch".
       final lists = await Future.wait(
-        zoneIds.map((id) => AutomationApi.getSchedules(zoneId: id)),
+        zoneIds.map((id) => AutomationApi.fetchZoneSchedules(id)),
       );
       final list = lists.expand((x) => x).toList();
-      _schedules = list; // gán cả khi rỗng để phản ánh việc đã xóa hết lịch
+      if (zoneId != null) {
+        // Chỉ làm mới một Zone: thay lịch của Zone đó, giữ lịch các Zone khác.
+        final z = zoneId.toLowerCase();
+        _schedules = [
+          for (final s in _schedules)
+            if (s.zoneId.toLowerCase() != z) s,
+          ...list,
+        ];
+      } else {
+        _schedules = list; // gán cả khi rỗng để phản ánh việc đã xóa hết lịch
+      }
       BusinessParametersStore.refresh(); // lấy ngưỡng mưa/tỷ lệ cọc Admin vừa đổi
     } catch (_) {
       // Giữ danh sách hiện có khi không tải được.

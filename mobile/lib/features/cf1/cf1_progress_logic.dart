@@ -50,18 +50,19 @@ Cf1StepState staffState({
 }
 
 const _deployDone = {'Completed'};
-const _deployProblem = {
-  'MaintenanceRequired',
-  'Failed',
-  'Rejected',
-  'Cancelled',
-};
+const _deployProblem = {'MaintenanceRequired', 'Failed', 'Rejected'};
 
 /// Bước 5: Triển khai IoT theo trạng thái yêu cầu trên server.
+/// Yêu cầu đã huỷ (`Cancelled`) là lịch sử, không phải việc cần xử lý: trước đây một yêu cầu huỷ cũ làm bước này
+/// "Cần xử lý" mãi mãi dù Owner đã gửi yêu cầu mới và hoàn tất. Chỉ có yêu cầu đã huỷ thì coi như chưa bắt đầu.
 Cf1StepState deploymentState(List<String>? statuses) {
   if (statuses == null) return Cf1StepState.unavailable;
-  if (statuses.isEmpty) return Cf1StepState.notStarted;
-  if (statuses.any(_deployProblem.contains)) return Cf1StepState.needsAction;
-  if (statuses.every(_deployDone.contains)) return Cf1StepState.done;
+  final live = [
+    for (final s in statuses)
+      if (s != 'Cancelled') s,
+  ];
+  if (live.isEmpty) return Cf1StepState.notStarted;
+  if (live.any(_deployProblem.contains)) return Cf1StepState.needsAction;
+  if (live.every(_deployDone.contains)) return Cf1StepState.done;
   return Cf1StepState.inProgress;
 }

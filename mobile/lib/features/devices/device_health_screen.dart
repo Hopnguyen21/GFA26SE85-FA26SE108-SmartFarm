@@ -257,6 +257,7 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
         return RefreshIndicator(
           onRefresh: _reload,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
             children: [

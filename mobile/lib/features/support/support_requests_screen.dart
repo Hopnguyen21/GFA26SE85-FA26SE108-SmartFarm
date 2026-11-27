@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'payos_service_request_sheet.dart';
 import 'quotation_editor.dart';
 import 'acceptance_report.dart';
 import 'acceptance_report_flow.dart';
+import 'estimate_snapshot_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
@@ -298,7 +298,10 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
                             height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.add_photo_alternate_outlined, size: 16),
+                        : const Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 16,
+                          ),
                     label: Text(
                       isUploadingImage
                           ? 'Đang tải ảnh...'
@@ -481,6 +484,7 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _error != null
             ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(24),
@@ -490,6 +494,7 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
               )
             : _requests.isEmpty
             ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 48),
@@ -1020,6 +1025,7 @@ class QuotationPanel extends StatefulWidget {
 
 class _QuotationPanelState extends State<QuotationPanel> {
   Quotation? _quotation;
+  DeploymentRequest? _deploymentRequest;
   bool _loading = true;
   bool _busy = false;
   int? _nodeCount;
@@ -1062,6 +1068,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
       MaterialPageRoute(
         builder: (_) => QuotationEditor(
           initial: q,
+          estimateSnapshotJson: _deploymentRequest?.estimateSnapshotJson,
           contractTitle: _contractTitle,
           farmName: widget.farmName,
           zoneName: widget.zoneName,
@@ -1094,6 +1101,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
       String? depStatus;
       String ktvNote = '';
       final depId = widget.deploymentRequestId;
+      DeploymentRequest? depReq;
       if ((_isOwner || _isTechnician) && depId != null && depId.isNotEmpty) {
         try {
           final deployment = await DeploymentApi.getDeploymentRequest(
@@ -1105,6 +1113,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
           );
           if (deployment.farmId == service['farmId'] &&
               deployment.zoneId == service['zoneId']) {
+            depReq = deployment;
             depStatus = deployment.status;
             ktvNote =
                 deployment.history
@@ -1145,6 +1154,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
           _report = report;
           _quotation = q;
           _deploymentStatus = depStatus;
+          _deploymentRequest = depReq;
           _nodeCount = nodes;
           if (ownerName != null) {
             _ownerName = ownerName;
@@ -1200,6 +1210,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
   /// Thanh toán trực tuyến VietQR qua cổng PayOS (tự động 24/7) hoặc Chuyển khoản / Tiền mặt.
   final _signer30 = TextEditingController(text: 'Chủ Trang Trại');
   final _signer70 = TextEditingController(text: 'Chủ Trang Trại');
+  final _acceptanceNotes = TextEditingController();
   String _method30 = 'BANK_TRANSFER';
   String _method70 = 'BANK_TRANSFER';
   bool _agreed = false;
@@ -1218,75 +1229,8 @@ class _QuotationPanelState extends State<QuotationPanel> {
   void dispose() {
     _signer30.dispose();
     _signer70.dispose();
+    _acceptanceNotes.dispose();
     super.dispose();
-  }
-
-  /// Mở giao diện thanh toán thật PayOS (VietQR) cho Luồng 1.
-  Future<void> _openPayOSPayment({required bool deposit}) async {
-    if (!deposit && !_acceptanceConfirmed) {
-      setState(
-        () => _signError =
-            'Hãy xem biên bản và bấm "Xác nhận nghiệm thu" trước khi thanh toán.',
-      );
-      return;
-    }
-    if (_quotation == null) return;
-
-    final signer = (deposit ? _signer30 : _signer70).text.trim();
-    final amount = deposit ? _quotation!.deposit30 : _quotation!.remaining70;
-    final stage = deposit ? 'DEPOSIT_30' : 'FINAL_70';
-    final stageTitle = deposit
-        ? 'Tạm ứng cọc $_dep khi ký Hợp đồng'
-        : 'Quyết toán $_rem khi Nghiệm thu';
-
-    setState(() {
-      _signError = null;
-      _okMessage = null;
-    });
-
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => PayOSServiceRequestSheet(
-        serviceRequestId: widget.serviceRequestId,
-        stage: stage,
-        stageTitle: stageTitle,
-        amount: amount,
-        initialSignerName:
-            signer.isEmpty ? (_ownerName ?? 'Chủ Trang Trại') : signer,
-        onPaymentSuccess: (ref, method, signerName) async {
-          final payment = deposit
-              ? await SupportApi.signContractAndPayDeposit(
-                  widget.serviceRequestId,
-                  signerFullName: signerName,
-                  paymentMethod: method,
-                  transactionReference: ref,
-                  expectedDepositAmount: _quotation?.deposit30,
-                )
-              : await SupportApi.signAcceptanceAndPayFinal(
-                  widget.serviceRequestId,
-                  signerFullName: signerName,
-                  paymentMethod: method,
-                  transactionReference: ref,
-                );
-          _lastPayment = payment;
-          if (deposit) {
-            _receipt30 = payment;
-          } else {
-            _receipt70 = payment;
-          }
-          _okMessage = deposit
-              ? 'Đã thanh toán cọc $_dep thành công qua PayOS (VietQR). Kỹ thuật viên có thể vào thực địa lắp đặt.'
-              : 'Đã thanh toán $_rem thành công qua PayOS (VietQR). Hợp đồng hoàn tất 100%.';
-          await _load();
-          widget.onChanged?.call();
-        },
-      ),
-    );
-    if (result == true && _lastPayment != null && mounted) {
-      await _showReceipt(_lastPayment!);
-    }
   }
 
   Future<void> _sign({required bool deposit}) async {
@@ -1328,6 +1272,9 @@ class _QuotationPanelState extends State<QuotationPanel> {
               signerFullName: signer,
               paymentMethod: method,
               transactionReference: reference,
+              notes: _acceptanceNotes.text.trim().isEmpty
+                  ? null
+                  : _acceptanceNotes.text.trim(),
             );
       _lastPayment = payment;
       if (deposit) {
@@ -1403,7 +1350,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
                 p.paymentMethod == 'CASH'
                     ? 'Tiền mặt'
                     : (p.paymentMethod.toUpperCase().contains('PAYOS') ||
-                            p.paymentMethod.toUpperCase().contains('VIETQR'))
+                          p.paymentMethod.toUpperCase().contains('VIETQR'))
                     ? 'PayOS (VietQR Napas 24/7)'
                     : p.paymentMethod == 'BANK_TRANSFER'
                     ? 'Chuyển khoản ngân hàng'
@@ -1420,7 +1367,10 @@ class _QuotationPanelState extends State<QuotationPanel> {
               row('Trạng thái', p.status),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(8),
@@ -1436,7 +1386,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Thanh toán đã được xác thực thành công qua cổng thanh toán.',
+                        'Đã ghi nhận thanh toán theo thông tin người ký khai báo.',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1511,46 +1461,13 @@ class _QuotationPanelState extends State<QuotationPanel> {
       SegmentedButton<String>(
         showSelectedIcon: false,
         segments: const [
-          ButtonSegment(
-            value: 'PAYOS',
-            label: Text('VietQR (PayOS)'),
-            icon: Icon(Icons.qr_code_2_rounded, size: 16),
-          ),
           ButtonSegment(value: 'BANK_TRANSFER', label: Text('Chuyển khoản')),
           ButtonSegment(value: 'CASH', label: Text('Tiền mặt')),
         ],
         selected: {method},
         onSelectionChanged: (s) => setState(() => onMethod(s.first)),
       ),
-      if (method == 'PAYOS')
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFECFDF5),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFA7F3D0)),
-          ),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.bolt_rounded, size: 18, color: Color(0xFF047857)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Cổng thanh toán tự động VietQR Napas 24/7 (PayOS). Quét mã chuyển khoản tức thì qua mọi App ngân hàng, hệ thống xác thực tự động.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF065F46),
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        )
-      else if (method == 'BANK_TRANSFER')
+      if (method == 'BANK_TRANSFER')
         Container(
           width: double.infinity,
           margin: const EdgeInsets.only(top: 8),
@@ -1669,11 +1586,11 @@ class _QuotationPanelState extends State<QuotationPanel> {
     final method = receipt == null
         ? '—'
         : (receipt.paymentMethod.toUpperCase().contains('PAYOS') ||
-                receipt.paymentMethod.toUpperCase().contains('VIETQR'))
-            ? 'VietQR Napas 24/7 (PayOS)'
-            : receipt.paymentMethod == 'CASH'
-                ? 'Tiền mặt'
-                : 'Chuyển khoản (VietQR)';
+              receipt.paymentMethod.toUpperCase().contains('VIETQR'))
+        ? 'VietQR Napas 24/7 (PayOS)'
+        : receipt.paymentMethod == 'CASH'
+        ? 'Tiền mặt'
+        : 'Chuyển khoản (VietQR)';
     final when = DateTime.tryParse(receipt?.paidAtUtc ?? '');
     return Container(
       width: double.infinity,
@@ -1868,38 +1785,16 @@ class _QuotationPanelState extends State<QuotationPanel> {
         ),
       _errorBox(),
       const SizedBox(height: 8),
-      if (_method30 == 'PAYOS')
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF047857),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed:
-                _busy || !_agreed ? null : () => _openPayOSPayment(deposit: true),
-            icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-            label: Text(
-              'THANH TOÁN CỌC $_dep QUA PAYOS (${_money(q.deposit30)})',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        )
-      else
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: _busy || !_agreed ? null : () => _sign(deposit: true),
-            child: Text(
-              'KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC (${_money(q.deposit30)})',
-              textAlign: TextAlign.center,
-            ),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _busy || !_agreed ? null : () => _sign(deposit: true),
+          child: Text(
+            'KÝ HỢP ĐỒNG & THANH TOÁN $_dep CỌC (${_money(q.deposit30)})',
+            textAlign: TextAlign.center,
           ),
         ),
+      ),
     ]);
   }
 
@@ -2096,13 +1991,25 @@ class _QuotationPanelState extends State<QuotationPanel> {
             ),
             const SizedBox(height: 10),
             if (ready && !_acceptanceConfirmed) _acceptanceConfirmCard(),
-            if (!ready || _acceptanceConfirmed)
+            if (!ready || _acceptanceConfirmed) ...[
               _paymentForm(
                 signer: _signer70,
                 method: _method70,
                 onMethod: (m) => _method70 = m,
                 signerLabel: 'Họ tên Người ký Biên bản Nghiệm thu *',
               ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _acceptanceNotes,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Ghi chú nghiệm thu (tuỳ chọn)',
+                  hintText: 'Nhập ghi chú hoặc ý kiến bàn giao...',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
             if (!ready)
               Container(
                 width: double.infinity,
@@ -2138,46 +2045,24 @@ class _QuotationPanelState extends State<QuotationPanel> {
             _errorBox(),
             const SizedBox(height: 10),
             if (!ready || _acceptanceConfirmed)
-              if (_method70 == 'PAYOS')
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      disabledBackgroundColor: const Color(0xFFCBD5E1),
-                    ),
-                    onPressed:
-                        _busy || !ready ? null : () => _openPayOSPayment(deposit: false),
-                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                    label: Text(
-                      'THANH TOÁN $_rem QUA PAYOS (${_money(q.remaining70)})',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: green,
+                    disabledBackgroundColor: const Color(0xFFCBD5E1),
                   ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: green,
-                      disabledBackgroundColor: const Color(0xFFCBD5E1),
-                    ),
-                    onPressed:
-                        _busy || !ready ? null : () => _sign(deposit: false),
-                    child: Text(
-                      _busy
-                          ? 'Đang xác nhận Ký Nghiệm thu & Ghi nhận $_rem...'
-                          : 'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN $_rem CÒN LẠI (${_money(q.remaining70)})',
-                      textAlign: TextAlign.center,
-                    ),
+                  onPressed: _busy || !ready
+                      ? null
+                      : () => _sign(deposit: false),
+                  child: Text(
+                    _busy
+                        ? 'Đang xác nhận Ký Nghiệm thu & Ghi nhận $_rem...'
+                        : 'KÝ BÀN GIAO NGHIỆM THU & THANH TOÁN $_rem CÒN LẠI (${_money(q.remaining70)})',
+                    textAlign: TextAlign.center,
                   ),
                 ),
+              ),
           ],
         ),
       ),
@@ -2190,44 +2075,34 @@ class _QuotationPanelState extends State<QuotationPanel> {
         _busy ||
         (_quotation != null && _quotation!.status != 'SentToOwner'))
       return;
-    // Chưa có báo giá: dựng sẵn từ dự toán Owner đã lưu để chỉnh sửa (không bịa dòng nếu Owner chưa lưu dự toán).
+    // Tải đề xuất cho cả hợp đồng mới và hợp đồng đang chỉnh sửa.
     var fromEstimate = const <QuotationItem>[];
-    var draftFailed = false;
-    if (_quotation == null) {
-      setState(() => _busy = true);
-      try {
-        fromEstimate = await SupportApi.getQuotationEstimateDraft(
-          widget.serviceRequestId,
-        );
-      } catch (e) {
-        draftFailed = true;
-        if (mounted)
-          _snack(
-            'Không lấy được dự toán của Owner, bạn có thể nhập tay: ${userFacingError(e)}',
-          );
-      } finally {
-        if (mounted) setState(() => _busy = false);
-      }
-      if (!mounted) return;
-      if (fromEstimate.isEmpty && !draftFailed) {
-        _snack(
-          'Owner chưa lưu dự toán thiết bị cho yêu cầu này nên bảng hợp đồng để trống (app không tự tính thay). Thêm thiết bị từ kho.',
-        );
-      } else if (fromEstimate.isNotEmpty) {
-        _snack(
-          'Đã dựng ${fromEstimate.length} hạng mục từ dự toán của Owner. Chỉnh sửa rồi gửi để Owner xác nhận.',
-        );
-      }
+    String? proposalError;
+    String? proposalNote;
+    setState(() => _busy = true);
+    try {
+      fromEstimate = await SupportApi.getQuotationEstimateDraft(
+        widget.serviceRequestId,
+      );
+    } catch (error) {
+      proposalError = userFacingError(error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
+    if (!mounted) return;
     final draft = await Navigator.push<QuotationDraft>(
       context,
       MaterialPageRoute(
         builder: (_) => QuotationEditor(
           initial: _quotation,
           estimateItems: fromEstimate,
+          proposalError: proposalError,
+          proposalNote: proposalNote,
+          estimateSnapshotJson: _deploymentRequest?.estimateSnapshotJson,
           contractTitle: _contractTitle,
           farmName: widget.farmName,
           zoneName: widget.zoneName,
+          autoFillFromEstimate: false,
         ),
       ),
     );
@@ -2315,6 +2190,20 @@ class _QuotationPanelState extends State<QuotationPanel> {
             ),
           ),
         ],
+        if (_deploymentRequest?.estimateSnapshotJson != null &&
+            _deploymentRequest!.estimateSnapshotJson!.isNotEmpty)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            child: OutlinedButton.icon(
+              onPressed: () => EstimateSnapshotDialog.show(
+                context,
+                _deploymentRequest!.estimateSnapshotJson!,
+              ),
+              icon: const Icon(Icons.calculate_outlined, size: 18),
+              label: const Text('Xem Dự toán Tổ ong (GIS Snapshot)'),
+            ),
+          ),
         if (q == null)
           Container(
             width: double.infinity,
@@ -2326,7 +2215,7 @@ class _QuotationPanelState extends State<QuotationPanel> {
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: const Text(
-              'Kỹ thuật viên sẽ khảo sát, trao đổi với Owner và lập danh mục thiết bị cùng báo giá để xác nhận hợp đồng.',
+              'Kỹ thuật viên sẽ khảo sát, trao đổi với Owner và chọn sản phẩm cụ thể từ kho cùng số lượng thiết bị để lập hợp đồng.',
               style: TextStyle(color: Color(0xFF64748B), height: 1.4),
             ),
           ),

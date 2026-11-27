@@ -160,4 +160,17 @@ void main() {
       expect(buildWizardIotNotes(userNotes: 'x' * 2000).length, 1000);
     },
   );
+
+  test('wizard bước 1: bắt buộc tổng diện tích trang trại > 0', () {
+    // Thiếu diện tích thì backend lưu TotalAreaM2 = 0 và mọi lần thêm thửa đất sau đó bị từ chối.
+    String? v(double? area) => validateFarmStep(
+      name: 'Trại A',
+      lat: 11.9,
+      lng: 108.4,
+      totalAreaM2: area,
+    );
+    expect(v(null), contains('diện tích'));
+    expect(v(0), contains('diện tích'));
+    expect(v(5000), isNull);
+  });
 }

@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
 import '../../core/utils/user_error.dart';
+import 'schedule_shift_logic.dart';
+import 'season_irrigation_calendar_screen.dart';
 
 part 'parts/schedules_automation_screen_lists.dart';
+part 'parts/schedules_automation_screen_helpers.dart';
 part 'parts/schedules_automation_screen_create_rule.dart';
 part 'parts/schedules_automation_screen_create_schedule.dart';
 

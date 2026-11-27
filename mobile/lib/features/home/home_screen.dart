@@ -21,6 +21,7 @@ import '../contracts/contracts_depreciation_screen.dart';
 import '../reports/reports_screen.dart';
 import '../farms/farms_management_screen.dart';
 import '../../core/widgets/dispose_later.dart';
+import '../../core/widgets/shimmer_loading.dart';
 import '../zones/widgets/emergency_stop_button.dart';
 import 'widgets/zone_ai_advice_card.dart';
 import 'widgets/zone_stage_progress.dart';
@@ -177,9 +178,21 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(width: 4),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: farmProvider.fetchFromApi,
-        child: SingleChildScrollView(
+      body: farmProvider.isLoadingApi && farmProvider.zones.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: const [
+                ShimmerCardSkeleton(height: 140),
+                SizedBox(height: 12),
+                ShimmerCardSkeleton(height: 180),
+                SizedBox(height: 12),
+                ShimmerCardSkeleton(height: 200),
+              ],
+            )
+          : RefreshIndicator(
+              onRefresh: farmProvider.fetchFromApi,
+              child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,10 +200,14 @@ class HomeScreen extends StatelessWidget {
               ..._farmSelectorSection(context, farmProvider, zone),
               ..._heroBannerSection(context, farmProvider, zone),
               ..._ownerQuickActionsSection(context, farmProvider, zone),
-              ..._aiRecommendationSection(context, farmProvider, zone),
-              ..._activeCropSection(context, farmProvider, zone),
+              if (zone.zoneId.isNotEmpty) ...[
+                ..._aiRecommendationSection(context, farmProvider, zone),
+                ..._activeCropSection(context, farmProvider, zone),
+              ],
               ..._climateSection(context, farmProvider, zone),
-              ..._quickControlSection(context, farmProvider, zone),
+              if (zone.zoneId.isNotEmpty)
+                ..._quickControlSection(context, farmProvider, zone),
+              const SizedBox(height: 24),
             ],
           ),
         ),

@@ -14,12 +14,14 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
           // Thẻ so sánh Vi khí hậu Zone & Thời tiết ngoài trời
           _buildZoneWeatherComparisonCard(zone, provider),
           const SizedBox(height: 12),
-          // Thẻ khuyến nghị AI Nông học của Zone
-          ZoneAiAdviceCard(
-            key: ValueKey('zone_ai_${zone.zoneId}'),
-            zoneId: zone.zoneId,
-          ),
-          const SizedBox(height: 12),
+          // Thẻ khuyến nghị AI Nông học của Zone (chỉ FarmOwner quản lý & duyệt)
+          if (!isFarmer) ...[
+            ZoneAiAdviceCard(
+              key: ValueKey('zone_ai_${zone.zoneId}'),
+              zoneId: zone.zoneId,
+            ),
+            const SizedBox(height: 12),
+          ],
           // Quy tắc cảnh báo an toàn + nhật ký cảnh báo của Zone (chỉ Owner/KTV quản lý, ẩn với Farmer).
           if (!isFarmer) ...[
             OutlinedButton.icon(
@@ -67,10 +69,18 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
     final hasOutdoorWeather = weather != null;
     final hasIndoorTelemetry = inTemp > 0 || inHumidity > 0;
 
-    final deltaTemp = (hasOutdoorWeather && outTemp != null && hasIndoorTelemetry && inTemp > 0)
+    final deltaTemp =
+        (hasOutdoorWeather &&
+            outTemp != null &&
+            hasIndoorTelemetry &&
+            inTemp > 0)
         ? (inTemp - outTemp)
         : null;
-    final deltaHumidity = (hasOutdoorWeather && outHumidity != null && hasIndoorTelemetry && inHumidity > 0)
+    final deltaHumidity =
+        (hasOutdoorWeather &&
+            outHumidity != null &&
+            hasIndoorTelemetry &&
+            inHumidity > 0)
         ? (inHumidity - outHumidity)
         : null;
 
@@ -417,8 +427,9 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
     // Chỉ Owner được sửa ranh giới (backend: PUT /zones/{id} chỉ cho FarmOwner).
     final canEdit = provider.currentRole == 'OWNER';
     // Không bịa ranh giới: Zone chưa có polygon thì để trống cho tới khi Owner vẽ.
-    final effectivePolygon = _editedPolygon ?? zone.polygon ?? const <LatLng>[];
-    final hasPolygon = effectivePolygon.isNotEmpty;
+    final savedPolygon = zone.polygon ?? const <LatLng>[];
+    final effectivePolygon = _editedPolygon ?? savedPolygon;
+    final hasPolygon = effectivePolygon.length >= 3;
     // Vị trí thật của trang trại, dùng làm điểm bắt đầu khi vẽ ranh giới lần đầu.
     final farm = provider.farms
         .where((f) => f.farmId == zone.farmId)
@@ -427,7 +438,15 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
         (farm == null || (farm.latitude == 0 && farm.longitude == 0))
         ? null
         : LatLng(farm.latitude, farm.longitude);
-    final center = hasPolygon ? effectivePolygon.first : farmLatLng;
+    final fieldPolygon = provider.fields
+        .where((field) => field.fieldId == zone.fieldId)
+        .firstOrNull
+        ?.polygon;
+    final center = savedPolygon.length >= 3
+        ? LatLngBounds.fromPoints(savedPolygon).center
+        : fieldPolygon != null && fieldPolygon.length >= 3
+        ? LatLngBounds.fromPoints(fieldPolygon).center
+        : farmLatLng;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -595,26 +614,45 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                                 );
                                 return;
                               }
+                              // Chặn trước khi gọi API: nằm trọn trong Field mẹ và không đè Zone khác.
+                              final boundaryErr =
+                                  MiniGISMapPicker.validateBoundary(
+                                    pts,
+                                    parentPolygon: fieldPolygon,
+                                    existingPolygons: [
+                                      for (final other in provider.allZones)
+                                        if (other.zoneId != zone.zoneId &&
+                                            other.fieldId == zone.fieldId &&
+                                            other.polygon != null)
+                                          {
+                                            'name': other.name,
+                                            'polygon': other.polygon,
+                                          },
+                                    ],
+                                  );
+                              if (boundaryErr != null) {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('⚠️ $boundaryErr'),
+                                    backgroundColor: const Color(0xFFDC2626),
+                                  ),
+                                );
+                                return;
+                              }
                               _rebuild(() => _isSavingGis = true);
                               try {
-                                final geoJsonCoords = [
-                                  pts
-                                      .map((p) => [p.longitude, p.latitude])
-                                      .toList()
-                                    ..add([
-                                      pts.first.longitude,
-                                      pts.first.latitude,
-                                    ]),
-                                ];
                                 // Chỉ cập nhật bản đồ khi máy chủ xác nhận đã lưu.
+                                // Gửi kèm diện tích tính từ ranh giới mới (backend không tự tính lại): nếu không,
+                                // Zone vẽ lại to/nhỏ hơn vẫn mang diện tích cũ (dùng cho dự toán thiết bị, AI…).
                                 await FarmApi.updateZone(
                                   zone.zoneId,
                                   name: zone.name,
                                   notes: zone.notes,
-                                  polygonGeoJson: {
-                                    'type': 'Polygon',
-                                    'coordinates': geoJsonCoords,
-                                  },
+                                  areaM2: polygonAreaM2(pts).roundToDouble(),
+                                  polygonGeoJson: FarmApi.polygonGeoJson([
+                                    for (final p in pts)
+                                      [p.latitude, p.longitude],
+                                  ]),
                                 );
                                 if (!mounted) return;
                                 provider.updateZonePolygon(zone.zoneId, pts);
@@ -678,13 +716,13 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
                     ),
                   ],
                 )
-              else if (canEdit && (hasPolygon || farmLatLng != null))
+              else if (canEdit && center != null)
                 OutlinedButton.icon(
                   onPressed: () {
-                    // Zone chưa có ranh giới: bắt đầu bằng một ô vuông nhỏ (~25 m) quanh vị trí thật của trang trại.
+                    // Bắt đầu tại vị trí thửa đất nếu Zone chưa có ranh giới.
                     final start = hasPolygon
                         ? List<LatLng>.from(effectivePolygon)
-                        : _defaultZoneBox(farmLatLng!);
+                        : _defaultZoneBox(center);
                     _rebuild(() {
                       _isEditingGis = true;
                       _editedPolygon = start;
@@ -762,17 +800,28 @@ extension _ZoneDetailScreenStateClimate on _ZoneDetailScreenState {
               borderRadius: BorderRadius.circular(12),
               child: MiniGISMapPicker(
                 key: ValueKey(
-                  'zone_gis_${zone.zoneId}_${_isEditingGis}_${effectivePolygon.length}_${_nodeMarkers.length}',
+                  'zone_gis_${zone.zoneId}_${_isEditingGis}_${_nodeMarkers.length}',
                 ),
                 initialCenter: center,
-                initialPolygon: effectivePolygon,
+                initialPolygon: savedPolygon.length >= 3
+                    ? savedPolygon
+                    : _defaultZoneBox(center),
+                parentPolygon: fieldPolygon,
+                existingZones: [
+                  for (final other in provider.allZones)
+                    if (other.zoneId != zone.zoneId &&
+                        other.fieldId == zone.fieldId &&
+                        other.polygon != null)
+                      {'name': other.name, 'polygon': other.polygon},
+                ],
+                fitBoundaryOnOpen: true,
                 level: 'ZONE',
                 height: 240,
                 nodeMarkers: _nodeMarkers,
                 isReadOnly: !_isEditingGis,
                 onPolygonChanged: (newPts) {
                   _rebuild(() {
-                    _editedPolygon = newPts;
+                    _editedPolygon = List<LatLng>.of(newPts);
                   });
                 },
               ),

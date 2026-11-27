@@ -8,6 +8,9 @@ class ActuatorModel {
   bool isRunning;
   int remainingMinutes;
 
+  /// Lệnh đã gửi tới gateway nhưng chưa có phản hồi xác thực (backend báo PendingFeedback): chưa được coi là đang chạy.
+  bool awaitingAck = false;
+
   /// Node (thiết bị) chứa actuator này và cổng relay trên node đó; một node van nhiều cổng sinh nhiều actuator cùng tên.
   final String deviceId;
   final int? relayChannel;
@@ -390,4 +393,49 @@ class HoneycombTopologySimulation {
       varieties: varieties,
     );
   }
+}
+
+/// Kết quả backend trả khi nhận lệnh bật/tắt (HTTP 202 = đã lưu/đã gửi, CHƯA phải thiết bị đã chạy).
+/// Chỉ khi status là Acknowledged (gateway ACK có xác thực) hoặc observedState là RUNNING mới được báo thiết bị đang chạy.
+class ActuatorCommandResult {
+  final String
+  status; // Pending, Sent, Acknowledged, Failed, TimedOut, Cancelled
+  final String observedState;
+  final String? errorMessage;
+  const ActuatorCommandResult({
+    this.status = '',
+    this.observedState = '',
+    this.errorMessage,
+  });
+
+  factory ActuatorCommandResult.fromJson(Map<String, dynamic> j) =>
+      ActuatorCommandResult(
+        status: (j['status'] ?? '').toString(),
+        observedState: (j['observedState'] ?? '').toString(),
+        errorMessage: j['errorMessage']?.toString(),
+      );
+
+  /// Chỉ coi là đã xác nhận khi backend báo lệnh đã được gateway ACK.
+  /// `observedState` là trạng thái rơ-le quan sát được, có thể là trạng thái
+  /// TRƯỚC khi lệnh chạy (vd. đang RUNNING khi gửi lệnh TẮT), nên không dùng làm ACK.
+  bool get acknowledged => status.toLowerCase() == 'acknowledged';
+
+  bool get failed =>
+      const {'failed', 'timedout', 'cancelled'}.contains(status.toLowerCase());
+}
+
+/// Trạng thái thực tế của một rơ-le (GET .../actuators/{id}/status).
+class ActuatorLiveStatus {
+  final String state; // RUNNING / ON / OFF / ...
+  final int remainingSeconds;
+  const ActuatorLiveStatus(this.state, this.remainingSeconds);
+
+  factory ActuatorLiveStatus.fromJson(Map<String, dynamic> j) =>
+      ActuatorLiveStatus(
+        (j['currentState'] ?? j['status'] ?? '').toString().toUpperCase(),
+        (j['remainingSeconds'] as num?)?.toInt() ?? 0,
+      );
+
+  bool get isOn => state == 'RUNNING' || state == 'ON';
+  bool get isOff => state == 'OFF';
 }

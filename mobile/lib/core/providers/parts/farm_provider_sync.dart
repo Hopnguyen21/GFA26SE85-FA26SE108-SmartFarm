@@ -60,6 +60,21 @@ extension FarmProviderSync on FarmProvider {
       ..addAll(rules);
   }
 
+  /// Kéo-để-làm-mới ở màn Lịch & Luật: tải lại lịch tưới và luật tự động của mọi Zone song song.
+  /// Lỗi mạng giữ nguyên danh sách đang có (không xoá dữ liệu cũ).
+  Future<void> refreshSchedulesAndRules() async {
+    await Future.wait([
+      fetchSchedules(),
+      () async {
+        if (_zones.isEmpty) return;
+        try {
+          _applyRules(await _fetchRulesRaw());
+          _notify();
+        } catch (_) {}
+      }(),
+    ]);
+  }
+
   Future<void> _loadInventoryAndRules() async {
     await _loadInventory();
     if (_zones.isEmpty) {
@@ -69,7 +84,26 @@ extension FarmProviderSync on FarmProvider {
     _applyRules(await _fetchRulesRaw());
   }
 
-  Future<void> fetchFromApi() async {
+  /// Gộp các lần gọi chồng nhau: lúc khởi động provider tự đồng bộ, màn hình đầu tiên lại gọi thêm một lần nữa,
+  /// khiến toàn bộ ~60 lời gọi API chạy hai lần. Lần gọi đến khi lượt trước mới bắt đầu (< 2 giây) dùng chung kết quả.
+  /// Lần gọi muộn hơn (sau khi người dùng vừa sửa dữ liệu) vẫn chạy lượt mới để không đọc dữ liệu cũ.
+  Future<void> fetchFromApi() {
+    final running = _fetchInFlight;
+    final started = _fetchStartedAt;
+    if (running != null &&
+        started != null &&
+        DateTime.now().difference(started) < const Duration(seconds: 2)) {
+      return running;
+    }
+    _fetchStartedAt = DateTime.now();
+    final f = _fetchFromApiImpl();
+    _fetchInFlight = f;
+    return f.whenComplete(() {
+      if (identical(_fetchInFlight, f)) _fetchInFlight = null;
+    });
+  }
+
+  Future<void> _fetchFromApiImpl() async {
     _isLoadingApi = true;
     _syncError = null;
     _structureError = null;
@@ -128,14 +162,24 @@ extension FarmProviderSync on FarmProvider {
           isTech
               ? Future<Map<String, dynamic>?>.value(null)
               : FarmApi.getFarmWeather(_selectedFarmId).catchError((_) => null),
+          // Lỗi tải → null: GIỮ danh sách đang có và báo lỗi, không biến thành "không có cảnh báo".
           isTech
               ? Future.value(<AlertModel>[])
               : TaskApi.getAlerts(
                   _selectedFarmId,
-                ).catchError((_) => <AlertModel>[]),
+                ).then<List<AlertModel>?>((v) => v).catchError((Object e) {
+                  _syncError ??=
+                      'Không tải được cảnh báo: ${userFacingError(e)}';
+                  return null;
+                }),
           if (parseAppRole(ApiService.userRole) == AppRole.farmOwner ||
               parseAppRole(ApiService.userRole) == AppRole.farmer)
-            TaskApi.getTasks(_selectedFarmId).catchError((_) => <TaskModel>[])
+            TaskApi.getTasks(
+              _selectedFarmId,
+            ).then<List<TaskModel>?>((v) => v).catchError((Object e) {
+              _syncError ??= 'Không tải được công việc: ${userFacingError(e)}';
+              return null;
+            })
           else
             Future.value(<TaskModel>[]),
           fetchNotifications().catchError((_) {}),
@@ -186,12 +230,18 @@ extension FarmProviderSync on FarmProvider {
         Future<void> applyFarmExtras() async {
           final r = await extrasFuture;
           _farmWeather = r[0] as Map<String, dynamic>?;
-          _alerts
-            ..clear()
-            ..addAll(r[1] as List<AlertModel>);
-          _tasks
-            ..clear()
-            ..addAll((r[2] as List<TaskModel>).map(_withZoneName));
+          final alerts = r[1] as List<AlertModel>?;
+          if (alerts != null) {
+            _alerts
+              ..clear()
+              ..addAll(alerts);
+          }
+          final tasks = r[2] as List<TaskModel>?;
+          if (tasks != null) {
+            _tasks
+              ..clear()
+              ..addAll(tasks.map(_withZoneName));
+          }
           _notify();
         }
 
@@ -215,7 +265,9 @@ extension FarmProviderSync on FarmProvider {
     final inventoryFuture = _loadInventory();
     final rulesFuture = _fetchRulesRaw();
     final telemetryFuture = refreshAllZonesTelemetry();
-    final schedulesFuture = fetchSchedules(farmId: _selectedFarmId).catchError((_) {});
+    final schedulesFuture = fetchSchedules(
+      farmId: _selectedFarmId,
+    ).catchError((_) {});
     await _syncZoneActuatorsAndContext();
     await Future.wait([inventoryFuture, telemetryFuture, schedulesFuture]);
     final rules = await rulesFuture;
@@ -415,7 +467,9 @@ extension FarmProviderSync on FarmProvider {
                 _notify();
               }
 
-              // Đồng bộ trạng thái rơ-le chấp hành của zone hiện tại
+              // Đồng bộ trạng thái rơ-le chấp hành của zone hiện tại: 15 giây/lần (số đo vẫn 5 giây/lần);
+              // lệnh điều khiển của người dùng có luồng làm mới riêng nên không phụ thuộc nhịp này.
+              if (_actuatorPollTick++ % 3 != 0) return;
               try {
                 final freshActs = await FarmApi.getZoneActuators(curZ.zoneId);
                 final zIdLower = curZ.zoneId.toLowerCase();
@@ -427,6 +481,7 @@ extension FarmProviderSync on FarmProvider {
                   for (int j = 0; j < oldActs.length; j++) {
                     if (oldActs[j].actuatorId != freshActs[j].actuatorId ||
                         oldActs[j].isRunning != freshActs[j].isRunning ||
+                        oldActs[j].awaitingAck != freshActs[j].awaitingAck ||
                         oldActs[j].remainingMinutes !=
                             freshActs[j].remainingMinutes ||
                         oldActs[j].name != freshActs[j].name) {

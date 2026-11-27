@@ -188,6 +188,7 @@ class _VietGapDocumentsScreenState extends State<VietGapDocumentsScreen> {
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.all(16),
                             itemCount: _documents.length,
                             separatorBuilder: (_, _) =>
