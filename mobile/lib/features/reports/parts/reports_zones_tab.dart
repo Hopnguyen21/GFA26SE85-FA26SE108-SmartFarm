@@ -48,6 +48,7 @@ class ReportsZonesTab extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () async => onRefresh(),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
           // ─── Header tổng quan Phân khu ────────────────────────────────
@@ -229,7 +230,9 @@ class ReportsZonesTab extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    z.currentCrop.isNotEmpty ? z.currentCrop : 'Chưa gieo trồng',
+                    z.currentCrop.isNotEmpty
+                        ? z.currentCrop
+                        : 'Chưa gieo trồng',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
@@ -324,7 +327,11 @@ class ReportsZonesTab extends StatelessWidget {
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.water_drop_rounded, size: 14, color: Color(0xFF0284C7)),
+                                Icon(
+                                  Icons.water_drop_rounded,
+                                  size: 14,
+                                  color: Color(0xFF0284C7),
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Nước tưới Zone',
@@ -349,10 +356,14 @@ class ReportsZonesTab extends StatelessWidget {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: totalWater > 0 ? (zoneWater / totalWater).clamp(0.0, 1.0) : 0.0,
+                                value: totalWater > 0
+                                    ? (zoneWater / totalWater).clamp(0.0, 1.0)
+                                    : 0.0,
                                 minHeight: 4,
                                 backgroundColor: const Color(0xFFE2E8F0),
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF0284C7),
+                                ),
                               ),
                             ),
                           ],
@@ -371,7 +382,11 @@ class ReportsZonesTab extends StatelessWidget {
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.bolt_rounded, size: 14, color: Color(0xFFD97706)),
+                                Icon(
+                                  Icons.bolt_rounded,
+                                  size: 14,
+                                  color: Color(0xFFD97706),
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'Điện năng Zone',
@@ -396,10 +411,14 @@ class ReportsZonesTab extends StatelessWidget {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: totalPower > 0 ? (zonePower / totalPower).clamp(0.0, 1.0) : 0.0,
+                                value: totalPower > 0
+                                    ? (zonePower / totalPower).clamp(0.0, 1.0)
+                                    : 0.0,
                                 minHeight: 4,
                                 backgroundColor: const Color(0xFFE2E8F0),
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD97706)),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFFD97706),
+                                ),
                               ),
                             ),
                           ],
@@ -426,7 +445,10 @@ class ReportsZonesTab extends StatelessWidget {
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10),
-                      side: const BorderSide(color: Color(0xFF047857), width: 1.2),
+                      side: const BorderSide(
+                        color: Color(0xFF047857),
+                        width: 1.2,
+                      ),
                       foregroundColor: const Color(0xFF047857),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),

@@ -130,7 +130,12 @@ FixVerdict evaluateFix({
   required double accuracyM,
   required List<({double lat, double lng})>? polygon,
 }) {
-  if (polygon == null || polygon.length < 3) return FixVerdict.noBoundary;
+  if (polygon == null || polygon.length < 3) {
+    // Không có ranh giới để đối chiếu thì sai số GPS càng phải được kiểm tra: điểm ±500 m không được chốt.
+    if (accuracyM > gpsRejectAccuracyM) return FixVerdict.tooInaccurate;
+    if (accuracyM > gpsGoodAccuracyM) return FixVerdict.poorAccuracy;
+    return FixVerdict.noBoundary;
+  }
   if (!pointInPolygon(lat, lng, polygon)) return FixVerdict.outsideZone;
   if (accuracyM > gpsRejectAccuracyM) return FixVerdict.tooInaccurate;
   if (accuracyM > gpsGoodAccuracyM) return FixVerdict.poorAccuracy;

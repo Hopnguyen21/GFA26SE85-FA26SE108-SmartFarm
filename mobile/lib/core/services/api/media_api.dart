@@ -42,8 +42,9 @@ abstract final class MediaApi {
       final streamed = await ApiService._client
           .send(request)
           .timeout(const Duration(minutes: 2));
-      return http.Response.fromStream(streamed)
-          .timeout(const Duration(minutes: 2));
+      return http.Response.fromStream(
+        streamed,
+      ).timeout(const Duration(minutes: 2));
     }
 
     var response = await send();
@@ -55,7 +56,8 @@ abstract final class MediaApi {
       throw Exception(ApiService._apiErrorMessage(response));
     }
 
-    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final data =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     return CloudinaryUploadResult.fromJson(data);
   }
 
@@ -75,17 +77,18 @@ abstract final class MediaApi {
         'base64Data': base64Data,
         if (fileName != null && fileName.trim().isNotEmpty)
           'fileName': fileName.trim(),
-        if (folder != null && folder.trim().isNotEmpty)
-          'folder': folder.trim(),
+        if (folder != null && folder.trim().isNotEmpty) 'folder': folder.trim(),
       },
       timeout: const Duration(minutes: 2),
     );
 
-    if (response == null || (response.statusCode != 200 && response.statusCode != 201)) {
+    if (response == null ||
+        (response.statusCode != 200 && response.statusCode != 201)) {
       throw Exception(ApiService._apiErrorMessage(response));
     }
 
-    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final data =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     return CloudinaryUploadResult.fromJson(data);
   }
 }

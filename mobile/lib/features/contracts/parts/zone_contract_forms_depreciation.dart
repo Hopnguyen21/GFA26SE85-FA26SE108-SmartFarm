@@ -210,7 +210,7 @@ class _DepreciationSheetState extends State<_DepreciationSheet> {
                   firstDate: DateTime(2015),
                   lastDate: DateTime.now(),
                 );
-                if (d != null) setState(() => _start = d);
+                if (d != null && mounted) setState(() => _start = d);
               },
             ),
             if (cost > 0 && months > 0)

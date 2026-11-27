@@ -107,6 +107,15 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
   Future<void> _trigger() async {
     final act = _selected;
     if (act == null) return;
+    // Khóa an toàn công suất như web: không bật 2 bơm lớn cùng lúc trong cùng hệ thống.
+    final interlock = actuatorInterlockError(act, true, _actuators);
+    if (interlock != null) {
+      setState(() {
+        _error = interlock;
+        _success = null;
+      });
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -115,13 +124,14 @@ class _IrrigationDialogState extends State<_IrrigationDialog> {
     final error = await widget.provider.toggleActuator(
       act.actuatorId,
       durationMinutes: _minutes,
+      turnOn: true,
     );
     if (!mounted) return;
     setState(() {
       _busy = false;
       if (error == null) {
         _success =
-            'Đã bật thiết bị tưới trong $_minutes phút (BR-SAFE-01 an toàn). Hệ thống sẽ tự động ngắt.';
+            '${widget.provider.lastActuatorNotice ?? 'Đã gửi lệnh bật thiết bị tưới.'} Tự ngắt sau $_minutes phút (BR-SAFE-01).';
       } else {
         _error = error;
       }

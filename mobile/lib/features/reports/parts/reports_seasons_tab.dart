@@ -37,12 +37,13 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
   Widget build(BuildContext context) {
     final all = [...widget.plantingSeasons]..sort(compareSeasonsForDisplay);
 
-    final inProgressCount =
-        all.where((s) => '${s['status']}' == 'InProgress').length;
-    final plannedCount =
-        all.where((s) => '${s['status']}' == 'Planned').length;
-    final completedCount =
-        all.where((s) => '${s['status']}' == 'Completed').length;
+    final inProgressCount = all
+        .where((s) => '${s['status']}' == 'InProgress')
+        .length;
+    final plannedCount = all.where((s) => '${s['status']}' == 'Planned').length;
+    final completedCount = all
+        .where((s) => '${s['status']}' == 'Completed')
+        .length;
 
     final filtered = _selectedStatus == 'All'
         ? all
@@ -51,6 +52,7 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
     return RefreshIndicator(
       onRefresh: () async => widget.onRefresh(),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
           // ─── Header Thống kê Vụ mùa ──────────────────────────────────
@@ -184,9 +186,7 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
       selectedColor: const Color(0xFF047857),
       backgroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       side: BorderSide(
         color: isSelected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
         width: 1,
@@ -205,7 +205,9 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
     final zoneId = '${s['zoneId'] ?? ''}';
     final startDate = _fmtDate(s['startDate']);
     final expectedEndDate = _fmtDate(s['expectedEndDate']);
-    final actualEndDate = s['actualEndDate'] != null ? _fmtDate(s['actualEndDate']) : null;
+    final actualEndDate = s['actualEndDate'] != null
+        ? _fmtDate(s['actualEndDate'])
+        : null;
     final actualYieldKg = s['actualYieldKg'] as num?;
 
     // Tìm Zone tương ứng
@@ -264,7 +266,10 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(cropEmoji(cropName), style: const TextStyle(fontSize: 24)),
+                  child: Text(
+                    cropEmoji(cropName),
+                    style: const TextStyle(fontSize: 24),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -299,7 +304,9 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Text(
                     statusVi,
@@ -401,7 +408,10 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
                 Expanded(
                   child: Text(
                     'Bắt đầu: $startDate',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -412,7 +422,10 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
                         ? 'Thu hoạch: $actualEndDate'
                         : 'Dự kiến kết thúc: $expectedEndDate',
                     textAlign: TextAlign.end,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -467,7 +480,10 @@ class _ReportsSeasonsTabState extends State<ReportsSeasonsTab> {
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10),
-                      side: const BorderSide(color: Color(0xFF047857), width: 1.2),
+                      side: const BorderSide(
+                        color: Color(0xFF047857),
+                        width: 1.2,
+                      ),
                       foregroundColor: const Color(0xFF047857),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),

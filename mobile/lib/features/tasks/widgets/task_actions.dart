@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/models.dart';
 import '../../../core/providers/farm_provider.dart';
+import 'task_result_dialog.dart';
+import 'task_progress_dialog.dart';
 
 const Map<String, String> _statusLabels = {
   'Pending': 'Chờ nhận việc',
@@ -31,9 +33,7 @@ class _TaskActionsState extends State<TaskActions> {
 
   Future<void> _run(
     String action, {
-    String? result,
     String? failureReason,
-    int? progressPercent,
     String? farmerId,
     String? notes,
   }) async {
@@ -41,9 +41,7 @@ class _TaskActionsState extends State<TaskActions> {
     final error = await context.read<FarmProvider>().performTaskAction(
       widget.task.taskId,
       action,
-      result: result,
       failureReason: failureReason,
-      progressPercent: progressPercent,
       farmerId: farmerId,
       notes: notes,
     );
@@ -67,21 +65,6 @@ class _TaskActionsState extends State<TaskActions> {
     return value == null || value.isEmpty ? null : value;
   }
 
-  Future<void> _askProgress(int current, String? initialNote) async {
-    final picked = await showDialog<({int progress, String? note})>(
-      context: context,
-      builder: (ctx) =>
-          _ProgressInputDialog(current: current, initialNote: initialNote),
-    );
-    if (picked != null) {
-      await _run(
-        'UpdateProgress',
-        progressPercent: picked.progress,
-        notes: picked.note?.isEmpty == true ? null : picked.note,
-      );
-    }
-  }
-
   /// Task đã đóng (duyệt/hủy) thì không giao thêm người.
   bool _canManageAssignees(TaskModel task) =>
       task.status != 'Approved' && task.status != 'Cancelled';
@@ -96,6 +79,36 @@ class _TaskActionsState extends State<TaskActions> {
           _AssigneesSheet(taskId: widget.task.taskId, provider: provider),
     );
   }
+
+  Widget _reportPhotos(List<String> urls) => Wrap(
+    spacing: 8,
+    children: [
+      for (final (index, url) in urls.indexed)
+        OutlinedButton.icon(
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('Ảnh minh chứng ${index + 1}'),
+              content: InteractiveViewer(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const Text('Không tải được ảnh.'),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Đóng'),
+                ),
+              ],
+            ),
+          ),
+          icon: const Icon(Icons.image_outlined),
+          label: Text('Ảnh ${index + 1}'),
+        ),
+    ],
+  );
 
   Widget _button(
     String label,
@@ -157,19 +170,23 @@ class _TaskActionsState extends State<TaskActions> {
         ];
       case 'InProgress':
         return [
-          _button('Nộp kết quả', () async {
-            final result = await _askText(
-              'Mô tả kết quả đã làm',
-              'Bạn đã làm được gì? *',
+          _button('Nộp kết quả', () {
+            final provider = context.read<FarmProvider>();
+            showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) =>
+                  TaskResultDialog(task: widget.task, provider: provider),
             );
-            if (result != null && result.trim().isNotEmpty) {
-              await _run('Complete', result: result.trim());
-            }
           }, primary: true),
-          _button(
-            'Cập nhật %',
-            () => _askProgress(mine.progressPercent, mine.progressNote),
-          ),
+          _button('Cập nhật %', () {
+            final provider = context.read<FarmProvider>();
+            showDialog<bool>(
+              context: context,
+              builder: (_) =>
+                  TaskProgressDialog(task: widget.task, provider: provider),
+            );
+          }),
           _button('Báo không hoàn thành', fail, danger: true),
         ];
       case 'Overdue':
@@ -190,12 +207,14 @@ class _TaskActionsState extends State<TaskActions> {
                   color: Color(0xFFDC2626),
                 ),
                 SizedBox(width: 6),
-                Text(
-                  'Công việc đã quá hạn. Cần Chủ trang trại gia hạn hoặc giao lại.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFB91C1C),
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    'Công việc đã quá hạn. Cần Chủ trang trại gia hạn hoặc giao lại.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFB91C1C),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -434,6 +453,7 @@ class _TaskActionsState extends State<TaskActions> {
                         ),
                       ),
                     ],
+                    if (a.imageUrls.isNotEmpty) _reportPhotos(a.imageUrls),
                     if ((a.failureReason ?? '').isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
@@ -512,7 +532,7 @@ class _AssigneesSheetState extends State<_AssigneesSheet> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     setState(() => _busy = true);
     final error = await widget.provider.removeTaskAssignee(
       widget.taskId,
@@ -696,86 +716,6 @@ class _TextInputDialogState extends State<_TextInputDialog> {
         ElevatedButton(
           onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
           child: const Text('Gửi'),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgressInputDialog extends StatefulWidget {
-  final int current;
-  final String? initialNote;
-  const _ProgressInputDialog({required this.current, this.initialNote});
-
-  @override
-  State<_ProgressInputDialog> createState() => _ProgressInputDialogState();
-}
-
-class _ProgressInputDialogState extends State<_ProgressInputDialog> {
-  late double _value;
-  late final TextEditingController _noteCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.current.toDouble();
-    _noteCtrl = TextEditingController(text: widget.initialNote ?? '');
-  }
-
-  @override
-  void dispose() {
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        'Tiến độ: ${_value.round()}%',
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Slider(
-              value: _value,
-              max: 100,
-              divisions: 20,
-              activeColor: const Color(0xFF047857),
-              onChanged: (v) => setState(() => _value = v),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Ghi chú tiến độ (không bắt buộc):',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: _noteCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'Nhập ghi chú hiện trường...',
-                hintStyle: TextStyle(fontSize: 12),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(
-            context,
-            (progress: _value.round(), note: _noteCtrl.text.trim()),
-          ),
-          child: const Text('Lưu'),
         ),
       ],
     );

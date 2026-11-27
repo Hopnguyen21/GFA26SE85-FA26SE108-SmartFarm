@@ -4,6 +4,7 @@
 //   farm · devices · alerts_tasks · ai · automation · crops · inventory · contracts
 // Nơi khác chỉ cần import file này.
 // ─────────────────────────────────────────
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import 'geo_polygon.dart';

@@ -67,4 +67,20 @@ void main() {
     // 0.0010° vĩ ≈ 110,5 m; 0.0020° kinh ≈ 217,8 m tại vĩ độ 11,94°.
     expect(polygonAreaM2(_field), closeTo(24080, 300));
   });
+
+  test(
+    'polygonAreaM2 không phụ thuộc hình dạng: tam giác = nửa hình chữ nhật cùng khung',
+    () {
+      // Công thức cũ của picker (cos riêng từng cạnh trên toạ độ tuyệt đối) báo tam giác này ~3.000 m² thay vì ~12.000 m².
+      final tri = [
+        const LatLng(_lat0, _lng0),
+        const LatLng(_lat0 + 0.0020, _lng0 + 0.0005),
+        const LatLng(_lat0, _lng0 + 0.0010),
+      ];
+      final rect = _rect(_lat0, _lng0, _lat0 + 0.0020, _lng0 + 0.0010);
+      expect(polygonAreaM2(tri), closeTo(polygonAreaM2(rect) / 2, 1));
+      expect(polygonAreaM2(tri), closeTo(12040, 150));
+      expect(polygonAreaM2(tri.reversed.toList()), polygonAreaM2(tri));
+    },
+  );
 }

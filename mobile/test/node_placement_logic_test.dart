@@ -95,6 +95,9 @@ void main() {
       expect(v(10.0005, 80), FixVerdict.tooInaccurate);
       expect(v(10.5, 5), FixVerdict.outsideZone);
       expect(v(10.0005, 5, null), FixVerdict.noBoundary);
+      // Không có ranh giới vẫn phải chặn/cảnh báo GPS sai số lớn.
+      expect(v(10.0005, 80, null), FixVerdict.tooInaccurate);
+      expect(v(10.0005, 30, null), FixVerdict.poorAccuracy);
     });
   });
 

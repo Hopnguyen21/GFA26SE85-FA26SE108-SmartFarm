@@ -6,6 +6,7 @@ import '../../../core/services/api_service.dart';
 import '../../irrigation/schedules_automation_screen.dart';
 import '../../irrigation/season_irrigation_calendar_screen.dart';
 import '../../irrigation/season_irrigation_logic.dart';
+import '../../../core/utils/user_error.dart';
 
 /// Dữ liệu biểu diễn một ca tưới trong ngày hôm nay của Zone.
 class ZoneTodaySession {
@@ -19,6 +20,7 @@ class ZoneTodaySession {
   final int? waterPerPlantMl;
   final bool isAutomation;
   final String? nextRun;
+  final String? actuatorId;
 
   const ZoneTodaySession({
     required this.id,
@@ -31,6 +33,7 @@ class ZoneTodaySession {
     this.waterPerPlantMl,
     this.isAutomation = true,
     this.nextRun,
+    this.actuatorId,
   });
 }
 
@@ -42,7 +45,8 @@ class ZoneTodayIrrigationCard extends StatefulWidget {
   const ZoneTodayIrrigationCard({super.key, required this.zone});
 
   @override
-  State<ZoneTodayIrrigationCard> createState() => _ZoneTodayIrrigationCardState();
+  State<ZoneTodayIrrigationCard> createState() =>
+      _ZoneTodayIrrigationCardState();
 }
 
 class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
@@ -50,6 +54,8 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
   String? _error;
   List<ZoneTodaySession> _sessions = const [];
   String? _seasonStage;
+  final Set<String> _runningSessionIds = {};
+  String? _triggeringSessionId;
 
   @override
   void initState() {
@@ -76,7 +82,7 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
       'Thứ 5',
       'Thứ 6',
       'Thứ 7',
-      'Chủ Nhật'
+      'Chủ Nhật',
     ];
     final dayName = dayNames[(now.weekday - 1) % 7];
     final dd = now.day.toString().padLeft(2, '0');
@@ -133,6 +139,7 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
   }
 
   bool _isCurrentlyActive(ZoneTodaySession session) {
+    if (_runningSessionIds.contains(session.id)) return true;
     if (!session.isEnabled) return false;
     final parts = session.startTime.split(':');
     if (parts.length != 2) return false;
@@ -168,12 +175,14 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
                 title: s.name.isNotEmpty ? s.name : 'Tưới định kỳ',
                 startTime: s.startTime,
                 durationMinutes: s.durationMinutes,
-                targetDevice:
-                    s.actuatorName.isNotEmpty ? s.actuatorName : 'Bơm tưới',
+                targetDevice: s.actuatorName.isNotEmpty
+                    ? s.actuatorName
+                    : 'Bơm tưới',
                 isEnabled: s.isEnabled,
                 enableRainDelay: s.enableRainDelay,
                 isAutomation: true,
                 nextRun: s.nextRunFormatted,
+                actuatorId: s.actuatorId,
               ),
           ]..sort((a, b) => a.startTime.compareTo(b.startTime));
           _loading = false;
@@ -189,12 +198,12 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
     try {
       // 1. Tải song song: Lịch IoT rơ-le của Zone và Mùa vụ của Zone
       final results = await Future.wait([
-        AutomationApi.getSchedules(zoneId: zoneId).catchError(
-          (_) => <ScheduleModel>[],
-        ),
-        CropApi.getPlantingSeasons(zoneId: zoneId).catchError(
-          (_) => <Map<String, dynamic>>[],
-        ),
+        AutomationApi.getSchedules(
+          zoneId: zoneId,
+        ).catchError((_) => <ScheduleModel>[]),
+        CropApi.getPlantingSeasons(
+          zoneId: zoneId,
+        ).catchError((_) => <Map<String, dynamic>>[]),
       ]);
 
       final apiSchedules = results[0] as List<ScheduleModel>;
@@ -230,12 +239,14 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
             title: s.name.isNotEmpty ? s.name : 'Tưới định kỳ',
             startTime: s.startTime,
             durationMinutes: s.durationMinutes,
-            targetDevice:
-                s.actuatorName.isNotEmpty ? s.actuatorName : 'Bơm tưới',
+            targetDevice: s.actuatorName.isNotEmpty
+                ? s.actuatorName
+                : 'Bơm tưới',
             isEnabled: s.isEnabled,
             enableRainDelay: s.enableRainDelay,
             isAutomation: true,
             nextRun: s.nextRunFormatted,
+            actuatorId: s.actuatorId,
           ),
         );
       }
@@ -292,6 +303,304 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _toggleSchedule(ZoneTodaySession session, bool enable) async {
+    final provider = Provider.of<FarmProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await provider.toggleScheduleEnabled(session.id, enable);
+    if (!mounted) return;
+    if (ok) {
+      setState(() {
+        final idx = _sessions.indexWhere((s) => s.id == session.id);
+        if (idx != -1) {
+          final old = _sessions[idx];
+          _sessions = List.of(_sessions)
+            ..[idx] = ZoneTodaySession(
+              id: old.id,
+              title: old.title,
+              startTime: old.startTime,
+              durationMinutes: old.durationMinutes,
+              targetDevice: old.targetDevice,
+              isEnabled: enable,
+              enableRainDelay: old.enableRainDelay,
+              waterPerPlantMl: old.waterPerPlantMl,
+              isAutomation: old.isAutomation,
+              nextRun: old.nextRun,
+              actuatorId: old.actuatorId,
+            );
+        }
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            enable
+                ? '✅ Đã kích hoạt lịch tự động "${session.title}".'
+                : '⏸️ Đã tạm dừng lịch tự động "${session.title}".',
+          ),
+          backgroundColor: const Color(0xFF062326),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể đổi trạng thái lịch. Vui lòng kiểm tra quyền hoặc kết nối.',
+          ),
+          backgroundColor: Color(0xFFE11D48),
+        ),
+      );
+    }
+  }
+
+  Future<void> _stopRunningSession(ZoneTodaySession session) async {
+    final provider = Provider.of<FarmProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    String? actId = session.actuatorId;
+    if (actId == null || actId.isEmpty) {
+      final usable = provider.actuators
+          .where(
+            (a) => a.zoneId.toLowerCase() == widget.zone.zoneId.toLowerCase(),
+          )
+          .toList();
+      actId = usable.firstOrNull?.actuatorId;
+    }
+    if (actId == null || actId.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Zone chưa có thiết bị rơ-le để gửi lệnh tắt.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _triggeringSessionId = session.id);
+    try {
+      await AutomationApi.sendActuatorCommand(
+        zoneId: widget.zone.zoneId,
+        actuatorId: actId,
+        action: 'TurnOff',
+        durationSeconds: 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _runningSessionIds.remove(session.id);
+        _triggeringSessionId = null;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('🛑 Đã ngắt thiết bị tưới của ca "${session.title}".'),
+          backgroundColor: const Color(0xFF062326),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _triggeringSessionId = null);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Lỗi ngắt thiết bị: ${userFacingError(e)}'),
+          backgroundColor: const Color(0xFFE11D48),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showTriggerDialog(ZoneTodaySession session) async {
+    final provider = Provider.of<FarmProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+
+    String? actId = session.actuatorId;
+    String actName = session.targetDevice;
+    if (actId == null || actId.isEmpty) {
+      final usable = provider.actuators
+          .where(
+            (a) => a.zoneId.toLowerCase() == widget.zone.zoneId.toLowerCase(),
+          )
+          .toList();
+      final pump =
+          usable
+              .where(
+                (a) =>
+                    a.actuatorType == 'PUMP' ||
+                    a.actuatorType == 'VALVE' ||
+                    a.name.toLowerCase().contains('bơm') ||
+                    a.name.toLowerCase().contains('tưới'),
+              )
+              .firstOrNull ??
+          usable.firstOrNull;
+      if (pump != null && pump.actuatorId.isNotEmpty) {
+        actId = pump.actuatorId;
+        actName = pump.name;
+      }
+    }
+
+    if (actId == null || actId.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Zone chưa có thiết bị rơ-le bơm/van để gửi lệnh.'),
+        ),
+      );
+      return;
+    }
+
+    int selectedMinutes = session.durationMinutes.clamp(1, 15);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.water_drop_rounded,
+                  color: Color(0xFF047857),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Kích Hoạt Ca Tưới Ngay?',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ca tưới: ${session.title} (${session.startTime})',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Thiết bị chấp hành: $actName',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Thời gian tưới an toàn (phút):',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                children: [1, 3, 5, 10, 15].map((m) {
+                  final active = selectedMinutes == m;
+                  return ChoiceChip(
+                    label: Text('$m phút'),
+                    selected: active,
+                    selectedColor: const Color(0xFF10B981),
+                    labelStyle: TextStyle(
+                      color: active ? Colors.white : const Color(0xFF334155),
+                      fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 11,
+                    ),
+                    onSelected: (sel) {
+                      if (sel) setDlgState(() => selectedMinutes = m);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 14,
+                      color: Color(0xFF047857),
+                    ),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Cơ chế tự ngắt bảo vệ rơ-le: Tối đa 15 phút. Lệnh phát qua LoRa Gateway tới ESP32.',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF047857),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.bolt_rounded, size: 16),
+              label: Text('Bật tưới ngay ($selectedMinutes phút)'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _triggeringSessionId = session.id);
+    try {
+      await AutomationApi.sendActuatorCommand(
+        zoneId: widget.zone.zoneId,
+        actuatorId: actId,
+        action: 'TurnOn',
+        durationSeconds: selectedMinutes * 60,
+      );
+      if (!mounted) return;
+      setState(() {
+        _runningSessionIds.add(session.id);
+        _triggeringSessionId = null;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚡ Đã gửi lệnh bật thiết bị tưới qua LoRa Gateway! Tự ngắt an toàn sau $selectedMinutes phút (BR-SAFE-01).',
+          ),
+          backgroundColor: const Color(0xFF062326),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _triggeringSessionId = null);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Lỗi gửi lệnh điều khiển: ${userFacingError(e)}'),
+          backgroundColor: const Color(0xFFE11D48),
+        ),
+      );
     }
   }
 
@@ -945,11 +1254,99 @@ class _ZoneTodayIrrigationCardState extends State<ZoneTodayIrrigationCard> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (session.isAutomation) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Trạng thái Tự động/Tạm dừng đã hiện ở huy hiệu phía trên: không lặp lại chữ ở đây.
+                          SizedBox(
+                            height: 24,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: Switch(
+                                value: session.isEnabled,
+                                activeThumbColor: const Color(0xFF047857),
+                                activeTrackColor: const Color(0xFFA7F3D0),
+                                onChanged: (val) =>
+                                    _toggleSchedule(session, val),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    // Flexible + căn phải: nút co lại trên màn hẹp/chữ lớn thay vì làm tràn hàng.
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _sessionActionButton(session, isRunningNow),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _sessionActionButton(ZoneTodaySession session, bool isRunningNow) {
+    return isRunningNow
+        ? FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: const Size(0, 28),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: _triggeringSessionId == session.id
+                ? null
+                : () => _stopRunningSession(session),
+            icon: const Icon(Icons.stop_circle_rounded, size: 14),
+            label: Text(
+              _triggeringSessionId == session.id ? 'Đang ngắt...' : 'Dừng tưới',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        : FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFECFDF5),
+              foregroundColor: const Color(0xFF047857),
+              side: const BorderSide(color: Color(0xFFA7F3D0)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: const Size(0, 28),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: _triggeringSessionId == session.id
+                ? null
+                : () => _showTriggerDialog(session),
+            icon: const Icon(Icons.play_circle_fill_rounded, size: 14),
+            label: Text(
+              _triggeringSessionId == session.id ? 'Đang gửi...' : 'Tưới ngay',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
   }
 }

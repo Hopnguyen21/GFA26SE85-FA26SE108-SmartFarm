@@ -312,6 +312,26 @@ class _DeploymentRequestDetailScreenState
                           ),
                         ),
                         const SizedBox(height: 8),
+                        if (r.estimateSnapshotJson != null &&
+                            r.estimateSnapshotJson!.isNotEmpty) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => EstimateSnapshotDialog.show(
+                                context,
+                                r.estimateSnapshotJson!,
+                              ),
+                              icon: const Icon(
+                                Icons.calculate_outlined,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Xem Dự toán Tổ ong (GIS Snapshot)',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                         const Text(
                           'Danh sách này do Owner dự toán, chưa phải báo giá hay hợp đồng. Kỹ thuật viên khảo sát rồi lập '
                           'báo giá/hợp đồng để Owner xem và xác nhận.',
@@ -319,6 +339,40 @@ class _DeploymentRequestDetailScreenState
                             fontSize: 11,
                             color: Color(0xFF64748B),
                             height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (r.estimateItems.isEmpty &&
+                    r.estimateSnapshotJson != null &&
+                    r.estimateSnapshotJson!.isNotEmpty)
+                  SectionCard(
+                    title: 'Dự toán thiết bị (Tổ ong GIS)',
+                    icon: Icons.calculate_outlined,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Owner đã lưu dự toán bố trí thiết bị theo thuật toán Tổ ong GIS.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => EstimateSnapshotDialog.show(
+                              context,
+                              r.estimateSnapshotJson!,
+                            ),
+                            icon: const Icon(
+                              Icons.calculate_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Xem Dự toán Tổ ong chi tiết'),
                           ),
                         ),
                       ],

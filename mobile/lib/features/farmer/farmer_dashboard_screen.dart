@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
+import '../../core/utils/debouncer.dart';
 import '../../core/utils/due_label.dart';
+import '../../core/widgets/shimmer_loading.dart';
 import '../tasks/alerts_tasks_screen.dart';
+import '../tasks/widgets/task_result_dialog.dart';
+import '../tasks/widgets/task_progress_dialog.dart';
+import '../zones/actuator_interlock.dart';
 import '../zones/zone_detail_screen.dart';
 
 part 'parts/farmer_dashboard_widgets.dart';
@@ -33,12 +38,14 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
   _TaskFilter _filter = _TaskFilter.todo;
   final _zonesKey = GlobalKey();
   final _zoneSearch = TextEditingController();
+  final _searchDebouncer = Debouncer(milliseconds: 300);
   String _zoneQuery = '';
   bool _heroZonesOpen = false;
   ({bool ok, String message})? _feedback;
 
   @override
   void dispose() {
+    _searchDebouncer.cancel();
     _zoneSearch.dispose();
     super.dispose();
   }
@@ -82,53 +89,84 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     final overdue = todo.where(_isOverdue).length;
     final openAlerts = provider.alerts.where((a) => !a.isAcknowledged).toList();
     final shown = tasks.where((t) => _matches(_filter, t)).toList();
+    final pendingTasks = tasks.where((t) {
+      final s = t.status.toLowerCase();
+      return s == 'pending' || s == 'assigned';
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: RefreshIndicator(
-        onRefresh: () => provider.fetchFromApi(),
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            14,
-            MediaQuery.of(context).padding.top + 12,
-            14,
-            24,
-          ),
-          children: [
-            _buildHero(
-              provider,
-              zones,
-              zones.length,
-              todo.length,
-              overdue,
-              review.length,
-              openAlerts.length,
+      body: provider.isLoadingApi && zones.isEmpty && tasks.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                MediaQuery.of(context).padding.top + 12,
+                14,
+                36,
+              ),
+              children: const [
+                ShimmerCardSkeleton(height: 160),
+                SizedBox(height: 14),
+                ShimmerCardSkeleton(height: 100),
+                SizedBox(height: 14),
+                ShimmerCardSkeleton(height: 220),
+              ],
+            )
+          : RefreshIndicator(
+              onRefresh: () => provider.fetchFromApi(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  MediaQuery.of(context).padding.top + 12,
+                  14,
+                  36,
+                ),
+                children: [
+                  _buildHero(
+                    provider,
+                    zones,
+                    zones.length,
+                    todo.length,
+                    overdue,
+                    review.length,
+                    openAlerts.length,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildQuickActions(
+                    provider,
+                    zones,
+                    todo.length,
+                    openAlerts.length,
+                  ),
+                  if (openAlerts.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _buildAlertBanner(openAlerts, {
+                      for (final z in zones) z.zoneId: z.name,
+                    }),
+                  ],
+                  if (pendingTasks.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _buildNewTaskAlertBanner(provider, pendingTasks),
+                  ],
+                  if (_feedback != null) ...[
+                    const SizedBox(height: 14),
+                    _buildFeedback(),
+                  ],
+                  const SizedBox(height: 14),
+                  _buildTaskManager(
+                    provider,
+                    tasks,
+                    todo.length,
+                    review.length,
+                    shown,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildZonesSection(provider, zones, openAlerts),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
-            _buildQuickActions(provider, zones, todo.length, openAlerts.length),
-            if (openAlerts.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _buildAlertBanner(openAlerts, {
-                for (final z in zones) z.zoneId: z.name,
-              }),
-            ],
-            if (_feedback != null) ...[
-              const SizedBox(height: 14),
-              _buildFeedback(),
-            ],
-            const SizedBox(height: 14),
-            _buildTaskManager(
-              provider,
-              tasks,
-              todo.length,
-              review.length,
-              shown,
-            ),
-            const SizedBox(height: 14),
-            _buildZonesSection(provider, zones, openAlerts),
-          ],
-        ),
-      ),
     );
   }
 }

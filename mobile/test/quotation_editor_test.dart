@@ -116,6 +116,42 @@ void main() {
     expect(find.textContaining('Chưa có hạng mục nào'), findsOneWidget);
     expect(find.byType(QuotationEditor), findsOneWidget);
   });
+
+  testWidgets(
+    'khi tạo mới mặc định: bảng hợp đồng không lấy từ đề xuất, đề xuất hiển thị ở ô tham khảo riêng',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: QuotationEditor(
+            estimateItems: [
+              QuotationItem(
+                code: 'SN-01',
+                name: 'Node cảm biến',
+                category: 'SENSOR_NODE',
+                unit: 'Cái',
+                quantity: 3,
+                unitPrice: 1000000,
+                vatPercent: 8,
+                totalAmount: 3240000,
+              ),
+            ],
+            estimateSnapshotJson: '{"actuators": 1, "gateways": 1}',
+            contractTitle: 'Hợp đồng thử nghiệm',
+          ),
+        ),
+      );
+      // Đề xuất hiển thị ở ô tham khảo
+      expect(
+        find.text('Đề xuất thiết bị & Dự toán từ khách hàng'),
+        findsOneWidget,
+      );
+      // Bảng hợp đồng không lấy tự động nên hiện trạng thái trống
+      expect(find.textContaining('Chưa có hạng mục nào'), findsOneWidget);
+      expect(find.text('Thêm thiết bị từ kho'), findsAtLeast(1));
+    },
+  );
 }
 
 class _Opened {
@@ -158,6 +194,7 @@ Future<_Opened> _open(
                       farmName: 'Nông trại CNC Lâm Đồng',
                       zoneName: 'Nhà màng 03',
                       readOnly: readOnly,
+                      autoFillFromEstimate: true,
                     ),
                   ),
                 );

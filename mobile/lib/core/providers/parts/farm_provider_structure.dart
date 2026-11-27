@@ -159,71 +159,16 @@ extension FarmProviderStructure on FarmProvider {
     if (polygon == null || polygon.length < 3)
       return 'Cần vẽ ranh giới thửa đất trên bản đồ (tối thiểu 3 điểm).';
     try {
-      final targetFarm =
-          _farms.where((f) => f.farmId == farmId).firstOrNull ??
-          (farmId == currentFarm.farmId ? currentFarm : null);
-      final currentAllocated = _fields
-          .where((f) => f.farmId == farmId)
-          .fold<double>(0.0, (sum, f) => sum + f.areaM2);
-      final requiredTotal = currentAllocated + areaM2;
-
-      // Tự động mở rộng diện tích nông trại nếu tổng diện tích thửa đất vượt quá
-      if (targetFarm != null && targetFarm.totalAreaM2 < requiredTotal) {
-        final newFarmArea = (requiredTotal * 1.5).clamp(10000.0, 1000000.0);
-        try {
-          await FarmApi.updateFarm(
-            farmId,
-            name: targetFarm.name,
-            locationText: targetFarm.address.isEmpty
-                ? null
-                : targetFarm.address,
-            latitude: targetFarm.latitude != 0 ? targetFarm.latitude : null,
-            longitude: targetFarm.longitude != 0 ? targetFarm.longitude : null,
-            totalAreaM2: newFarmArea,
-          );
-        } catch (_) {}
-      }
-
-      Map<String, dynamic> created;
-      try {
-        created = await FarmApi.createField(
-          farmId: farmId,
-          name: name,
-          areaM2: areaM2,
-          boundaryGeoJson: FarmApi.polygonGeoJson([
-            for (final p in polygon) [p.latitude, p.longitude],
-          ]),
-        );
-      } catch (e) {
-        if (e.toString().contains('exceeds the Farm area') &&
-            targetFarm != null) {
-          final fallbackArea = (requiredTotal + 50000.0).clamp(
-            50000.0,
-            1000000.0,
-          );
-          await FarmApi.updateFarm(
-            farmId,
-            name: targetFarm.name,
-            locationText: targetFarm.address.isEmpty
-                ? null
-                : targetFarm.address,
-            latitude: targetFarm.latitude != 0 ? targetFarm.latitude : null,
-            longitude: targetFarm.longitude != 0 ? targetFarm.longitude : null,
-            totalAreaM2: fallbackArea,
-          );
-          created = await FarmApi.createField(
-            farmId: farmId,
-            name: name,
-            areaM2: areaM2,
-            boundaryGeoJson: FarmApi.polygonGeoJson([
-              for (final p in polygon) [p.latitude, p.longitude],
-            ]),
-          );
-        } else {
-          rethrow;
-        }
-      }
-
+      // KHÔNG tự sửa diện tích trang trại: nếu thửa đất vượt diện tích còn lại,
+      // backend từ chối và người dùng thấy lỗi để tự quyết định.
+      final created = await FarmApi.createField(
+        farmId: farmId,
+        name: name,
+        areaM2: areaM2,
+        boundaryGeoJson: FarmApi.polygonGeoJson([
+          for (final p in polygon) [p.latitude, p.longitude],
+        ]),
+      );
       final id = '${created['fieldId'] ?? created['id'] ?? ''}';
       if (id.isNotEmpty) _selectedFieldId = id;
       await fetchFromApi();

@@ -259,20 +259,20 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                       decoration: BoxDecoration(
                         color:
                             ((weather!['rainProbabilityNext6HoursMaxPercent']
-                                            as num?) ??
-                                        0) >=
-                                    70
-                                ? const Color(0xFFFEF2F2)
-                                : const Color(0xFFF0FDF4),
+                                        as num?) ??
+                                    0) >=
+                                70
+                            ? const Color(0xFFFEF2F2)
+                            : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color:
                               ((weather['rainProbabilityNext6HoursMaxPercent']
-                                              as num?) ??
-                                          0) >=
-                                      70
-                                  ? const Color(0xFFFECACA)
-                                  : const Color(0xFFBBF7D0),
+                                          as num?) ??
+                                      0) >=
+                                  70
+                              ? const Color(0xFFFECACA)
+                              : const Color(0xFFBBF7D0),
                         ),
                       ),
                       child: Row(
@@ -288,11 +288,11 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                             size: 13,
                             color:
                                 ((weather['rainProbabilityNext6HoursMaxPercent']
-                                                as num?) ??
-                                            0) >=
-                                        70
-                                    ? const Color(0xFFDC2626)
-                                    : const Color(0xFF16A34A),
+                                            as num?) ??
+                                        0) >=
+                                    70
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF16A34A),
                           ),
                           const SizedBox(width: 4),
                           Flexible(
@@ -304,11 +304,11 @@ extension _AiAssistantScreenStateContextBanner on _AiAssistantScreenState {
                                 fontWeight: FontWeight.bold,
                                 color:
                                     ((weather['rainProbabilityNext6HoursMaxPercent']
-                                                    as num?) ??
-                                                0) >=
-                                            70
-                                        ? const Color(0xFFDC2626)
-                                        : const Color(0xFF16A34A),
+                                                as num?) ??
+                                            0) >=
+                                        70
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF16A34A),
                               ),
                             ),
                           ),

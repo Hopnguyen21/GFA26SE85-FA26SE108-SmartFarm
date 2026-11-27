@@ -54,6 +54,7 @@ Future<_Out> _open(WidgetTester t, {Quotation? initial}) async {
                         ? [_hw('GW', 1, 1000000)]
                         : null,
                     contractTitle: 'HĐ',
+                    autoFillFromEstimate: true,
                   ),
                 ),
               );

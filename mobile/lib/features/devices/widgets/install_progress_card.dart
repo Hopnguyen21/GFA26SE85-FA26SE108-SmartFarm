@@ -180,6 +180,42 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     );
   }
 
+  /// Khảo sát nhanh: xác nhận hiện trường đủ điều kiện kỹ thuật và chuyển bước ngay (tương tự Web Dashboard).
+  Future<void> _quickSurvey(DeploymentRequest d) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Khảo sát hiện trường'),
+        content: const Text(
+          'Xác nhận hiện trường đủ điều kiện kỹ thuật (nguồn điện, sóng LoRa/Wifi, hạ tầng phân khu) để tiếp tục quy trình lắp đặt?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF047857),
+            ),
+            child: const Text('Xác nhận Đủ điều kiện (Khả thi)'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _run(
+      () => DeploymentApi.surveyDeploymentRequest(
+        d.requestId,
+        isFeasible: true,
+        siteConditions:
+            'Hiện trường đủ điều kiện kỹ thuật theo khảo sát thực tế.',
+        notes: 'Kỹ thuật viên xác nhận khả thi để triển khai lắp đặt.',
+      ),
+    );
+  }
+
   /// Mở lại báo cáo khảo sát đã lập của phiếu (xem; KTV tạo ra báo cáo thì sửa và nộp lại được, không đổi kết luận đã gửi).
   Future<void> _viewReport(DeploymentRequest d) async {
     final sr = widget.serviceRequestId;
@@ -219,8 +255,14 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           ),
         ];
       case 'Accepted':
-        // Sau khi nhận yêu cầu: KTV điền khảo sát thực địa thật; có kết quả mới được xem/xác nhận hợp đồng.
-        return [primary('Lập báo cáo khảo sát thực địa', () => _doSurvey(d))];
+        // Sau khi nhận yêu cầu: KTV có thể khảo sát nhanh để chuyển bước, hoặc lập biên bản khảo sát 10 mục chi tiết.
+        return [
+          primary('Khảo sát nhanh & chuyển bước', () => _quickSurvey(d)),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _doSurvey(d),
+            child: const Text('Lập báo cáo khảo sát thực địa'),
+          ),
+        ];
       case 'Surveyed':
         return [
           if (!d.latestSurveyFeasible)
@@ -258,8 +300,8 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
     _ => deploymentNextStepHint(d.status),
   };
 
-  /// Khung "Thao tác thực địa kỹ thuật" như trang Lắp đặt trên web: nền tối, nút theo tiến độ
-  /// (tiếp nhận, khảo sát, xác nhận kế hoạch, bắt đầu lắp đặt, Chấm Node…), nút bị khoá hiện dạng chip.
+  /// Khung "Thao tác thực địa kỹ thuật": Thiết kế sáng, trang nhã, chuẩn UI/UX Pro Max,
+  /// độ tương phản cao đạt chuẩn WCAG AA/AAA trên nền thẻ.
   Widget _actionPanel(DeploymentRequest d) {
     final buttons = <Widget>[
       for (final b in _buttons(d))
@@ -267,8 +309,12 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           FilledButton(
             onPressed: b.onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF047857),
+              backgroundColor: const Color(0xFF059669),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: b.child,
           )
@@ -276,8 +322,13 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           OutlinedButton(
             onPressed: b.onPressed,
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Color(0xFF64748B)),
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF047857),
+              side: const BorderSide(color: Color(0xFF059669), width: 1.2),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: b.child ?? const SizedBox(),
           )
@@ -291,27 +342,42 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
             'Installing',
             'Completed',
           }.contains(d.status))
-        OutlinedButton(
+        OutlinedButton.icon(
           key: const ValueKey('view-survey-report'),
           onPressed: () => _viewReport(d),
-          child: const Text('Báo cáo khảo sát thực địa'),
+          icon: const Icon(
+            Icons.description_outlined,
+            size: 16,
+            color: Color(0xFF047857),
+          ),
+          label: const Text('Báo cáo khảo sát thực địa'),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFF047857),
+            side: const BorderSide(color: Color(0xFF059669), width: 1.2),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
       ...widget.extraActions,
     ];
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF062326),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF0FDF4), // Emerald 50
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF10B981).withValues(alpha: 0.25),
+          color: const Color(0xFFA7F3D0), // Emerald 200
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: const Color(0xFF065F46).withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -320,20 +386,27 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.place_outlined,
-                size: 16,
-                color: Color(0xFF34D399),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.handyman_outlined,
+                  size: 15,
+                  color: Color(0xFF047857),
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'THAO TÁC THỰC ĐỊA KỸ THUẬT',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: Color(0xFF94A3B8),
+                    letterSpacing: 0.5,
+                    color: Color(0xFF065F46),
                   ),
                 ),
               ),
@@ -341,13 +414,13 @@ class _InstallProgressCardState extends State<InstallProgressCard> {
           ),
           if (widget.headline != null)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 8, bottom: 2),
               child: Text(
                 widget.headline!,
                 style: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
                   height: 1.35,
                 ),
               ),

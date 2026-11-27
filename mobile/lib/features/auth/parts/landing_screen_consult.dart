@@ -34,13 +34,13 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
-                          Icons.check_circle_outline,
+                          Icons.info_outline,
                           color: Color(0xFF10B981),
                           size: 54,
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Gửi thông tin thành công!',
+                          'Chưa gửi được yêu cầu tư vấn',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -49,7 +49,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Kỹ thuật viên SmartFarm sẽ gọi lại cho bạn sớm nhất.',
+                          'Ứng dụng chưa có kênh gửi yêu cầu tư vấn lên máy chủ nên thông tin của bạn CHƯA được gửi đi. Hãy đăng ký tài khoản Chủ trang trại để gửi yêu cầu khảo sát và lắp đặt.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12.5,
@@ -110,7 +110,7 @@ extension _LandingScreenStateConsult on _LandingScreenState {
                             ],
                           ),
                           const Text(
-                            'Kỹ thuật viên sẽ liên hệ trong vòng 15 phút để tư vấn số lượng thiết bị LoRa và giải pháp phù hợp với diện tích trang trại của bạn.',
+                            'Để lại thông tin để tham khảo giải pháp. Lưu ý: ứng dụng chưa gửi được yêu cầu tư vấn lên máy chủ; hãy đăng ký tài khoản để gửi yêu cầu khảo sát.',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF64748B),

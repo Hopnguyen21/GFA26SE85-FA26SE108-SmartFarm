@@ -68,6 +68,10 @@ GeoParseResult parseGeoJsonPolygon(dynamic raw) {
       }
       pts.add(LatLng(lat, lng));
     }
+    // GeoJSON lặp lại đỉnh đầu ở cuối vòng để "đóng" polygon. Bỏ đỉnh đóng này: nếu giữ, bản đồ hiện
+    // một đỉnh trùng với #1, kéo #1 đi thì đỉnh cũ còn lại làm ranh giới lưu lên bị méo/tự cắt.
+    // Khi gửi lên, FarmApi.polygonGeoJson / boundaryGeoJsonString tự thêm lại đỉnh đóng.
+    if (pts.length > 1 && pts.first == pts.last) pts.removeLast();
     final distinct = {for (final p in pts) '${p.latitude},${p.longitude}'};
     if (distinct.length < 3)
       return const GeoParseResult(

@@ -98,10 +98,11 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
     }
     _discount.addListener(() {
       if (_appliedVoucher != null) {
-        final currentPct =
-            double.tryParse(_discount.text.trim().replaceAll(',', '.'));
-        final voucherPct =
-            (_appliedVoucher!['discountPercent'] as num?)?.toDouble();
+        final currentPct = double.tryParse(
+          _discount.text.trim().replaceAll(',', '.'),
+        );
+        final voucherPct = (_appliedVoucher!['discountPercent'] as num?)
+            ?.toDouble();
         if (currentPct != voucherPct) {
           setState(() {
             _appliedVoucher = null;
@@ -346,8 +347,8 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       final raw = _rawContractAmount();
       final pct = double.tryParse(_discount.text.trim().replaceAll(',', '.'));
       double calcAmt = (pct != null && pct > 0) ? (raw * pct / 100) : 0.0;
-      final maxDisc =
-          (_appliedVoucher!['maxDiscountAmount'] as num?)?.toDouble();
+      final maxDisc = (_appliedVoucher!['maxDiscountAmount'] as num?)
+          ?.toDouble();
       if (maxDisc != null && maxDisc > 0 && calcAmt > maxDisc) {
         calcAmt = maxDisc;
       }
@@ -355,8 +356,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
           (_appliedVoucher!['discountAmount'] as num?)?.toDouble() ?? 0.0;
       final vAmt = calcAmt > 0 ? calcAmt : fixedDisc;
       if (vAmt > 0) discountAmount = vAmt;
-      final vPrefix =
-          '[Mã ưu đãi: $vCode - Giảm ${_vnd.format(vAmt)}]. ';
+      final vPrefix = '[Mã ưu đãi: $vCode - Giảm ${_vnd.format(vAmt)}]. ';
       notesText = vPrefix + (notesText ?? '');
     }
     try {
@@ -839,7 +839,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2100),
                     );
-                    if (d != null) setState(() => _start = d);
+                    if (d != null && mounted) setState(() => _start = d);
                   },
                 ),
               ),
@@ -951,9 +951,7 @@ class _ZoneContractCreateScreenState extends State<ZoneContractCreateScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _appliedVoucher != null
-            ? const Color(0xFFF0FDF4)
-            : Colors.white,
+        color: _appliedVoucher != null ? const Color(0xFFF0FDF4) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _appliedVoucher != null

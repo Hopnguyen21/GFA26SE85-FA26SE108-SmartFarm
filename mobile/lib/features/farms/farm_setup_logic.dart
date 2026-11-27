@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../../core/widgets/mini_gis_map_picker.dart' hide pointInPolygon;
 import '../zones/honeycomb_estimate.dart';
 
 /// Quy tắc kiểm tra và đọc kết quả của wizard thiết lập trang trại (thuần Dart, không phụ thuộc UI để dễ kiểm thử).
@@ -28,6 +29,10 @@ String? validateFarmStep({
   if (!isValidLatLng(lat, lng)) {
     return 'Chưa chọn vị trí trang trại. Di chuyển bản đồ hoặc dùng nút tìm kiếm để đặt ghim.';
   }
+  // Bắt buộc: thiếu thì backend lưu tổng diện tích = 0 và mọi lần thêm thửa đất sau đó bị từ chối "vượt diện tích trang trại".
+  if (totalAreaM2 == null || totalAreaM2 <= 0) {
+    return 'Nhập tổng diện tích trang trại (m²) lớn hơn 0.';
+  }
   return null;
 }
 
@@ -44,8 +49,12 @@ String? validateFieldStep({
   if (farmAreaM2 != null && areaM2 > farmAreaM2) {
     return 'Diện tích lô đất (${areaM2.toStringAsFixed(0)} m²) vượt tổng diện tích trang trại (${farmAreaM2.toStringAsFixed(0)} m²).';
   }
-  if (boundary != null && boundary.isNotEmpty && boundary.length < 3)
-    return 'Ranh giới lô đất cần ít nhất 3 đỉnh.';
+  if (boundary != null && boundary.isNotEmpty) {
+    if (boundary.length < 3) return 'Ranh giới lô đất cần ít nhất 3 đỉnh.';
+    if (MiniGISMapPicker.polygonSelfIntersects(boundary)) {
+      return 'Ranh giới lô đất bị tự cắt chéo (hình số 8). Vui lòng kéo các đỉnh không cắt nhau.';
+    }
+  }
   return null;
 }
 
@@ -65,9 +74,12 @@ String? validateZoneStep({
   }
   if (boundary != null && boundary.isNotEmpty) {
     if (boundary.length < 3) return 'Ranh giới Zone cần ít nhất 3 đỉnh.';
+    if (MiniGISMapPicker.polygonSelfIntersects(boundary)) {
+      return 'Ranh giới Zone bị tự cắt chéo (hình số 8). Vui lòng kéo các đỉnh không cắt nhau.';
+    }
     if (fieldBoundary != null &&
         fieldBoundary.length >= 3 &&
-        boundary.any((p) => !pointInPolygon(p, fieldBoundary))) {
+        !MiniGISMapPicker.polygonInsideParent(boundary, fieldBoundary)) {
       return 'Ranh giới Zone đang vượt ra ngoài lô đất. Hãy kéo các đỉnh vào trong.';
     }
   }
@@ -427,4 +439,43 @@ WizardEstimateDraft buildWizardEstimateItems(HoneycombEstimate? est) {
     });
   }
   return WizardEstimateDraft(items, null);
+}
+
+/// Dựng bản snapshot dự toán thuật toán Tổ ong bất biến (JSON snapshot) để lưu cùng yêu cầu triển khai,
+/// đồng bộ với EstimateSnapshotModal trên web.
+Map<String, dynamic> buildWizardEstimateSnapshot(
+  HoneycombEstimate est, {
+  double? areaM2,
+}) {
+  return {
+    'areaM2': areaM2 ?? est.areaM2,
+    'gateways': est.gateways,
+    'sensors': est.sensors,
+    'actuators': est.actuators,
+    'algorithmVersion': 'v1',
+    'sensingRadiusM': est.radiusM,
+    'boundaryFactor': 1.15,
+    'totalCostVnd': est.total ?? 0.0,
+    'estimateItems': [
+      for (final l in est.lines)
+        if (!l.covered && l.item != null && l.quantity > 0)
+          {
+            'role': l.role.wire,
+            'name': l.item!.name.isNotEmpty ? l.item!.name : l.role.label,
+            'code': l.item!.code,
+            'quantity': l.quantity,
+            'unitPrice': l.item!.unitPrice,
+            'lineTotal': l.item!.unitPrice * l.quantity,
+          },
+      if (est.installationCost > 0)
+        {
+          'role': 'Installation',
+          'name': 'Thi công, định vị GPS & cấu hình mạng mesh',
+          'code': 'INSTALL-KIT',
+          'quantity': 1,
+          'unitPrice': est.installationCost,
+          'lineTotal': est.installationCost,
+        },
+    ],
+  };
 }

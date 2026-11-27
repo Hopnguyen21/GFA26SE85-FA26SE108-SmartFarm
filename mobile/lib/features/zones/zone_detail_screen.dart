@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
 import '../../core/widgets/mini_gis_map_picker.dart';
+import '../../core/widgets/zone_default_box.dart' show polygonAreaM2;
 import '../../core/services/api_service.dart';
 import '../ai/ai_screen.dart';
 import '../support/support_requests_screen.dart';
@@ -425,7 +427,9 @@ class _ZoneDetailScreenState extends State<ZoneDetailScreen>
             bottom: TabBar(
               controller: _tabController,
               isScrollable: !_isFarmer && _showAdminTab,
-              tabAlignment: (!_isFarmer && _showAdminTab) ? TabAlignment.start : null,
+              tabAlignment: (!_isFarmer && _showAdminTab)
+                  ? TabAlignment.start
+                  : null,
               indicatorColor: const Color(0xFF34D399),
               indicatorWeight: 3,
               indicatorSize: TabBarIndicatorSize.tab,

@@ -4,10 +4,14 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/farm_provider.dart';
+import '../../core/services/api_service.dart';
+import '../../core/services/offline_gis_cache_service.dart';
+import '../../core/widgets/mini_gis_map_picker.dart';
+import '../../core/utils/haptics.dart';
 import '../zones/zone_detail_screen.dart';
 
 /// Bản đồ GIS hiển thị ranh giới Thửa đất/Zone THẬT lấy từ backend (không có dữ liệu mẫu).
-/// Gateway/Node/Actuator không được vẽ vì API hiện không trả toạ độ cho chúng.
+/// Node đã chấm toạ độ được vẽ từ GET /zones/{id}/devices/map-locations (mất mạng thì dùng bản lưu đệm, có ghi chú).
 class GISMapScreen extends StatefulWidget {
   const GISMapScreen({super.key});
 
@@ -17,10 +21,56 @@ class GISMapScreen extends StatefulWidget {
 
 class _GISMapScreenState extends State<GISMapScreen> {
   final MapController _mapController = MapController();
-  String _mapType = 'satellite';
+  String _mapType = 'osm';
   String? _selectedZoneId;
 
   static const LatLng _fallbackCenter = LatLng(16.0, 106.0);
+
+  // Node thiết bị đã chấm toạ độ (GET /zones/{id}/devices/map-locations) của mọi Zone có ranh giới.
+  List<MapNodeMarker> _nodes = const [];
+  String _nodesKey = '';
+  bool _nodesFailed = false;
+
+  /// Tải node khi danh sách Zone có ranh giới đổi; lỗi/không có quyền thì bản đồ vẫn hiện ranh giới, chỉ báo "chưa tải được node".
+  void _syncNodes(List<ZoneModel> zones) {
+    final key = zones.map((z) => z.zoneId).join(',');
+    if (key == _nodesKey) return;
+    _nodesKey = key;
+    () async {
+      var failed = false;
+      final results = await Future.wait(
+        zones.map((z) async {
+          try {
+            final locs = await FarmApi.getDeviceMapLocations(z.zoneId);
+            if (locs.isNotEmpty) {
+              await OfflineGisCacheService.cacheZoneNodes(z.zoneId, locs);
+            }
+            return locs;
+          } catch (_) {
+            failed = true;
+            final cached = await OfflineGisCacheService.getCachedZoneNodes(z.zoneId);
+            if (cached != null && cached.isNotEmpty) {
+              return cached;
+            }
+            return const <Map<String, dynamic>>[];
+          }
+        }),
+      );
+      final all = <MapNodeMarker>[];
+      for (final rows in results) {
+        for (final r in rows) {
+          final m = MapNodeMarker.fromJson(r);
+          if (m != null) all.add(m);
+        }
+      }
+      if (mounted && key == _nodesKey) {
+        setState(() {
+          _nodes = all;
+          _nodesFailed = failed;
+        });
+      }
+    }();
+  }
 
   String _tileUrl() {
     switch (_mapType) {
@@ -85,6 +135,364 @@ class _GISMapScreenState extends State<GISMapScreen> {
     return LatLng(lat, lng);
   }
 
+  void _fitAll(List<LatLng> allPoints, LatLng fallbackCenter) {
+    AppHaptics.light();
+    try {
+      if (allPoints.length >= 3) {
+        _mapController.fitCamera(
+          CameraFit.coordinates(
+            coordinates: allPoints,
+            padding: const EdgeInsets.all(56),
+            maxZoom: 18,
+          ),
+        );
+      } else {
+        _mapController.move(fallbackCenter, 15);
+      }
+    } catch (_) {}
+  }
+
+  void _zoomIn() {
+    AppHaptics.light();
+    try {
+      _mapController.move(
+        _mapController.camera.center,
+        _mapController.camera.zoom + 1,
+      );
+    } catch (_) {}
+  }
+
+  void _zoomOut() {
+    AppHaptics.light();
+    try {
+      _mapController.move(
+        _mapController.camera.center,
+        _mapController.camera.zoom - 1,
+      );
+    } catch (_) {}
+  }
+
+  void _showFarmSelector(BuildContext context, FarmProvider provider) {
+    AppHaptics.light();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(ctx).padding.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Text(
+                'Chọn Trang Trại Hiển Thị',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final f in provider.farms)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                leading: Icon(
+                  Icons.eco,
+                  color: f.farmId == provider.currentFarm.farmId
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFF94A3B8),
+                ),
+                title: Text(
+                  f.name,
+                  style: TextStyle(
+                    fontWeight: f.farmId == provider.currentFarm.farmId
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                subtitle: Text(
+                  f.address.isNotEmpty ? f.address : 'Chưa có địa chỉ',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                trailing: f.farmId == provider.currentFarm.farmId
+                    ? const Icon(Icons.check, color: Color(0xFF10B981))
+                    : null,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (f.farmId != provider.currentFarm.farmId) {
+                    AppHaptics.selection();
+                    provider.selectFarm(f.farmId);
+                    setState(() {
+                      _selectedZoneId = null;
+                      _nodes = const [];
+                      _nodesKey = '';
+                    });
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNodeDetailSheet(BuildContext context, MapNodeMarker node) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          16,
+          18,
+          16 + MediaQuery.of(ctx).padding.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (node.status.toLowerCase() == 'online'
+                            ? const Color(0xFF059669)
+                            : const Color(0xFF64748B))
+                        .withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    node.type == 'ActuatorNode'
+                        ? Icons.water_drop
+                        : Icons.sensors,
+                    color: node.status.toLowerCase() == 'online'
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF64748B),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        node.label,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        node.type == 'ActuatorNode'
+                            ? 'Trạm điều khiển rơ-le / van'
+                            : 'Trạm cảm biến vi khí hậu',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: node.status.toLowerCase() == 'online'
+                        ? const Color(0xFFD1FAE5)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    node.status.isEmpty ? 'Chưa rõ' : node.status,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: node.status.toLowerCase() == 'online'
+                          ? const Color(0xFF065F46)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Toạ độ định vị trên bản đồ:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${node.point.latitude.toStringAsFixed(6)}, ${node.point.longitude.toStringAsFixed(6)}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLayerPills() {
+    const types = [
+      ('osm', 'OSM'),
+      ('street', 'Đường phố'),
+      ('satellite', 'Vệ tinh'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (id, label) in types)
+            InkWell(
+              onTap: () {
+                if (_mapType != id) {
+                  AppHaptics.selection();
+                  setState(() => _mapType = id);
+                }
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _mapType == id ? const Color(0xFF047857) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: _mapType == id ? FontWeight.bold : FontWeight.w500,
+                    color: _mapType == id ? Colors.white : const Color(0xFF334155),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingMapTools(List<LatLng> allPoints, LatLng center) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.add, size: 20, color: Color(0xFF0F172A)),
+            tooltip: 'Phóng to',
+            onPressed: _zoomIn,
+          ),
+          const Divider(height: 1, indent: 6, endIndent: 6),
+          IconButton(
+            icon: const Icon(Icons.remove, size: 20, color: Color(0xFF0F172A)),
+            tooltip: 'Thu nhỏ',
+            onPressed: _zoomOut,
+          ),
+          const Divider(height: 1, indent: 6, endIndent: 6),
+          IconButton(
+            icon: const Icon(Icons.my_location, size: 18, color: Color(0xFF047857)),
+            tooltip: 'Căn giữa trang trại',
+            onPressed: () => _fitAll(allPoints, center),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<FarmProvider>(context);
@@ -97,6 +505,7 @@ class _GISMapScreenState extends State<GISMapScreen> {
     final fields = provider.fields
         .where((f) => f.polygon != null && f.polygon!.length >= 3)
         .toList();
+    _syncNodes(zones);
     ZoneModel? selected;
     for (final z in provider.allZones) {
       if (z.zoneId == _selectedZoneId) selected = z;
@@ -135,27 +544,69 @@ class _GISMapScreenState extends State<GISMapScreen> {
         loadError == null &&
         provider.allZones.isEmpty &&
         provider.fields.isEmpty;
+    final hasTopBanner = provider.isLoadingApi ||
+        loadError != null ||
+        invalidGeo.isNotEmpty ||
+        (hasGeometry && hasMissingGeo) ||
+        techNoAssignment ||
+        (!hasGeometry && !techNoAssignment);
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF062326),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          provider.currentFarm.farmId.isEmpty
-              ? 'Bản đồ GIS'
-              : provider.currentFarm.name,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: provider.farms.length > 1
+            ? InkWell(
+                onTap: () => _showFarmSelector(context, provider),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          provider.currentFarm.farmId.isEmpty
+                              ? 'Bản đồ GIS'
+                              : provider.currentFarm.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                    ],
+                  ),
+                ),
+              )
+            : Text(
+                provider.currentFarm.farmId.isEmpty
+                    ? 'Bản đồ GIS'
+                    : provider.currentFarm.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.my_location, color: Colors.white),
+            tooltip: 'Căn giữa trang trại',
+            onPressed: () => _fitAll(allPoints, center),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.layers, color: Colors.white),
             tooltip: 'Loại bản đồ',
-            onSelected: (v) => setState(() => _mapType = v),
+            onSelected: (v) {
+              AppHaptics.selection();
+              setState(() => _mapType = v);
+            },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'satellite', child: Text('Vệ tinh')),
               PopupMenuItem(value: 'street', child: Text('Đường phố')),
@@ -166,11 +617,12 @@ class _GISMapScreenState extends State<GISMapScreen> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            key: ValueKey(
-              '${center.latitude},${center.longitude},$zoom,${allPoints.length}',
-            ),
-            mapController: _mapController,
+          RepaintBoundary(
+            child: FlutterMap(
+              key: ValueKey(
+                '${center.latitude},${center.longitude},$zoom,${allPoints.length}',
+              ),
+              mapController: _mapController,
             options: MapOptions(
               initialCenter: center,
               initialZoom: zoom,
@@ -209,7 +661,8 @@ class _GISMapScreenState extends State<GISMapScreen> {
                       points: f.polygon!,
                       color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                       borderColor: const Color(0xFF0284C7),
-                      borderStrokeWidth: 2,
+                      borderStrokeWidth: 2.2,
+                      pattern: StrokePattern.dashed(segments: const [6, 6]),
                     ),
                   for (final z in zones)
                     Polygon(
@@ -260,26 +713,92 @@ class _GISMapScreenState extends State<GISMapScreen> {
                     Marker(
                       point: _centroid(z.polygon!),
                       width: 110,
-                      height: 24,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF064E3B,
-                          ).withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          z.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
+                      height: 28,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          AppHaptics.selection();
+                          setState(() => _selectedZoneId = z.zoneId);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
+                          decoration: BoxDecoration(
+                            color: z.zoneId == _selectedZoneId
+                                ? const Color(0xFF047857)
+                                : const Color(0xFF064E3B).withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: z.zoneId == _selectedZoneId
+                                  ? Colors.white
+                                  : const Color(0x6634D399),
+                              width: z.zoneId == _selectedZoneId ? 1.5 : 1.0,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            z.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              // Node cảm biến/chấp hành đã chấm toạ độ: xanh = Online, xám = Offline/chưa rõ
+              MarkerLayer(
+                markers: [
+                  for (final n in _nodes)
+                    Marker(
+                      point: n.point,
+                      width: 32,
+                      height: 32,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          AppHaptics.light();
+                          _showNodeDetailSheet(context, n);
+                        },
+                        child: Tooltip(
+                          message:
+                              '${n.label}${n.status.isEmpty ? '' : ' · ${n.status}'}',
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: n.status.toLowerCase() == 'online'
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF64748B),
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              n.type == 'ActuatorNode'
+                                  ? Icons.water_drop
+                                  : Icons.sensors,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -287,6 +806,50 @@ class _GISMapScreenState extends State<GISMapScreen> {
               ),
             ],
           ),
+          ),
+
+          // ── Cụm chọn lớp bản đồ nổi (OSM / Đường phố / Vệ tinh) ────────────
+          Positioned(
+            right: 14,
+            top: hasTopBanner ? 88 : 14,
+            child: _buildLayerPills(),
+          ),
+
+          // ── Cụm công cụ bản đồ nổi (Zoom In / Out / Fit) ──────────────────
+          Positioned(
+            right: 14,
+            bottom: (selected != null ? 240 : 65) +
+                MediaQuery.of(context).padding.bottom,
+            child: _buildFloatingMapTools(allPoints, center),
+          ),
+
+          // ── Chú giải node ─────────────────────────────────────────────────
+          if (hasGeometry && selected == null)
+            Positioned(
+              left: 14,
+              bottom: 14 + MediaQuery.of(context).padding.bottom,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  _nodesFailed && _nodes.isNotEmpty
+                      ? 'Mất kết nối: đang hiện ${_nodes.length} node từ bản lưu trước (vị trí/trạng thái có thể đã cũ)'
+                      : _nodesFailed
+                      ? 'Chưa tải được vị trí node'
+                      : _nodes.isEmpty
+                      ? 'Chưa có node nào được chấm toạ độ'
+                      : '${_nodes.length} node trên bản đồ (xanh: Online · xám: Offline/chưa rõ)',
+                  style: const TextStyle(fontSize: 11.5),
+                ),
+              ),
+            ),
 
           // ── Trạng thái: Đang tải ──────────────────────────────────────────
           if (provider.isLoadingApi)
@@ -313,7 +876,11 @@ class _GISMapScreenState extends State<GISMapScreen> {
                 text: hasGeometry
                     ? 'Lỗi tải dữ liệu, bản đồ có thể chưa đầy đủ: $loadError'
                     : 'Lỗi tải dữ liệu bản đồ: $loadError',
-                onRetry: () => provider.fetchFromApi(),
+                onRetry: () {
+                  // Xoá khoá để lần build sau tải lại cả toạ độ node (cùng danh sách Zone thì _syncNodes bỏ qua).
+                  _nodesKey = '';
+                  provider.fetchFromApi();
+                },
               ),
             ),
           if (!provider.isLoadingApi &&
@@ -393,7 +960,7 @@ class _GISMapScreenState extends State<GISMapScreen> {
             Positioned(
               left: 14,
               right: 14,
-              bottom: 14,
+              bottom: 14 + MediaQuery.of(context).padding.bottom,
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -439,17 +1006,20 @@ class _GISMapScreenState extends State<GISMapScreen> {
                             ),
                           ),
                         ),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(
-                            Icons.close,
-                            size: 18,
-                            color: Color(0xFF94A3B8),
-                          ),
-                          onPressed: () {
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            AppHaptics.light();
                             setState(() => _selectedZoneId = null);
                           },
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(
+                              Icons.close,
+                              size: 20,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -466,7 +1036,7 @@ class _GISMapScreenState extends State<GISMapScreen> {
                           ),
                         ),
                         Text(
-                          'Cây trồng: ${selected.currentCrop}',
+                          'Cây trồng: ${selected.currentCrop.trim().isEmpty ? '—' : selected.currentCrop}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF475569),
@@ -555,13 +1125,13 @@ class _GISMapScreenState extends State<GISMapScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF047857),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          minimumSize: const Size(0, 44),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          visualDensity: VisualDensity.compact,
                         ),
                         onPressed: () {
+                          AppHaptics.light();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -573,7 +1143,7 @@ class _GISMapScreenState extends State<GISMapScreen> {
                         label: const Text(
                           'Xem chi tiết Zone',
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

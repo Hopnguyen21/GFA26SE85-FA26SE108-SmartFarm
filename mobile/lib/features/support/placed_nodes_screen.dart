@@ -128,6 +128,10 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
         final lat = (l['latitude'] as num?)?.toDouble();
         final lng = (l['longitude'] as num?)?.toDouble();
         if (lat == null || lng == null) continue;
+        // Toạ độ (0,0) hay ngoài phạm vi là dữ liệu hỏng: không vẽ node giữa biển (giống MapNodeMarker.fromJson).
+        if (lat.abs() > 90 || lng.abs() > 180 || (lat == 0 && lng == 0)) {
+          continue;
+        }
         final id = '${l['deviceId']}';
         final raw = byId[id.toLowerCase()];
         final test = raw?['latestConnectionTest'];
@@ -179,7 +183,8 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
       borderRadius: BorderRadius.circular(12),
       child: Stack(
         children: [
-          FlutterMap(
+          RepaintBoundary(
+            child: FlutterMap(
             mapController: _map,
             options: MapOptions(
               initialCenter: center,
@@ -190,6 +195,15 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
                         ...poly,
                         for (final n in _nodes) LatLng(n.lat, n.lng),
                       ]),
+                      padding: const EdgeInsets.all(48),
+                      maxZoom: 19,
+                    )
+                  // Chưa có ranh giới nhưng có nhiều node: ôm trọn mọi node thay vì chỉ căn vào node đầu tiên.
+                  : _nodes.length >= 2
+                  ? CameraFit.coordinates(
+                      coordinates: [
+                        for (final n in _nodes) LatLng(n.lat, n.lng),
+                      ],
                       padding: const EdgeInsets.all(48),
                       maxZoom: 19,
                     )
@@ -284,7 +298,8 @@ class _PlacedNodesScreenState extends State<PlacedNodesScreen> {
               ),
             ],
           ),
-          Positioned(
+        ),
+        Positioned(
             right: 8,
             bottom: 8,
             child: MapZoomControls(controller: _map),

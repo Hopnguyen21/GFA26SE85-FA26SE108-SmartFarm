@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -374,6 +376,13 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
           ? {
               'requiredParameters': _params.toList(),
               if (estimateDraft.hasItems) 'estimateItems': estimateDraft.items,
+              if (est != null)
+                'estimateSnapshotJson': jsonEncode(
+                  buildWizardEstimateSnapshot(
+                    est,
+                    areaM2: double.tryParse(_zoneArea.text.trim()),
+                  ),
+                ),
               'ownerNotes': () {
                 final n = buildWizardIotNotes(
                   userNotes: _iotNotes.text,
@@ -568,6 +577,11 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
               ),
               const SizedBox(height: 10),
               _field(_address, 'Địa chỉ (không bắt buộc)'),
+              _field(
+                _farmArea,
+                'Tổng diện tích trang trại (m²) *',
+                number: true,
+              ),
             ],
           ),
   );
@@ -1003,7 +1017,7 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                       icon: const Icon(Icons.event, size: 18),
                       onPressed: () async {
                         final d = await _pick(_start);
-                        if (d != null) {
+                        if (d != null && mounted) {
                           setState(() {
                             _start = d;
                             _onSeasonInputsChanged();
@@ -1022,7 +1036,7 @@ class _FarmSetupWizardScreenState extends State<FarmSetupWizardScreen> {
                         final d = await _pick(
                           _end ?? _start.add(const Duration(days: 90)),
                         );
-                        if (d != null) {
+                        if (d != null && mounted) {
                           setState(() {
                             _end = d;
                             _endEdited = true;

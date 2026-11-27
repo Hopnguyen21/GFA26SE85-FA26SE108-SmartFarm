@@ -61,7 +61,10 @@ void main() {
   });
 
   setUp(() {
+    // Mỗi test bắt đầu với bộ nhớ đệm GIS trống: node tải được ở test trước không được "rò" sang test sau.
+    SharedPreferences.setMockInitialValues({});
     handler = (_) => http.Response('[]', 200);
+    ApiService.setClientForTesting(MockClient((req) async => handler(req)));
     ApiService.setTokens(
       accessToken: 't',
       refreshToken: 'r',
@@ -151,7 +154,7 @@ void main() {
         {'zoneId': 'z1', 'name': 'A', 'areaM2': 10, 'boundaryGeoJson': _square},
       ]);
       final zones = await FarmApi.getZones('fl1', farmId: 'f1');
-      expect(zones.single.polygon!.length, 5);
+      expect(zones.single.polygon!.length, 4); // đỉnh đóng của GeoJSON đã bỏ
     });
 
     test('getFields 200 đọc ranh giới và gọi đúng đường dẫn', () async {
@@ -202,6 +205,12 @@ void main() {
         error: error,
       );
       await tester.pump();
+      // Cho phép lượt tải toạ độ node (giả lập) hoàn tất trước khi kết thúc test.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
     }
 
     testWidgets('lỗi tải hiển thị lỗi tải, KHÔNG nói chưa có ranh giới', (
@@ -234,6 +243,62 @@ void main() {
       );
       expect(find.textContaining('không hợp lệ'), findsOneWidget);
       expect(find.textContaining('Chưa có ranh giới nào'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('vẽ node đã chấm toạ độ và ghi số node ở chú giải', (
+      tester,
+    ) async {
+      handler = (req) => req.url.path.endsWith('/devices/map-locations')
+          ? utf8Json([
+              {
+                'deviceName': 'Node đất 1',
+                'deviceType': 'SensorNode',
+                'latitude': 11.05,
+                'longitude': 108.05,
+                'status': 'Online',
+              },
+              {'deviceName': 'Node lỗi', 'latitude': null, 'longitude': 108.0},
+            ])
+          : http.Response('[]', 200);
+      await pump(
+        tester,
+        zones: [
+          _zone({'boundaryGeoJson': _square}),
+        ],
+      );
+      expect(find.textContaining('1 node trên bản đồ'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('không có node nào được chấm toạ độ: chú giải nói rõ', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        zones: [
+          _zone({'boundaryGeoJson': _square}),
+        ],
+      );
+      expect(find.textContaining('Chưa có node nào được chấm'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('không tải được node: báo chưa tải được, ranh giới vẫn vẽ', (
+      tester,
+    ) async {
+      handler = (_) => http.Response('{}', 500);
+      await pump(
+        tester,
+        zones: [
+          _zone({'boundaryGeoJson': _square}),
+        ],
+      );
+      // Lỗi tải node → màn đọc thêm bộ nhớ đệm GIS (bất đồng bộ) rồi mới cập nhật: chờ thêm vài nhịp.
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.textContaining('Chưa tải được vị trí node'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
 

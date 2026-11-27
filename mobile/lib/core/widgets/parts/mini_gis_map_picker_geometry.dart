@@ -70,25 +70,9 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
     ];
   }
 
-  /// Tính diện tích ước tính m2 (xấp xỉ phẳng theo kinh vĩ độ tại Việt Nam)
-  double _calculateApproxAreaM2(List<LatLng> pts) {
-    if (pts.length < 3) return 10000.0;
-    // Công thức Shoelace polygon tính diện tích m2 chuẩn xác
-    double area = 0.0;
-    final int n = pts.length;
-    for (int i = 0; i < n; i++) {
-      final int j = (i + 1) % n;
-      final LatLng p1 = pts[i];
-      final LatLng p2 = pts[j];
-      final double latRad = (p1.latitude * 3.141592653589793) / 180.0;
-      final double x1 = p1.longitude * 111320.0 * math.cos(latRad);
-      final double y1 = p1.latitude * 110540.0;
-      final double x2 = p2.longitude * 111320.0 * math.cos(latRad);
-      final double y2 = p2.latitude * 110540.0;
-      area += (x1 * y2) - (x2 * y1);
-    }
-    return (area.abs() / 2.0).roundToDouble();
-  }
+  /// Diện tích (m²) của polygon; chưa đủ 3 đỉnh thì 0 (không bịa một con số mặc định).
+  double _calculateApproxAreaM2(List<LatLng> pts) =>
+      polygonAreaM2(pts).roundToDouble();
 
   /// Tính tâm (centroid) của polygon hiện tại
   LatLng _getPolygonCentroid() {
@@ -145,28 +129,7 @@ extension _MiniGISMapPickerStateGeometry on _MiniGISMapPickerState {
 
   /// Kiểm tra 2 đa giác có giao nhau / đè lên nhau không
   bool _doPolygonsOverlap(List<LatLng> polyA, List<LatLng> polyB) {
-    if (polyA.length < 3 || polyB.length < 3) return false;
-
-    // 1. Kiểm tra đỉnh của A có nằm trong B không
-    for (final pt in polyA) {
-      if (_isPointInsidePolygon(pt, polyB)) return true;
-    }
-    // 2. Kiểm tra đỉnh của B có nằm trong A không
-    for (final pt in polyB) {
-      if (_isPointInsidePolygon(pt, polyA)) return true;
-    }
-    // 3. Kiểm tra các cạnh của A có cắt các cạnh của B không
-    for (int i = 0; i < polyA.length; i++) {
-      final a1 = polyA[i];
-      final a2 = polyA[(i + 1) % polyA.length];
-      for (int j = 0; j < polyB.length; j++) {
-        final b1 = polyB[j];
-        final b2 = polyB[(j + 1) % polyB.length];
-        if (_MiniGISMapPickerState._segmentsIntersect(a1, a2, b1, b2))
-          return true;
-      }
-    }
-    return false;
+    return _MiniGISMapPickerState.polygonsOverlap(polyA, polyB);
   }
 
   /// Kiểm tra đỉnh có đè lên bất kỳ vùng nào khác đã có

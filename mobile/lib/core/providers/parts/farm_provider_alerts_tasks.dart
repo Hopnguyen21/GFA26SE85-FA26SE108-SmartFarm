@@ -32,7 +32,8 @@ extension FarmProviderAlertsTasks on FarmProvider {
     if (idx != -1) {
       _notifications[idx] = _notifications[idx].copyWith(isRead: true);
       _notify();
-      await TaskApi.markNotificationAsRead(id);
+      // Cập nhật lạc quan; máy chủ từ chối thì tải lại để không lệch trạng thái với backend.
+      if (!await TaskApi.markNotificationAsRead(id)) await fetchNotifications();
     }
   }
 
@@ -41,19 +42,21 @@ extension FarmProviderAlertsTasks on FarmProvider {
       _notifications[i] = _notifications[i].copyWith(isRead: true);
     }
     _notify();
-    await TaskApi.markAllNotificationsAsRead();
+    if (!await TaskApi.markAllNotificationsAsRead()) await fetchNotifications();
   }
 
   Future<void> deleteNotification(String id) async {
     _notifications.removeWhere((n) => n.notificationId == id);
     _notify();
-    await TaskApi.deleteNotification(id);
+    if (!await TaskApi.deleteNotification(id)) await fetchNotifications();
   }
 
   Future<void> deleteAllReadNotifications() async {
     _notifications.removeWhere((n) => n.isRead);
     _notify();
-    await TaskApi.deleteAllReadNotifications();
+    if (await TaskApi.deleteAllReadNotifications() < 0) {
+      await fetchNotifications();
+    }
   }
 
   TaskModel _withZoneName(TaskModel t) {
@@ -88,6 +91,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
     int? progressPercent,
     String? farmerId,
     String? notes,
+    List<String>? imageUrls,
   }) async {
     try {
       final updated = await TaskApi.updateTaskAction(_selectedFarmId, taskId, {
@@ -97,6 +101,7 @@ extension FarmProviderAlertsTasks on FarmProvider {
         'progressPercent': ?progressPercent,
         'farmerId': ?farmerId,
         'notes': ?notes,
+        if (imageUrls != null && imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       });
       final idx = _tasks.indexWhere((t) => t.taskId == taskId);
       if (idx != -1) _tasks[idx] = _withZoneName(updated);

@@ -257,6 +257,7 @@ class _DeviceHealthScreenState extends State<DeviceHealthScreen> {
         return RefreshIndicator(
           onRefresh: _reload,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
             children: [
@@ -632,6 +633,13 @@ class _DeviceCard extends StatelessWidget {
                 'Chu kỳ',
                 '${device.expectedIntervalSeconds}s',
               ),
+              if (device.loraAddress != null)
+                _stat(
+                  Icons.settings_input_antenna_rounded,
+                  'LoRa',
+                  '#${device.loraAddress}',
+                  valueColor: const Color(0xFF0369A1),
+                ),
             ],
           ),
           const SizedBox(height: 10),

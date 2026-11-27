@@ -2,15 +2,25 @@ import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 
 /// Diện tích xấp xỉ (m²) của đa giác theo kinh/vĩ độ (công thức Shoelace trên mặt phẳng cục bộ).
+/// Dùng MỘT hệ số cos(vĩ độ trung bình) cho mọi đỉnh và toạ độ tương đối so với tâm: nếu mỗi cạnh dùng cos riêng
+/// trên toạ độ tuyệt đối (~108°), sai số nhân lên hàng nghìn m² (ô 0,001°×0,001° ≈ 12.079 m² từng bị báo 9.641 m²).
 double polygonAreaM2(List<LatLng> pts) {
   if (pts.length < 3) return 0;
-  final cosLat = math.cos(pts.first.latitude * math.pi / 180.0);
+  var lat0 = 0.0, lng0 = 0.0;
+  for (final p in pts) {
+    lat0 += p.latitude;
+    lng0 += p.longitude;
+  }
+  lat0 /= pts.length;
+  lng0 /= pts.length;
+  final kx = 111320.0 * math.cos(lat0 * math.pi / 180.0);
+  const ky = 110540.0;
   double area = 0;
   for (var i = 0; i < pts.length; i++) {
     final a = pts[i], b = pts[(i + 1) % pts.length];
-    area +=
-        (a.longitude * 111320.0 * cosLat) * (b.latitude * 110540.0) -
-        (b.longitude * 111320.0 * cosLat) * (a.latitude * 110540.0);
+    final ax = (a.longitude - lng0) * kx, ay = (a.latitude - lat0) * ky;
+    final bx = (b.longitude - lng0) * kx, by = (b.latitude - lat0) * ky;
+    area += ax * by - bx * ay;
   }
   return area.abs() / 2.0;
 }

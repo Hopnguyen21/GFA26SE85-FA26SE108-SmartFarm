@@ -400,12 +400,13 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
         ? (w['weatherDescription']?.toString() ?? 'Khí hậu địa phương')
         : (provider.isLoadingWeather ? 'Đang cập nhật...' : 'Chưa có dữ liệu');
 
-    final rainNum = w?['precipitationProbability'] as num? ??
+    final rainNum =
+        w?['precipitationProbability'] as num? ??
         (w?['dailyForecast'] is List &&
                 (w!['dailyForecast'] as List).isNotEmpty &&
                 (w['dailyForecast'] as List).first is Map
             ? (w['dailyForecast'] as List).first['precipitationProbability']
-                as num?
+                  as num?
             : null);
 
     return Container(
@@ -494,8 +495,10 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
                 ),
                 if (rainNum >= 70)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(4),
@@ -868,6 +871,171 @@ extension _FarmerDashboardWidgets on _FarmerDashboardScreenState {
               alignment: Alignment.center,
               child: Icon(Icons.close, size: 16, color: fg),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Banner thông báo giao việc mới cho nông dân (tương ứng FarmerHome.tsx trên web).
+  Widget _buildNewTaskAlertBanner(
+    FarmProvider provider,
+    List<TaskModel> pendingTasks,
+  ) {
+    if (pendingTasks.isEmpty) return const SizedBox.shrink();
+    final first = pendingTasks.first;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.assignment_turned_in_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: const Text(
+                            'GIAO VIỆC MỚI',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          'Chờ bạn nhận việc',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Bạn vừa được giao ${pendingTasks.length} công việc mới!',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF78350F),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Công việc: "${first.title}"${first.zoneName.isNotEmpty ? ' tại ${first.zoneName}' : ''}'
+                      '${pendingTasks.length > 1 ? ' và ${pendingTasks.length - 1} việc khác' : ''}.',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF92400E),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF119653),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final err = await provider.performTaskAction(
+                      first.taskId,
+                      'Accept',
+                    );
+                    if (!mounted) return;
+                    _rebuild(() {
+                      if (err == null) {
+                        _feedback = (
+                          ok: true,
+                          message: 'Đã nhận việc "${first.title}" thành công!',
+                        );
+                      } else {
+                        _feedback = (ok: false, message: err);
+                      }
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 16,
+                  ),
+                  label: const Text(
+                    'Nhận việc ngay',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF92400E),
+                  side: const BorderSide(color: Color(0xFFFCD34D)),
+                  minimumSize: const Size(0, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => _rebuild(() => _filter = _TaskFilter.todo),
+                child: const Text(
+                  'Xem danh sách',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
         ],
       ),

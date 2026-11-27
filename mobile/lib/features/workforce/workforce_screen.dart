@@ -245,6 +245,7 @@ class _WorkforceScreenState extends State<WorkforceScreen> {
           await _loadInvitations();
         },
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
           children: [
             if (provider.farms.isEmpty)

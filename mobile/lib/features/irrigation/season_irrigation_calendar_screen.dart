@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/models/models.dart';
 import '../../core/services/api_service.dart';
 import '../zones/profile_irrigation_logic.dart';
+import '../zones/zone_irrigation_logic.dart'
+    show irrigationActuators, classifySyncError;
 import 'season_irrigation_logic.dart';
 import '../../core/utils/user_error.dart';
 
@@ -102,51 +104,87 @@ String formatFullDate(DateTime date) {
   return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 }
 
+// Ô trống của ca Sáng/Trưa/Chiều khi ngày đó KHÔNG có ca thật. Luôn TẮT để không bịa lịch tưới;
+// chưa được người dùng chỉnh thì không gửi lên máy chủ (xem [sessionsToSave]).
+const _placeholderMorning = ProfileSession(
+  title: 'Tưới Sáng',
+  startTime: '07:30',
+  durationSeconds: 20 * 60,
+  enabled: false,
+  method: 'Tưới nhỏ giọt bù áp',
+  waterPerPlantMl: 500,
+);
+const _placeholderNoon = ProfileSession(
+  title: 'Tưới Trưa',
+  startTime: '12:00',
+  durationSeconds: 10 * 60,
+  enabled: false,
+  method: 'Tưới nhỏ giọt bù áp',
+  waterPerPlantMl: 300,
+);
+const _placeholderAfternoon = ProfileSession(
+  title: 'Tưới Chiều',
+  startTime: '16:30',
+  durationSeconds: 15 * 60,
+  enabled: false,
+  method: 'Tưới nhỏ giọt bù áp',
+  waterPerPlantMl: 400,
+);
+
+bool isPlaceholderSession(ProfileSession s) =>
+    identical(s, _placeholderMorning) ||
+    identical(s, _placeholderNoon) ||
+    identical(s, _placeholderAfternoon);
+
+/// Chia ca thật của ngày vào 3 ô Sáng/Trưa/Chiều; ô không có ca thật dùng ô trống (đang tắt).
 List<ProfileSession> extractDaySessions(SeasonDay? day) {
+  final slots = _slotDaySessions(day);
+  return [
+    slots.morning ?? _placeholderMorning,
+    slots.noon ?? _placeholderNoon,
+    slots.afternoon ?? _placeholderAfternoon,
+  ];
+}
+
+/// Ca thật của ngày KHÔNG nằm trong 3 ô (vd. ca thứ 2 buổi sáng): giữ lại để lưu không làm mất ca.
+List<ProfileSession> extraDaySessions(SeasonDay? day) {
+  final slots = _slotDaySessions(day);
+  return [
+    for (final s in day?.sessions ?? const <ProfileSession>[])
+      if (!identical(s, slots.morning) &&
+          !identical(s, slots.noon) &&
+          !identical(s, slots.afternoon))
+        s,
+  ];
+}
+
+/// Danh sách ca sẽ gửi lên máy chủ: bỏ ô trống chưa chỉnh, giữ ca phụ.
+List<ProfileSession> sessionsToSave(
+  List<ProfileSession> slots,
+  List<ProfileSession> extras,
+) => [
+  for (final s in slots)
+    if (!isPlaceholderSession(s)) s,
+  ...extras,
+];
+
+({ProfileSession? morning, ProfileSession? noon, ProfileSession? afternoon})
+_slotDaySessions(SeasonDay? day) {
   ProfileSession? morning;
   ProfileSession? noon;
   ProfileSession? afternoon;
-
-  if (day != null && day.sessions.isNotEmpty) {
-    for (final s in day.sessions) {
-      final l = s.title.toLowerCase();
-      final h = int.tryParse(s.startTime.split(':').firstOrNull ?? '') ?? 0;
-      if (morning == null && (l.contains('sáng') || h < 11)) {
-        morning = s;
-      } else if (noon == null && (l.contains('trưa') || (h >= 11 && h < 14))) {
-        noon = s;
-      } else if (afternoon == null && (l.contains('chiều') || h >= 14)) {
-        afternoon = s;
-      }
+  for (final s in day?.sessions ?? const <ProfileSession>[]) {
+    final l = s.title.toLowerCase();
+    final h = int.tryParse(s.startTime.split(':').firstOrNull ?? '') ?? 0;
+    if (morning == null && (l.contains('sáng') || h < 11)) {
+      morning = s;
+    } else if (noon == null && (l.contains('trưa') || (h >= 11 && h < 14))) {
+      noon = s;
+    } else if (afternoon == null && (l.contains('chiều') || h >= 14)) {
+      afternoon = s;
     }
   }
-
-  morning ??= const ProfileSession(
-    title: 'Tưới Sáng Khởi Động',
-    startTime: '07:30',
-    durationSeconds: 20 * 60,
-    enabled: true,
-    method: 'Tưới nhỏ giọt bù áp',
-    waterPerPlantMl: 500,
-  );
-  noon ??= const ProfileSession(
-    title: 'Tưới Trưa Giảm Nhiệt',
-    startTime: '12:00',
-    durationSeconds: 10 * 60,
-    enabled: false,
-    method: 'Tưới nhỏ giọt bù áp',
-    waterPerPlantMl: 300,
-  );
-  afternoon ??= const ProfileSession(
-    title: 'Tưới Chiều Bổ Sung',
-    startTime: '16:30',
-    durationSeconds: 15 * 60,
-    enabled: true,
-    method: 'Tưới nhỏ giọt bù áp',
-    waterPerPlantMl: 400,
-  );
-
-  return [morning, noon, afternoon];
+  return (morning: morning, noon: noon, afternoon: afternoon);
 }
 
 /// Màn hình Cuốn Lịch Tưới 3 Ca Vụ Mùa Chuẩn VietGAP trên Mobile
@@ -182,6 +220,8 @@ class _SeasonIrrigationCalendarScreenState
   bool _busy = false;
 
   List<ProfileSession> _activeDaySessions = [];
+  // Ca thật ngoài 3 ô Sáng/Trưa/Chiều của ngày đang chọn (giữ lại khi lưu).
+  List<ProfileSession> _extraSessions = [];
   bool _hasUnsavedChanges = false;
 
   String _err(Object e) => userFacingError(e);
@@ -231,6 +271,7 @@ class _SeasonIrrigationCalendarScreenState
         _selected = initialDay;
         _stageFilter = 'ALL';
         _activeDaySessions = extractDaySessions(cal.day(initialDay));
+        _extraSessions = extraDaySessions(cal.day(initialDay));
         _hasUnsavedChanges = false;
         _loading = false;
       });
@@ -262,6 +303,7 @@ class _SeasonIrrigationCalendarScreenState
       _selected = dayNumber;
       final d = _cal?.day(dayNumber);
       _activeDaySessions = extractDaySessions(d);
+      _extraSessions = extraDaySessions(d);
       _hasUnsavedChanges = false;
     });
   }
@@ -279,6 +321,7 @@ class _SeasonIrrigationCalendarScreenState
         _cal = updated;
         final d = updated.day(_selected);
         _activeDaySessions = extractDaySessions(d);
+        _extraSessions = extraDaySessions(d);
         _hasUnsavedChanges = false;
       });
       _toast(success);
@@ -332,19 +375,26 @@ class _SeasonIrrigationCalendarScreenState
   Future<void> _saveCurrentDay() async {
     await _saveDays(
       [_selected],
-      _activeDaySessions,
+      sessionsToSave(_activeDaySessions, _extraSessions),
       'Đã lưu thành công cấu hình lịch tưới Ngày $_selected!',
     );
   }
 
   Future<void> _applyToStage() async {
     final c = _cal!;
-    final currentStage = getStageInfo(_selected, c.totalDays);
-    final days = [
-      for (final d in c.inRangeDays)
-        if (getStageInfo(d.dayNumber, c.totalDays).id == currentStage.id)
-          d.dayNumber,
-    ];
+    final selectedDay = c.day(_selected);
+    // Dùng giai đoạn THẬT của hồ sơ (stageId backend trả theo từng ngày).
+    // Không có stageId thì không đoán theo tỷ lệ ngày, để tránh ghi nhầm sang giai đoạn khác.
+    if (selectedDay == null || selectedDay.stageId == null) {
+      _toast(
+        'Ngày này chưa gắn giai đoạn của hồ sơ nên không áp dụng theo giai đoạn được.',
+        error: true,
+      );
+      return;
+    }
+    final stageName = selectedDay.stageName ?? 'giai đoạn này';
+    final days = targetDays(c, selectedDay, wholeSeason: false);
+    final currentStage = (name: stageName);
     final ok = await _confirm(
       'Áp dụng cho toàn bộ ${currentStage.name}?',
       'Cấu hình 3 ca tưới của Ngày $_selected sẽ được sao chép cho toàn bộ ${days.length} ngày trong giai đoạn này.',
@@ -353,7 +403,7 @@ class _SeasonIrrigationCalendarScreenState
     if (!ok || !mounted) return;
     await _saveDays(
       days,
-      _activeDaySessions,
+      sessionsToSave(_activeDaySessions, _extraSessions),
       'Đã sao chép cấu hình Ngày $_selected cho toàn bộ ${currentStage.name}!',
     );
   }
@@ -369,7 +419,7 @@ class _SeasonIrrigationCalendarScreenState
     if (!ok || !mounted) return;
     await _saveDays(
       days,
-      _activeDaySessions,
+      sessionsToSave(_activeDaySessions, _extraSessions),
       'Đã áp dụng lịch tưới Ngày $_selected cho tất cả ${days.length} ngày của mùa vụ!',
     );
   }
@@ -406,6 +456,50 @@ class _SeasonIrrigationCalendarScreenState
     );
   }
 
+  /// Đẩy lịch của hôm nay (tùy chỉnh của vụ nếu có, nếu không là lịch hồ sơ) xuống ControlSchedule của bơm/van,
+  /// giống thao tác "Lưu lịch riêng cho Zone" trên web. Lưu ngày chỉ ghi lịch trên backend, KHÔNG tự nạp xuống thiết bị.
+  Future<void> _syncToDevice() async {
+    final c = _cal;
+    if (c == null || !c.isEditable || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final all = await FarmApi.fetchZoneActuators(c.zoneId);
+      final usable = irrigationActuators(all);
+      if (usable.isEmpty) {
+        _toast(
+          'Zone chưa có bơm/van tưới để đồng bộ. Kỹ thuật viên cần lắp và gán thiết bị vào Zone.',
+          error: true,
+        );
+        return;
+      }
+      final actuator = usable.first;
+      if (!mounted) return;
+      // Tắt thanh tiến trình trong lúc người dùng đọc hộp thoại xác nhận.
+      setState(() => _busy = false);
+      final ok = await _confirm(
+        'Đồng bộ lịch xuống thiết bị?',
+        'Các lịch "[AutoSync]" cũ của Zone sẽ được thay bằng lịch hôm nay (nguồn: ${c.today?.isOverride == true ? 'lịch tùy chỉnh của vụ' : 'lịch theo giai đoạn của hồ sơ'}) '
+            'cho thiết bị "${actuator.name}". Thiết bị lặp lịch mỗi ngày; sang ngày/giai đoạn khác cần đồng bộ lại. Lịch tạo thủ công không bị đổi.',
+        'Đồng bộ',
+      );
+      if (!ok || !mounted) return;
+      setState(() => _busy = true);
+      final r = await AutomationApi.syncScheduleFromProfile(
+        c.zoneId,
+        actuatorId: actuator.actuatorId,
+      );
+      final created = (r['schedules'] as List?)?.length ?? 0;
+      _toast(
+        'Đã đồng bộ $created lịch xuống "${actuator.name}" (nguồn: ${syncSourceText(r)}).',
+      );
+    } catch (e) {
+      final p = classifySyncError(_err(e));
+      _toast('${p.message}. ${p.hint}', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _toggleSession(int index, bool val) {
     if (!(_cal?.isEditable ?? false)) return;
     setState(() {
@@ -436,7 +530,7 @@ class _SeasonIrrigationCalendarScreenState
         );
       },
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       final hh = picked.hour.toString().padLeft(2, '0');
       final mm = picked.minute.toString().padLeft(2, '0');
       setState(() {
@@ -595,6 +689,7 @@ class _SeasonIrrigationCalendarScreenState
       color: _green,
       onRefresh: () => _load(seasonId: _seasonId),
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(14),
         children: [
           // 1. Main Header Banner (Tiến trình vụ mùa & thông số)
@@ -1138,17 +1233,14 @@ class _SeasonIrrigationCalendarScreenState
                 final totalWidth = constraints.maxWidth;
                 final cols = totalWidth > 400 ? 5 : 4;
                 const spacing = 6.0;
-                final cellWidth =
-                    ((totalWidth - (cols - 1) * spacing) / cols).floorToDouble();
+                final cellWidth = ((totalWidth - (cols - 1) * spacing) / cols)
+                    .floorToDouble();
                 return Wrap(
                   spacing: spacing,
                   runSpacing: spacing,
                   children: [
                     for (final d in days)
-                      SizedBox(
-                        width: cellWidth,
-                        child: _buildDayCell(c, d),
-                      ),
+                      SizedBox(width: cellWidth, child: _buildDayCell(c, d)),
                   ],
                 );
               },
@@ -1450,8 +1542,9 @@ class _SeasonIrrigationCalendarScreenState
           // Mini KPI Thống kê nhanh trong ngày
           Builder(
             builder: (_) {
-              final activeSessions =
-                  _activeDaySessions.where((s) => s.enabled).toList();
+              final activeSessions = _activeDaySessions
+                  .where((s) => s.enabled)
+                  .toList();
               final totalMinutes = activeSessions.fold<int>(
                 0,
                 (sum, s) => sum + (s.durationSeconds / 60).round(),
@@ -1462,8 +1555,10 @@ class _SeasonIrrigationCalendarScreenState
               );
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
@@ -2033,28 +2128,53 @@ class _SeasonIrrigationCalendarScreenState
         ? 'Hôm nay nằm ngoài vụ nên đồng bộ thiết bị sẽ dùng lịch theo giai đoạn chuẩn VietGAP của hồ sơ.'
         : today.isOverride
         ? 'Khi đồng bộ xuống thiết bị hôm nay (ngày ${today.dayNumber}), hệ thống sẽ nạp lịch TÙY CHỈNH 3 CA của ngày này.'
-        : 'Hôm nay (ngày ${today.dayNumber}) dùng lịch chuẩn VietGAP. Bạn có thể tùy chỉnh và bấm Lưu để nạp xuống phần cứng.';
+        : 'Hôm nay (ngày ${today.dayNumber}) dùng lịch chuẩn VietGAP. Bạn có thể tùy chỉnh, lưu, rồi bấm "Đồng bộ xuống thiết bị" để nạp xuống phần cứng.';
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 16, color: _muted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 11.5,
-                color: _muted,
-                height: 1.4,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline, size: 16, color: _muted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: _muted,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (c.isEditable) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey('sync_to_device'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _green,
+                  side: const BorderSide(color: Color(0xFFA7F3D0)),
+                  backgroundColor: Colors.white,
+                ),
+                onPressed: _busy ? null : _syncToDevice,
+                icon: const Icon(Icons.sync, size: 16),
+                label: const Text(
+                  'Đồng bộ xuống thiết bị',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

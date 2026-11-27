@@ -198,6 +198,22 @@ void main() {
     expect(cleanTechnicalIds(null), '');
   });
 
+  test('parseAiMarkdownSpans tách chữ in đậm và code inline', () {
+    const style = TextStyle(fontSize: 14, color: Colors.black);
+    final spans = parseAiMarkdownSpans(
+      'Theo chuẩn VietGAP, **độ ẩm đất** cần duy trì ở `60-80%`.',
+      style,
+    );
+    expect(spans.length, 5);
+    expect((spans[0] as TextSpan).text, 'Theo chuẩn VietGAP, ');
+    expect((spans[1] as TextSpan).text, 'độ ẩm đất');
+    expect((spans[1] as TextSpan).style?.fontWeight, FontWeight.bold);
+    expect((spans[2] as TextSpan).text, ' cần duy trì ở ');
+    expect((spans[3] as TextSpan).text, '60-80%');
+    expect((spans[3] as TextSpan).style?.fontFamily, 'monospace');
+    expect((spans[4] as TextSpan).text, '.');
+  });
+
   testWidgets(
     'cửa sổ rộng 353 và rất thấp (633/565/480px như log web): không tràn',
     (t) async {
@@ -216,6 +232,46 @@ void main() {
       expect(t.takeException(), isNull);
       expect(find.text('🌤️ Thời tiết'), findsNothing);
     }, size: const Size(400, 621));
+  });
+
+  testWidgets(
+    'câu trả lời có dữ liệu backend gửi AI: nút mở bảng "Dữ liệu AI đã dùng"',
+    (t) async {
+      history = [
+        {
+          ..._rec(),
+          'contextSnapshotJson': jsonEncode({
+            'Prompt': '<context/>',
+            'Context': {
+              'Telemetry': [
+                {'ParameterCode': 'SOIL_MOISTURE', 'Value': 40, 'Unit': '%'},
+              ],
+            },
+          }),
+        },
+      ];
+      await run(t, (p) async {
+        final btn = find.textContaining('Dữ liệu AI đã dùng');
+        expect(btn, findsOneWidget);
+        expect(
+          find.textContaining('1 cảm biến · 0 ngưỡng VietGAP · 0 tài liệu RAG'),
+          findsOneWidget,
+        );
+        await t.tap(btn);
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+        expect(find.text('Cảm biến (1)'), findsOneWidget);
+        expect(find.text('40 %'), findsOneWidget);
+      });
+    },
+  );
+
+  testWidgets('câu trả lời không có dữ liệu ngữ cảnh: không hiện nút', (
+    t,
+  ) async {
+    await run(t, (p) async {
+      expect(find.textContaining('Dữ liệu AI đã dùng'), findsNothing);
+    });
   });
 
   testWidgets('lịch sử: thẻ đề xuất, hàng đợi và nút duyệt như web', (t) async {

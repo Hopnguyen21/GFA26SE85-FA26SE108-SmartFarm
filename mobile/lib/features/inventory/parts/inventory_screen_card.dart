@@ -139,8 +139,8 @@ extension _InventoryScreenStateCard on _InventoryScreenState {
             Row(
               children: [
                 Expanded(
-                  child: RichText(
-                    text: TextSpan(
+                  child: Text.rich(
+                    TextSpan(
                       children: [
                         const TextSpan(
                           text: 'Tồn kho: ',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/export_utils.dart';
 import '../../core/utils/user_error.dart';
 
 /// Đăng ký tài khoản. Giống web: đăng ký xong KHÔNG tự đăng nhập mà quay về màn đăng nhập; email đã đăng ký được trả về qua
@@ -50,8 +51,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (password.length < 8) {
-      setState(() => _errorMessage = 'Mật khẩu phải chứa ít nhất 8 ký tự.');
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(
+        () => _errorMessage =
+            'Email không hợp lệ. Vui lòng nhập đúng định dạng (VD: ten@trangtrai.vn).',
+      );
+      return;
+    }
+
+    if (phone.isNotEmpty && !RegExp(r'^[0-9+() -]{9,15}$').hasMatch(phone)) {
+      setState(
+        () => _errorMessage = 'Số điện thoại không hợp lệ (9-15 chữ số).',
+      );
+      return;
+    }
+
+    final passErr = validateStrongPassword(password);
+    if (passErr != null) {
+      setState(() => _errorMessage = passErr);
       return;
     }
 
@@ -241,11 +259,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
 
               const SizedBox(height: 14),
-              _buildLabel('Mật khẩu (*) (tối thiểu 8 ký tự)'),
+              _buildLabel(
+                'Mật khẩu (*) (tối thiểu 8 ký tự, gồm hoa, thường, số & ký tự đặc biệt)',
+              ),
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _passwordCtrl,
-                hint: '••••••••',
+                hint: 'VD: MatKhau#123',
                 icon: Icons.lock_outline,
                 obscureText: _obscurePassword,
                 suffixIcon: IconButton(
@@ -258,6 +278,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
                 ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '💡 Yêu cầu: Ít nhất 8 ký tự, có đủ chữ hoa (A-Z), chữ thường (a-z), chữ số (0-9) và ký tự đặc biệt (@#\\\$!...).',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 10.5),
               ),
 
               const SizedBox(height: 14),

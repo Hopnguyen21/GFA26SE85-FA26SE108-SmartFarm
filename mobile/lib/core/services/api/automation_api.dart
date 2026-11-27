@@ -88,11 +88,13 @@ abstract final class AutomationApi {
   // ─── 10. Actuator Command ─────────────────────────────────────────────
   /// POST /zones/{z}/actuators/{a}/command. Ném Exception kèm lý do của backend khi bị từ chối
   /// (không có quyền, thiết bị offline, vi phạm khóa an toàn...).
-  static Future<void> sendActuatorCommand({
+  static Future<ActuatorCommandResult> sendActuatorCommand({
     required String zoneId,
     required String actuatorId,
     required String action, // TurnOn, TurnOff
     int durationSeconds = 600,
+    // Như web: mặc định KHÔNG tự ngắt lệnh tự động đang chạy; backend trả 409 để người dùng biết.
+    bool overrideActiveSchedules = false,
   }) async {
     // Backend validates [Range(1, 1800)] DurationSeconds for both TurnOn and TurnOff
     final safeDuration = durationSeconds <= 0
@@ -103,7 +105,7 @@ abstract final class AutomationApi {
       {
         'action': action,
         'durationSeconds': safeDuration,
-        'overrideActiveSchedules': true,
+        'overrideActiveSchedules': overrideActiveSchedules,
         'idempotencyKey': 'mob_${DateTime.now().microsecondsSinceEpoch}',
         'notes': 'Điều khiển từ SmartFarm Mobile App',
       },
@@ -111,6 +113,29 @@ abstract final class AutomationApi {
     if (resp == null || (resp.statusCode != 200 && resp.statusCode != 202)) {
       throw Exception(ApiService._apiErrorMessage(resp));
     }
+    try {
+      final body = jsonDecode(utf8.decode(resp.bodyBytes));
+      if (body is Map<String, dynamic>)
+        return ActuatorCommandResult.fromJson(body);
+    } catch (_) {}
+    return const ActuatorCommandResult();
+  }
+
+  /// GET /zones/{z}/actuators/{a}/status: trạng thái thật do gateway phản hồi (web hỏi lại mỗi 2 giây).
+  static Future<ActuatorLiveStatus?> getActuatorStatus(
+    String zoneId,
+    String actuatorId,
+  ) async {
+    final resp = await ApiService._getWithAuth(
+      '${ApiService.baseUrl}/api/v1/zones/$zoneId/actuators/$actuatorId/status',
+    );
+    if (resp == null || resp.statusCode != 200) return null;
+    try {
+      final body = jsonDecode(utf8.decode(resp.bodyBytes));
+      if (body is Map<String, dynamic>)
+        return ActuatorLiveStatus.fromJson(body);
+    } catch (_) {}
+    return null;
   }
 
   // ─── 10b. Emergency Stop (BR-CANCEL-01) ───────────────────────────────
@@ -202,7 +227,7 @@ abstract final class AutomationApi {
 
   /// GET /zones/{id}/schedules, NÉM lỗi (mạng/403/5xx) thay vì trả danh sách rỗng như [getSchedules].
   static Future<List<ScheduleModel>> fetchZoneSchedules(String zoneId) async {
-    final data = ApiService._decodeOrThrow(
+    final data = ApiService._decodeUtf8OrThrow(
       await ApiService._getWithAuth(
         '${ApiService.baseUrl}/api/v1/zones/$zoneId/schedules',
       ),

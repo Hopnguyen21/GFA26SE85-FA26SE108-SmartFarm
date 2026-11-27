@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/farm_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/models/models.dart';
 import '../../core/utils/ai_text.dart';
+import 'ai_payload_sheet.dart';
+import 'ai_payload_snapshot.dart';
 
 part 'parts/ai_screen_actions.dart';
 part 'parts/ai_screen_context_banner.dart';
@@ -22,7 +25,8 @@ class AiAssistantScreen extends StatefulWidget {
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
 }
 
-class _AiAssistantScreenState extends State<AiAssistantScreen> {
+class _AiAssistantScreenState extends State<AiAssistantScreen>
+    with WidgetsBindingObserver {
   /// Cho phép code trong các file part (extension) cập nhật state.
   void _rebuild(VoidCallback fn) => setState(fn);
 
@@ -292,7 +296,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     ),
                   ),
                   // Chiều cao thấp (cửa sổ nhỏ/web): bỏ gợi ý nhanh để khung chat luôn còn chỗ, không tràn.
-                  if (!keyboardOpen && box.maxHeight >= 740)
+                  if (!keyboardOpen && box.maxHeight >= 630)
                     _buildQuickPrompts(farmProvider),
                   _buildInputBar(farmProvider),
                 ],

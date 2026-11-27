@@ -4,6 +4,7 @@ import '../../core/providers/farm_provider.dart';
 import '../../core/models/models.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/dispose_later.dart';
+import '../../core/utils/user_error.dart';
 
 part 'parts/inventory_screen_card.dart';
 part 'parts/inventory_screen_dialogs.dart';
@@ -356,6 +357,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 : RefreshIndicator(
                     onRefresh: provider.fetchFromApi,
                     child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
                       itemCount: filteredItems.length,
                       itemBuilder: (context, idx) {

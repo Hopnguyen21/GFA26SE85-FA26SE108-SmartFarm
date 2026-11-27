@@ -332,6 +332,10 @@ class _TechnicianMaintenanceScreenState
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
           if (_error != null) _errorBanner(),
+          if (_items.any((r) => serviceStatusOf(r) == 'Assigned'))
+            _assignedAlertBanner(
+              _items.where((r) => serviceStatusOf(r) == 'Assigned').toList(),
+            ),
           _summary(counts),
           const SizedBox(height: AppSpacing.sm),
           TextField(
@@ -438,6 +442,7 @@ class _TechnicianMaintenanceScreenState
             total: open.length,
             onPage: (p) => setState(() => _page = p),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -465,6 +470,42 @@ class _TechnicianMaintenanceScreenState
       ],
     ),
   );
+
+  Widget _assignedAlertBanner(List<Map<String, dynamic>> assigned) {
+    if (assigned.isEmpty) return const SizedBox.shrink();
+    const blue = Color(0xFF0369A1);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: OutlinedButton(
+        onPressed: () => _open(assigned.first),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          foregroundColor: blue,
+          backgroundColor: const Color(0xFFF0F9FF),
+          side: const BorderSide(color: Color(0xFF7DD3FC)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radius),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.assignment_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${assigned.length} yêu cầu chờ tiếp nhận',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('Xem'),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _summary(Map<ServiceFilter, int> counts) {
     Color colorOf(ServiceFilter f) => switch (f) {
@@ -1045,8 +1086,8 @@ class _ServiceRequestDetailScreenState
     if (mounted) await _load();
   }
 
-  /// Nút trong khung "Thao tác thực địa kỹ thuật": "Gắn Node" khi cổng cho phép; chưa đủ điều kiện thì chip khoá nêu đúng
-  /// lý do; công việc đã kết thúc thì không có nút nào.
+  /// Nút trong khung "Thao tác thực địa kỹ thuật": Gán Node GIS được thực hiện trên Web (nút Gán Node trên Mobile đã ẩn);
+  /// nút "Bắt đầu lắp đặt" đã bỏ theo định hướng thao tác trên Web; công việc đã kết thúc thì không có nút nào.
   List<Widget> _fieldButtons(Map<String, dynamic> r) {
     final gate = _gate(r);
     final finished =
@@ -1054,71 +1095,46 @@ class _ServiceRequestDetailScreenState
         gate.block == NodePlacementBlock.deploymentFinished;
     return [
       if (gate.allowed) ...[
-        FilledButton.icon(
+        // Nút "Gắn Node" đã ẩn trên Mobile theo yêu cầu; thay thế bằng ActionChip chỉ dẫn Web Dashboard (chạm để mở hướng dẫn).
+        ActionChip(
           onPressed: () => _openNodes(r),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF0369A1),
-            foregroundColor: Colors.white,
-          ),
-          icon: const Icon(Icons.my_location, size: 18),
-          label: Text(
-            _nodes == null ? 'Gắn Node' : 'Gắn Node ($_nodes đã có vị trí)',
-          ),
-        ),
-        Chip(
-          backgroundColor: const Color(0xFF0F172A),
-          side: const BorderSide(color: Color(0xFF334155)),
+          backgroundColor: const Color(0xFFF0F9FF),
+          side: const BorderSide(color: Color(0xFFBAE6FD)),
           avatar: const Icon(
             Icons.desktop_windows_outlined,
             size: 15,
-            color: Color(0xFF38BDF8),
+            color: Color(0xFF0284C7),
           ),
           label: const Text(
             'Gán Node GIS thực hiện trên Web',
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            style: TextStyle(
+              color: Color(0xFF0369A1),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ]
-      else if (!finished)
+      ] else if (!finished)
         Chip(
-          backgroundColor: const Color(0xFF1E293B),
-          side: const BorderSide(color: Color(0xFFB45309)),
+          backgroundColor: const Color(0xFFFFFBEB),
+          side: const BorderSide(color: Color(0xFFFCD34D)),
           avatar: const Icon(
-            Icons.lock_outline,
+            Icons.lock_clock_outlined,
             size: 16,
-            color: Color(0xFFFBBF24),
+            color: Color(0xFFD97706),
           ),
           label: Text(
             gate.block == NodePlacementBlock.unpaid
                 ? 'Chờ Owner ký & cọc ${_quoteDep ?? BusinessParameters.active.depositLabel} mới gắn Node'
                 : gate.message,
-            style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13),
+            style: const TextStyle(
+              color: Color(0xFF92400E),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      // Đã cọc 30%: Có thể tiếp nhận / khảo sát / xác nhận kế hoạch / bắt đầu lắp đặt chỉ với 1 thao tác tiện ích
-      if (!finished &&
-          gate.allowed &&
-          (_depStatus == 'Submitted' ||
-              _depStatus == 'Accepted' ||
-              _depStatus == 'Surveyed' ||
-              _depStatus == 'PlanConfirmed'))
-        FilledButton.icon(
-          onPressed: _busy ? null : () => _confirmPlan(r),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF0F766E),
-            foregroundColor: Colors.white,
-          ),
-          icon: const Icon(Icons.fact_check_outlined, size: 18),
-          label: Text(
-            _depStatus == 'Submitted'
-                ? 'Tiếp nhận & Bắt đầu lắp đặt'
-                : _depStatus == 'Accepted'
-                ? 'Khảo sát & Bắt đầu lắp đặt'
-                : _depStatus == 'PlanConfirmed'
-                ? 'Bắt đầu lắp đặt'
-                : 'Bắt đầu lắp đặt',
-          ),
-        ),
+      // Đã bỏ nút "Bắt đầu lắp đặt" trên Mobile theo yêu cầu (chuyển sang quản lý trên Web).
       // Hoàn tất lắp đặt: chỉ khi backend báo triển khai đang "Đang lắp đặt" (backend còn kiểm tra thiết bị đã gán Zone + kết nối thành công).
       if (!finished && gate.allowed && _depStatus == 'Installing')
         FilledButton.icon(
@@ -1126,8 +1142,12 @@ class _ServiceRequestDetailScreenState
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF047857),
             foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
-          icon: const Icon(Icons.task_alt, size: 18),
+          icon: const Icon(Icons.task_alt, size: 16),
           label: const Text('Hoàn tất lắp đặt'),
         )
       else if (!finished &&
@@ -1135,25 +1155,29 @@ class _ServiceRequestDetailScreenState
           _depStatus != null &&
           _depStatus != 'Completed')
         Chip(
-          backgroundColor: const Color(0xFF1E293B),
-          side: const BorderSide(color: Color(0xFF64748B)),
+          backgroundColor: const Color(0xFFF1F5F9),
+          side: const BorderSide(color: Color(0xFFCBD5E1)),
           avatar: const Icon(
             Icons.lock_outline,
-            size: 16,
-            color: Colors.white70,
+            size: 15,
+            color: Color(0xFF64748B),
           ),
           label: Text(
             'Hoàn tất lắp đặt: cần ở trạng thái Đang lắp đặt (hiện: ${deploymentStatusLabels[_depStatus] ?? _depStatus})',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       if (_depStatus == 'Completed') ...[
         FilledButton.icon(
           onPressed: () => _openPlacedNodes(r),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF0369A1), // Sky-700 chuẩn web
+            backgroundColor: const Color(0xFF0284C7),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -1165,15 +1189,15 @@ class _ServiceRequestDetailScreenState
           ),
           label: Text(
             'Xem Node (${_nodes ?? 4})',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0xB2064E3B),
+            color: const Color(0xFFECFDF5),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x80059669)),
+            border: Border.all(color: const Color(0xFFA7F3D0)),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
@@ -1181,14 +1205,14 @@ class _ServiceRequestDetailScreenState
               Icon(
                 Icons.check_circle_outline,
                 size: 15,
-                color: Color(0xFF34D399),
+                color: Color(0xFF059669),
               ),
               SizedBox(width: 5),
               Flexible(
                 child: Text(
                   'Đã hoàn tất · Chờ nghiệm thu',
                   style: TextStyle(
-                    color: Color(0xFF34D399),
+                    color: Color(0xFF065F46),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1202,9 +1226,9 @@ class _ServiceRequestDetailScreenState
         FilledButton.icon(
           onPressed: () => _openPlacedNodes(r),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF0369A1),
+            backgroundColor: const Color(0xFF0284C7),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -1216,85 +1240,10 @@ class _ServiceRequestDetailScreenState
           ),
           label: Text(
             'Xem Node ($_nodes)',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ),
     ];
-  }
-
-  /// "Xác nhận kế hoạch" / "Bắt đầu lắp đặt" (đã cọc 30%):
-  /// Tự động chuyển tuần tự: Submitted -> Accepted -> Surveyed -> PlanConfirmed -> Installing.
-  /// Giúp KTV 1 chạm bắt đầu gắn node mà không bị kẹt ở các bước trung gian khi Owner đã cọc.
-  Future<void> _confirmPlan(Map<String, dynamic> r) async {
-    final depId = '${r['deploymentRequestId'] ?? ''}';
-    if (depId.isEmpty || _busy) return;
-    final dialogTitle = _depStatus == 'Submitted'
-        ? 'Tiếp nhận & Bắt đầu lắp đặt?'
-        : _depStatus == 'Accepted'
-        ? 'Khảo sát & Bắt đầu lắp đặt?'
-        : _depStatus == 'PlanConfirmed'
-        ? 'Bắt đầu lắp đặt?'
-        : 'Bắt đầu lắp đặt?';
-
-    if (!mounted) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(dialogTitle),
-        content: Text(
-          'Chuyển triển khai sang Đang lắp đặt để bắt đầu gắn Node và cấp phát thiết bị (Owner đã cọc ${_quoteDep ?? BusinessParameters.active.depositLabel}).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xác nhận'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      if (_depStatus == 'Submitted') {
-        try {
-          final accepted = await DeploymentApi.acceptDeploymentRequest(depId);
-          if (mounted) setState(() => _depStatus = accepted.status);
-        } catch (_) {}
-      }
-      // App không tự bịa khảo sát thực địa: chưa khảo sát thì dừng và báo KTV điền.
-      if (_depStatus == 'Accepted' || _depStatus == 'Submitted') {
-        throw Exception(
-          'Cần tiếp nhận và lập báo cáo khảo sát thực địa (khung "Thao tác thực địa kỹ thuật") trước khi bắt đầu lắp đặt.',
-        );
-      }
-      if (_depStatus == 'Surveyed' ||
-          _depStatus == 'Accepted' ||
-          _depStatus == 'Submitted') {
-        try {
-          final c = await DeploymentApi.confirmDeploymentPlan(depId);
-          if (mounted) setState(() => _depStatus = c.status);
-        } catch (_) {}
-      }
-      final dep = await DeploymentApi.startDeploymentInstallation(depId);
-      if (!mounted) return;
-      setState(() => _depStatus = dep.status);
-      _snack(
-        'Triển khai đã chuyển sang Đang lắp đặt. Bạn có thể bắt đầu gắn Node và cấp phát thiết bị.',
-      );
-      _load();
-    } catch (e) {
-      final msg = userFacingError(e);
-      final viMsg = msg.contains('Every planned Device must be assigned')
-          ? 'Chưa đủ thiết bị hoặc chưa hoàn tất kiểm tra kết nối cho các node trong Zone. Vui lòng bấm "Gắn Node" để kiểm tra và lưu lại.'
-          : msg;
-      if (mounted) _snack(viMsg);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   /// Bấm "Hoàn tất lắp đặt": xác nhận rồi gọi backend; backend từ chối (thiết bị chưa gán Zone / chưa kiểm tra kết nối) thì hiện nguyên lý do.
@@ -1800,6 +1749,7 @@ class _ServiceRequestDetailScreenState
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
           _header(r, st, res, isInstall),

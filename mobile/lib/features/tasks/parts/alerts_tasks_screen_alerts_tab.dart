@@ -145,12 +145,11 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                   borderRadius: BorderRadius.circular(16),
                   onTap: targetZone != null
                       ? () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ZoneDetailScreen(zone: targetZone),
-                            ),
-                          )
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ZoneDetailScreen(zone: targetZone),
+                          ),
+                        )
                       : null,
                   child: Padding(
                     padding: const EdgeInsets.all(14),
@@ -158,194 +157,198 @@ extension _AlertsTasksScreenAlertsTab on AlertsTasksScreen {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isCritical
-                                  ? const Color(0xFFFEF2F2)
-                                  : const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: isCritical
-                                    ? const Color(0xFFF87171)
-                                    : const Color(0xFFFBBF24),
-                              ),
-                            ),
-                            child: Text(
-                              isCritical ? 'NGUY CẤP' : 'CẢNH BÁO',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isCritical
-                                    ? const Color(0xFFDC2626)
-                                    : const Color(0xFFD97706),
-                              ),
-                            ),
-                          ),
-                          if (alt.isBoundaryViolation) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFF60A5FA),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.location_off,
-                                    size: 10,
-                                    color: Color(0xFF2563EB),
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
                                   ),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    'RANH GIỚI GIS',
+                                  decoration: BoxDecoration(
+                                    color: isCritical
+                                        ? const Color(0xFFFEF2F2)
+                                        : const Color(0xFFFFFBEB),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isCritical
+                                          ? const Color(0xFFF87171)
+                                          : const Color(0xFFFBBF24),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isCritical ? 'NGUY CẤP' : 'CẢNH BÁO',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1D4ED8),
+                                      color: isCritical
+                                          ? const Color(0xFFDC2626)
+                                          : const Color(0xFFD97706),
+                                    ),
+                                  ),
+                                ),
+                                if (alt.isBoundaryViolation) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFF60A5FA),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.location_off,
+                                          size: 10,
+                                          color: Color(0xFF2563EB),
+                                        ),
+                                        SizedBox(width: 3),
+                                        Text(
+                                          'RANH GIỚI GIS',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1D4ED8),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
+                              ],
+                            ),
+                            Text(
+                              alt.time,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                      Text(
-                        alt.time,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    alt.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    cleanTrailingZeros(alt.message),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF475569),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    alignment: WrapAlignment.spaceBetween,
-                    children: [
-                      if (targetZone != null)
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF047857),
-                            side: const BorderSide(
-                              color: Color(0xFFA7F3D0),
-                            ),
-                            backgroundColor: const Color(0xFFECFDF5),
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(Icons.place_outlined, size: 14),
-                          label: Text(
-                            'Tới khu vực: ${alt.zoneName.isNotEmpty ? alt.zoneName : targetZone.name}',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ZoneDetailScreen(zone: targetZone),
-                              ),
-                            );
-                          },
-                        ),
-                      if (alt.isAcknowledged)
-                        const Text(
-                          '✓ Đã xác nhận xử lý',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF10B981),
+                        const SizedBox(height: 8),
+                        Text(
+                          alt.title,
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      else
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF062326),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            minimumSize: Size.zero,
-                          ),
-                          onPressed: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final ok = await farmProvider.acknowledgeAlert(
-                              alt.alertId,
-                            );
-                            if (!ok) {
-                              messenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Không xác nhận được cảnh báo. Kiểm tra kết nối và thử lại.',
-                                  ),
-                                  backgroundColor: Color(0xFFDC2626),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.check, size: 14),
-                          label: const Text(
-                            'Xác nhận đã xem',
-                            style: TextStyle(fontSize: 11),
+                            fontSize: 14,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          cleanTrailingZeros(alt.message),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          alignment: WrapAlignment.spaceBetween,
+                          children: [
+                            if (targetZone != null)
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF047857),
+                                  side: const BorderSide(
+                                    color: Color(0xFFA7F3D0),
+                                  ),
+                                  backgroundColor: const Color(0xFFECFDF5),
+                                  minimumSize: const Size(0, 36),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.place_outlined,
+                                  size: 14,
+                                ),
+                                label: Text(
+                                  'Tới khu vực: ${alt.zoneName.isNotEmpty ? alt.zoneName : targetZone.name}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          ZoneDetailScreen(zone: targetZone),
+                                    ),
+                                  );
+                                },
+                              ),
+                            if (alt.isAcknowledged)
+                              const Text(
+                                '✓ Đã xác nhận xử lý',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF10B981),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            else
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF062326),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  minimumSize: Size.zero,
+                                ),
+                                onPressed: () async {
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
+                                  final ok = await farmProvider
+                                      .acknowledgeAlert(alt.alertId);
+                                  if (!ok) {
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Không xác nhận được cảnh báo. Kiểm tra kết nối và thử lại.',
+                                        ),
+                                        backgroundColor: Color(0xFFDC2626),
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.check, size: 14),
+                                label: const Text(
+                                  'Xác nhận đã xem',
+                                  style: TextStyle(fontSize: 11),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
-      );
-    },
+            );
+          },
         ),
       ),
     ];

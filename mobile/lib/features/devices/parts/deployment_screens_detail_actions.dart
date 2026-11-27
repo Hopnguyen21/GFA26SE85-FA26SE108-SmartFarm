@@ -72,16 +72,8 @@ extension _DeploymentRequestDetailScreenStateActions
             );
           }
         case 'PlanConfirmed':
-          buttons.add(
-            btn(
-              'Bắt đầu lắp đặt',
-              () => _act(
-                () async => DeploymentApi.startDeploymentInstallation(id),
-                confirmTitle: 'Bắt đầu lắp đặt',
-                confirmBody: 'Yêu cầu chuyển sang trạng thái Đang lắp đặt.',
-              ),
-            ),
-          );
+          // Đã bỏ nút "Bắt đầu lắp đặt" trên Mobile theo yêu cầu (thao tác triển khai thực hiện trên Web).
+          break;
         case 'Installing':
           buttons.add(btn('Hoàn tất lắp đặt', () => _completeWithReport(r)));
           buttons.add(

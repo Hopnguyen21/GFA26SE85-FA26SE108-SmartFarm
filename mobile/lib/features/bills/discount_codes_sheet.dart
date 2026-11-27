@@ -103,9 +103,12 @@ class _DiscountCodesSheetState extends State<DiscountCodesSheet> {
         _inputController.text = best.discountCode!.code;
         await _checkCode(best.discountCode!.code);
       } else {
+        if (!mounted) return;
         setState(() {
           _validating = false;
-          _validateError = best.message ?? 'Không tìm thấy mã giảm giá phù hợp với giá trị đơn hàng.';
+          _validateError =
+              best.message ??
+              'Không tìm thấy mã giảm giá phù hợp với giá trị đơn hàng.';
         });
       }
     } catch (e) {
@@ -165,7 +168,10 @@ class _DiscountCodesSheetState extends State<DiscountCodesSheet> {
                         ),
                         Text(
                           'Áp dụng cho đơn hàng: ${formatMoney(widget.currentAmount)}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -176,7 +182,11 @@ class _DiscountCodesSheetState extends State<DiscountCodesSheet> {
                     onPressed: _load,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: Color(0xFF64748B),
+                    ),
                     tooltip: 'Đóng',
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -198,11 +208,20 @@ class _DiscountCodesSheetState extends State<DiscountCodesSheet> {
                         hintText: 'Nhập mã ưu đãi (VD: SMARTFARM)',
                         hintStyle: const TextStyle(fontSize: 12.5),
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 11,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         suffixIcon: _inputController.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF94A3B8)),
+                                icon: const Icon(
+                                  Icons.clear_rounded,
+                                  size: 18,
+                                  color: Color(0xFF94A3B8),
+                                ),
                                 tooltip: 'Xóa mã',
                                 onPressed: () {
                                   setState(() {
@@ -221,17 +240,33 @@ class _DiscountCodesSheetState extends State<DiscountCodesSheet> {
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF7C3AED),
                       minimumSize: const Size(88, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                    onPressed: _validating ? null : () => _checkCode(_inputController.text),
+                    onPressed: _validating
+                        ? null
+                        : () => _checkCode(_inputController.text),
                     child: _validating
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : const Text('Kiểm tra', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                        : const Text(
+                            'Kiểm tra',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -242,209 +277,298 @@ class _DiscountCodesSheetState extends State<DiscountCodesSheet> {
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
                   style: TextButton.styleFrom(minimumSize: const Size(44, 40)),
-                  icon: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF7C3AED)),
+                  icon: const Icon(
+                    Icons.auto_awesome,
+                    size: 14,
+                    color: Color(0xFF7C3AED),
+                  ),
                   label: const Text(
                     'Tự động chọn mã tốt nhất',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF7C3AED), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF7C3AED),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   onPressed: _validating ? null : _autoFindBest,
                 ),
               ),
 
-          // Validated Feedback Card
-          if (_validateError != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF1F2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFECDD3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, size: 18, color: Color(0xFFE11D48)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_validateError!, style: const TextStyle(fontSize: 12, color: Color(0xFFBE123C))),
+              // Validated Feedback Card
+              if (_validateError != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFECDD3)),
                   ),
-                ],
-              ),
-            ),
-
-          if (_validatedResult != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _validatedResult!.isValid ? const Color(0xFFECFDF5) : const Color(0xFFFFF1F2),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: _validatedResult!.isValid ? const Color(0xFFA7F3D0) : const Color(0xFFFECDD3),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  child: Row(
                     children: [
-                      Icon(
-                        _validatedResult!.isValid ? Icons.check_circle_outline : Icons.cancel_outlined,
+                      const Icon(
+                        Icons.error_outline,
                         size: 18,
-                        color: _validatedResult!.isValid ? const Color(0xFF047857) : const Color(0xFFBE123C),
+                        color: Color(0xFFE11D48),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _validatedResult!.isValid
-                              ? 'Mã hợp lệ: Giảm ${formatMoney(_validatedResult!.discountAmount)}'
-                              : (_validatedResult!.message ?? 'Mã không áp dụng được'),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: _validatedResult!.isValid ? const Color(0xFF065F46) : const Color(0xFFBE123C),
+                          _validateError!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFBE123C),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  if (_validatedResult!.isValid) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Tổng sau giảm: ${formatMoney(_validatedResult!.finalAmount)}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF047857),
-                          minimumSize: const Size(120, 44),
-                        ),
-                        onPressed: () {
-                          if (widget.onApply != null) {
-                            widget.onApply!(_validatedResult!);
-                          }
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Áp dụng mã này', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                ),
 
-          const Divider(),
-          const Text(
-            'Mã giảm giá đang phát hành:',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-          ),
-          const SizedBox(height: 8),
-
-          // List of codes
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED)))
-                : _error != null
-                ? Center(child: Text('Lỗi: $_error', style: const TextStyle(fontSize: 12, color: Colors.red)))
-                : _codes.isEmpty
-                ? const Center(
-                    child: Text('Hiện không có mã giảm giá nào.', style: TextStyle(color: Color(0xFF64748B))),
-                  )
-                : ListView.separated(
-                    itemCount: _codes.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final c = _codes[i];
-                      return Material(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: () {
-                            _inputController.text = c.code;
-                            _checkCode(c.code);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+              if (_validatedResult != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _validatedResult!.isValid
+                        ? const Color(0xFFECFDF5)
+                        : const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _validatedResult!.isValid
+                          ? const Color(0xFFA7F3D0)
+                          : const Color(0xFFFECDD3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _validatedResult!.isValid
+                                ? Icons.check_circle_outline
+                                : Icons.cancel_outlined,
+                            size: 18,
+                            color: _validatedResult!.isValid
+                                ? const Color(0xFF047857)
+                                : const Color(0xFFBE123C),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _validatedResult!.isValid
+                                  ? 'Mã hợp lệ: Giảm ${formatMoney(_validatedResult!.discountAmount)}'
+                                  : (_validatedResult!.message ??
+                                        'Mã không áp dụng được'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: _validatedResult!.isValid
+                                    ? const Color(0xFF065F46)
+                                    : const Color(0xFFBE123C),
+                              ),
                             ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF3E8FF),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              c.code,
-                                              style: const TextStyle(
-                                                fontFamily: 'monospace',
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF7C3AED),
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            c.discountType == 0 ? '-${c.discountValue}%' : '-${formatMoney(c.discountValue)}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF047857),
-                                              fontSize: 12.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      if (c.description.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(c.description, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
-                                      ],
-                                      if (c.minContractValue > 0)
-                                        Text(
-                                          'Đơn tối thiểu: ${formatMoney(c.minContractValue)}',
-                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    minimumSize: const Size(60, 44),
-                                    side: const BorderSide(color: Color(0xFF7C3AED)),
-                                    foregroundColor: const Color(0xFF7C3AED),
-                                  ),
-                                  onPressed: () {
-                                    _inputController.text = c.code;
-                                    _checkCode(c.code);
-                                  },
-                                  child: const Text('Chọn', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
+                          ),
+                        ],
+                      ),
+                      if (_validatedResult!.isValid) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Tổng sau giảm: ${formatMoney(_validatedResult!.finalAmount)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF047857),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF047857),
+                              minimumSize: const Size(120, 44),
+                            ),
+                            onPressed: () {
+                              if (widget.onApply != null) {
+                                widget.onApply!(_validatedResult!);
+                              }
+                              Navigator.pop(context);
+                            },
+                            child: const Text(
+                              'Áp dụng mã này',
+                              style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ],
                   ),
+                ),
+
+              const Divider(),
+              const Text(
+                'Mã giảm giá đang phát hành:',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // List of codes
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF7C3AED),
+                        ),
+                      )
+                    : _error != null
+                    ? Center(
+                        child: Text(
+                          'Lỗi: $_error',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.red,
+                          ),
+                        ),
+                      )
+                    : _codes.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Hiện không có mã giảm giá nào.',
+                          style: TextStyle(color: Color(0xFF64748B)),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: _codes.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, i) {
+                          final c = _codes[i];
+                          return Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () {
+                                _inputController.text = c.code;
+                                _checkCode(c.code);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFFF3E8FF,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  c.code,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF7C3AED),
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                c.discountType == 0
+                                                    ? '-${c.discountValue}%'
+                                                    : '-${formatMoney(c.discountValue)}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF047857),
+                                                  fontSize: 12.5,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          if (c.description.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              c.description,
+                                              style: const TextStyle(
+                                                fontSize: 11.5,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                            ),
+                                          ],
+                                          if (c.minContractValue > 0)
+                                            Text(
+                                              'Đơn tối thiểu: ${formatMoney(c.minContractValue)}',
+                                              style: const TextStyle(
+                                                fontSize: 10.5,
+                                                color: Color(0xFF94A3B8),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        minimumSize: const Size(60, 44),
+                                        side: const BorderSide(
+                                          color: Color(0xFF7C3AED),
+                                        ),
+                                        foregroundColor: const Color(
+                                          0xFF7C3AED,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        _inputController.text = c.code;
+                                        _checkCode(c.code);
+                                      },
+                                      child: const Text(
+                                        'Chọn',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  ),
-);
+    );
   }
 }

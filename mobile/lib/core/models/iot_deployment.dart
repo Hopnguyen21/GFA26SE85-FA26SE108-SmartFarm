@@ -260,6 +260,7 @@ class DeploymentRequest {
   final String? failureDescription;
   final List<PlanItem> planItems;
   final List<EstimateItem> estimateItems;
+  final String? estimateSnapshotJson;
   final DeploymentContext? context;
   final List<DeploymentSurvey> surveys;
   final List<DeploymentDecision> history;
@@ -276,6 +277,7 @@ class DeploymentRequest {
     this.failureDescription,
     required this.planItems,
     this.estimateItems = const [],
+    this.estimateSnapshotJson,
     this.context,
     required this.surveys,
     required this.history,
@@ -298,6 +300,7 @@ class DeploymentRequest {
         estimateItems: (j['estimateItems'] as List? ?? const [])
             .map((e) => EstimateItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        estimateSnapshotJson: j['estimateSnapshotJson']?.toString(),
         context: j['context'] is Map<String, dynamic>
             ? DeploymentContext.fromJson(j['context'] as Map<String, dynamic>)
             : null,
@@ -349,6 +352,7 @@ class IotDevice {
   final String? zoneId;
   final String? deviceModelId;
   final String hardwareAddress;
+  final int? loraAddress;
   final String deviceType;
   final String status;
   final ConnectionTest? latestTest;
@@ -359,6 +363,7 @@ class IotDevice {
     this.zoneId,
     this.deviceModelId,
     required this.hardwareAddress,
+    this.loraAddress,
     required this.deviceType,
     required this.status,
     this.latestTest,
@@ -370,6 +375,7 @@ class IotDevice {
     zoneId: j['zoneId']?.toString(),
     deviceModelId: j['deviceModelId']?.toString(),
     hardwareAddress: '${j['hardwareAddress']}',
+    loraAddress: (j['loRaAddress'] ?? j['loraAddress']) as int?,
     deviceType: enumName(j['deviceType'], deviceTypes),
     status: enumName(j['status'], deviceStatuses),
     latestTest: j['latestConnectionTest'] is Map<String, dynamic>
@@ -386,19 +392,114 @@ class IotGateway {
   final String macAddress;
   final String gatewaySerial;
   final String status;
+  final String? farmName;
+
   IotGateway({
     required this.gatewayId,
     required this.deploymentRequestId,
     required this.macAddress,
     required this.gatewaySerial,
     required this.status,
+    this.farmName,
   });
+
   factory IotGateway.fromJson(Map<String, dynamic> j) => IotGateway(
     gatewayId: '${j['gatewayId']}',
     deploymentRequestId: '${j['deploymentRequestId']}',
     macAddress: '${j['macAddress']}',
     gatewaySerial: '${j['gatewaySerial']}',
     status: '${j['status']}',
+    farmName: j['farmName']?.toString(),
+  );
+}
+
+class FirmwareJob {
+  final String otaJobId;
+  final String gatewayId;
+  final String firmwareReleaseId;
+  final String targetVersion;
+  final String firmwareUrl;
+  final String? artifactSha256;
+  final String scheduledAtUtc;
+  final String status;
+  final String? commandId;
+  final int attemptCount;
+  final String? commandSentAtUtc;
+  final String? startedAtUtc;
+  final String? finishedAtUtc;
+  final String? errorCode;
+  final String? errorMessage;
+
+  FirmwareJob({
+    required this.otaJobId,
+    required this.gatewayId,
+    required this.firmwareReleaseId,
+    required this.targetVersion,
+    required this.firmwareUrl,
+    this.artifactSha256,
+    required this.scheduledAtUtc,
+    required this.status,
+    this.commandId,
+    this.attemptCount = 0,
+    this.commandSentAtUtc,
+    this.startedAtUtc,
+    this.finishedAtUtc,
+    this.errorCode,
+    this.errorMessage,
+  });
+
+  factory FirmwareJob.fromJson(Map<String, dynamic> j) => FirmwareJob(
+    otaJobId: '${j['otaJobId'] ?? j['id'] ?? ''}',
+    gatewayId: '${j['gatewayId'] ?? ''}',
+    firmwareReleaseId: '${j['firmwareReleaseId'] ?? ''}',
+    targetVersion: '${j['targetVersion'] ?? ''}',
+    firmwareUrl: '${j['firmwareUrl'] ?? ''}',
+    artifactSha256: j['artifactSha256'] as String?,
+    scheduledAtUtc: '${j['scheduledAtUtc'] ?? ''}',
+    status: '${j['status'] ?? ''}',
+    commandId: j['commandId'] as String?,
+    attemptCount: (j['attemptCount'] as num?)?.toInt() ?? 0,
+    commandSentAtUtc: j['commandSentAtUtc'] as String?,
+    startedAtUtc: j['startedAtUtc'] as String?,
+    finishedAtUtc: j['finishedAtUtc'] as String?,
+    errorCode: j['errorCode'] as String?,
+    errorMessage: j['errorMessage'] as String?,
+  );
+}
+
+class FirmwareRelease {
+  final String id;
+  final String hardwareTarget;
+  final String version;
+  final String protocolVersion;
+  final String artifactUrl;
+  final String? artifactSha256;
+  final String? releaseNotes;
+  final String status;
+  final String? publishedAtUtc;
+
+  FirmwareRelease({
+    required this.id,
+    required this.hardwareTarget,
+    required this.version,
+    required this.protocolVersion,
+    required this.artifactUrl,
+    this.artifactSha256,
+    this.releaseNotes,
+    required this.status,
+    this.publishedAtUtc,
+  });
+
+  factory FirmwareRelease.fromJson(Map<String, dynamic> j) => FirmwareRelease(
+    id: '${j['id'] ?? ''}',
+    hardwareTarget: '${j['hardwareTarget'] ?? ''}',
+    version: '${j['version'] ?? ''}',
+    protocolVersion: '${j['protocolVersion'] ?? ''}',
+    artifactUrl: '${j['artifactUrl'] ?? ''}',
+    artifactSha256: j['artifactSha256'] as String?,
+    releaseNotes: j['releaseNotes'] as String?,
+    status: '${j['status'] ?? ''}',
+    publishedAtUtc: j['publishedAtUtc'] as String?,
   );
 }
 

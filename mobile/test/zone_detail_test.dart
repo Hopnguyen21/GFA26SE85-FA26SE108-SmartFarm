@@ -406,37 +406,38 @@ void main() {
       await _dispose(tester);
     });
 
-    testWidgets('chỉ hiển thị các thông số thực sự nhận từ cảm biến (ẩn thông số không có dữ liệu)', (
-      tester,
-    ) async {
-      // Zone chỉ có cảm biến Nhiệt độ và Độ ẩm không khí
-      _route(
-        telemetry: _telemetry(
-          metrics: [
-            _metric('Temperature', 28.5, unit: '°C'),
-            _metric('AirHumidity', 68.0, unit: '%'),
-          ],
-        ),
-      );
-      await _pump(
-        tester,
-        ZoneClimatePanel(zone: _zone(), refreshEvery: null),
-      );
+    testWidgets(
+      'chỉ hiển thị các thông số thực sự nhận từ cảm biến (ẩn thông số không có dữ liệu)',
+      (tester) async {
+        // Zone chỉ có cảm biến Nhiệt độ và Độ ẩm không khí
+        _route(
+          telemetry: _telemetry(
+            metrics: [
+              _metric('Temperature', 28.5, unit: '°C'),
+              _metric('AirHumidity', 68.0, unit: '%'),
+            ],
+          ),
+        );
+        await _pump(
+          tester,
+          ZoneClimatePanel(zone: _zone(), refreshEvery: null),
+        );
 
-      // Thẻ của 2 thông số có dữ liệu phải xuất hiện
-      expect(find.text('Nhiệt độ'), findsOneWidget);
-      expect(find.text('Độ ẩm không khí'), findsOneWidget);
-      expect(find.textContaining('28.5 °C'), findsOneWidget);
-      expect(find.textContaining('68 %'), findsOneWidget);
+        // Thẻ của 2 thông số có dữ liệu phải xuất hiện
+        expect(find.text('Nhiệt độ'), findsOneWidget);
+        expect(find.text('Độ ẩm không khí'), findsOneWidget);
+        expect(find.textContaining('28.5 °C'), findsOneWidget);
+        expect(find.textContaining('68 %'), findsOneWidget);
 
-      // Thẻ của các thông số KHÔNG có dữ liệu phải ẩn hoàn toàn
-      expect(find.text('Độ ẩm đất'), findsNothing);
-      expect(find.text('Ánh sáng'), findsNothing);
-      expect(find.text('pH'), findsNothing);
-      expect(find.text('EC'), findsNothing);
+        // Thẻ của các thông số KHÔNG có dữ liệu phải ẩn hoàn toàn
+        expect(find.text('Độ ẩm đất'), findsNothing);
+        expect(find.text('Ánh sáng'), findsNothing);
+        expect(find.text('pH'), findsNothing);
+        expect(find.text('EC'), findsNothing);
 
-      await _dispose(tester);
-    });
+        await _dispose(tester);
+      },
+    );
   });
 
   group('tab Canh tác', () {
@@ -616,9 +617,7 @@ void main() {
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: provider,
-          child: MaterialApp(
-            home: ZoneDetailScreen(zone: z),
-          ),
+          child: MaterialApp(home: ZoneDetailScreen(zone: z)),
         ),
       );
       await tester.pump();
@@ -646,49 +645,46 @@ void main() {
     },
   );
 
-  testWidgets(
-    'OWNER: ZoneDetailScreen có đủ 5 tab và các chức năng quản trị',
-    (tester) async {
-      _route();
-      tester.view.physicalSize = const Size(600, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('OWNER: ZoneDetailScreen có đủ 5 tab và các chức năng quản trị', (
+    tester,
+  ) async {
+    _route();
+    tester.view.physicalSize = const Size(600, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      final provider = FarmProvider();
-      provider.switchRole('OWNER');
-      await tester.pumpAndSettle();
+    final provider = FarmProvider();
+    provider.switchRole('OWNER');
+    await tester.pumpAndSettle();
 
-      final z = _zone(id: 'z1', name: 'Nhà màng 1');
-      provider.setZonesForTesting([z]);
+    final z = _zone(id: 'z1', name: 'Nhà màng 1');
+    provider.setZonesForTesting([z]);
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: provider,
-          child: MaterialApp(
-            home: ZoneDetailScreen(zone: z),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(home: ZoneDetailScreen(zone: z)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
-      // 5 tabs có mặt
-      expect(find.text('Vi khí hậu'), findsOneWidget);
-      expect(find.text('Thiết bị'), findsOneWidget);
-      expect(find.text('Canh tác'), findsOneWidget);
-      expect(find.text('Triển khai IoT'), findsOneWidget);
-      expect(find.text('Hợp đồng & Hỗ trợ'), findsOneWidget);
+    // 5 tabs có mặt
+    expect(find.text('Vi khí hậu'), findsOneWidget);
+    expect(find.text('Thiết bị'), findsOneWidget);
+    expect(find.text('Canh tác'), findsOneWidget);
+    expect(find.text('Triển khai IoT'), findsOneWidget);
+    expect(find.text('Hợp đồng & Hỗ trợ'), findsOneWidget);
 
-      // Nút sửa của Owner hiển thị
-      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    // Nút sửa của Owner hiển thị
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
 
-      // Nút Cảnh báo & quy tắc của Zone hiển thị với Owner
-      expect(find.byKey(const Key('open_alert_center')), findsOneWidget);
+    // Nút Cảnh báo & quy tắc của Zone hiển thị với Owner
+    expect(find.byKey(const Key('open_alert_center')), findsOneWidget);
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 1));
-      provider.dispose();
-    },
-  );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    provider.dispose();
+  });
 }

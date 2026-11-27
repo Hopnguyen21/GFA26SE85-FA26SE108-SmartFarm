@@ -368,6 +368,7 @@ class _ZoneContractDetailScreenState extends State<ZoneContractDetailScreen> {
         body: RefreshIndicator(
           onRefresh: _reload,
           child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
             children: [
               if (_loading) const LinearProgressIndicator(minHeight: 2),

@@ -193,7 +193,7 @@ void main() {
       final result = parseGeoJsonPolygon(geoJson);
       expect(result.problem, isNull);
       expect(result.points, isNotNull);
-      expect(result.points!.length, 5);
+      expect(result.points!.length, 4); // đỉnh đóng của GeoJSON đã bỏ
       expect(result.points![0].longitude, 108.457);
       expect(result.points![0].latitude, 11.939);
     });

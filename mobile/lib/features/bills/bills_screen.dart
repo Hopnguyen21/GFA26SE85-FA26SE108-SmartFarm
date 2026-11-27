@@ -239,10 +239,7 @@ class _BillsScreenState extends State<BillsScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => FractionallySizedBox(
         heightFactor: 0.85,
-        child: PayOSPaymentSheet(
-          bill: b,
-          onPaymentSuccess: _load,
-        ),
+        child: PayOSPaymentSheet(bill: b, onPaymentSuccess: _load),
       ),
     );
     if (result == true) {
@@ -345,6 +342,7 @@ class _BillsScreenState extends State<BillsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 96),
           children: [
             Text(
@@ -640,18 +638,29 @@ class _BillsScreenState extends State<BillsScreen> {
                       ),
                     ),
                   ),
-                  if (b.remainingAmount > 0 && b.status != 'Cancelled' && b.status != 'Paid')
+                  if (b.remainingAmount > 0 &&
+                      b.status != 'Cancelled' &&
+                      b.status != 'Paid')
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: FilledButton.icon(
                         onPressed: () => _payWithPayOS(b),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF047857),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                         icon: const Icon(Icons.qr_code_rounded, size: 15),
-                        label: const Text('PayOS QR', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        label: const Text(
+                          'PayOS QR',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   if (manager && b.canCollect)
@@ -660,11 +669,17 @@ class _BillsScreenState extends State<BillsScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _collect(b),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                         icon: const Icon(Icons.payments_outlined, size: 15),
-                        label: const Text('Thu tiền', style: TextStyle(fontSize: 11.5)),
+                        label: const Text(
+                          'Thu tiền',
+                          style: TextStyle(fontSize: 11.5),
+                        ),
                       ),
                     ),
                 ],
@@ -793,7 +808,9 @@ class _BillDetailSheet extends StatelessWidget {
             if (bill.createdByName.isNotEmpty)
               row('Người lập', bill.createdByName),
             if ((bill.notes ?? '').isNotEmpty) row('Ghi chú', bill.notes!),
-            if (bill.remainingAmount > 0 && bill.status != 'Cancelled' && bill.status != 'Paid') ...[
+            if (bill.remainingAmount > 0 &&
+                bill.status != 'Cancelled' &&
+                bill.status != 'Paid') ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -802,12 +819,17 @@ class _BillDetailSheet extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF047857),
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   icon: const Icon(Icons.qr_code_rounded, size: 18),
                   label: const Text(
                     'Thanh toán PayOS (VietQR)',
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

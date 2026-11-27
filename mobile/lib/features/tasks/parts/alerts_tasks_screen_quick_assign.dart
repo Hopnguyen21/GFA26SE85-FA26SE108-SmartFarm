@@ -29,7 +29,8 @@ extension _AlertsTasksScreenQuickAssign on AlertsTasksScreen {
       text: 'Tưới nhỏ giọt & kiểm tra độ ẩm đất',
     );
     final descCtrl = TextEditingController();
-    String priority = 'HIGH';
+    var submitting =
+        false; // chặn bấm đúp "Xác nhận" khi đang gửi (trước đây tạo trùng công việc)
     DateTime dueDate = DateTime.now().add(const Duration(days: 1));
 
     final presets = [
@@ -261,64 +262,9 @@ extension _AlertsTasksScreenQuickAssign on AlertsTasksScreen {
                   ),
                   const SizedBox(height: 12),
 
-                  // Mức ưu tiên & Hạn hoàn thành
+                  // Hạn hoàn thành (công việc ở backend không có trường ưu tiên nên không hỏi mức ưu tiên)
                   Row(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Mức độ ưu tiên:',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            DropdownButtonFormField<String>(
-                              initialValue: priority,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 10,
-                                ),
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'LOW',
-                                  child: Text(
-                                    '🟢 Bình thường',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'MEDIUM',
-                                  child: Text(
-                                    '🟡 Trung bình',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'HIGH',
-                                  child: Text(
-                                    '🔴 Khẩn cấp',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (v) {
-                                if (v != null)
-                                  setModalState(() => priority = v);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,55 +368,68 @@ extension _AlertsTasksScreenQuickAssign on AlertsTasksScreen {
                             'Xác Nhận Giao Việc',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          onPressed: () async {
-                            if (titleCtrl.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Vui lòng nhập tiêu đề công việc!',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            final dueStr =
-                                'Ngày ${dueDate.day}/${dueDate.month}, 17:00';
-                            final messenger = ScaffoldMessenger.of(context);
-                            final error = await farmProvider.addTask(
-                              title: titleCtrl.text.trim(),
-                              zoneName: targetZone.name.split(' - ').first,
-                              priority: priority,
-                              dueDate: dueStr,
-                              assignedFarmerId: targetFarmer.farmerId,
-                              assignedFarmerName: targetFarmer.name,
-                              description: descCtrl.text.trim(),
-                              zoneId: selectedZoneId,
-                              dueAt: DateTime(
-                                dueDate.year,
-                                dueDate.month,
-                                dueDate.day,
-                                17,
-                              ),
-                            );
-                            if (error != null) {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(error),
-                                  backgroundColor: const Color(0xFFDC2626),
-                                ),
-                              );
-                              return;
-                            }
-                            if (modalCtx.mounted) Navigator.pop(modalCtx);
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '📋 Đã giao việc cho ${targetFarmer.name}!',
-                                ),
-                                backgroundColor: const Color(0xFF047857),
-                              ),
-                            );
-                          },
+                          onPressed: submitting
+                              ? null
+                              : () async {
+                                  if (titleCtrl.text.trim().isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Vui lòng nhập tiêu đề công việc!',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  final dueStr =
+                                      'Ngày ${dueDate.day}/${dueDate.month}, 17:00';
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
+                                  setModalState(() => submitting = true);
+                                  final error = await farmProvider.addTask(
+                                    title: titleCtrl.text.trim(),
+                                    zoneName: targetZone.name
+                                        .split(' - ')
+                                        .first,
+                                    priority:
+                                        '', // backend không lưu ưu tiên của công việc
+                                    dueDate: dueStr,
+                                    assignedFarmerId: targetFarmer.farmerId,
+                                    assignedFarmerName: targetFarmer.name,
+                                    description: descCtrl.text.trim(),
+                                    zoneId: selectedZoneId,
+                                    dueAt: DateTime(
+                                      dueDate.year,
+                                      dueDate.month,
+                                      dueDate.day,
+                                      17,
+                                    ),
+                                  );
+                                  if (error != null) {
+                                    if (modalCtx.mounted) {
+                                      setModalState(() => submitting = false);
+                                    }
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(error),
+                                        backgroundColor: const Color(
+                                          0xFFDC2626,
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  if (modalCtx.mounted) Navigator.pop(modalCtx);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '📋 Đã giao việc cho ${targetFarmer.name}!',
+                                      ),
+                                      backgroundColor: const Color(0xFF047857),
+                                    ),
+                                  );
+                                },
                         ),
                       ),
                     ],
